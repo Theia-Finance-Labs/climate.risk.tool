@@ -25,11 +25,25 @@ Once the package is installed, you can:
 ``` r
 library(climate.risk.tool)
 
-assets  <- data.frame(asset_id = c("A1", "A2"), country = c("FR", "DE"), value = c(10, 20))
-hazards <- data.frame(country = c("FR", "DE"), hazard = c("flood", "flood"), intensity = c(0.5, 1.0))
+# Path to your input data directory. It must contain:
+# - user_input/: asset_information.csv, company.csv
+# - areas/municipality/ and areas/province/ with .geojson files
+# - hazards/: .tif raster files
+# - damage_and_cost_factors.csv
+base_dir <- "/path/to/your/data"
 
-res <- compute_risk(assets, hazards)
-print(res)
+results <- compute_risk(
+  base_dir = base_dir,
+  shock_year = 2030,
+  growth_rate = 0.02,
+  net_profit_margin = 0.1,
+  discount_rate = 0.05,
+  verbose = TRUE
+)
+
+# Access results
+results$assets
+results$companies
 ``` 
 
 - Launch the Shiny application
