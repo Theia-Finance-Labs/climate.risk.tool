@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+description: Working document update requirements
+---
+
+# Working Document Logging
+
+## Update Requirements
+- **ALWAYS update [WORKING_DOCUMENT.md](mdc:WORKING_DOCUMENT.md) when adding new functions or tests**
+- Document new functions in the "Function contracts" section
+- Update test strategy if needed
+- Log any architectural decisions or changes
+
+## Documentation Format
+- Add new functions with their signatures: `function_name(params) -> return_type`
+- Include brief description of what the function does
+- Update the high-level pipeline if workflow changes
+- Note any open questions or decisions needed
+
+## Pipeline Documentation
+- Keep the 16-step pipeline in [WORKING_DOCUMENT.md](mdc:WORKING_DOCUMENT.md) current
+- Document data flow between functions
+- Note any placeholder functions that need implementation
+
+## Test Documentation
+- Update testing strategy when adding new test patterns
+- Document any new test data requirements
+- Note any testing challenges or solutions

@@ -1,0 +1,32 @@
+---
+alwaysApply: true
+description: Development workflow and commands
+---
+
+# Development Workflow
+
+## Running the Application
+- **Use `golem::run_dev()` to run the Shiny app in development mode**
+- This automatically reloads changes and provides debugging tools
+- Never use `shiny::runApp()` directly
+
+## Testing Commands
+- **Use `devtools::test()` to run all tests**
+- Use `devtools::test_file("tests/testthat/test-function_name.R")` for specific tests
+- Use `devtools::load_all()` to load package changes without restarting R
+
+## Package Development
+- Use `devtools::document()` to update documentation and NAMESPACE
+- Use `devtools::check()` to run full package checks
+- Use `devtools::install()` to install the package locally
+
+## File Organization
+- Business logic functions go in [R/](mdc:R/) directory
+- Tests go in [tests/testthat/](mdc:tests/testthat/)
+- Test data goes in [tests/tests_data/](mdc:tests/tests_data/)
+- Keep [WORKING_DOCUMENT.md](mdc:WORKING_DOCUMENT.md) updated
+
+## Climate Risk Pipeline
+- Follow the 16-step pipeline documented in [WORKING_DOCUMENT.md](mdc:WORKING_DOCUMENT.md)
+- Each step should be a separate, testable function
+- Use the function contracts as specifications for TDD

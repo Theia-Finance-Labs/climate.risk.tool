@@ -1,0 +1,26 @@
+---
+globs: *.R
+description: dplyr and data manipulation best practices
+---
+
+# dplyr Best Practices
+
+## Data Masking
+- **ALWAYS use `.data$column_name` inside dplyr verbs** to avoid R CMD check warnings
+- Example: `dplyr::filter(.data$country == "BR")` not `filter(country == "BR")`
+- This ensures proper scoping and prevents issues with global variables
+
+## Package References
+- **NEVER use `library()` calls** - use `pkg::function()` syntax instead
+- Example: `dplyr::filter()`, `tidyr::pivot_longer()`, `sf::st_read()`
+- This makes dependencies explicit and prevents namespace conflicts
+
+## Function Imports
+- NEVER use `@importFrom` in roxygen2 documentation
+- Always use `pkg::function()` notation in code instead
+- This keeps NAMESPACE clean and makes dependencies explicit
+
+## Data Pipeline
+- Chain operations with `%>%` or `|>` for readability
+- Use meaningful variable names in intermediate steps
+- Comment complex data transformations

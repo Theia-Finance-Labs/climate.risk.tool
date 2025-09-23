@@ -1,3 +1,6 @@
+.venv/
+workspace/
+
 # History files
 .Rhistory
 .Rapp.history
@@ -47,3 +50,8 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+.Rproj.user
+.Rdata
+.DS_Store
+.quarto
+inst/doc

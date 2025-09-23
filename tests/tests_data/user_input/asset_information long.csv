@@ -1,0 +1,32 @@
+Company,Asset,Share of Economic Activity,Sector,Subsector,Latitude,Longitude,Province,Municipality,Size in m2,size in hectare,Asset Category
+Company 1,Company 1_Asset1,0.26,10 (Food Manufacturing),-,,,,Borba,3804m2,33,commercial building
+Company 1,Company 1_Asset2,0.69,10 (Food Manufacturing),-,-4.8464,-61.976,Amazonas,Borba,778m2,39,commercial building
+Company 2,Company 2_Asset1,1.0,10 (Food Manufacturing),-,,,,Itacoatiara,4676m2,5,commercial building
+Company 2,Company 2_Asset2,0.14,10 (Food Manufacturing),-,,,,Presidente Figueiredo,227m2,35,commercial building
+Company 2,Company 2_Asset3,0.57,01 (Agriculture),-,,,,Manaus,4538m2,15,commercial building
+Company 2,Company 2_Asset4,0.26,06 (Oil and Gas Extraction),-,-2.0336,-63.4067,Amazonas,Coari,6049m2,16,commercial building
+Company 2,Company 2_Asset5,0.11,01 (Agriculture),-,,,Amazonas,,336m2,3,commercial building
+Company 2,Company 2_Asset6,0.25,24 (Steel Industry),-,-3.6916,-63.8581,,Careiro,5806m2,18,commercial building
+Company 2,Company 2_Asset7,0.27,06 (Oil and Gas Extraction),-,-3.9579,-64.2043,,São Gabriel da Cachoeira,393m2,49,commercial building
+Company 2,Company 2_Asset8,0.56,06 (Oil and Gas Extraction),-,,,,Borba,2383m2,14,commercial building
+Company 2,Company 2_Asset9,0.97,47 (Retail),-,-2.9756,-64.2723,Amazonas,,9915m2,43,commercial building
+Company 2,Company 2_Asset10,0.42,24 (Steel Industry),-,-4.8833,-61.4155,Amazonas,,2378m2,10,commercial building
+Company 3,Company 3_Asset1,0.7,06 (Oil and Gas Extraction),-,,,Amazonas,,4693m2,8,commercial building
+Company 3,Company 3_Asset2,0.7,06 (Oil and Gas Extraction),-,,,Amazonas,,3959m2,22,commercial building
+Company 3,Company 3_Asset3,0.9,06 (Oil and Gas Extraction),-,-2.5627,-60.3791,,,7102m2,14,commercial building
+Company 3,Company 3_Asset4,0.66,47 (Retail),-,-4.553,-63.4096,,Careiro,4731m2,38,commercial building
+Company 3,Company 3_Asset5,0.25,10 (Food Manufacturing),-,-4.4632,-62.5057,,,795m2,35,commercial building
+Company 3,Company 3_Asset6,0.93,10 (Food Manufacturing),-,,,,Eirunepé,8824m2,42,commercial building
+Company 3,Company 3_Asset7,0.56,01 (Agriculture),-,-4.7156,-61.9143,Amazonas,Lábrea,1597m2,2,commercial building
+Company 3,Company 3_Asset8,0.37,24 (Steel Industry),-,,,,Manicoré,7510m2,26,commercial building
+Company 4,Company 4_Asset1,0.17,10 (Food Manufacturing),-,-4.7076,-60.1292,Amazonas,,7569m2,25,commercial building
+Company 4,Company 4_Asset2,0.58,10 (Food Manufacturing),-,,,,Careiro,7903m2,30,commercial building
+Company 4,Company 4_Asset3,0.12,24 (Steel Industry),-,-3.5599,-64.9647,Amazonas,Barcelos,6793m2,9,commercial building
+Company 5,Company 5_Asset1,0.29,10 (Food Manufacturing),-,-3.0612,-60.698,Amazonas,Barcelos,8521m2,18,commercial building
+Company 5,Company 5_Asset2,0.78,06 (Oil and Gas Extraction),-,-2.5639,-60.55,Amazonas,São Gabriel da Cachoeira,8798m2,4,commercial building
+Company 5,Company 5_Asset3,0.48,01 (Agriculture),-,,,Amazonas,Maués,6207m2,35,commercial building
+Company 5,Company 5_Asset4,0.9,10 (Food Manufacturing),-,,,Amazonas,,7970m2,34,commercial building
+Company 5,Company 5_Asset5,0.15,06 (Oil and Gas Extraction),-,-4.3136,-63.357,,Itacoatiara,5907m2,39,commercial building
+Company 5,Company 5_Asset6,0.32,24 (Steel Industry),-,,,Amazonas,,8633m2,27,commercial building
+Company 5,Company 5_Asset7,0.99,01 (Agriculture),-,-4.8123,-60.2956,,,5358m2,32,commercial building
+Company 5,Company 5_Asset8,0.4,24 (Steel Industry),-,-4.224,-63.7238,Amazonas,Humaitá,8598m2,15,commercial building

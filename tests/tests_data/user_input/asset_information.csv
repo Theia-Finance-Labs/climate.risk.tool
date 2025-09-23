@@ -1,0 +1,12 @@
+Company,Asset,Share of Economic Activity,Sector,Subsector,Latitude,Longitude,Province,Municipality,Size in m2,size in hectare,Asset Category
+Company 3,Company 3_Asset1,0.7,06 (Oil and Gas Extraction),-,,,Amazonas,,4693m2,8,commercial building
+Company 3,Company 3_Asset2,0.7,06 (Oil and Gas Extraction),-,,,Amazonas,,3959m2,22,commercial building
+Company 3,Company 3_Asset3,0.9,06 (Oil and Gas Extraction),-,-2.5627,-60.3791,,,7102m2,14,commercial building
+Company 3,Company 3_Asset4,0.66,47 (Retail),-,-4.553,-63.4096,,Careiro,4731m2,38,commercial building
+Company 3,Company 3_Asset5,0.25,10 (Food Manufacturing),-,-4.4632,-62.5057,,,795m2,35,commercial building
+Company 3,Company 3_Asset6,0.93,10 (Food Manufacturing),-,,,,Eirunepé,8824m2,42,commercial building
+Company 3,Company 3_Asset7,0.56,01 (Agriculture),-,-4.7156,-61.9143,Amazonas,Lábrea,1597m2,2,commercial building
+Company 3,Company 3_Asset8,0.37,24 (Steel Industry),-,,,,Manicoré,7510m2,26,commercial building
+Company 4,Company 4_Asset1,0.17,10 (Food Manufacturing),-,-4.7076,-60.1292,Amazonas,,7569m2,25,commercial building
+Company 4,Company 4_Asset2,0.58,10 (Food Manufacturing),-,,,,Careiro,7903m2,30,commercial building
+Company 4,Company 4_Asset3,0.12,24 (Steel Industry),-,-3.5599,-64.9647,Amazonas,Barcelos,6793m2,9,commercial building

@@ -1,0 +1,28 @@
+---
+alwaysApply: true
+description: Test-driven development requirements
+---
+
+# Test-Driven Development (TDD) Rules
+
+## Test Requirements
+- **EVERY new function MUST have a corresponding test file** in [tests/testthat/](mdc:tests/testthat/)
+- Test file naming: `test-function_name.R` (e.g., `test-compute_risk.R`)
+- Use `testthat::test_that()` for test cases
+- Use `testthat::expect_*()` functions for assertions
+
+## Test Structure
+- Each test file should test ONE function
+- Use descriptive test names: `test_that('function_name does specific behavior', { ... })`
+- Test both success and failure cases
+- Use test data from [tests/tests_data/](mdc:tests/tests_data/)
+
+## Running Tests
+- Use `devtools::test()` to run all tests
+- Use `devtools::test_file()` for specific test files
+- Tests must pass before committing code
+
+## Test Data
+- Store test data in [tests/tests_data/](mdc:tests/tests_data/)
+- Use deterministic seeds for reproducible tests
+- Keep test data minimal but representative

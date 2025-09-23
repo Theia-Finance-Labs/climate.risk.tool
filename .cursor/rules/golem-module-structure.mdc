@@ -1,0 +1,40 @@
+---
+globs: R/mod_*.R
+description: Golem module structure and naming conventions
+---
+
+# Golem Module Structure
+
+## Module Naming
+- Module files: `mod_name.R` (e.g., [mod_risk.R](mdc:R/mod_risk.R))
+- UI function: `mod_name_ui()` (e.g., `mod_risk_ui()`)
+- Server function: `mod_name_server()` (e.g., `mod_risk_server()`)
+- Use snake_case for module names
+
+## Module Structure
+```r
+#' module_name UI Function
+#' @param id,input,output,session Internal parameters for {shiny}
+#' @noRd
+mod_name_ui <- function(id) {
+  ns <- NS(id)
+  tagList(
+    # UI elements here
+  )
+}
+
+#' module_name Server Functions
+#' @param id,input,output,session Internal parameters for {shiny}
+#' @noRd
+mod_name_server <- function(id) {
+  moduleServer(id, function(input, output, session) {
+    ns <- session$ns
+    # Server logic here
+  })
+}
+```
+
+## App Orchestration
+- [app_server.R](mdc:R/app_server.R) and [app_ui.R](mdc:R/app_ui.R) should ONLY orchestrate modules
+- NO business logic in app_server or app_ui
+- Use `mod_name_ui("module_id")` and `mod_name_server("module_id")` to include modules
