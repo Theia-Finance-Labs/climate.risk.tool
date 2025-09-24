@@ -1,15 +1,15 @@
 #' Compute Climate Risk Analysis
 #'
 #' @title Main orchestrator for climate risk assessment pipeline
-#' @description Executes the complete 16-step climate risk analysis pipeline from raw inputs
+#' @description Executes the complete 16-step climate risk analysis pipeline from pre-loaded inputs
 #'   to final risk metrics. This function serves as the main entry point and documentation
 #'   center for the entire climate risk assessment workflow.
 #'
-#' @param base_dir Character string. Base directory containing input data subdirectories:
-#'   - user_input/: asset_information.csv, company.csv
-#'   - areas/: municipality/, province/ with .geojson files
-#'   - hazards/: .tif raster files
-#'   - damage_and_cost_factors.csv
+#' @param assets Data frame containing asset information (from read_assets())
+#' @param companies Data frame containing company information (from read_companies())
+#' @param hazards Named list of SpatRaster objects (from load_hazards())
+#' @param areas List containing municipalities and provinces named lists (from load_location_areas())
+#' @param damage_factors Data frame with damage and cost factors, or path to CSV file
 #' @param shock_year Numeric. Year when acute climate shock occurs (for step 6)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
@@ -44,10 +44,24 @@
 #'
 #' @examples
 #' \dontrun{
-#' # Run complete climate risk analysis
+#' # Load data first
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
+#' assets <- read_assets(base_dir)
+#' companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
+#' hazards <- load_hazards(file.path(base_dir, "hazards"))
+#' areas <- load_location_areas(
+#'   file.path(base_dir, "areas", "municipality"),
+#'   file.path(base_dir, "areas", "province")
+#' )
+#' damage_factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
+#' 
+#' # Run complete climate risk analysis
 #' results <- compute_risk(
-#'   base_dir = base_dir,
+#'   assets = assets,
+#'   companies = companies,
+#'   hazards = hazards,
+#'   areas = areas,
+#'   damage_factors = damage_factors_path,
 #'   shock_year = 2030,
 #'   growth_rate = 0.02,
 #'   net_profit_margin = 0.1,
@@ -62,16 +76,36 @@
 #' intermediate_data <- results$intermediate
 #' }
 #' @export
-compute_risk <- function(base_dir, 
+compute_risk <- function(assets,
+                        companies,
+                        hazards,
+                        areas,
+                        damage_factors,
                         shock_year,
                         growth_rate = 0.02,
                         net_profit_margin = 0.1, 
                         discount_rate = 0.05,
                         verbose = TRUE) {
   
+  # Validate inputs
+  if (!is.data.frame(assets) || nrow(assets) == 0) {
+    stop("assets must be a non-empty data.frame (from read_assets())")
+  }
+  if (!is.data.frame(companies) || nrow(companies) == 0) {
+    stop("companies must be a non-empty data.frame (from read_companies())")
+  }
+  if (!is.list(hazards) || length(hazards) == 0) {
+    stop("hazards must be a non-empty named list of SpatRaster objects (from load_hazards())")
+  }
+  if (!is.list(areas) || !all(c("municipalities", "provinces") %in% names(areas))) {
+    stop("areas must be a list with 'municipalities' and 'provinces' elements (from load_location_areas())")
+  }
+  
   if (verbose) {
     message("🚀 [compute_risk] Starting complete climate risk analysis pipeline")
-    message("📂 Base directory: ", base_dir)
+    message("📊 Input data: ", nrow(assets), " assets, ", nrow(companies), " companies")
+    message("🗺️ Hazards: ", length(hazards), " hazard layers loaded")
+    message("🌍 Areas: ", length(areas$municipalities), " municipalities, ", length(areas$provinces), " provinces")
     message("⚡ Shock year: ", shock_year)
     message("📈 Growth rate: ", growth_rate)
     message("💰 Net profit margin: ", net_profit_margin)
@@ -82,24 +116,11 @@ compute_risk <- function(base_dir,
   # Initialize intermediate results storage
   intermediate <- list()
   
-  # Step 1: Read inputs
-  if (verbose) message("📋 Step 1/16: Reading input data...")
-  inputs <- read_inputs(base_dir)
-  assets <- inputs$assets
-  companies <- inputs$companies
-  intermediate$step01_inputs <- inputs
-  
-  # Step 2: Load hazards
-  if (verbose) message("🗺️ Step 2/16: Loading hazard rasters...")
-  hazards_dir <- file.path(base_dir, "hazards")
-  hazards <- load_hazards(hazards_dir)
+  # Step 1-3: Use pre-loaded inputs (no loading needed)
+  if (verbose) message("📋 Step 1-3/16: Using pre-loaded input data, hazards, and areas...")
+  intermediate$step01_assets <- assets
+  intermediate$step01_companies <- companies
   intermediate$step02_hazards <- hazards
-  
-  # Step 3: Load location areas
-  if (verbose) message("🌍 Step 3/16: Loading geographic boundaries...")
-  municipalities_dir <- file.path(base_dir, "areas", "municipality")
-  provinces_dir <- file.path(base_dir, "areas", "province")
-  areas <- load_location_areas(municipalities_dir, provinces_dir)
   intermediate$step03_areas <- areas
   
   # Step 4: Geolocate assets
@@ -121,8 +142,18 @@ compute_risk <- function(base_dir,
   
   # Step 7: Join damage and cost factors
   if (verbose) message("🔗 Step 7/16: Joining damage and cost factors...")
-  factors_csv <- file.path(base_dir, "damage_and_cost_factors.csv")
-  assets_with_factors <- join_damage_cost_factors(assets_with_hazard_means, factors_csv)
+  # damage_factors can be either a data.frame or a path to CSV file
+  if (is.character(damage_factors) && length(damage_factors) == 1) {
+    # It's a file path
+    assets_with_factors <- join_damage_cost_factors(assets_with_hazard_means, damage_factors)
+  } else if (is.data.frame(damage_factors)) {
+    # It's already a data.frame - we need a version of join_damage_cost_factors that accepts a data.frame
+    # For now, we'll use the existing function which expects a file path
+    # This could be enhanced later to accept data.frame directly
+    stop("damage_factors as data.frame not yet supported - please provide file path")
+  } else {
+    stop("damage_factors must be either a file path (character) or data.frame")
+  }
   intermediate$step07_with_factors <- assets_with_factors
   
   # Step 8: Apply acute shock

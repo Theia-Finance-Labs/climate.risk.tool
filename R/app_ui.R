@@ -10,7 +10,38 @@ app_ui <- function(request) {
     golem_add_external_resources(),
     # Your application UI logic
     fluidPage(
-      golem::golem_welcome_page() # Remove this line to start building your UI
+      titlePanel("Climate Risk Analysis Tool"),
+      
+      sidebarLayout(
+        sidebarPanel(
+          fileInput("company_file", 
+                   "Upload Company CSV File:",
+                   accept = ".csv",
+                   placeholder = "Choose company.csv file"),
+          
+          actionButton("run_analysis", 
+                      "Run Analysis", 
+                      class = "btn-primary",
+                      style = "margin-top: 10px;"),
+          
+          br(), br(),
+          
+          downloadButton("download_results", 
+                        "Download Results", 
+                        class = "btn-success")
+        ),
+        
+        mainPanel(
+          tabsetPanel(
+            tabPanel("Status", 
+                    verbatimTextOutput("status_text")),
+            tabPanel("Results Summary", 
+                    tableOutput("results_summary")),
+            tabPanel("Results Table", 
+                    DT::dataTableOutput("results_table"))
+          )
+        )
+      )
     )
   )
 }

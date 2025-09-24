@@ -5,6 +5,7 @@
 \title{Run the Shiny Application}
 \usage{
 run_app(
+  base_dir = NULL,
   onStart = NULL,
   options = list(),
   enableBookmarking = NULL,
@@ -13,6 +14,10 @@ run_app(
 )
 }
 \arguments{
+\item{base_dir}{Character. Path to folder containing climate risk data
+(hazards, areas, damage factors, user inputs). If provided, this will
+be used as the default data source for the application.}
+
 \item{onStart}{A function that will be called before the app is actually run.
 This is only needed for \code{shinyAppObj}, since in the \code{shinyAppDir}
 case, a \code{global.R} file can be used for this purpose.}

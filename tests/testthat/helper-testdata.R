@@ -35,11 +35,11 @@ generate_mini_hazards_if_needed <- function() {
   
   # Load test data to get asset geometries
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
   hazards_full <- load_hazards(get_test_data_dir("hazards"))
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
-  assets_geo <- geolocate_assets(res$assets, hazards_full, municipalities, provinces)
+  assets_geo <- geolocate_assets(assets, hazards_full, municipalities, provinces)
   
   # Generate mini hazards
   geoms <- sf::st_sf(geometry = assets_geo$geometry)
@@ -146,9 +146,9 @@ timed_test <- function(test_name, test_code, max_seconds = 60) {
 # Helper to build baseline and shock datasets for scenario tests
 create_baseline_and_shock <- function() {
   td <- get_test_data_dir()
-  res <- read_inputs(td)
-  assets <- res$assets
+  assets <- read_assets(td)
+  companies <- read_companies(file.path(td, "user_input", "company.csv"))
   shocked <- assets
   shocked$share_of_economic_activity <- pmax(0, shocked$share_of_economic_activity * 0.9)
-  list(baseline = assets, shocked = shocked, companies = res$companies)
+  list(baseline = assets, shocked = shocked, companies = companies)
 }

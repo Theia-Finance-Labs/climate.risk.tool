@@ -1,59 +1,47 @@
-#' Read input data files
+# Helper function to convert column names to snake_case
+to_snake_case <- function(names) {
+  names |>
+    gsub("([a-z])([A-Z])", "\\1_\\2", x = _) |>  # camelCase to snake_case
+    gsub("\\s+", "_", x = _) |>                   # spaces to underscores
+    gsub("\\.", "_", x = _) |>                    # dots to underscores
+    gsub("_+", "_", x = _) |>                     # multiple underscores to single
+    gsub("^_|_$", "", x = _) |>                   # remove leading/trailing underscores
+    tolower()
+}
+
+#' Read asset data from CSV file
 #'
-#' @title Read asset and company data from CSV files
-#' @description Reads asset information and company data from CSV files in the user_input directory,
+#' @title Read asset information from CSV file
+#' @description Reads asset information from CSV file in the user_input directory,
 #'   converting column names to snake_case and parsing numeric columns correctly.
 #' @param base_dir Character string specifying the base directory containing user_input subdirectory
-#' @return List with two elements: assets (data.frame) and companies (data.frame)
+#' @return data.frame with asset information
 #' @examples
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' data <- read_inputs(base_dir)
+#' assets <- read_assets(base_dir)
 #' }
 #' @export
-read_inputs <- function(base_dir) {
-  message("📁 [read_inputs] Starting to read input files from: ", base_dir)
+read_assets <- function(base_dir) {
+  message("📁 [read_assets] Starting to read asset file from: ", base_dir)
   
-  # Helper function to convert column names to snake_case
-  to_snake_case <- function(names) {
-    names |>
-      gsub("([a-z])([A-Z])", "\\1_\\2", x = _) |>  # camelCase to snake_case
-      gsub("\\s+", "_", x = _) |>                   # spaces to underscores
-      gsub("\\.", "_", x = _) |>                    # dots to underscores
-      gsub("_+", "_", x = _) |>                     # multiple underscores to single
-      gsub("^_|_$", "", x = _) |>                   # remove leading/trailing underscores
-      tolower()
-  }
-  
-  # Define file paths
+  # Define file path
   assets_path <- file.path(base_dir, "user_input", "asset_information.csv")
-  companies_path <- file.path(base_dir, "user_input", "company.csv")
   
-  message("📄 [read_inputs] Looking for files:")
-  message("  - Assets: ", assets_path)
-  message("  - Companies: ", companies_path)
+  message("📄 [read_assets] Looking for file: ", assets_path)
   
-  # Check if files exist
+  # Check if file exists
   if (!file.exists(assets_path)) {
     stop("Asset information file not found at: ", assets_path)
   }
-  if (!file.exists(companies_path)) {
-    stop("Company file not found at: ", companies_path)
-  }
   
-  message("✅ [read_inputs] Files found, reading data...")
+  message("✅ [read_assets] File found, reading data...")
   
   # Read assets data
-  message("📊 [read_inputs] Reading asset information...")
+  message("📊 [read_assets] Reading asset information...")
   assets_raw <- utils::read.csv(assets_path, stringsAsFactors = FALSE)
   names(assets_raw) <- to_snake_case(names(assets_raw))
   message("  - Loaded ", nrow(assets_raw), " assets with ", ncol(assets_raw), " columns")
-  
-  # Read companies data
-  message("🏢 [read_inputs] Reading company information...")
-  companies_raw <- utils::read.csv(companies_path, stringsAsFactors = FALSE)
-  names(companies_raw) <- to_snake_case(names(companies_raw))
-  message("  - Loaded ", nrow(companies_raw), " companies with ", ncol(companies_raw), " columns")
   
   # Convert numeric columns for assets
   numeric_asset_cols <- c("share_of_economic_activity", "latitude", "longitude", "size_in_m2", "size_in_hectare")
@@ -65,6 +53,38 @@ read_inputs <- function(base_dir) {
     }
   }
   
+  message("✅ [read_assets] Successfully loaded asset data: ", nrow(assets_raw), " rows")
+  assets_raw
+}
+
+#' Read company data from CSV file
+#'
+#' @title Read company information from CSV file
+#' @description Reads company information from a CSV file,
+#'   converting column names to snake_case and parsing numeric columns correctly.
+#' @param file_path Character string specifying the path to the company CSV file
+#' @return data.frame with company information
+#' @examples
+#' \dontrun{
+#' companies <- read_companies("path/to/company.csv")
+#' }
+#' @export
+read_companies <- function(file_path) {
+  message("📁 [read_companies] Starting to read company file from: ", file_path)
+  
+  # Check if file exists
+  if (!file.exists(file_path)) {
+    stop("Company file not found at: ", file_path)
+  }
+  
+  message("✅ [read_companies] File found, reading data...")
+  
+  # Read companies data
+  message("🏢 [read_companies] Reading company information...")
+  companies_raw <- utils::read.csv(file_path, stringsAsFactors = FALSE)
+  names(companies_raw) <- to_snake_case(names(companies_raw))
+  message("  - Loaded ", nrow(companies_raw), " companies with ", ncol(companies_raw), " columns")
+  
   # Convert numeric columns for companies
   numeric_company_cols <- c("revenues", "debt", "volatility", "net_profit_margin", "loan_size", "lgd", "term")
   for (col in numeric_company_cols) {
@@ -75,13 +95,7 @@ read_inputs <- function(base_dir) {
     }
   }
   
-  # Return as list
-  message("✅ [read_inputs] Successfully loaded input data")
-  message("  - Assets: ", nrow(assets_raw), " rows")
-  message("  - Companies: ", nrow(companies_raw), " rows")
-  
-  list(
-    assets = assets_raw,
-    companies = companies_raw
-  )
+  message("✅ [read_companies] Successfully loaded company data: ", nrow(companies_raw), " rows")
+  companies_raw
 }
+

@@ -30,10 +30,11 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 ## Function contracts (implemented via TDD)
 
 ### Main Orchestrator Function
-- ✅ **core_compute_risk(base_dir, shock_year, growth_rate=0.02, net_profit_margin=0.1, discount_rate=0.05, verbose=TRUE)** -> list(assets, companies, intermediate) - **MAIN FUNCTION** that executes the complete 18-step climate risk analysis pipeline from raw inputs to final risk metrics. Serves as the primary entry point and documentation center for the entire workflow.
+- ✅ **compute_risk(assets, companies, hazards, areas, damage_factors, shock_year, growth_rate=0.02, net_profit_margin=0.1, discount_rate=0.05, verbose=TRUE)** -> list(assets, companies, intermediate) - **MAIN FUNCTION** that executes the complete 18-step climate risk analysis pipeline from pre-loaded inputs to final risk metrics. Takes assets and companies as separate data frames instead of a combined inputs list for better modularity and testing. Serves as the primary entry point and documentation center for the entire workflow.
 
 ### Individual Pipeline Functions  
-- ✅ read_inputs(base_dir) -> list(assets, companies) - reads CSV files, converts to snake_case, parses numeric columns
+- ✅ read_assets(base_dir) -> data.frame - reads asset CSV file from base_dir/user_input/, converts to snake_case, parses numeric columns
+- ✅ read_companies(file_path) -> data.frame - reads company CSV file from specified path, converts to snake_case, parses numeric columns
 - ✅ load_hazards(hazards_dir) -> named list of SpatRaster objects from .tif files
 - ✅ load_location_areas(municipalities_dir, provinces_dir) -> list(municipalities, provinces) - loads both area types at once
 - ✅ load_municipalities(municipalities_dir) -> named list of sf objects from .geojson files
@@ -58,6 +59,21 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 - Snapshot representative rows after each stage
 - Validate column presence, types, and row counts; minimal numeric checks
 - Use deterministic seeds and small polygons
+
+### Shiny Interface TDD
+- UI contract tests:
+  - `test-app_ui.R` asserts presence of `company_file` fileInput, `run_analysis` button, and `download_results` control. **NOTE**: `base_dir` is now provided via `run_app(base_dir = "path")`, not as UI input.
+- Server contract tests:
+  - `test-app_server.R` uses `testServer(app_server)` with `golem::with_golem_options()` and assumes:
+    - Reads `base_dir` from golem options only (set via `run_app(base_dir = "path")`)
+    - Requires company CSV file upload via `input$company_file`
+    - Uses `read_assets()` for asset data from base_dir and `read_companies()` for uploaded company file
+    - Exposes `data_loaded`, `results_ready`, and `results` in server scope
+    - `results` is a list with `assets` and `companies` after running
+- End-to-end test:
+  - `test-app_e2e.R` with `shinytest2` drives upload→run→download flow; expects presence of `results_table`/`results_summary`/`status_text` output; handles both input-based and golem-option-based base_dir patterns
+
+These tests are written ahead of implementation to guide UI/module construction. Update selectors/IDs in UI to satisfy tests without changing the tests unless the contract deliberately evolves.
 
 ## Open questions / decisions
 - Nearest-integer match or floor/ceil for hazard_intensity mapping

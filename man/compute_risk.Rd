@@ -5,7 +5,11 @@
 \title{Main orchestrator for climate risk assessment pipeline}
 \usage{
 compute_risk(
-  base_dir,
+  assets,
+  companies,
+  hazards,
+  areas,
+  damage_factors,
   shock_year,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
@@ -14,13 +18,15 @@ compute_risk(
 )
 }
 \arguments{
-\item{base_dir}{Character string. Base directory containing input data subdirectories:
-\itemize{
-\item user_input/: asset_information.csv, company.csv
-\item areas/: municipality/, province/ with .geojson files
-\item hazards/: .tif raster files
-\item damage_and_cost_factors.csv
-}}
+\item{assets}{Data frame containing asset information (from read_assets())}
+
+\item{companies}{Data frame containing company information (from read_companies())}
+
+\item{hazards}{Named list of SpatRaster objects (from load_hazards())}
+
+\item{areas}{List containing municipalities and provinces named lists (from load_location_areas())}
+
+\item{damage_factors}{Data frame with damage and cost factors, or path to CSV file}
 
 \item{shock_year}{Numeric. Year when acute climate shock occurs (for step 6)}
 
@@ -41,7 +47,7 @@ List containing final results:
 }
 }
 \description{
-Executes the complete 16-step climate risk analysis pipeline from raw inputs
+Executes the complete 16-step climate risk analysis pipeline from pre-loaded inputs
 to final risk metrics. This function serves as the main entry point and documentation
 center for the entire climate risk assessment workflow.
 }
@@ -72,10 +78,24 @@ The function executes the following 16-step pipeline:
 }
 \examples{
 \dontrun{
-# Run complete climate risk analysis
+# Load data first
 base_dir <- system.file("tests_data", package = "climate.risk.tool")
+assets <- read_assets(base_dir)
+companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
+hazards <- load_hazards(file.path(base_dir, "hazards"))
+areas <- load_location_areas(
+  file.path(base_dir, "areas", "municipality"),
+  file.path(base_dir, "areas", "province")
+)
+damage_factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
+
+# Run complete climate risk analysis
 results <- compute_risk(
-  base_dir = base_dir,
+  assets = assets,
+  companies = companies,
+  hazards = hazards,
+  areas = areas,
+  damage_factors = damage_factors_path,
   shock_year = 2030,
   growth_rate = 0.02,
   net_profit_margin = 0.1,

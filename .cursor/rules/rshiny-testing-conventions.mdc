@@ -1,0 +1,302 @@
+---
+description: R Shiny testing conventions and TDD best practices for Golem apps
+globs: tests/testthat/test-app_*.R,R/app_*.R,tests/testthat/test-mod_*.R,R/mod_*.R
+alwaysApply: false
+---
+# R Shiny Testing Conventions for Golem Apps
+
+## Test-Driven Development (TDD) for Shiny Apps
+
+### Modular Test Structure
+- **App-level Tests**: Test main app UI/server in `test-app_*.R`
+- **Module Tests**: Test individual Golem modules in `test-mod_*.R` 
+- **Core Function Tests**: Test business logic in `test-core_*.R`
+- **E2E Tests**: Test complete user workflows using `shinytest2` in `test-*_e2e.R`
+
+## Test File Naming Conventions
+
+### By Component Type
+- `test-app_*.R` - Main application tests (app_ui, app_server, run_app)
+- `test-mod_*.R` - Golem module tests (mod_risk_ui, mod_risk_server)
+- `test-core_*.R` - Business logic function tests (compute_risk, read_inputs)
+- `test-*_e2e.R` - End-to-end workflow tests
+
+### By Feature/Functionality
+- `test-upload_*.R` - File upload functionality
+- `test-analysis_*.R` - Analysis workflow tests
+- `test-download_*.R` - Download functionality tests
+- `test-validation_*.R` - Input validation tests
+
+## UI Testing Patterns
+
+### App UI Testing
+```r
+testthat::test_that("app_ui exposes required controls", {
+  ui <- app_ui(request = NULL)
+  html <- htmltools::renderTags(ui)$html
+  
+  # Test for specific input controls
+  expect_true(grepl("id=\"input_name\"", html))
+  expect_true(grepl("id=\"action_button\"", html))
+  expect_true(grepl("id=\"download_button\"", html))
+})
+```
+
+### Module UI Testing
+```r
+testthat::test_that("mod_risk_ui creates expected elements", {
+  ui <- mod_risk_ui("test_module")
+  html <- htmltools::renderTags(ui)$html
+  
+  # Test module-specific elements
+  expect_true(grepl("id=\"test_module-input_name\"", html))
+  expect_true(grepl("id=\"test_module-output_name\"", html))
+})
+```
+
+## Server Testing Patterns
+
+### App Server Testing
+```r
+testthat::test_that("app_server logic works correctly", {
+  shiny::testServer(app_server, args = list(), {
+    # Set inputs
+    session$setInputs(input_name = "test_value")
+    
+    # Trigger actions
+    session$setInputs(action_button = 1)
+    
+    # Test reactive values exist
+    expect_true(exists("reactive_value"))
+    
+    # Test reactive values content
+    result <- try(reactive_value(), silent = TRUE)
+    if (!inherits(result, "try-error")) {
+      expect_type(result, "expected_type")
+    }
+  })
+})
+```
+
+### Module Server Testing
+```r
+testthat::test_that("mod_risk_server processes data correctly", {
+  shiny::testServer(mod_risk_server, args = list(id = "test_module"), {
+    # Set module inputs
+    session$setInputs(input_name = "test_value")
+    
+    # Test module outputs
+    expect_true(exists("output_name"))
+    
+    # Test module-specific logic
+    result <- try(output_name(), silent = TRUE)
+    if (!inherits(result, "try-error")) {
+      expect_type(result, "expected_type")
+    }
+  })
+})
+```
+
+## E2E Testing Patterns
+
+### Complete App Workflow
+```r
+testthat::test_that("e2e: complete user workflow", {
+  testthat::skip_if_not_installed("shinytest2")
+  
+  app <- shinytest2::AppDriver$new(
+    variant = "e2e",
+    set_timeout = 120000,
+    seed = 123
+  )
+  on.exit(app$stop(), add = TRUE)
+  
+  # Test user interactions
+  app$set_inputs(input_name = "test_value")
+  app$click("action_button")
+  
+  # Test outputs
+  expect_true("output_name" %in% names(app$get_values(output = TRUE)))
+})
+```
+
+### Module Integration Testing
+```r
+testthat::test_that("e2e: module integration", {
+  testthat::skip_if_not_installed("shinytest2")
+  
+  app <- shinytest2::AppDriver$new(
+    variant = "module_integration",
+    set_timeout = 120000,
+    seed = 123
+  )
+  on.exit(app$stop(), add = TRUE)
+  
+  # Test module interactions
+  app$set_inputs("test_module-input_name" = "test_value")
+  app$click("test_module-action_button")
+  
+  # Test module outputs
+  expect_true("test_module-output_name" %in% names(app$get_values(output = TRUE)))
+})
+```
+
+## Testing Best Practices
+
+### 1. Write Tests First (TDD)
+- Create failing tests that define the expected behavior
+- Implement minimal code to make tests pass
+- Refactor while keeping tests green
+
+### 2. Test Contracts, Not Implementation
+- Test that required UI elements exist (IDs, classes)
+- Test that server creates expected reactive values
+- Test that user workflows produce expected outputs
+
+### 3. Use Descriptive Test Names
+- `test_that("app_ui exposes upload, run, download controls", ...)`
+- `test_that("mod_risk_server processes climate data correctly", ...)`
+- `test_that("e2e: upload base_dir, run analysis, download results", ...)`
+
+### 4. Handle Reactive Values Properly
+```r
+# Test both reactive and non-reactive access
+result <- try(reactive_value(), silent = TRUE)  # Try as reactive
+if (inherits(result, "try-error")) {
+  result <- try(reactive_value, silent = TRUE)  # Try as variable
+}
+```
+
+### 5. Mock External Dependencies
+- Use test data directories for consistent testing
+- Mock file system operations when needed
+- Use `skip_if_not_installed()` for optional dependencies
+
+### 6. Test Error Handling
+- Test invalid inputs produce appropriate errors
+- Test missing data scenarios
+- Test network/IO failures gracefully
+
+## File Organization
+
+### Test Files Structure
+```
+tests/testthat/
+├── helper-testdata.R           # Test data utilities
+├── test-app_ui.R              # Main app UI tests
+├── test-app_server.R          # Main app server tests
+├── test-app_e2e.R             # App end-to-end tests
+├── test-mod_risk.R            # Risk module tests
+├── test-mod_upload.R          # Upload module tests
+├── test-core_compute_risk.R   # Core function tests
+└── test-*_e2e.R              # Feature-specific E2E tests
+```
+
+### Test Data
+- Store in `tests/tests_data/` directory
+- Use minimal but representative datasets
+- Keep test data deterministic and reproducible
+
+## Golem Integration Testing
+
+### Development Workflow
+- Test with `golem::run_dev()` using environment variables
+- Test with `run_app(base_dir = "path")` for direct usage
+- Test both parameterized and non-parameterized app startup
+
+### Environment Variables
+```r
+# Test with environment variable
+CLIMATE_RISK_BASE_DIR='tests/tests_data' golem::run_dev()
+
+# Test without environment variable  
+golem::run_dev()  # User enters path in UI
+```
+
+### Module Testing in Golem
+```r
+# Test module in isolation
+testthat::test_that("module works independently", {
+  # Test module UI and server separately
+  ui <- mod_risk_ui("test")
+  shiny::testServer(mod_risk_server, args = list(id = "test"), {
+    # Test module logic
+  })
+})
+```
+
+## Common Patterns
+
+### Testing File Uploads
+```r
+# Simulate file upload in tests
+session$setInputs(file = list(datapath = "path/to/test/file"))
+```
+
+### Testing Download Handlers
+```r
+# Test download functionality
+output$download$content(temp_file)
+expect_true(file.exists(temp_file))
+```
+
+### Testing Notifications
+```r
+# Test that notifications are shown
+expect_true(grepl("success|error", values$status))
+```
+
+### Testing Module Communication
+```r
+# Test module-to-module communication
+testthat::test_that("modules communicate correctly", {
+  shiny::testServer(app_server, args = list(), {
+    # Test that modules share data correctly
+    session$setInputs("module1-input" = "value")
+    expect_equal(values$shared_data, "expected_value")
+  })
+})
+```
+
+## Dependencies
+
+### Required Packages
+- `testthat` - Core testing framework
+- `shiny` - For `testServer()` functionality
+- `shinytest2` - For E2E testing (in Suggests)
+
+### Test Setup
+```r
+# Skip tests if dependencies not available
+skip_if_not_installed("shiny")
+skip_if_not_installed("shinytest2")
+```
+
+## Documentation
+
+### Update WORKING_DOCUMENT.md
+- Document new test patterns when adding them
+- Update testing strategy when workflow changes
+- Note any testing challenges or solutions
+
+### Test Documentation
+- Use descriptive test names that explain the behavior
+- Add comments for complex test logic
+- Document test data requirements and assumptions
+
+## Module-Specific Guidelines
+
+### Module UI Testing
+- Test that module creates expected namespace IDs
+- Test that module UI elements are properly structured
+- Test that module integrates with parent app layout
+
+### Module Server Testing
+- Test module server logic in isolation
+- Test module input/output handling
+- Test module reactive value management
+
+### Module Integration Testing
+- Test how modules communicate with each other
+- Test module lifecycle (creation, updates, destruction)
+- Test module error handling and recovery

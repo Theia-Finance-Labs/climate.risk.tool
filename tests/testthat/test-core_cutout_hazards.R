@@ -10,11 +10,11 @@ testthat::test_that("cutout_hazards adds one numeric column per loaded hazard", 
   skip_slow_tests()
   
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
-  assets_geo <- geolocate_assets(res$assets, hazards, municipalities, provinces)
+  assets_geo <- geolocate_assets(assets, hazards, municipalities, provinces)
 
   out <- cutout_hazards(assets_geo, hazards)
 
@@ -29,13 +29,13 @@ testthat::test_that("cutout_hazards optimizes by grouping municipality and provi
   skip_slow_tests()
   # Create a small test dataset with known geolocation methods
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
   
   # Create test data with 6 assets using different geolocation methods
-  df <- res$assets[1:6, , drop = FALSE]
+  df <- assets[1:6, , drop = FALSE]
   
   # Assets 1-2: Same municipality (should get same hazard values)
   df$latitude[1:2] <- NA_real_
@@ -97,11 +97,11 @@ testthat::test_that("cutout_hazards optimizes by grouping municipality and provi
 testthat::test_that("cutout_hazards handles missing geolocation_method column", {
   skip_slow_tests()
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
   
   # Create assets with geometry but without geolocation_method column
-  assets_with_geom <- res$assets[1:2, , drop = FALSE]
+  assets_with_geom <- assets[1:2, , drop = FALSE]
   # Add fake geometry column
   assets_with_geom$geometry <- sf::st_sfc(
     sf::st_polygon(list(matrix(c(0,0,0,1,1,1,1,0,0,0), ncol=2, byrow=TRUE))),

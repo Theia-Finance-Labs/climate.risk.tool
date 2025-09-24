@@ -8,10 +8,10 @@
 
 testthat::test_that("join_damage_cost_factors adds numeric damage_factor and cost_factor", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
 
   # Build minimal hazard mean column to drive the join
-  df <- res$assets
+  df <- assets
   df$hazard_dummy <- 12.4
 
   out <- join_damage_cost_factors(df, hazard_factor_path())

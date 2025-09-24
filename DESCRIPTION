@@ -11,6 +11,7 @@ License: MIT + file LICENSE
 Imports: 
     config,
     dplyr,
+    DT,
     golem,
     rlang,
     sf,
@@ -25,6 +26,7 @@ Roxygen: list(markdown = TRUE)
 Suggests: 
     knitr,
     rmarkdown,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    shinytest2
 Config/testthat/edition: 3
 VignetteBuilder: knitr

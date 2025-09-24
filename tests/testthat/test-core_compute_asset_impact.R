@@ -9,8 +9,8 @@
 
 testthat::test_that("compute_asset_impact updates share and removes working columns", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
-  df <- res$assets
+  assets <- read_assets(base_dir)
+  df <- assets
 
   # Add minimal working columns to simulate earlier stages
   df$hazard_dummy <- 10.5
@@ -30,8 +30,8 @@ testthat::test_that("compute_asset_impact updates share and removes working colu
 
 testthat::test_that("compute_asset_impact validates impact formula", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
-  df <- res$assets
+  assets <- read_assets(base_dir)
+  df <- assets
   
   # Store original share values
   original_shares <- df$share_of_economic_activity
@@ -71,8 +71,8 @@ testthat::test_that("compute_asset_impact validates impact formula", {
 
 testthat::test_that("compute_asset_impact handles zero impact correctly", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
-  df <- res$assets
+  assets <- read_assets(base_dir)
+  df <- assets
   
   original_shares <- df$share_of_economic_activity
   
@@ -91,8 +91,8 @@ testthat::test_that("compute_asset_impact handles zero impact correctly", {
 
 testthat::test_that("compute_asset_impact handles extreme impact values", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
-  df <- res$assets[1:3, ]  # Use subset for faster testing
+  assets <- read_assets(base_dir)
+  df <- assets[1:3, ]  # Use subset for faster testing
   
   # Extreme impact scenario
   df$damage_factor <- c(0.9, 1.0, 1.2)  # Very high damage
@@ -115,8 +115,8 @@ testthat::test_that("compute_asset_impact handles extreme impact values", {
 
 testthat::test_that("compute_asset_impact removes all working columns", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
-  df <- res$assets
+  assets <- read_assets(base_dir)
+  df <- assets
   
   # Add comprehensive set of working columns
   df$hazard_mean_flood <- runif(nrow(df), 0, 20)
@@ -157,8 +157,8 @@ testthat::test_that("compute_asset_impact removes all working columns", {
 
 testthat::test_that("compute_asset_impact preserves schema and validates input", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
-  df <- res$assets
+  assets <- read_assets(base_dir)
+  df <- assets
   
   # Add required working columns
   df$damage_factor <- runif(nrow(df), 0, 0.3)
@@ -195,8 +195,8 @@ testthat::test_that("compute_asset_impact preserves schema and validates input",
 
 testthat::test_that("compute_asset_impact is deterministic and preserves data integrity", {
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
-  df <- res$assets
+  assets <- read_assets(base_dir)
+  df <- assets
   
   # Add working columns
   df$damage_factor <- c(0.1, 0.2, 0.15, rep(0.1, nrow(df) - 3))

@@ -13,14 +13,14 @@
 testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows", {
   skip_slow_tests()
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
-  out <- geolocate_assets(res$assets, hazards, municipalities, provinces)
+  out <- geolocate_assets(assets, hazards, municipalities, provinces)
 
-  testthat::expect_equal(nrow(out), nrow(res$assets))
+  testthat::expect_equal(nrow(out), nrow(assets))
   testthat::expect_true(all(c("geometry", "centroid", "geolocation_method") %in% names(out)))
 })
 
@@ -28,13 +28,13 @@ testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows
 testthat::test_that("geolocate_assets uses geoloc > municipality > province priority", {
   skip_slow_tests()
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
   # Craft five records with different priority scenarios
-  df <- res$assets[1:5, , drop = FALSE]
+  df <- assets[1:5, , drop = FALSE]
 
   # Row 1: has lat/long and municipality/province - should use lat/long (priority 1)
   df$latitude[1] <- -3.0
@@ -104,12 +104,12 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
 testthat::test_that("geolocate_assets returns valid sfc types and consistent CRS with hazards", {
   skip_slow_tests()
   base_dir <- get_test_data_dir()
-  res <- read_inputs(base_dir)
+  assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
-  out <- geolocate_assets(res$assets, hazards, municipalities, provinces)
+  out <- geolocate_assets(assets, hazards, municipalities, provinces)
 
   # geometry should be polygons/multipolygons; centroid should be points
   # Check that we have sfc geometry columns
