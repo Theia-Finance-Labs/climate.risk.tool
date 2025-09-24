@@ -30,7 +30,7 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 ## Function contracts (implemented via TDD)
 
 ### Main Orchestrator Function
-- ✅ **compute_risk(base_dir, shock_year, growth_rate=0.02, net_profit_margin=0.1, discount_rate=0.05, verbose=TRUE)** -> list(assets, companies, intermediate) - **MAIN FUNCTION** that executes the complete 18-step climate risk analysis pipeline from raw inputs to final risk metrics. Serves as the primary entry point and documentation center for the entire workflow.
+- ✅ **core_compute_risk(base_dir, shock_year, growth_rate=0.02, net_profit_margin=0.1, discount_rate=0.05, verbose=TRUE)** -> list(assets, companies, intermediate) - **MAIN FUNCTION** that executes the complete 18-step climate risk analysis pipeline from raw inputs to final risk metrics. Serves as the primary entry point and documentation center for the entire workflow.
 
 ### Individual Pipeline Functions  
 - ✅ read_inputs(base_dir) -> list(assets, companies) - reads CSV files, converts to snake_case, parses numeric columns

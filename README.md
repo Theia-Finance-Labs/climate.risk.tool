@@ -32,7 +32,7 @@ library(climate.risk.tool)
 # - damage_and_cost_factors.csv
 base_dir <- "/path/to/your/data"
 
-results <- compute_risk(
+results <- core_compute_risk(
   base_dir = base_dir,
   shock_year = 2030,
   growth_rate = 0.02,
