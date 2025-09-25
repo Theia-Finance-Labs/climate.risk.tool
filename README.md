@@ -43,6 +43,17 @@ areas <- load_location_areas(
 )
 damage_factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
 
+# Create test events
+events <- data.frame(
+  event_id = "event_1",
+  hazard_type = "flood",
+  scenario = "rcp85",
+  event_year = 2030,
+  chronic = FALSE,
+  stringsAsFactors = FALSE
+)
+
+
 # Run the complete climate risk analysis
 results <- compute_risk(
   assets = assets,
@@ -50,7 +61,7 @@ results <- compute_risk(
   hazards = hazards,
   areas = areas,
   damage_factors = damage_factors_path,
-  shock_year = 2030,
+  events=events,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05,
@@ -60,7 +71,6 @@ results <- compute_risk(
 # Access results
 results$assets
 results$companies
-results$intermediate  # Access intermediate pipeline results
 ``` 
 
 ### 2. Interactive Shiny Application

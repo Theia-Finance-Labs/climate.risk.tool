@@ -1,6 +1,5 @@
 testthat::test_that("e2e: upload base_dir, run analysis, download results", {
   testthat::skip_if_not_installed("shinytest2")
-  testthat::skip_on_ci()
 
   base_dir <- get_test_data_dir()
 
@@ -15,6 +14,11 @@ testthat::test_that("e2e: upload base_dir, run analysis, download results", {
   
   # Wait for the app to fully load
   Sys.sleep(3)
+
+  # Set hazard resolution to 1 (no downscaling) to exercise the control
+  if ("hazard_resolution" %in% names(app$get_values(input = TRUE))) {
+    app$set_inputs(hazard_resolution = "1")
+  }
 
   # Upload company file first (required for analysis)
   company_file_path <- file.path(base_dir, "user_input", "company.csv")

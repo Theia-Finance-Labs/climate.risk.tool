@@ -20,47 +20,38 @@
 #' @export
 geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces_areas, default_buffer_size_m = 1000) {
   message("📍 [geolocate_assets] Starting asset geolocation for ", nrow(assets_df), " assets...")
-  
+
   if (length(hazards) == 0) {
     stop("Hazards list is empty")
   }
-  
+
   if (length(municipalities_areas) == 0) {
     stop("Municipalities areas list is empty")
   }
-  
+
   if (length(provinces_areas) == 0) {
     stop("Provinces areas list is empty")
   }
-  
-  message("🗺️ [geolocate_assets] Using ", length(municipalities_areas), " municipality boundaries and ", length(provinces_areas), " province boundaries")
-  
+
   # Get target CRS from first hazard raster
   target_crs <- terra::crs(hazards[[1]])
-  message("🌐 [geolocate_assets] Target CRS: ", target_crs)
-  
+
   # Combine all municipality and province boundaries
   # For simplicity, take the first municipality and province files
   adm2 <- municipalities_areas[[1]]
   adm1 <- provinces_areas[[1]]
-  
-  message("⏳ [geolocate_assets] Transforming boundaries to target CRS...")
+
   # Ensure boundaries are in target CRS
   adm2 <- sf::st_transform(adm2, target_crs)
   adm1 <- sf::st_transform(adm1, target_crs)
-  
+
   # Initialize geometry, centroid, and method columns
   n_assets <- nrow(assets_df)
   geometry_list <- vector("list", n_assets)
   centroid_list <- vector("list", n_assets)
   method_list <- character(n_assets)
-  
-  message("⏳ [geolocate_assets] Processing ", n_assets, " assets...")
-  
+
   for (i in seq_len(n_assets)) {
-    if (i %% max(1, floor(n_assets / 10)) == 0 || i == n_assets) {
-      message("  Processing asset ", i, "/", n_assets)
-    }
     row <- assets_df[i, ]
     geom <- NULL
     
@@ -124,11 +115,7 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
   
   # Summary statistics
   method_counts <- table(method_list)
-  message("✅ [geolocate_assets] Geolocation completed:")
-  message("  - Total assets processed: ", n_assets)
-  for (method in names(method_counts)) {
-    message("  - ", method, ": ", method_counts[method], " assets")
-  }
+  message("✅ [geolocate_assets] Geolocation completed for ", n_assets, " assets")
   
   return(assets_df)
 }

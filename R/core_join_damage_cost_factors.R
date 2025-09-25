@@ -18,27 +18,22 @@
 #' @export
 join_damage_cost_factors <- function(assets_with_hazard_means, factors_csv_path) {
   message("🔗 [join_damage_cost_factors] Starting damage and cost factor joining for ", nrow(assets_with_hazard_means), " assets...")
-  
+
   if (!is.data.frame(assets_with_hazard_means)) {
     stop("Input must be a data.frame")
   }
-  
+
   if (!file.exists(factors_csv_path)) {
     stop("Factors CSV file not found: ", factors_csv_path)
   }
-  
-  message("📄 [join_damage_cost_factors] Reading factors from: ", factors_csv_path)
-  
+
   # Read the damage and cost factors CSV
   # The CSV uses comma as decimal separator and quotes around numbers
   factors_df <- utils::read.csv(factors_csv_path, stringsAsFactors = FALSE)
-  
-  message("🔧 [join_damage_cost_factors] Cleaning up factor data...")
+
   # Clean up the numeric columns that have comma decimal separators and quotes
   factors_df$damage_factor <- as.numeric(gsub(",", ".", gsub('"', "", factors_df$damage_factor)))
   factors_df$cost_factor <- as.numeric(gsub(",", ".", gsub('"', "", factors_df$cost_factor)))
-  
-  message("📊 [join_damage_cost_factors] Loaded ", nrow(factors_df), " factor combinations")
   
   # Start with the input dataframe
   result <- assets_with_hazard_means
@@ -58,20 +53,14 @@ join_damage_cost_factors <- function(assets_with_hazard_means, factors_csv_path)
     result$cost_factor <- NA_real_
     return(result)
   }
-  
+
   # Initialize damage and cost factor columns
   result$damage_factor <- NA_real_
   result$cost_factor <- NA_real_
-  
-  message("🔍 [join_damage_cost_factors] Found ", length(hazard_columns), " hazard columns to match against")
-  message("⏳ [join_damage_cost_factors] Processing ", nrow(assets_with_hazard_means), " assets...")
-  
+
   # For each asset, find the best match in the factors table
   matches_found <- 0
   for (i in seq_len(nrow(assets_with_hazard_means))) {
-    if (i %% max(1, floor(nrow(assets_with_hazard_means) / 10)) == 0 || i == nrow(assets_with_hazard_means)) {
-      message("  Processing asset ", i, "/", nrow(assets_with_hazard_means), " (", matches_found, " matches found so far)")
-    }
     asset_category <- assets_with_hazard_means$asset_category[i]
     
     if (is.na(asset_category) || !nzchar(as.character(asset_category))) {
@@ -105,11 +94,8 @@ join_damage_cost_factors <- function(assets_with_hazard_means, factors_csv_path)
       matches_found <- matches_found + 1
     }
   }
-  
-  message("✅ [join_damage_cost_factors] Factor joining completed:")
-  message("  - Total assets processed: ", nrow(assets_with_hazard_means))
-  message("  - Assets with factors: ", matches_found)
-  message("  - Assets without factors: ", nrow(assets_with_hazard_means) - matches_found)
-  
+
+  message("✅ [join_damage_cost_factors] Factor joining completed for ", nrow(assets_with_hazard_means), " assets (", matches_found, " matches found)")
+
   return(result)
 }

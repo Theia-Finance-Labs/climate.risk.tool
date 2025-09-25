@@ -17,6 +17,10 @@ testthat::test_that("app_ui exposes upload, run, download controls", {
   # Expect a download button/output
   expect_true(grepl("id=\"download_results\"|id=\"download\"", html),
               info = "Expect a download control for results")
+
+  # Expect a resolution selector for hazards (aggregation factor)
+  expect_true(grepl("id=\"hazard_resolution\"|name=\"hazard_resolution\"", html),
+              info = "Expect a selector for hazard resolution factor")
 })
 
 

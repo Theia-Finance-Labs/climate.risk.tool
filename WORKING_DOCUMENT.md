@@ -2,26 +2,25 @@
 
 Purpose: living reference for code structure, data schemas, and test plan. Keep this updated when adding functions or tests.
 
-## High-level pipeline
+## 1) Shiny Application (UI/Server)
 
-1. Read inputs: assets and companies
-2. Geolocate assets (priority: geoloc > municipality > province). Output adds `geometry` (polygon) and `centroid` columns
-3. Raster cutouts for each hazard over asset polygon; add columns per hazard
-4. Summarize hazard cutouts into average intensity per hazard
-5. Join damage and cost factors by nearest `hazard_intensity` (integer) and `asset_category`
-6. Apply acute shock (placeholder; depends on `shock_year`)
-7. Apply chronic shock (placeholder; no parameter)
-8. Compute asset impact: update `share_of_economic_activity`; drop working columns
-9. Build scenarios: concat baseline vs shock
-10. Asset revenue (placeholder) using company data and `growth_rate`
-11. Asset profits using `net_profit_margin`
-12. Discounted net profits (placeholder)
-13. Company NPV by scenario (aggregate of assets)
-14. Company PD via Merton (placeholder) by scenario
-15. Expected Loss by scenario
-16. Gather results and pivot for reporting
+- `app_ui()`/`app_server()` orchestrate modules.
+- Module: `mod_hazards_events_ui/server`
+  - UI elements: Hazard select, Scenario select (dependent), Chronic checkbox, optional Shock year, Add hazard button, Configured events table.
+  - Output: stored events with fields `event_id`, `hazard_type`, `scenario`, `event_year` (NA if chronic), `chronic`.
+- Startup: hazards inventory loads immediately from `golem::get_golem_options("base_dir")` and populates the dropdowns.
 
-## Data locations (tests/test_data)
+## 2) Core Split Pipeline (Final)
+
+- ✅ `compute_risk(assets, companies, hazards, areas, damage_factors, events, growth_rate, net_profit_margin, discount_rate, verbose)` → list(assets, companies)
+  - Orchestrates: `compute_hazard_events()` → combine per-asset across events (min share rule) → `build_scenarios()` → `compute_financials_from_assets()`.
+- ✅ `compute_hazard_events(assets, hazards, areas, events, damage_factors)` → long table [asset, company, event_id, hazard_type, scenario, event_year, chronic, share_of_economic_activity].
+- ✅ `compute_financials_from_assets(assets_scenarios, companies, growth_rate, net_profit_margin, discount_rate)` → list(assets, companies).
+
+Event combination rule: worst-case per asset (min share). Configurable later.
+
+## 3) Supporting Core Functions
+
 - user_input: `asset_information.csv`, `company.csv`
 - areas: province GeoJSON (ADM1), municipality GeoJSON (ADM2)
 - hazards: .tif rasters
@@ -29,13 +28,16 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 
 ## Function contracts (implemented via TDD)
 
-### Main Orchestrator Function
-- ✅ **compute_risk(assets, companies, hazards, areas, damage_factors, shock_year, growth_rate=0.02, net_profit_margin=0.1, discount_rate=0.05, verbose=TRUE)** -> list(assets, companies, intermediate) - **MAIN FUNCTION** that executes the complete 18-step climate risk analysis pipeline from pre-loaded inputs to final risk metrics. Takes assets and companies as separate data frames instead of a combined inputs list for better modularity and testing. Serves as the primary entry point and documentation center for the entire workflow.
+### Workflow in app
+1. User configures events via module (can add many). Stored list drives analysis.
+2. Compute per-event asset impacts with `compute_hazard_events`.
+3. Combine events to shocked asset shares (current rule: min share per asset across events; configurable).
+4. Build baseline vs shock scenarios and run `compute_financials_from_assets`.
 
 ### Individual Pipeline Functions  
 - ✅ read_assets(base_dir) -> data.frame - reads asset CSV file from base_dir/user_input/, converts to snake_case, parses numeric columns
 - ✅ read_companies(file_path) -> data.frame - reads company CSV file from specified path, converts to snake_case, parses numeric columns
-- ✅ load_hazards(hazards_dir) -> named list of SpatRaster objects from .tif files
+- ✅ load_hazards(hazards_dir) -> named list of SpatRaster objects from .tif files; searches recursively in hazard-type subfolders (e.g., `floods/`, `heat/`) and names layers as `hazardType__scenario` based on subfolder and filename (sans extension)
 - ✅ load_location_areas(municipalities_dir, provinces_dir) -> list(municipalities, provinces) - loads both area types at once
 - ✅ load_municipalities(municipalities_dir) -> named list of sf objects from .geojson files
 - ✅ load_provinces(provinces_dir) -> named list of sf objects from .geojson files  
@@ -55,7 +57,7 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 - ✅ compute_expected_loss(df_companies_pd) -> df_companies_el - computes expected loss using EL = LGD * Loan_Size * PD formula
 - ✅ gather_and_pivot_results(df_assets, df_companies) -> list(assets_pivot, companies_pivot) - transforms scenario data into wide format for reporting
 
-## Testing strategy
+## 4) Testing strategy
 - Snapshot representative rows after each stage
 - Validate column presence, types, and row counts; minimal numeric checks
 - Use deterministic seeds and small polygons
@@ -75,7 +77,7 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 
 These tests are written ahead of implementation to guide UI/module construction. Update selectors/IDs in UI to satisfy tests without changing the tests unless the contract deliberately evolves.
 
-## Open questions / decisions
+## 5) Open questions / decisions
 - Nearest-integer match or floor/ceil for hazard_intensity mapping
 - CRS standardization for polygons and rasters
 - How to handle assets lacking any location info

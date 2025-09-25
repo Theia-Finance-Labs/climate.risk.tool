@@ -23,26 +23,20 @@ to_snake_case <- function(names) {
 #' }
 #' @export
 read_assets <- function(base_dir) {
-  message("📁 [read_assets] Starting to read asset file from: ", base_dir)
-  
+  message("📁 [read_assets] Reading asset data from: ", base_dir)
+
   # Define file path
   assets_path <- file.path(base_dir, "user_input", "asset_information.csv")
-  
-  message("📄 [read_assets] Looking for file: ", assets_path)
-  
+
   # Check if file exists
   if (!file.exists(assets_path)) {
     stop("Asset information file not found at: ", assets_path)
   }
-  
-  message("✅ [read_assets] File found, reading data...")
-  
+
   # Read assets data
-  message("📊 [read_assets] Reading asset information...")
   assets_raw <- utils::read.csv(assets_path, stringsAsFactors = FALSE)
   names(assets_raw) <- to_snake_case(names(assets_raw))
-  message("  - Loaded ", nrow(assets_raw), " assets with ", ncol(assets_raw), " columns")
-  
+
   # Convert numeric columns for assets
   numeric_asset_cols <- c("share_of_economic_activity", "latitude", "longitude", "size_in_m2", "size_in_hectare")
   for (col in numeric_asset_cols) {
@@ -52,8 +46,8 @@ read_assets <- function(base_dir) {
       assets_raw[[col]] <- as.numeric(assets_raw[[col]])
     }
   }
-  
-  message("✅ [read_assets] Successfully loaded asset data: ", nrow(assets_raw), " rows")
+
+  message("✅ [read_assets] Loaded ", nrow(assets_raw), " assets")
   assets_raw
 }
 
@@ -70,21 +64,17 @@ read_assets <- function(base_dir) {
 #' }
 #' @export
 read_companies <- function(file_path) {
-  message("📁 [read_companies] Starting to read company file from: ", file_path)
-  
+  message("📁 [read_companies] Reading company data from: ", file_path)
+
   # Check if file exists
   if (!file.exists(file_path)) {
     stop("Company file not found at: ", file_path)
   }
-  
-  message("✅ [read_companies] File found, reading data...")
-  
+
   # Read companies data
-  message("🏢 [read_companies] Reading company information...")
   companies_raw <- utils::read.csv(file_path, stringsAsFactors = FALSE)
   names(companies_raw) <- to_snake_case(names(companies_raw))
-  message("  - Loaded ", nrow(companies_raw), " companies with ", ncol(companies_raw), " columns")
-  
+
   # Convert numeric columns for companies
   numeric_company_cols <- c("revenues", "debt", "volatility", "net_profit_margin", "loan_size", "lgd", "term")
   for (col in numeric_company_cols) {
@@ -94,8 +84,8 @@ read_companies <- function(file_path) {
       companies_raw[[col]] <- as.numeric(companies_raw[[col]])
     }
   }
-  
-  message("✅ [read_companies] Successfully loaded company data: ", nrow(companies_raw), " rows")
+
+  message("✅ [read_companies] Loaded ", nrow(companies_raw), " companies")
   companies_raw
 }
 

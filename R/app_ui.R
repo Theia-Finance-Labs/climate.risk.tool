@@ -18,6 +18,10 @@ app_ui <- function(request) {
                    "Upload Company CSV File:",
                    accept = ".csv",
                    placeholder = "Choose company.csv file"),
+          selectInput("hazard_resolution",
+                      "Hazard resolution (aggregation factor)",
+                      choices = c(1, 2, 4, 8, 16, 32, 64),
+                      selected = 1),
           
           actionButton("run_analysis", 
                       "Run Analysis", 
@@ -26,6 +30,9 @@ app_ui <- function(request) {
           
           br(), br(),
           
+          # Hazard events module UI
+          mod_hazards_events_ui("hazards"),
+
           downloadButton("download_results", 
                         "Download Results", 
                         class = "btn-success")

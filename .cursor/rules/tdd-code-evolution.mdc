@@ -1,0 +1,77 @@
+---
+alwaysApply: true
+description: TDD-first approach for all code changes and evolution practices
+---
+
+# TDD-First Development & Code Evolution
+
+## Core Principle: Test-First for ALL Changes
+**NEVER edit code directly without first considering and updating tests.** This applies to:
+- New features (existing TDD rule)
+- **Existing code modifications** 
+- **Shiny app changes**
+- **Core function refactoring**
+- **Function signature changes**
+
+## Change Workflow for Existing Code
+When modifying existing features, ALWAYS follow this sequence:
+
+1. **Start with Tests**: First, identify and update the relevant test files in [tests/testthat/](mdc:tests/testthat/)
+2. **Run Tests**: Execute tests to see current failures (`devtools::test_file()` or `devtools::test()`)
+3. **Debug Iteratively**: Fix code to make tests pass, run tests again
+4. **Verify Full Suite**: Run complete test suite to ensure no regressions
+
+## Code Evolution Philosophy
+**Prioritize concrete, focused code over retro-compatibility.**
+
+### Function Design Principles
+- **Limit alternatives**: Functions should do ONE thing well, not offer multiple options
+- **No backward compatibility**: When changing function signatures, update ALL calling code
+- **Concrete over generic**: Prefer specific implementations over flexible but complex ones
+- **Chain updates**: When changing a function signature, trace and update the entire call chain
+
+### Example: Function Signature Changes
+If you change `compute_risk(assets, scenarios)` to `compute_risk(assets, scenarios, discount_rate)`:
+1. Update test file: [tests/testthat/test-core_compute_risk.R](mdc:tests/testthat/test-core_compute_risk.R)
+2. Find all calling functions using `grep` or codebase search
+3. Update ALL calling code to pass the new parameter
+4. Update documentation and examples
+5. Run tests to verify everything works
+
+## Shiny App Development
+For Shiny app changes in [R/mod_*.R](mdc:R/mod_*.R) files:
+- Update corresponding test files in [tests/testthat/test-mod_*.R](mdc:tests/testthat/test-mod_*.R)
+- Test UI components, server logic, and reactive behavior
+- Use `testServer()` for server-side testing
+- Test integration between modules
+
+## Core Functions Development
+For core business logic in [R/core_*.R](mdc:R/core_*.R) files:
+- Maintain strict TDD workflow
+- Test edge cases and error conditions
+- Verify data transformations and calculations
+- Test with realistic data from [tests/tests_data/](mdc:tests/tests_data/)
+
+## Error Handling Strategy
+- Tests should cover both success and failure scenarios
+- When changing error handling, update tests first
+- Verify that error messages are helpful and specific
+- Test boundary conditions and invalid inputs
+
+## Documentation Updates
+- Update [WORKING_DOCUMENT.md](mdc:WORKING_DOCUMENT.md) when changing function contracts
+- Update roxygen2 documentation when changing function signatures
+- Keep examples current and working
+- Document any breaking changes clearly
+
+## Code Quality Enforcement
+- Functions should have clear, single responsibilities
+- Avoid complex conditional logic that handles multiple cases
+- Prefer explicit over implicit behavior
+- Make dependencies and side effects obvious
+
+## Testing Commands Reference
+- `devtools::test()` - Run all tests
+- `devtools::test_file("tests/testthat/test-function_name.R")` - Run specific test
+- `devtools::load_all()` - Reload package after changes
+- `devtools::document()` - Update documentation and NAMESPACE

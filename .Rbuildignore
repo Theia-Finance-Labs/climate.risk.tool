@@ -6,3 +6,7 @@ dev_history.R
 $run_dev.*
 ^.here$
 ^LICENSE\.md$
+^workspace/*
+^\.venv$
+^.*\.pyc$
+^__pycache__

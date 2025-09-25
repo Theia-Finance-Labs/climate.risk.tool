@@ -10,7 +10,9 @@ app_server <- function(input, output, session) {
     data_loaded = FALSE,
     results_ready = FALSE,
     results = NULL,
-    status = "Ready to load data"
+    status = "Ready to load data",
+    hazards_loaded = NULL,
+    hazards_cache = list() # cache downscaled hazards by factor
   )
   
   # Create the reactive variables expected by tests
@@ -33,30 +35,54 @@ app_server <- function(input, output, session) {
     values$status
   })
   
+  # Helper: get hazards at selected resolution factor (1 = original)
+  get_hazards_at_factor <- reactive({
+    base_dir <- get_base_dir()
+    if (is.null(base_dir) || base_dir == "") return(NULL)
+    factor <- as.integer(shiny::req(input$hazard_resolution))
+    # Load original once
+    if (is.null(values$hazards_loaded)) {
+      dir_hz <- file.path(base_dir, "hazards")
+      if (!dir.exists(dir_hz)) return(NULL)
+      values$hazards_loaded <- load_hazards(dir_hz)
+    }
+    if (isTRUE(factor <= 1L)) return(values$hazards_loaded)
+    # Cached?
+    if (!is.null(values$hazards_cache[[as.character(factor)]])) {
+      return(values$hazards_cache[[as.character(factor)]])
+    }
+    # Downscale and cache
+    hz_ds <- downscale_hazard_rasters(values$hazards_loaded, factor = factor)
+    values$hazards_cache[[as.character(factor)]] <- hz_ds
+    hz_ds
+  })
+  
+  # Prepare hazards inventory and module
+  # Load hazards inventory on startup (without waiting for Run)
+  hazards_inventory <- reactive({
+    base_dir <- get_base_dir()
+    if (is.null(base_dir) || base_dir == "") return(data.frame())
+    haz <- get_hazards_at_factor()
+    if (is.null(haz)) return(data.frame())
+    inv <- try(list_hazard_inventory(haz), silent = TRUE)
+    if (inherits(inv, "try-error")) data.frame() else inv
+  })
+  hz_mod <- mod_hazards_events_server("hazards", hazards_inventory = hazards_inventory)
+
   # Run analysis when button is clicked
   observeEvent(input$run_analysis, {
     base_dir <- get_base_dir()
     
+    # Guard clauses
     if (is.null(base_dir) || base_dir == "") {
-      values$status <- "Error: No base directory provided. Please run the app with run_app(base_dir = 'path/to/data')"
-      showNotification("No base directory provided. Please run the app with run_app(base_dir = 'path/to/data')", type = "error")
+      values$status <- "Error: Base directory is not set. Please restart the app with a valid base_dir."
       return()
     }
-    
-    if (!dir.exists(base_dir)) {
-      values$status <- paste("Error: Directory does not exist:", base_dir)
-      showNotification("Directory does not exist", type = "error")
+    if (is.null(input$company_file) || is.null(input$company_file$datapath) || input$company_file$datapath == "") {
+      values$status <- "Error: Please upload a company.csv file before running the analysis."
       return()
     }
-    
-    # Check if company file is uploaded
-    if (is.null(input$company_file) || is.null(input$company_file$datapath)) {
-      values$status <- "Error: Please upload a company CSV file"
-      showNotification("Please upload a company CSV file", type = "error")
-      return()
-    }
-    
-    # Update status
+
     values$status <- "Loading data..."
     
     tryCatch({
@@ -64,7 +90,8 @@ app_server <- function(input, output, session) {
       assets <- read_assets(base_dir)
       companies <- read_companies(input$company_file$datapath)
       
-      hazards <- load_hazards(file.path(base_dir, "hazards"))
+      hazards <- get_hazards_at_factor()
+      if (is.null(hazards)) stop("Hazards could not be loaded")
       areas <- load_location_areas(
         file.path(base_dir, "areas", "municipality"),
         file.path(base_dir, "areas", "province")
@@ -74,76 +101,45 @@ app_server <- function(input, output, session) {
       values$data_loaded <- TRUE
       values$status <- "Data loaded. Running analysis..."
       
-      # Run the complete analysis
-      results_data <- compute_risk(
+      # Build events from module inputs; if none, default to single acute event 2030 using first hazard
+      ev_df <- try(hz_mod$events(), silent = TRUE)
+      if (inherits(ev_df, "try-error") || !is.data.frame(ev_df) || nrow(ev_df) == 0) {
+        # Provide a default using first hazard_type and its first scenario
+        inv <- list_hazard_inventory(hazards)
+        default_ht <- unique(inv$hazard_type)[1]
+        default_sc <- inv$scenario[inv$hazard_type == default_ht][1]
+        ev_df <- data.frame(event_id = "ev1", hazard_type = default_ht, scenario = default_sc, event_year = 2030L, chronic = FALSE, stringsAsFactors = FALSE)
+      }
+      
+      # Run the complete climate risk analysis using the same approach as the console
+      results <- compute_risk(
         assets = assets,
         companies = companies,
         hazards = hazards,
         areas = areas,
         damage_factors = damage_factors_path,
-        shock_year = 2030,
+        events = ev_df,
         growth_rate = 0.02,
         net_profit_margin = 0.1,
         discount_rate = 0.05,
         verbose = FALSE
       )
       
-      values$results <- results_data
       values$results_ready <- TRUE
-      values$status <- "Analysis completed successfully!"
+      values$results <- results
+      values$status <- "Analysis complete. Download results or inspect tables."
       
-      showNotification("Analysis completed!", type = "success")
-      
+      # Outputs
+      output$results_summary <- renderTable({
+        if (!values$results_ready) return(NULL)
+        head(values$results$companies)
+      })
+      output$results_table <- DT::renderDataTable({
+        if (!values$results_ready) return(NULL)
+        DT::datatable(values$results$assets)
+      })
     }, error = function(e) {
-      values$status <- paste("Error during analysis:", e$message)
-      showNotification(paste("Error:", e$message), type = "error")
+      values$status <- paste0("Error during analysis: ", conditionMessage(e))
     })
   })
-  
-  # Results summary table
-  output$results_summary <- renderTable({
-    if (!values$results_ready || is.null(values$results)) {
-      return(data.frame(Message = "No results available"))
-    }
-    
-    res <- values$results
-    summary_data <- data.frame(
-      Metric = c("Number of Assets", "Number of Companies", "Scenarios"),
-      Value = c(
-        if (!is.null(res$assets)) nrow(res$assets) else 0,
-        if (!is.null(res$companies)) nrow(res$companies) else 0,
-        if (!is.null(res$companies)) length(unique(res$companies$scenario)) else 0
-      )
-    )
-    summary_data
-  })
-  
-  # Results data table
-  output$results_table <- DT::renderDataTable({
-    if (!values$results_ready || is.null(values$results)) {
-      return(DT::datatable(data.frame(Message = "No results available")))
-    }
-    
-    DT::datatable(
-      values$results$companies,
-      options = list(
-        scrollX = TRUE,
-        pageLength = 10
-      )
-    )
-  })
-  
-  # Download handler
-  output$download_results <- downloadHandler(
-    filename = function() {
-      paste0("climate_risk_results_", Sys.Date(), ".csv")
-    },
-    content = function(file) {
-      if (!values$results_ready || is.null(values$results)) {
-        write.csv(data.frame(Message = "No results available"), file, row.names = FALSE)
-      } else {
-        write.csv(values$results$companies, file, row.names = FALSE)
-      }
-    }
-  )
 }

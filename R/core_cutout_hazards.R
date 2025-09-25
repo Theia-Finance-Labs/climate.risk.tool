@@ -18,22 +18,17 @@
 #' @export
 cutout_hazards <- function(assets_with_geometry, hazards) {
   message("✂️ [cutout_hazards] Starting hazard extraction for ", nrow(assets_with_geometry), " assets...")
-  
+
   if (!"geometry" %in% names(assets_with_geometry)) {
     stop("Input dataframe must have a 'geometry' column. Use geolocate_assets() first.")
   }
-  
+
   if (!"geolocation_method" %in% names(assets_with_geometry)) {
     stop("Input dataframe must have a 'geolocation_method' column. Use updated geolocate_assets() first.")
   }
-  
+
   if (length(hazards) == 0) {
     stop("Hazards list is empty")
-  }
-  
-  message("🗺️ [cutout_hazards] Processing ", length(hazards), " hazard types:")
-  for (hazard_name in names(hazards)) {
-    message("  - ", hazard_name)
   }
   
   # Start with the input dataframe
@@ -56,63 +51,85 @@ cutout_hazards <- function(assets_with_geometry, hazards) {
   for (i in seq_along(hazards)) {
     hazard_name <- names(hazards)[i]
     hazard_raster <- hazards[[hazard_name]]
-    
-    message("⏳ [cutout_hazards] Processing hazard ", i, "/", length(hazards), ": ", hazard_name)
-    
+
     # Initialize column with NA values
     hazard_values <- rep(NA_real_, nrow(assets_sf))
-    
-    # Process municipality method assets (group by municipality)
+
+    # Build unique geometry groups to minimize extraction calls
+    group_indices <- list()
+    group_geoms <- list()
+
+    # Municipality groups
     if (length(municipality_assets) > 0) {
       unique_municipalities <- unique(assets_sf$municipality[municipality_assets])
       unique_municipalities <- unique_municipalities[!is.na(unique_municipalities)]
-      
       for (muni in unique_municipalities) {
-        muni_indices <- municipality_assets[assets_sf$municipality[municipality_assets] == muni]
-        if (length(muni_indices) > 0) {
-          # Use first geometry (they should be identical for same municipality)
-          asset_geom <- assets_sf$geometry[muni_indices[1]]
-          extracted_value <- extract_hazard_value(asset_geom, hazard_raster)
-          # Apply to all assets with this municipality
-          hazard_values[muni_indices] <- extracted_value
+        idxs <- municipality_assets[assets_sf$municipality[municipality_assets] == muni]
+        if (length(idxs) > 0) {
+          group_indices[[length(group_indices) + 1L]] <- idxs
+          group_geoms[[length(group_geoms) + 1L]] <- assets_sf$geometry[[idxs[1]]]
         }
       }
     }
-    
-    # Process province method assets (group by province)
+
+    # Province groups
     if (length(province_assets) > 0) {
       unique_provinces <- unique(assets_sf$province[province_assets])
       unique_provinces <- unique_provinces[!is.na(unique_provinces)]
-      
       for (prov in unique_provinces) {
-        prov_indices <- province_assets[assets_sf$province[province_assets] == prov]
-        if (length(prov_indices) > 0) {
-          # Use first geometry (they should be identical for same province)
-          asset_geom <- assets_sf$geometry[prov_indices[1]]
-          extracted_value <- extract_hazard_value(asset_geom, hazard_raster)
-          # Apply to all assets with this province
-          hazard_values[prov_indices] <- extracted_value
+        idxs <- province_assets[assets_sf$province[province_assets] == prov]
+        if (length(idxs) > 0) {
+          group_indices[[length(group_indices) + 1L]] <- idxs
+          group_geoms[[length(group_geoms) + 1L]] <- assets_sf$geometry[[idxs[1]]]
         }
       }
     }
-    
-    # Process coordinates and default method assets individually
+
+    # Individual assets
     if (length(individual_assets) > 0) {
       for (idx in individual_assets) {
-        asset_geom <- assets_sf$geometry[idx]
-        hazard_values[idx] <- extract_hazard_value(asset_geom, hazard_raster)
+        group_indices[[length(group_indices) + 1L]] <- idx
+        group_geoms[[length(group_geoms) + 1L]] <- assets_sf$geometry[[idx]]
       }
     }
-    
+
+    # If nothing to extract, continue
+    if (length(group_geoms) == 0) {
+      result[[hazard_name]] <- hazard_values
+      next
+    }
+
+    # Project all geometries once to hazard CRS and convert to terra vect in batch
+    geoms_sf <- sf::st_sfc(group_geoms, crs = sf::st_crs(assets_sf))
+    geoms_sf <- sf::st_transform(geoms_sf, terra::crs(hazard_raster))
+    geoms_vect <- terra::vect(geoms_sf)
+
+    # Optional: crop raster to geometry extent (+ small margin) to reduce IO
+    ext <- terra::ext(geoms_vect)
+    margin <- 0.0001
+    ext <- terra::ext(terra::xmin(ext) - margin, terra::xmax(ext) + margin, terra::ymin(ext) - margin, terra::ymax(ext) + margin)
+    hr <- try(terra::crop(hazard_raster, ext), silent = TRUE)
+    if (!inherits(hr, "SpatRaster")) {
+      hr <- hazard_raster
+    }
+
+    # Single extract call for all geometries
+    extracted <- terra::extract(hr, geoms_vect, fun = mean, na.rm = TRUE)
+    # extracted columns: ID, value; align to groups order
+    vals <- extracted[, 2]
+
+    # Map values back to all asset indices in each group
+    for (k in seq_along(group_indices)) {
+      idxs <- group_indices[[k]]
+      v <- as.numeric(vals[k])
+      hazard_values[idxs] <- v
+    }
+
     # Add the column to the result dataframe
     result[[hazard_name]] <- hazard_values
-    
-    # Count non-NA values for this hazard
-    non_na_count <- sum(!is.na(hazard_values))
-    message("  ✅ Extracted values for ", non_na_count, "/", nrow(assets_sf), " assets")
   }
-  
-  message("✅ [cutout_hazards] Hazard extraction completed for all ", length(hazards), " hazard types")
+
+  message("✅ [cutout_hazards] Hazard extraction completed for ", nrow(assets_with_geometry), " assets")
   return(result)
 }
 

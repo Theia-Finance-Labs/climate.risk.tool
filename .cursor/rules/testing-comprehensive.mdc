@@ -1,19 +1,34 @@
 ---
-description: R Shiny testing conventions and TDD best practices for Golem apps
-globs: tests/testthat/test-app_*.R,R/app_*.R,tests/testthat/test-mod_*.R,R/mod_*.R
-alwaysApply: false
+alwaysApply: true
+description: Comprehensive testing framework including TDD, Shiny testing, and environment variables
 ---
-# R Shiny Testing Conventions for Golem Apps
 
-## Test-Driven Development (TDD) for Shiny Apps
+# Comprehensive Testing Framework
 
-### Modular Test Structure
-- **App-level Tests**: Test main app UI/server in `test-app_*.R`
-- **Module Tests**: Test individual Golem modules in `test-mod_*.R` 
-- **Core Function Tests**: Test business logic in `test-core_*.R`
-- **E2E Tests**: Test complete user workflows using `shinytest2` in `test-*_e2e.R`
+## Test-Driven Development (TDD) Core Principle
 
-## Test File Naming Conventions
+**99% of the time, you should not edit the code directly, but instead write tests that are aligned with the user input. Then, you run those tests, they fail, you write the code for them to pass, and finally, (sometimes) you run the whole tests suite to make sure everything works.**
+
+## Test Requirements & Structure
+
+### Test File Requirements
+- **EVERY new function MUST have a corresponding test file** in [tests/testthat/](mdc:tests/testthat/)
+- Test file naming: `test-function_name.R` (e.g., `test-compute_risk.R`)
+- Use `testthat::test_that()` for test cases
+- Use `testthat::expect_*()` functions for assertions
+
+### Test Structure
+- Each test file should test ONE function
+- Use descriptive test names: `test_that('function_name does specific behavior', { ... })`
+- Test both success and failure cases
+- Use test data from [tests/tests_data/](mdc:tests/tests_data/)
+
+### Test Data Management
+- Store test data in [tests/tests_data/](mdc:tests/tests_data/)
+- Use deterministic seeds for reproducible tests
+- Keep test data minimal but representative
+
+## Test File Organization
 
 ### By Component Type
 - `test-app_*.R` - Main application tests (app_ui, app_server, run_app)
@@ -27,7 +42,7 @@ alwaysApply: false
 - `test-download_*.R` - Download functionality tests
 - `test-validation_*.R` - Input validation tests
 
-## UI Testing Patterns
+## Shiny App Testing Patterns
 
 ### App UI Testing
 ```r
@@ -53,8 +68,6 @@ testthat::test_that("mod_risk_ui creates expected elements", {
   expect_true(grepl("id=\"test_module-output_name\"", html))
 })
 ```
-
-## Server Testing Patterns
 
 ### App Server Testing
 ```r
@@ -141,6 +154,40 @@ testthat::test_that("e2e: module integration", {
 })
 ```
 
+## Testing Commands & Environment
+
+### Running Tests
+- Use `devtools::test()` to run all tests
+- Use `devtools::test_file("tests/testthat/test-function_name.R")` for specific tests
+- Tests must pass before committing code
+
+### Complete Test Suite Environment Variables
+When running the entire test suite, set these environment variables:
+
+```bash
+SKIP_SLOW_TESTS=FALSE USE_MINI_HAZARDS=TRUE devtools::test()
+```
+
+#### Environment Variable Meanings
+- **SKIP_SLOW_TESTS=FALSE**: Ensures all tests run, including slower integration tests
+- **USE_MINI_HAZARDS=TRUE**: Uses smaller hazard data files for faster testing while maintaining test coverage
+
+#### Alternative Commands
+```bash
+# Using R console
+Sys.setenv(SKIP_SLOW_TESTS = "FALSE", USE_MINI_HAZARDS = "TRUE")
+devtools::test()
+
+# Using terminal
+SKIP_SLOW_TESTS=FALSE USE_MINI_HAZARDS=TRUE R -e "devtools::test()"
+```
+
+#### Quick Test Runs
+For faster development cycles, you can still run individual test files without these environment variables:
+```r
+devtools::test_file("tests/testthat/test-core_compute_risk.R")
+```
+
 ## Testing Best Practices
 
 ### 1. Write Tests First (TDD)
@@ -177,55 +224,7 @@ if (inherits(result, "try-error")) {
 - Test missing data scenarios
 - Test network/IO failures gracefully
 
-## File Organization
-
-### Test Files Structure
-```
-tests/testthat/
-├── helper-testdata.R           # Test data utilities
-├── test-app_ui.R              # Main app UI tests
-├── test-app_server.R          # Main app server tests
-├── test-app_e2e.R             # App end-to-end tests
-├── test-mod_risk.R            # Risk module tests
-├── test-mod_upload.R          # Upload module tests
-├── test-core_compute_risk.R   # Core function tests
-└── test-*_e2e.R              # Feature-specific E2E tests
-```
-
-### Test Data
-- Store in `tests/tests_data/` directory
-- Use minimal but representative datasets
-- Keep test data deterministic and reproducible
-
-## Golem Integration Testing
-
-### Development Workflow
-- Test with `golem::run_dev()` using environment variables
-- Test with `run_app(base_dir = "path")` for direct usage
-- Test both parameterized and non-parameterized app startup
-
-### Environment Variables
-```r
-# Test with environment variable
-CLIMATE_RISK_BASE_DIR='tests/tests_data' golem::run_dev()
-
-# Test without environment variable  
-golem::run_dev()  # User enters path in UI
-```
-
-### Module Testing in Golem
-```r
-# Test module in isolation
-testthat::test_that("module works independently", {
-  # Test module UI and server separately
-  ui <- mod_risk_ui("test")
-  shiny::testServer(mod_risk_server, args = list(id = "test"), {
-    # Test module logic
-  })
-})
-```
-
-## Common Patterns
+## Common Testing Patterns
 
 ### Testing File Uploads
 ```r
@@ -258,7 +257,7 @@ testthat::test_that("modules communicate correctly", {
 })
 ```
 
-## Dependencies
+## Dependencies & Setup
 
 ### Required Packages
 - `testthat` - Core testing framework
@@ -272,31 +271,30 @@ skip_if_not_installed("shiny")
 skip_if_not_installed("shinytest2")
 ```
 
-## Documentation
+## Golem Integration Testing
 
-### Update WORKING_DOCUMENT.md
-- Document new test patterns when adding them
-- Update testing strategy when workflow changes
-- Note any testing challenges or solutions
+### Development Workflow
+- Test with `golem::run_dev()` using environment variables
+- Test with `run_app(base_dir = "path")` for direct usage
+- Test both parameterized and non-parameterized app startup
 
-### Test Documentation
-- Use descriptive test names that explain the behavior
-- Add comments for complex test logic
-- Document test data requirements and assumptions
+### Environment Variables
+```r
+# Test with environment variable
+CLIMATE_RISK_BASE_DIR='tests/tests_data' golem::run_dev()
 
-## Module-Specific Guidelines
+# Test without environment variable  
+golem::run_dev()  # User enters path in UI
+```
 
-### Module UI Testing
-- Test that module creates expected namespace IDs
-- Test that module UI elements are properly structured
-- Test that module integrates with parent app layout
-
-### Module Server Testing
-- Test module server logic in isolation
-- Test module input/output handling
-- Test module reactive value management
-
-### Module Integration Testing
-- Test how modules communicate with each other
-- Test module lifecycle (creation, updates, destruction)
-- Test module error handling and recovery
+### Module Testing in Golem
+```r
+# Test module in isolation
+testthat::test_that("module works independently", {
+  # Test module UI and server separately
+  ui <- mod_risk_ui("test")
+  shiny::testServer(mod_risk_server, args = list(id = "test"), {
+    # Test module logic
+  })
+})
+```

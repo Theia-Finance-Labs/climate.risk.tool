@@ -2,19 +2,21 @@
 % Please edit documentation in R/core_load_hazards.R
 \name{load_hazards}
 \alias{load_hazards}
-\title{Load hazard raster data from directory}
+\title{Load hazard raster data from directory (with hazard-type subfolders)}
 \usage{
 load_hazards(hazards_dir)
 }
 \arguments{
-\item{hazards_dir}{Character string specifying the directory containing hazard .tif files}
+\item{hazards_dir}{Character string specifying the directory containing hazard subfolders with .tif files}
 }
 \value{
-Named list of SpatRaster objects, one for each .tif file found
+Named list of SpatRaster objects, one for each scenario raster found
 }
 \description{
-Reads all .tif raster files from a specified directory and returns them as a named list.
-Names are derived from the file basenames without extension.
+Reads all .tif raster files from a specified \code{hazards_dir}, looking recursively
+into hazard-type subfolders (e.g., \verb{floods/}, \verb{heat/}). Each file within a subfolder is
+treated as a scenario for that hazard type. Returns a named list of \code{terra::SpatRaster}
+objects where names follow the convention \code{"<hazardType>__<scenario>"}.
 }
 \details{
 Load hazard raster files

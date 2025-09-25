@@ -70,15 +70,20 @@ compute_asset_impact <- function(assets_with_shocks) {
     "geometry", "centroid"
   )
   
-  # Remove working columns that exist
+  # Remove working columns that exist, but never remove essential columns
+  essential_cols <- c("asset", "company", "share_of_economic_activity")
   existing_working_cols <- intersect(working_cols, names(result))
+  # Ensure we never accidentally remove essential columns
+  existing_working_cols <- setdiff(existing_working_cols, essential_cols)
+  
   if (length(existing_working_cols) > 0) {
     result <- result[, !names(result) %in% existing_working_cols, drop = FALSE]
   }
   
-  # Validate the result
-  if (!"share_of_economic_activity" %in% names(result)) {
-    stop("share_of_economic_activity column was unexpectedly removed")
+  # Validate the result - ensure all essential columns are present
+  missing_essential <- setdiff(essential_cols, names(result))
+  if (length(missing_essential) > 0) {
+    stop(paste("Essential columns were unexpectedly removed:", paste(missing_essential, collapse = ", ")))
   }
   
   if (!is.numeric(result$share_of_economic_activity)) {

@@ -10,7 +10,7 @@ compute_risk(
   hazards,
   areas,
   damage_factors,
-  shock_year,
+  events,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05,
@@ -28,7 +28,8 @@ compute_risk(
 
 \item{damage_factors}{Data frame with damage and cost factors, or path to CSV file}
 
-\item{shock_year}{Numeric. Year when acute climate shock occurs (for step 6)}
+\item{events}{data.frame with columns \code{hazard_type}, \code{scenario}, \code{event_year} (or NA), \code{chronic}.
+When multiple rows are provided, events are combined (currently min share per asset).}
 
 \item{growth_rate}{Numeric. Revenue growth rate assumption (default: 0.02)}
 
@@ -43,16 +44,15 @@ List containing final results:
 \itemize{
 \item assets: Pivoted asset results with NPV by scenario
 \item companies: Pivoted company results with NPV, PD, and Expected Loss by scenario
-\item intermediate: List of intermediate results from each pipeline step
 }
 }
 \description{
-Executes the complete 16-step climate risk analysis pipeline from pre-loaded inputs
-to final risk metrics. This function serves as the main entry point and documentation
-center for the entire climate risk assessment workflow.
+Orchestrates the split pipeline: (1) compute hazard event impacts on assets
+and (2) compute financial results from asset scenarios. This replaces the previous
+monolithic pipeline and is now the single entry point.
 }
 \details{
-Compute Climate Risk Analysis
+Compute Climate Risk Analysis (orchestrator)
 
 The function executes the following 16-step pipeline:
 \enumerate{
@@ -88,6 +88,12 @@ areas <- load_location_areas(
   file.path(base_dir, "areas", "province")
 )
 damage_factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
+events <- data.frame(
+  hazard_type = "flood",
+  scenario = "rcp85",
+  event_year = 2030,
+  chronic = FALSE
+)
 
 # Run complete climate risk analysis
 results <- compute_risk(
@@ -96,7 +102,7 @@ results <- compute_risk(
   hazards = hazards,
   areas = areas,
   damage_factors = damage_factors_path,
-  shock_year = 2030,
+  events = events,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05
@@ -106,7 +112,5 @@ results <- compute_risk(
 asset_results <- results$assets
 company_results <- results$companies
 
-# Access intermediate results for debugging
-intermediate_data <- results$intermediate
 }
 }

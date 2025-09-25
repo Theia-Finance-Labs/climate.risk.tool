@@ -1,0 +1,159 @@
+---
+globs: *.R
+description: Data manipulation best practices for dplyr and data processing
+---
+
+# Data Manipulation Best Practices
+
+## dplyr Best Practices
+
+### Data Masking
+- **ALWAYS use `.data$column_name` inside dplyr verbs** to avoid R CMD check warnings
+- Example: `dplyr::filter(.data$country == "BR")` not `filter(country == "BR")`
+- This ensures proper scoping and prevents issues with global variables
+
+### Package References
+- **NEVER use `library()` calls** - use `pkg::function()` syntax instead
+- Example: `dplyr::filter()`, `tidyr::pivot_longer()`, `sf::st_read()`
+- This makes dependencies explicit and prevents namespace conflicts
+
+### Function Imports
+- NEVER use `@importFrom` in roxygen2 documentation
+- Always use `pkg::function()` notation in code instead
+- This keeps NAMESPACE clean and makes dependencies explicit
+
+### Data Pipeline
+- Chain operations with `%>%` or `|>` for readability
+- Use meaningful variable names in intermediate steps
+- Comment complex data transformations
+
+## Data Processing Patterns
+
+### Safe Data Access
+```r
+# Always use .data$ for column references
+dplyr::filter(.data$status == "active") %>%
+  dplyr::select(.data$id, .data$name, .data$value)
+
+# Avoid bare column names
+# BAD: filter(status == "active")
+# GOOD: filter(.data$status == "active")
+```
+
+### Package Function Usage
+```r
+# Always use package::function() notation
+dplyr::mutate(.data$new_col = .data$old_col * 2) %>%
+  tidyr::pivot_longer(cols = c(.data$col1, .data$col2))
+
+# Avoid library() calls
+# BAD: library(dplyr); filter(...)
+# GOOD: dplyr::filter(...)
+```
+
+### Data Pipeline Structure
+```r
+# Use meaningful intermediate steps
+processed_data <- raw_data %>%
+  dplyr::filter(.data$status == "active") %>%
+  dplyr::mutate(
+    # Calculate derived variables
+    .data$total_value = .data$base_value * .data$multiplier,
+    .data$category = dplyr::case_when(
+      .data$value > 100 ~ "high",
+      .data$value > 50 ~ "medium",
+      TRUE ~ "low"
+    )
+  ) %>%
+  dplyr::group_by(.data$category) %>%
+  dplyr::summarise(
+    .data$avg_value = mean(.data$total_value, na.rm = TRUE),
+    .data$count = dplyr::n(),
+    .groups = "drop"
+  )
+
+# Comment complex transformations
+final_data <- processed_data %>%
+  # Apply business rules for risk categorization
+  dplyr::mutate(
+    .data$risk_level = dplyr::case_when(
+      .data$avg_value > 200 ~ "high_risk",
+      .data$avg_value > 100 ~ "medium_risk", 
+      TRUE ~ "low_risk"
+    )
+  )
+```
+
+## Spatial Data Handling
+
+### sf Package Usage
+```r
+# Use sf:: prefix for spatial operations
+spatial_data <- sf::st_read("path/to/geodata.shp") %>%
+  sf::st_transform(crs = 4326) %>%
+  sf::st_filter(boundary_polygon)
+
+# Spatial joins
+result <- points %>%
+  sf::st_join(polygons, join = sf::st_within)
+```
+
+## Error Handling in Data Operations
+
+# Use in pipeline
+validated_data <- raw_data %>%
+  validate_data() %>%
+  dplyr::filter(.data$value > 0)
+```
+
+## Performance Considerations
+
+### Efficient Data Operations
+```r
+# Use appropriate data types
+data <- data %>%
+  dplyr::mutate(
+    .data$date_col = lubridate::as_date(.data$date_string),
+    .data$factor_col = as.factor(.data$category)
+  )
+
+# Avoid repeated operations
+# BAD: Multiple filter operations
+# data %>% filter(col1 > 0) %>% filter(col2 < 100) %>% filter(col3 == "A")
+
+# GOOD: Single filter with multiple conditions
+data %>%
+  dplyr::filter(
+    .data$col1 > 0,
+    .data$col2 < 100,
+    .data$col3 == "A"
+  )
+```
+
+## Documentation in Data Pipelines
+
+### Comment Complex Logic
+```r
+climate_data <- raw_climate_data %>%
+  # Filter to active monitoring stations only
+  dplyr::filter(.data$status == "active") %>%
+  
+  # Calculate temperature anomalies from baseline
+  dplyr::mutate(
+    .data$temp_anomaly = .data$current_temp - .data$baseline_temp,
+    # Apply quality control flags
+    .data$quality_flag = dplyr::case_when(
+      abs(.data$temp_anomaly) > 5 ~ "suspect",
+      .data$sensor_age > 10 ~ "old_sensor",
+      TRUE ~ "good"
+    )
+  ) %>%
+  
+  # Group by region for regional analysis
+  dplyr::group_by(.data$region) %>%
+  dplyr::summarise(
+    .data$avg_anomaly = mean(.data$temp_anomaly, na.rm = TRUE),
+    .data$station_count = dplyr::n(),
+    .groups = "drop"
+  )
+```
