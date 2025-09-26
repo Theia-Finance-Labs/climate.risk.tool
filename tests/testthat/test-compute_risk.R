@@ -7,7 +7,7 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
     file.path(base_dir, "areas", "municipality"),
     file.path(base_dir, "areas", "province")
   )
-  damage_factors <- file.path(base_dir, "damage_and_cost_factors.csv")
+  damage_factors <- read_damage_cost_factors(base_dir)
 
   # Define two events - one acute, one chronic
   events <- data.frame(
@@ -65,7 +65,7 @@ testthat::test_that("compute_risk processes single acute event", {
     file.path(base_dir, "areas", "municipality"),
     file.path(base_dir, "areas", "province")
   )
-  damage_factors <- file.path(base_dir, "damage_and_cost_factors.csv")
+  damage_factors <- read_damage_cost_factors(base_dir)
 
   # Single acute event
   events <- data.frame(
@@ -116,7 +116,7 @@ testthat::test_that("compute_risk processes chronic event", {
     file.path(base_dir, "areas", "municipality"),
     file.path(base_dir, "areas", "province")
   )
-  damage_factors <- file.path(base_dir, "damage_and_cost_factors.csv")
+  damage_factors <- read_damage_cost_factors(base_dir)
 
   # Single chronic event
   events <- data.frame(
