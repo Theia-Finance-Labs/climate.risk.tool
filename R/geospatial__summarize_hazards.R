@@ -27,7 +27,7 @@ summarize_hazards <- function(assets_with_hazard_values) {
 
   # Identify standard asset columns to preserve
   standard_columns <- c("asset", "company", "latitude", "longitude", "municipality",
-                       "province", "asset_category", "size_in_m2", "share_of_economic_activity",
+                       "province", "asset_category", "size_in_m2", "size_in_hectare", "share_of_economic_activity",
                        "geometry", "centroid", "geolocation_method")
 
   # Find numeric columns that are not standard columns (these should be hazard columns)
