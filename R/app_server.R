@@ -96,7 +96,7 @@ app_server <- function(input, output, session) {
         file.path(base_dir, "areas", "municipality"),
         file.path(base_dir, "areas", "province")
       )
-      damage_factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
+      damage_factors <- read_damage_cost_factors(base_dir)
       
       values$data_loaded <- TRUE
       values$status <- "Data loaded. Running analysis..."
@@ -117,12 +117,11 @@ app_server <- function(input, output, session) {
         companies = companies,
         hazards = hazards,
         areas = areas,
-        damage_factors = damage_factors_path,
+        damage_factors = damage_factors,
         events = ev_df,
         growth_rate = 0.02,
         net_profit_margin = 0.1,
-        discount_rate = 0.05,
-        verbose = FALSE
+        discount_rate = 0.05
       )
       
       values$results_ready <- TRUE

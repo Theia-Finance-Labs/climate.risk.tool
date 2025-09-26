@@ -12,10 +12,11 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 
 ## 2) Core Split Pipeline (Final)
 
-- ✅ `compute_risk(assets, companies, hazards, areas, damage_factors, events, growth_rate, net_profit_margin, discount_rate, verbose)` → list(assets, companies)
-  - Orchestrates: `compute_hazard_events()` → combine per-asset across events (min share rule) → `build_scenarios()` → `compute_financials_from_assets()`.
-- ✅ `compute_hazard_events(assets, hazards, areas, events, damage_factors)` → long table [asset, company, event_id, hazard_type, scenario, event_year, chronic, share_of_economic_activity].
-- ✅ `compute_financials_from_assets(assets_scenarios, companies, growth_rate, net_profit_margin, discount_rate)` → list(assets, companies).
+- ✅ `compute_risk(assets, companies, hazards, areas, damage_factors, events, growth_rate, net_profit_margin, discount_rate)` → list(assets, companies, assets_yearly, companies_yearly)
+  - Orchestrates: `compute_hazard_events()` (geospatial + damage factors) → yearly trajectory computations → company aggregation.
+- ✅ `compute_hazard_events(assets, hazards, areas, damage_factors)` → assets in long format with geospatial hazard data and damage/cost factors joined by hazard_type.
+- ✅ Pipeline now uses long format hazard data throughout, with hazard_type column enabling proper joins with damage cost factors.
+- 🔄 Shock functions are currently placeholders - they pass through baseline values while maintaining the expected interface.
 
 Event combination rule: worst-case per asset (min share). Configurable later.
 
@@ -30,31 +31,31 @@ Event combination rule: worst-case per asset (min share). Configurable later.
 
 ### Workflow in app
 1. User configures events via module (can add many). Stored list drives analysis.
-2. Compute per-event asset impacts with `compute_hazard_events`.
-3. Combine events to shocked asset shares (current rule: min share per asset across events; configurable).
-4. Build baseline vs shock scenarios and run `compute_financials_from_assets`.
+2. Prepare assets with geospatial hazard data using `compute_hazard_events`.
+3. Process events, combine to shocked asset shares, build scenarios, and compute asset-level financials with `compute_assets_financials`.
+4. Aggregate to company-level risk metrics using `compute_companies_financials`.
 
 ### Individual Pipeline Functions  
 - ✅ read_assets(base_dir) -> data.frame - reads asset CSV file from base_dir/user_input/, converts to snake_case, parses numeric columns
 - ✅ read_companies(file_path) -> data.frame - reads company CSV file from specified path, converts to snake_case, parses numeric columns
+- ✅ read_damage_cost_factors(base_dir) -> data.frame - reads damage and cost factors CSV from base_dir/, handles comma decimal separators, converts to snake_case
 - ✅ load_hazards(hazards_dir) -> named list of SpatRaster objects from .tif files; searches recursively in hazard-type subfolders (e.g., `floods/`, `heat/`) and names layers as `hazardType__scenario` based on subfolder and filename (sans extension)
 - ✅ load_location_areas(municipalities_dir, provinces_dir) -> list(municipalities, provinces) - loads both area types at once
 - ✅ load_municipalities(municipalities_dir) -> named list of sf objects from .geojson files
 - ✅ load_provinces(provinces_dir) -> named list of sf objects from .geojson files  
 - ✅ geolocate_assets(assets, hazards, municipalities_areas, provinces_areas) -> assets_with_geometry - adds geometry and centroid columns using lat/lon > municipality > province priority, uses size_in_m2 for lat/lon buffer sizing, now includes geolocation_method column
 - ✅ cutout_hazards(assets_with_geometry, hazards) -> assets_with_hazard_values - extracts hazard raster values for each asset geometry, optimized to group by municipality/province for efficiency
-- ✅ summarize_hazards(assets_with_hazard_values) -> assets_with_hazard_means - creates mean summary columns for each hazard
-- ✅ join_damage_cost_factors(assets_with_hazard_means, factors_csv) -> assets_with_factors - maps hazard intensity to damage/cost factors by nearest integer and asset_category
-- ✅ apply_acute_shock(df, shock_year) -> df + `acute_shock` - calculates sudden climate event impacts based on hazard intensity and shock year
-- ✅ apply_chronic_shock(df) -> df + `chronic_shock` - calculates gradual climate change impacts focusing on temperature and precipitation trends
-- ✅ compute_asset_impact(df) -> df with updated `share_of_economic_activity` - combines all impact factors and removes working columns
-- ✅ build_scenarios(original_assets, shocked_assets) -> assets_long_scenarios - concatenates baseline and shock data with ordered factor scenario column
-- ✅ compute_asset_revenue(df_assets, df_companies, growth_rate) -> df_assets_rev - allocates company revenue to assets based on share_of_economic_activity and growth_rate
-- ✅ compute_asset_profits(df_assets_rev, net_profit_margin) -> df_assets_profit - multiplies asset revenue by net profit margin
-- ✅ discount_net_profits(df_assets_profit, discount_rate) -> df_assets_dnp - applies present value discounting using company-specific terms where available
-- ✅ compute_company_npv(df_assets_dnp) -> df_companies_npv - aggregates asset discounted profits to company-level NPV by scenario
-- ✅ compute_company_pd_merton(df_companies_npv) -> df_companies_pd - calculates probability of default using simplified Merton model with company debt and volatility
-- ✅ compute_expected_loss(df_companies_pd) -> df_companies_el - computes expected loss using EL = LGD * Loan_Size * PD formula
+- ✅ summarize_hazards(assets_with_hazard_values) -> assets_long_format - **NEW**: transforms to long format with hazard_name, hazard_type, hazard_intensity columns (one row per asset-hazard combination)
+- ✅ join_damage_cost_factors(assets_long_format, damage_factors_df) -> assets_with_factors - **UPDATED**: joins on hazard_type, rounded hazard_intensity, and asset_category using dataframe parameter
+- ✅ compute_hazard_events(assets, hazards, areas, damage_factors) -> assets_with_factors - **UPDATED**: orchestrates geolocation, cutout, summarize, and join operations in one function
+- 🔄 apply_acute_shock_yearly(yearly_trajectories, assets_factors, acute_events) -> shocked_trajectories - **REFACTORED**: now takes events dataframe as input, currently passes through values unchanged (shock logic to be implemented)
+- 🔄 apply_chronic_shock_yearly(yearly_trajectories, assets_factors, chronic_events) -> shocked_trajectories - **REFACTORED**: now takes events dataframe as input, currently passes through values unchanged (shock logic to be implemented)
+- ✅ compute_shock_trajectories(yearly_baseline, assets_with_factors, events) -> shocked_yearly - **REFACTORED**: splits events into acute/chronic dataframes, applies shocks sequentially (acute first, then chronic), removes metadata aggregation logic
+- ✅ build_yearly_scenarios(baseline_yearly, shocked_yearly) -> combined_scenarios - concatenates baseline and shock yearly trajectories
+- ✅ compute_baseline_trajectories(baseline_assets, companies, growth_rate, net_profit_margin) -> yearly_baseline - computes baseline revenue and profit trajectories over time
+- ✅ discount_yearly_profits(yearly_scenarios, discount_rate) -> discounted_yearly - applies present value discounting to yearly trajectories
+- ✅ compute_company_yearly_trajectories(assets_discounted_yearly) -> company_yearly - aggregates asset yearly data to company level
+- ✅ compute_companies_financials(company_yearly, assets_yearly, discount_rate) -> list(assets, companies) - computes final NPV, PD, and Expected Loss metrics
 - ✅ gather_and_pivot_results(df_assets, df_companies) -> list(assets_pivot, companies_pivot) - transforms scenario data into wide format for reporting
 
 ## 4) Testing strategy

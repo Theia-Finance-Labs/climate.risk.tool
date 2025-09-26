@@ -29,7 +29,7 @@ library(climate.risk.tool)
 # Path to your input data directory. It must contain:
 # - user_input/: asset_information.csv, company.csv
 # - areas/municipality/ and areas/province/ with .geojson files
-# - hazards/: .tif raster files
+# - hazards/[hazard_type]: .tif raster files
 # - damage_and_cost_factors.csv
 base_dir <- "/path/to/your/data"
 
@@ -41,7 +41,7 @@ areas <- load_location_areas(
   file.path(base_dir, "areas", "municipality"),
   file.path(base_dir, "areas", "province")
 )
-damage_factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
+damage_factors <- read_damage_cost_factors(base_dir)
 
 # Create test events
 events <- data.frame(
@@ -60,17 +60,18 @@ results <- compute_risk(
   companies = companies,
   hazards = hazards,
   areas = areas,
-  damage_factors = damage_factors_path,
+  damage_factors = damage_factors,
   events=events,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
-  discount_rate = 0.05,
-  verbose = TRUE
+  discount_rate = 0.05
 )
 
 # Access results
 results$assets
 results$companies
+results$assets_yearly
+results$companies_yearly
 ``` 
 
 ### 2. Interactive Shiny Application
@@ -147,7 +148,44 @@ devtools::check()      # Full R CMD CHECK
 
 ### 5. Package Structure
 
-- `R/` - Main package functions
-- `tests/testthat/` - Unit and integration tests  
+The codebase is organized into logical modules using a clear naming convention:
+
+#### Core Modules in `R/` Directory
+
+- **`assets__*.R`** - Asset-level calculations and transformations
+  - Baseline trajectories, shock applications, yearly scenarios
+  - Revenue and profit computations, discounting operations
+
+- **`companies__*.R`** - Company-level financial analysis
+  - NPV calculations, probability of default (Merton model)
+  - Expected loss computations, financial aggregations
+
+- **`geospatial__*.R`** - Geographic and hazard processing
+  - Asset geolocation, hazard data loading and processing
+  - Spatial operations, damage factor integration
+
+- **`utils__*.R`** - Utility functions and data I/O
+  - Input data reading, hazard inventory management
+  - Area loading, result gathering and formatting
+
+- **`mod_*.R`** - Shiny application modules
+  - UI/Server pairs for interactive components
+  - Modular Shiny architecture following golem framework
+
+- **`app_*.R`** - Main application components
+  - App configuration, UI layout, server logic
+  - Entry points for the Shiny application
+
+- **`compute_risk.R`** - Main orchestration function
+  - Coordinates the complete climate risk analysis pipeline
+  - Integrates all modules for end-to-end processing
+
+- **`run_app.R`** - Application launcher
+  - Entry point for starting the Shiny application
+
+#### Other Key Directories
+
+- `tests/testthat/` - Unit and integration tests following TDD principles
 - `tests/tests_data/` - Test data for development and testing
+- `man/` - Auto-generated documentation (do not edit manually)
 - `WORKING_DOCUMENT.md` - Development notes and function contracts
