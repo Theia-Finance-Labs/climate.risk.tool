@@ -7,10 +7,10 @@
 mod_hazards_events_server(id, hazards_inventory)
 }
 \arguments{
-\item{hazards_inventory}{reactive data.frame with columns: key, hazard_type, scenario}
+\item{hazards_inventory}{reactive data.frame with columns: key, hazard_type, hazard_name}
 }
 \value{
-reactive data.frame of configured events with columns: event_id, hazard_key, event_year, chronic
+reactive data.frame of configured events with columns: event_id, hazard_type, hazard_name, event_year, chronic
 }
 \description{
 hazards_events Server Functions
