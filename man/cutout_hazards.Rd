@@ -4,12 +4,25 @@
 \alias{cutout_hazards}
 \title{Extract hazard raster values for asset polygons}
 \usage{
-cutout_hazards(assets_with_geometry, hazards)
+cutout_hazards(
+  assets_with_geometry,
+  hazards,
+  use_exactextractr = TRUE,
+  parallel = FALSE,
+  crop_margin = 0.001,
+  batch_groups = TRUE
+)
 }
 \arguments{
 \item{assets_with_geometry}{Data frame with asset information including geometry and geolocation_method columns (from geolocate_assets)}
 
 \item{hazards}{Named list of hazard rasters (from load_hazards)}
+
+\item{use_exactextractr}{Logical. If TRUE and package available, use exactextractr for polygon means (faster and accurate)}
+
+\item{parallel}{Logical. If TRUE and future.apply available, parallelize across hazards}
+
+\item{crop_margin}{Numeric. Margin added around geometry extent when cropping raster before extraction}
 }
 \value{
 Data frame with original columns plus one numeric column per hazard containing extracted values

@@ -10,7 +10,7 @@ mod_control_server(id, base_dir_reactive)
 \item{base_dir_reactive}{reactive containing base directory path}
 }
 \value{
-list with reactive values for company_file, events, run_trigger, and results_ready
+list with reactive values for company_file, events, run_trigger, results_ready, aggregation_factor, and get_hazards_at_factor
 }
 \description{
 control Server Functions

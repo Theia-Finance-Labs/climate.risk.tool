@@ -4,10 +4,25 @@
 \alias{load_hazards}
 \title{Load hazard raster data from directory (with hazard-type subfolders)}
 \usage{
-load_hazards(hazards_dir)
+load_hazards(
+  hazards_dir,
+  aggregate_factor = 16L,
+  cache_aggregated = TRUE,
+  force_reaggregate = FALSE,
+  memfrac = 0.3
+)
 }
 \arguments{
 \item{hazards_dir}{Character string specifying the directory containing hazard subfolders with .tif files}
+
+\item{aggregate_factor}{Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)}
+
+\item{cache_aggregated}{Logical. If TRUE and aggregate_factor > 1, save and reuse aggregated rasters next to originals
+with filename suffix \verb{__agg\{factor\}.tif} (default: TRUE)}
+
+\item{force_reaggregate}{Logical. If TRUE, recompute aggregated rasters even if cached files exist (default: FALSE)}
+
+\item{memfrac}{Numeric in (0,1]. Memory fraction hint passed to terra options during load (default: 0.3)}
 }
 \value{
 Named list of SpatRaster objects, one for each scenario raster found

@@ -11,14 +11,16 @@ testthat::test_that("compute_shock_trajectories processes acute events", {
   
   assets_factors <- data.frame(
     asset = c("A1", "A2"),
-    floods__rcp85_mean = c(0.5, 0.3),
+    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
+    damage_factor = c(0.5, 0.3),
+    cost_factor = c(100, 80),
     asset_category = c("Industrial", "Commercial")
   )
   
   events <- data.frame(
     event_id = "e1",
-    hazard_type = "floods",
-    scenario = "rcp85",
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = 2030L,
     chronic = FALSE,
     stringsAsFactors = FALSE
@@ -53,14 +55,16 @@ testthat::test_that("compute_shock_trajectories processes chronic events", {
   
   assets_factors <- data.frame(
     asset = "A1",
-    temperature__rcp85_mean = 35,
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
+    damage_factor = 35,
+    cost_factor = 50,
     asset_category = "Industrial"
   )
   
   events <- data.frame(
     event_id = "e1",
-    hazard_type = "temperature",
-    scenario = "rcp85",
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = NA_integer_,
     chronic = TRUE,
     stringsAsFactors = FALSE
@@ -88,27 +92,59 @@ testthat::test_that("compute_shock_trajectories handles multiple events", {
   )
   
   assets_factors <- data.frame(
-    asset = "A1",
-    floods__rcp85_mean = 10,
-    temperature__rcp85_mean = 35,
-    asset_category = "Industrial"
+    asset = c("A1", "A1"),
+    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
+    damage_factor = c(10, 35),
+    cost_factor = c(200, 150),
+    asset_category = c("Industrial", "Industrial")
   )
-  
+
   events <- data.frame(
     event_id = c("e1", "e2"),
-    hazard_type = c("floods", "temperature"),
-    scenario = c("rcp85", "rcp85"),
+    hazard_type = c("flood", "flood"),
+    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
     event_year = c(2030L, NA_integer_),
     chronic = c(FALSE, TRUE),
     stringsAsFactors = FALSE
   )
-  
+
   result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
   
   # Should take minimum impact across events
   testthat::expect_true(all(result$shocked_revenue <= yearly_baseline$baseline_revenue))
   testthat::expect_true(all(result$shocked_profit <= yearly_baseline$baseline_profit))
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
+})
+
+testthat::test_that("compute_shock_trajectories applies hazard-specific filtering", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1", "A2", "A2"),
+    company = c("C1", "C1", "C1", "C1"),
+    year = c(2025, 2030, 2025, 2030),
+    baseline_revenue = c(1000, 1200, 800, 960),
+    baseline_profit = c(100, 120, 80, 96)
+  )
+
+  assets_factors <- data.frame(
+    asset = c("A1", "A1", "A2", "A2"),
+    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
+    damage_factor = c(0.2, 0.1, 0.3, 0.15),
+    cost_factor = c(500, 300, 700, 400),
+    asset_category = c("Industrial", "Industrial", "Commercial", "Commercial")
+  )
+
+  events <- data.frame(
+    event_id = c("e1", "e2"),
+    hazard_type = c("flood", "flood"),
+    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
+    event_year = c(2030L, NA_integer_),
+    chronic = c(FALSE, TRUE),
+    stringsAsFactors = FALSE
+  )
+
+  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
+
+  testthat::expect_true(all(c("shocked_revenue", "shocked_profit") %in% names(result)))
 })
 
 testthat::test_that("compute_shock_trajectories validates inputs", {
@@ -122,14 +158,15 @@ testthat::test_that("compute_shock_trajectories validates inputs", {
   
   assets_factors <- data.frame(
     asset = "A1",
-    hazard_mean_flood = 5,
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
+    damage_factor = 5,
     asset_category = "Industrial"
   )
   
   events <- data.frame(
     event_id = "e1",
     hazard_type = "flood",
-    scenario = "rcp85",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = 2030L,
     chronic = FALSE
   )

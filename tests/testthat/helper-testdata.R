@@ -98,44 +98,18 @@ create_discounted_assets <- function() {
   )
 }
 
-# Helper to get or create shared precomputed assets factors for tests
-get_shared_precomputed_assets_factors <- function() {
+# Helper to load test data for compute_risk tests
+get_test_compute_risk_data <- function() {
   base_dir <- get_test_data_dir()
-  precomputed_file <- file.path(base_dir, "hazards", "assets_factors_precomputed.rds")
-  
-  # If file exists and is valid, return it immediately
-  if (file.exists(precomputed_file)) {
-    tryCatch({
-      cached_data <- readRDS(precomputed_file)
-      if (is.data.frame(cached_data) && nrow(cached_data) > 0) {
-        return(precomputed_file)
-      }
-    }, error = function(e) {
-      # File corrupted, will recreate below
-    })
-  }
-  
-  # Only load data and create file if it doesn't exist or is invalid
-  message("Creating shared precomputed assets factors for tests...")
-  
-  assets <- read_assets(base_dir)
-  hazards <- load_hazards(file.path(base_dir, "hazards"))
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
+  list(
+    base_dir = base_dir,
+    assets = read_assets(base_dir),
+    companies = read_companies(file.path(base_dir, "user_input", "company.csv")),
+    hazards = load_hazards(file.path(base_dir, "hazards")),
+    areas = load_location_areas(
+      file.path(base_dir, "areas", "municipality"),
+      file.path(base_dir, "areas", "province")
+    ),
+    damage_factors = read_damage_cost_factors(base_dir)
   )
-  damage_factors <- read_damage_cost_factors(base_dir)
-  
-  suppressMessages({
-    precomputed_file <- precompute_assets_factors(
-      assets = assets,
-      hazards = hazards,
-      areas = areas,
-      damage_factors = damage_factors,
-      hazards_dir = file.path(base_dir, "hazards"),
-      force_recompute = TRUE
-    )
-  })
-  
-  return(precomputed_file)
 }

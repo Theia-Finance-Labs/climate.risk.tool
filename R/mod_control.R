@@ -19,6 +19,18 @@ mod_control_ui <- function(id) {
     
     shiny::div(
       class = "control-section",
+      shiny::h4("Hazard Resolution", class = "section-header"),
+      shiny::selectInput(
+        ns("agg_factor"),
+        "Aggregation Factor:",
+        choices = c("16" = 16, "64" = 64, "128" = 128),
+        selected = 16
+      ),
+      shiny::helpText("Higher values = faster processing, lower spatial resolution")
+    ),
+    
+    shiny::div(
+      class = "control-section",
       mod_hazards_events_ui(ns("hazards"), title = "Hazard Events")
     ),
     
@@ -51,7 +63,7 @@ mod_control_ui <- function(id) {
 #' control Server Functions
 #'
 #' @param base_dir_reactive reactive containing base directory path
-#' @return list with reactive values for company_file, events, run_trigger, and results_ready
+#' @return list with reactive values for company_file, events, run_trigger, results_ready, aggregation_factor, and get_hazards_at_factor
 #' @export
 mod_control_server <- function(id, base_dir_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -70,7 +82,11 @@ mod_control_server <- function(id, base_dir_reactive) {
       dir_hz <- file.path(base_dir, "hazards")
       if (!dir.exists(dir_hz)) return(NULL)
       
-      load_hazards(dir_hz)
+      # Use the aggregation factor from the slider
+      agg_factor <- input$agg_factor
+      if (is.null(agg_factor)) agg_factor <- 16L
+      
+      load_hazards(dir_hz, aggregate_factor = as.integer(agg_factor))
     })
     
     # Hazards inventory
@@ -78,7 +94,7 @@ mod_control_server <- function(id, base_dir_reactive) {
       base_dir <- base_dir_reactive()
       if (is.null(base_dir) || base_dir == "") return(data.frame())
       haz <- get_hazards_at_factor()
-      if (is.null(haz)) return(data.frame())
+      if (is.null(haz) || length(haz) == 0) return(data.frame())
       inv <- try(list_hazard_inventory(haz), silent = TRUE)
       if (inherits(inv, "try-error")) data.frame() else inv
     })
@@ -99,6 +115,11 @@ mod_control_server <- function(id, base_dir_reactive) {
       run_trigger = shiny::reactive({ input$run_analysis }),
       results_ready = shiny::reactive({ values$results_ready }),
       results = shiny::reactive({ values$results }),
+      aggregation_factor = shiny::reactive({
+        agg <- input$agg_factor
+        if (is.null(agg)) 16L else as.integer(agg)
+      }),
+      hazards_inventory = hazards_inventory,
       get_hazards_at_factor = get_hazards_at_factor,
       set_results = function(results) {
         values$results <- results

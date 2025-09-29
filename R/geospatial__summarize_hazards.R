@@ -30,9 +30,9 @@ summarize_hazards <- function(assets_with_hazard_values) {
                        "province", "asset_category", "size_in_m2", "size_in_hectare", "share_of_economic_activity",
                        "geometry", "centroid", "geolocation_method")
 
-  # Find numeric columns that are not standard columns (these should be hazard columns)
-  all_numeric_cols <- names(assets_with_hazard_values)[sapply(assets_with_hazard_values, is.numeric)]
-  hazard_columns <- setdiff(all_numeric_cols, standard_columns)
+  # Find list columns that are not standard columns (these should be hazard columns with raw pixel values)
+  all_list_cols <- names(assets_with_hazard_values)[sapply(assets_with_hazard_values, is.list)]
+  hazard_columns <- setdiff(all_list_cols, standard_columns)
 
   if (length(hazard_columns) == 0) {
     warning("No hazard columns found to summarize")
@@ -77,18 +77,23 @@ summarize_hazards <- function(assets_with_hazard_values) {
     hazard_type <- hazard_info$hazard_type[i]
     hazard_name <- hazard_info$hazard_name[i]
     
-    # Create one row per asset for this hazard
+    # Create one row per asset for this hazard, aggregating raw pixel values
     asset_hazard_data <- base_data
     asset_hazard_data$hazard_name <- hazard_name
     asset_hazard_data$hazard_type <- hazard_type
-    asset_hazard_data$hazard_intensity <- assets_with_hazard_values[[hazard_col]]
     
-    # Only include rows where hazard_intensity is not NA
-    asset_hazard_data <- asset_hazard_data[!is.na(asset_hazard_data$hazard_intensity), ]
+    # Aggregate raw pixel values to mean intensity per asset
+    raw_values <- assets_with_hazard_values[[hazard_col]]
+    asset_hazard_data$hazard_intensity <- sapply(raw_values, function(pixel_values) {
+      if (length(pixel_values) > 0) {
+        mean(pixel_values, na.rm = TRUE)
+      } else {
+        NA_real_
+      }
+    })
     
-    if (nrow(asset_hazard_data) > 0) {
-      long_data_list[[i]] <- asset_hazard_data
-    }
+    # Keep all rows, including NA intensities (one row per asset-hazard)
+    long_data_list[[i]] <- asset_hazard_data
   }
   
   # Combine all hazard data

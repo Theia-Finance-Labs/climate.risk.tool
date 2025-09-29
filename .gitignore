@@ -1,5 +1,4 @@
-tests/tests_data/hazards/flood/
-tests/tests_data/hazards/assets_factors_precomputed.rds
+tests/tests_data/hazards
 .env
 .venv/
 workspace/

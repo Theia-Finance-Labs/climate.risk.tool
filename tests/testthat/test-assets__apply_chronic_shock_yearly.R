@@ -11,13 +11,15 @@ testthat::test_that("apply_chronic_shock_yearly applies shocks to yearly traject
   
   assets_factors <- data.frame(
     asset = c("A1", "A2"),
-    hazard_mean_temperature = c(35, 40)
+    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
+    damage_factor = c(35, 40),
+    asset_category = c("Industrial", "Industrial")
   )
   
   chronic_events <- data.frame(
     event_id = "e1",
-    hazard_type = "temperature",
-    scenario = "rcp85",
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -46,13 +48,15 @@ testthat::test_that("apply_chronic_shock_yearly works with already shocked traje
   
   assets_factors <- data.frame(
     asset = "A1",
-    hazard_mean_temperature = 35
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
+    damage_factor = 35,
+    asset_category = "Industrial"
   )
   
   chronic_events <- data.frame(
     event_id = "e1",
-    hazard_type = "temperature",
-    scenario = "rcp85",
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -75,13 +79,15 @@ testthat::test_that("apply_chronic_shock_yearly validates input parameters", {
   
   assets_factors <- data.frame(
     asset = "A1",
-    hazard_mean_temperature = 35
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
+    damage_factor = 35,
+    asset_category = "Industrial"
   )
   
   chronic_events <- data.frame(
     event_id = "e1",
-    hazard_type = "temperature",
-    scenario = "rcp85",
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -128,13 +134,15 @@ testthat::test_that("apply_chronic_shock_yearly handles missing columns", {
   
   assets_factors <- data.frame(
     asset = "A1",
-    hazard_mean_temperature = 35
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
+    damage_factor = 35,
+    asset_category = "Industrial"
   )
   
   chronic_events <- data.frame(
     event_id = "e1",
-    hazard_type = "temperature",
-    scenario = "rcp85",
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -156,13 +164,15 @@ testthat::test_that("apply_chronic_shock_yearly ensures non-negative values", {
   
   assets_factors <- data.frame(
     asset = "A1",
-    hazard_mean_temperature = 35
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
+    damage_factor = 35,
+    asset_category = "Industrial"
   )
   
   chronic_events <- data.frame(
     event_id = "e1",
-    hazard_type = "temperature",
-    scenario = "rcp85",
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = NA_integer_,
     chronic = TRUE
   )

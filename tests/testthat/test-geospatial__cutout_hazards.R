@@ -2,11 +2,11 @@
 
 # Contract:
 # - cutout_hazards(assets_with_geometry, hazards)
-# - For each loaded hazard, add a numeric column with cell stats for the polygon
-# - Non-empty numeric columns added, names derived from hazard names
+# - For each loaded hazard, add a list column with all pixel values within the polygon
+# - Non-empty list columns added, names derived from hazard names
 
 
-testthat::test_that("cutout_hazards adds one numeric column per loaded hazard", {
+testthat::test_that("cutout_hazards adds one list column per loaded hazard", {
   skip_slow_tests()
   
   base_dir <- get_test_data_dir()
@@ -21,7 +21,7 @@ testthat::test_that("cutout_hazards adds one numeric column per loaded hazard", 
   # Added columns should be at least the number of hazards
   added <- setdiff(names(out), names(assets_geo))
   testthat::expect_gte(length(added), length(hazards))
-  testthat::expect_true(all(vapply(out[added], is.numeric, logical(1))))
+  testthat::expect_true(all(vapply(out[added], is.list, logical(1))))
 })
 
 
@@ -69,25 +69,25 @@ testthat::test_that("cutout_hazards optimizes by grouping municipality and provi
   
   out <- cutout_hazards(assets_geo, hazards)
   
-  # Test that assets with same municipality get same hazard values
+  # Test that assets with same municipality get same hazard pixel values
   hazard_names <- names(hazards)
   for (hazard_name in hazard_names) {
     if (hazard_name %in% names(out)) {
-      # Assets 1-2 (same municipality) should have identical values
-      testthat::expect_equal(out[[hazard_name]][1], out[[hazard_name]][2], 
-                           info = paste("Municipality assets should have same", hazard_name, "values"))
+      # Assets 1-2 (same municipality) should have identical pixel value lists
+      testthat::expect_equal(out[[hazard_name]][[1]], out[[hazard_name]][[2]], 
+                           info = paste("Municipality assets should have same", hazard_name, "pixel values"))
       
-      # Assets 3-4 (same province) should have identical values
-      testthat::expect_equal(out[[hazard_name]][3], out[[hazard_name]][4],
-                           info = paste("Province assets should have same", hazard_name, "values"))
+      # Assets 3-4 (same province) should have identical pixel value lists
+      testthat::expect_equal(out[[hazard_name]][[3]], out[[hazard_name]][[4]],
+                           info = paste("Province assets should have same", hazard_name, "pixel values"))
       
-      # Assets 5-6 (different coordinates) should have different values
-      # Only test if both values are not NA
-      val5 <- out[[hazard_name]][5]
-      val6 <- out[[hazard_name]][6]
-      if (!is.na(val5) && !is.na(val6)) {
-        testthat::expect_false(identical(val5, val6),
-                             info = paste("Coordinate assets should have different", hazard_name, "values"))
+      # Assets 5-6 (different coordinates) should have different pixel value lists
+      # Only test if both have non-empty pixel lists
+      pixels5 <- out[[hazard_name]][[5]]
+      pixels6 <- out[[hazard_name]][[6]]
+      if (length(pixels5) > 0 && length(pixels6) > 0) {
+        testthat::expect_false(identical(pixels5, pixels6),
+                             info = paste("Coordinate assets should have different", hazard_name, "pixel values"))
       }
     }
   }

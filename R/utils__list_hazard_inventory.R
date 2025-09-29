@@ -12,9 +12,16 @@ list_hazard_inventory <- function(hazards) {
   parts <- strsplit(keys, "__", fixed = TRUE)
   hazard_type <- vapply(parts, function(p) if (length(p) >= 1) p[[1]] else "unknown", character(1))
   scenario <- vapply(parts, function(p) if (length(p) >= 2) p[[2]] else "default", character(1))
+  hazard_name <- keys
   # Also provide a nested mapping for convenience in the app
-  df <- data.frame(key = keys, hazard_type = hazard_type, scenario = scenario, stringsAsFactors = FALSE)
-  attr(df, "by_hazard") <- split(df$scenario, df$hazard_type)
+  df <- data.frame(
+    key = keys,
+    hazard_type = hazard_type,
+    hazard_name = hazard_name,
+    scenario = scenario,
+    stringsAsFactors = FALSE
+  )
+  attr(df, "by_hazard") <- split(df$hazard_name, df$hazard_type)
   df
 }
 

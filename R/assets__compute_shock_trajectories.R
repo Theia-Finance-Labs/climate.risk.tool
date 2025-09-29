@@ -52,10 +52,23 @@ compute_shock_trajectories <- function(
          paste(setdiff(required_baseline_cols, names(yearly_baseline_profits)), collapse = ", "))
   }
   
-  required_event_cols <- c("event_id", "hazard_type", "scenario", "event_year", "chronic")
+  required_event_cols <- c("event_id", "hazard_type", "hazard_name", "event_year", "chronic")
   if (!all(required_event_cols %in% names(events))) {
     stop("events missing required columns: ", 
          paste(setdiff(required_event_cols, names(events)), collapse = ", "))
+  }
+
+  # Ensure hazard_name column exists in assets_with_factors
+  if (!"hazard_name" %in% names(assets_with_factors)) {
+    stop("assets_with_factors must contain 'hazard_name' column")
+  }
+
+  # Filter assets_with_factors to only the hazards referenced in events
+  relevant_hazards <- unique(events$hazard_name)
+  filtered_assets <- assets_with_factors[assets_with_factors$hazard_name %in% relevant_hazards, , drop = FALSE]
+
+  if (nrow(filtered_assets) == 0) {
+    stop("No matching hazard_name entries found in assets_with_factors for provided events")
   }
 
   # Split events into acute and chronic dataframes
@@ -69,7 +82,7 @@ compute_shock_trajectories <- function(
   if (nrow(acute_events) > 0) {
     current_trajectories <- apply_acute_shock_yearly(
       current_trajectories, 
-      assets_with_factors, 
+      filtered_assets, 
       acute_events
     )
   }
@@ -78,7 +91,7 @@ compute_shock_trajectories <- function(
   if (nrow(chronic_events) > 0) {
     current_trajectories <- apply_chronic_shock_yearly(
       current_trajectories, 
-      assets_with_factors, 
+      filtered_assets, 
       chronic_events
     )
   }

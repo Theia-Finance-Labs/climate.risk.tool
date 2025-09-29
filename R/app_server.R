@@ -40,66 +40,13 @@ app_server <- function(input, output, session) {
   mod_results_assets_server("results_assets", results_reactive = results)
   mod_results_companies_server("results_companies", results_reactive = results)
   
-  # Check and precompute assets factors on startup
+  # Check data directory on startup
   observe({
     base_dir <- get_base_dir()
     if (!is.null(base_dir) && base_dir != "") {
-      # Check if precomputed assets factors exist and are complete
-      hazards_dir <- file.path(base_dir, "hazards")
-      precomputed_file <- file.path(hazards_dir, "assets_factors_precomputed.rds")
-      
-      if (!file.exists(precomputed_file)) {
-        values$status <- "Precomputing assets factors (this may take a while on first run)..."
-        
-        # Load required data for precomputation
-        tryCatch({
-          assets <- read_assets(base_dir)
-          hazards <- load_hazards(hazards_dir)
-          areas <- load_location_areas(
-            file.path(base_dir, "areas", "municipality"),
-            file.path(base_dir, "areas", "province")
-          )
-          damage_factors <- read_damage_cost_factors(base_dir)
-          
-          # Progress callback for UI updates
-          progress_callback <- function(processed, total, message) {
-            progress_pct <- round((processed / total) * 100, 1)
-            values$status <- paste0("Precomputing assets factors: ", message, " (", processed, "/", total, " - ", progress_pct, "%)")
-          }
-          
-          # Precompute assets factors
-          precomputed_file <- precompute_assets_factors(
-            assets = assets,
-            hazards = hazards,
-            areas = areas,
-            damage_factors = damage_factors,
-            hazards_dir = hazards_dir,
-            progress_callback = progress_callback
-          )
-          
-          values$status <- "Assets factors precomputed successfully. Ready to run analysis."
-          
-        }, error = function(e) {
-          values$status <- paste0("Error precomputing assets factors: ", conditionMessage(e))
-        })
-      } else {
-        # Check if precomputed file is complete
-        tryCatch({
-          cached_data <- readRDS(precomputed_file)
-          if (is.data.frame(cached_data) && nrow(cached_data) > 0) {
-            values$status <- "Using cached assets factors. Ready to run analysis."
-          } else {
-            # File exists but is incomplete, recompute
-            values$status <- "Cached assets factors incomplete, recomputing..."
-            # Trigger recomputation by removing the file
-            file.remove(precomputed_file)
-          }
-        }, error = function(e) {
-          # File corrupted, recompute
-          values$status <- "Cached assets factors corrupted, recomputing..."
-          file.remove(precomputed_file)
-        })
-      }
+      values$status <- "Ready to run analysis."
+    } else {
+      values$status <- "Please set base directory to get started."
     }
   })
   
@@ -143,26 +90,25 @@ app_server <- function(input, output, session) {
         # Provide a default using first hazard_type and its first scenario
         inv <- list_hazard_inventory(hazards)
         default_ht <- unique(inv$hazard_type)[1]
-        default_sc <- inv$scenario[inv$hazard_type == default_ht][1]
+        default_hn <- inv$hazard_name[inv$hazard_type == default_ht][1]
         ev_df <- data.frame(
           event_id = "ev1", 
           hazard_type = default_ht, 
-          scenario = default_sc, 
+          hazard_name = default_hn, 
           event_year = 2030L, 
           chronic = FALSE, 
           stringsAsFactors = FALSE
         )
       }
       
-      # Use precomputed assets factors for faster analysis
-      precomputed_file <- file.path(file.path(base_dir, "hazards"), "assets_factors_precomputed.rds")
-      
-      # Run the complete climate risk analysis using precomputed assets factors
+      # Run the complete climate risk analysis
       results <- compute_risk(
         assets = assets,
         companies = companies,
         events = ev_df,
-        precomputed_assets_factors = precomputed_file,
+        hazards = hazards,
+        areas = areas,
+        damage_factors = damage_factors,
         growth_rate = 0.02,
         net_profit_margin = 0.1,
         discount_rate = 0.05

@@ -21,8 +21,8 @@ testthat::test_that("join_damage_cost_factors adds numeric damage_factor and cos
     asset_category = c("commercial building", "commercial building", "residential building", "residential building"),
     size_in_m2 = c(1000, 1000, 800, 800),
     share_of_economic_activity = c(0.5, 0.5, 0.3, 0.3),
-    hazard_name = c("flood__rcp85_h100", "temperature__rcp85", "flood__rcp85_h100", "temperature__rcp85"),
-    hazard_type = c("flood", "temperature", "flood", "temperature"),
+    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
+    hazard_type = c("flood", "flood", "flood", "flood"),
     hazard_intensity = c(12.4, 2.1, 8.7, 1.8),
     stringsAsFactors = FALSE
   )
