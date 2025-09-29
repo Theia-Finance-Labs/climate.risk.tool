@@ -7,10 +7,8 @@
 compute_risk(
   assets,
   companies,
-  hazards,
-  areas,
-  damage_factors,
   events,
+  precomputed_assets_factors,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05
@@ -21,14 +19,11 @@ compute_risk(
 
 \item{companies}{Data frame containing company information (from read_companies())}
 
-\item{hazards}{Named list of SpatRaster objects (from load_hazards())}
-
-\item{areas}{List containing municipalities and provinces named lists (from load_location_areas())}
-
-\item{damage_factors}{Data frame with damage and cost factors, or path to CSV file}
-
 \item{events}{data.frame with columns \code{hazard_type}, \code{scenario}, \code{event_year} (or NA), \code{chronic}.
 When multiple rows are provided, events are combined (currently min share per asset).}
+
+\item{precomputed_assets_factors}{Either a data.frame with precomputed assets factors,
+or a character string path to a precomputed RDS file (REQUIRED)}
 
 \item{growth_rate}{Numeric. Revenue growth rate assumption (default: 0.02)}
 
@@ -78,16 +73,28 @@ The function executes the following 16-step pipeline:
 }
 \examples{
 \dontrun{
-# Load data first
+# Method 1: Using precomputed assets factors (RECOMMENDED - much faster)
 base_dir <- system.file("tests_data", package = "climate.risk.tool")
 assets <- read_assets(base_dir)
 companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
+
+# Precompute assets factors once (this is the slow step)
 hazards <- load_hazards(file.path(base_dir, "hazards"))
 areas <- load_location_areas(
   file.path(base_dir, "areas", "municipality"),
   file.path(base_dir, "areas", "province")
 )
 damage_factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
+
+precomputed_file <- precompute_assets_factors(
+  assets = assets,
+  hazards = hazards,
+  areas = areas,
+  damage_factors = damage_factors_path,
+  hazards_dir = file.path(base_dir, "hazards")
+)
+
+# Now run analysis with precomputed data (fast!)
 events <- data.frame(
   hazard_type = "flood",
   scenario = "rcp85",
@@ -95,18 +102,16 @@ events <- data.frame(
   chronic = FALSE
 )
 
-# Run complete climate risk analysis
 results <- compute_risk(
   assets = assets,
   companies = companies,
-  hazards = hazards,
-  areas = areas,
-  damage_factors = damage_factors_path,
   events = events,
+  precomputed_assets_factors = precomputed_file,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05
 )
+
 
 # Access final results
 asset_results <- results$assets  # Aggregated asset NPV by scenario

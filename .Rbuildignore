@@ -10,3 +10,4 @@ $run_dev.*
 ^\.venv$
 ^.*\.pyc$
 ^__pycache__
+^climate\.risk\.tool\.Rproj$

@@ -13,9 +13,7 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
     shiny::div(
       shiny::actionButton(ns("add_event"), label = "Add hazard", class = "btn-secondary"),
       style = "margin-bottom:10px;"
-    ),
-    shiny::h5("Configured events"),
-    shiny::tableOutput(ns("events_table"))
+    )
   )
 }
 
@@ -108,13 +106,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           shiny::numericInput(ns(paste0("year_", k)), label = "Shock year", value = 2030, min = 2025, max = 2100, step = 1)
         }
       })
-    })
-
-    # Expose saved events list
-    output$events_table <- shiny::renderTable({
-      ev <- events_rv()
-      if (nrow(ev) == 0) return(NULL)
-      ev
     })
 
     # Return

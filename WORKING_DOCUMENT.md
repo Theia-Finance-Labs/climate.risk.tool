@@ -12,8 +12,13 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 
 ## 2) Core Split Pipeline (Final)
 
-- ✅ `compute_risk(assets, companies, hazards, areas, damage_factors, events, growth_rate, net_profit_margin, discount_rate)` → list(assets, companies, assets_yearly, companies_yearly)
-  - Orchestrates: `compute_hazard_events()` (geospatial + damage factors) → yearly trajectory computations → company aggregation.
+- ✅ `compute_risk(assets, companies, events, precomputed_assets_factors, growth_rate, net_profit_margin, discount_rate)` → list(assets, companies, assets_yearly, companies_yearly)
+  - **REFACTORED**: Now requires precomputed_assets_factors parameter for faster execution. No retrocompatibility - precomputation is mandatory.
+  - Orchestrates: precomputed assets factors → yearly trajectory computations → company aggregation.
+- ✅ `precompute_assets_factors(assets, hazards, areas, damage_factors, hazards_dir, progress_callback, force_recompute)` → path to saved RDS file
+  - **NEW**: Precomputes expensive geospatial operations and saves to disk for reuse. Includes progress tracking and validation.
+- ✅ `load_precomputed_assets_factors(precomputed_file)` → data.frame
+  - **NEW**: Loads precomputed assets factors from saved RDS file.
 - ✅ `compute_hazard_events(assets, hazards, areas, damage_factors)` → assets in long format with geospatial hazard data and damage/cost factors joined by hazard_type.
 - ✅ Pipeline now uses long format hazard data throughout, with hazard_type column enabling proper joins with damage cost factors.
 - 🔄 Shock functions are currently placeholders - they pass through baseline values while maintaining the expected interface.
@@ -48,6 +53,8 @@ Event combination rule: worst-case per asset (min share). Configurable later.
 - ✅ summarize_hazards(assets_with_hazard_values) -> assets_long_format - **NEW**: transforms to long format with hazard_name, hazard_type, hazard_intensity columns (one row per asset-hazard combination)
 - ✅ join_damage_cost_factors(assets_long_format, damage_factors_df) -> assets_with_factors - **UPDATED**: joins on hazard_type, rounded hazard_intensity, and asset_category using dataframe parameter
 - ✅ compute_hazard_events(assets, hazards, areas, damage_factors) -> assets_with_factors - **UPDATED**: orchestrates geolocation, cutout, summarize, and join operations in one function
+- ✅ precompute_assets_factors(assets, hazards, areas, damage_factors, hazards_dir, progress_callback, force_recompute) -> path to RDS file - **NEW**: precomputes expensive geospatial operations and saves to disk
+- ✅ load_precomputed_assets_factors(precomputed_file) -> data.frame - **NEW**: loads precomputed assets factors from RDS file
 - 🔄 apply_acute_shock_yearly(yearly_trajectories, assets_factors, acute_events) -> shocked_trajectories - **REFACTORED**: now takes events dataframe as input, currently passes through values unchanged (shock logic to be implemented)
 - 🔄 apply_chronic_shock_yearly(yearly_trajectories, assets_factors, chronic_events) -> shocked_trajectories - **REFACTORED**: now takes events dataframe as input, currently passes through values unchanged (shock logic to be implemented)
 - ✅ compute_shock_trajectories(yearly_baseline, assets_with_factors, events) -> shocked_yearly - **REFACTORED**: splits events into acute/chronic dataframes, applies shocks sequentially (acute first, then chronic), removes metadata aggregation logic
@@ -78,7 +85,20 @@ Event combination rule: worst-case per asset (min share). Configurable later.
 
 These tests are written ahead of implementation to guide UI/module construction. Update selectors/IDs in UI to satisfy tests without changing the tests unless the contract deliberately evolves.
 
-## 5) Open questions / decisions
+## 5) Performance Optimizations
+
+### Precomputed Assets Factors (Major Speed Improvement)
+- **Problem Solved**: Geospatial operations (asset-hazard mapping) were taking 5+ minutes per test
+- **Solution**: Precompute expensive operations once, cache results, reuse across tests
+- **Implementation**: 
+  - `precompute_assets_factors()` function handles computation and caching
+  - `get_shared_precomputed_assets_factors()` helper returns cached file path
+  - Shared file: `tests/tests_data/hazards/assets_factors_precomputed.rds`
+  - App startup automatically creates/validates precomputed file with progress tracking
+- **Result**: Tests now run in < 1 second instead of 5+ minutes
+- **Breaking Change**: `compute_risk()` now requires `precomputed_assets_factors` parameter (no retrocompatibility)
+
+## 6) Open questions / decisions
 - Nearest-integer match or floor/ceil for hazard_intensity mapping
 - CRS standardization for polygons and rasters
 - How to handle assets lacking any location info

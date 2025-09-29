@@ -10,42 +10,54 @@ app_ui <- function(request) {
     golem_add_external_resources(),
     # Your application UI logic
     fluidPage(
-      titlePanel("Climate Risk Analysis Tool"),
+      class = "climate-risk-app",
+      
+      # Header
+      div(
+        class = "app-header",
+        h1("Climate Risk Analysis Tool", class = "app-title"),
+        p("Comprehensive climate risk assessment for financial portfolios", class = "app-subtitle")
+      ),
       
       sidebarLayout(
+        # Sidebar with controls
         sidebarPanel(
-          fileInput("company_file", 
-                   "Upload Company CSV File:",
-                   accept = ".csv",
-                   placeholder = "Choose company.csv file"),
-          selectInput("hazard_resolution",
-                      "Hazard resolution (aggregation factor)",
-                      choices = c(1, 2, 4, 8, 16, 32, 64),
-                      selected = 1),
-          
-          actionButton("run_analysis", 
-                      "Run Analysis", 
-                      class = "btn-primary",
-                      style = "margin-top: 10px;"),
-          
-          br(), br(),
-          
-          # Hazard events module UI
-          mod_hazards_events_ui("hazards"),
-
-          downloadButton("download_results", 
-                        "Download Results", 
-                        class = "btn-success")
+          class = "app-sidebar",
+          width = 3,
+          mod_control_ui("control")
         ),
         
+        # Main content with tabs
         mainPanel(
+          class = "app-main",
+          width = 9,
           tabsetPanel(
-            tabPanel("Status", 
-                    verbatimTextOutput("status_text")),
-            tabPanel("Results Summary", 
-                    tableOutput("results_summary")),
-            tabPanel("Results Table", 
-                    DT::dataTableOutput("results_table"))
+            id = "main_tabs",
+            type = "pills",
+            
+            # Tab 1: Parameters and Status
+            tabPanel(
+              title = "Parameters & Status",
+              value = "status",
+              icon = icon("cog"),
+              mod_status_ui("status")
+            ),
+            
+            # Tab 2: Asset Results (shown only after results)
+            tabPanel(
+              title = "Asset Analysis",
+              value = "assets",
+              icon = icon("building"),
+              mod_results_assets_ui("results_assets")
+            ),
+            
+            # Tab 3: Company Results (shown only after results)
+            tabPanel(
+              title = "Company Analysis", 
+              value = "companies",
+              icon = icon("chart-line"),
+              mod_results_companies_ui("results_companies")
+            )
           )
         )
       )
@@ -72,8 +84,17 @@ golem_add_external_resources <- function() {
     bundle_resources(
       path = app_sys("app/www"),
       app_title = "climate.risk.tool"
+    ),
+    # Add custom CSS
+    tags$link(
+      rel = "stylesheet",
+      type = "text/css",
+      href = "www/custom.css"
+    ),
+    # Add Font Awesome for icons
+    tags$link(
+      rel = "stylesheet",
+      href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
     )
-    # Add here other external resources
-    # for example, you can add shinyalert::useShinyalert()
   )
 }

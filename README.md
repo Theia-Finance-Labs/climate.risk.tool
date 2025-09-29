@@ -54,14 +54,21 @@ events <- data.frame(
 )
 
 
-# Run the complete climate risk analysis
-results <- compute_risk(
+# Precompute assets factors once (this is the slow step)
+precomputed_file <- precompute_assets_factors(
   assets = assets,
-  companies = companies,
   hazards = hazards,
   areas = areas,
   damage_factors = damage_factors,
-  events=events,
+  hazards_dir = file.path(base_dir, "hazards")
+)
+
+# Now run analysis with precomputed data (fast!)
+results <- compute_risk(
+  assets = assets,
+  companies = companies,
+  events = events,
+  precomputed_assets_factors = precomputed_file,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05

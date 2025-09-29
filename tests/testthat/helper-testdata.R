@@ -7,41 +7,10 @@ get_test_data_dir <- function(...) {
 
 
 get_hazards_dir <- function() {
-  use_mini <- Sys.getenv("USE_MINI_HAZARDS", "TRUE") == "TRUE"
-  if (use_mini) {
-    mini_dir <- get_test_data_dir("hazards_mini")
-    if (!dir.exists(mini_dir)) {
-      # Generate mini hazards if they don't exist
-      generate_mini_hazards_if_needed()
-    }
-    return(mini_dir)
-  }
   get_test_data_dir("hazards")
 }
 
-# Create a temporary directory for generated mini test datasets if needed
-get_test_scratch_dir <- function() {
-  scratch <- file.path(tempdir(), "climate.risk.tool_tests")
-  if (!dir.exists(scratch)) dir.create(scratch, recursive = TRUE, showWarnings = FALSE)
-  scratch
-}
 
-# Generate mini hazards automatically if needed
-generate_mini_hazards_if_needed <- function() {
-  mini_dir <- get_test_data_dir("hazards_mini")
-  if (!dir.exists(mini_dir)) {
-    dir.create(mini_dir, recursive = TRUE, showWarnings = FALSE)
-  }
-
-  # Downscale entire hazard rasters to lower resolution, preserving full extent
-  input_dir <- get_test_data_dir("hazards")
-  factor <- as.integer(Sys.getenv("MINI_HAZARDS_FACTOR", "64"))
-  # Ensure package functions are available when tests source helpers
-  if (!exists("downscale_hazard_dir")) {
-    devtools::load_all(quiet = TRUE)
-  }
-  downscale_hazard_dir(input_dir, mini_dir, factor = factor, overwrite = TRUE)
-}
 
 trySuppressWarnings <- function(expr) {
   suppressWarnings(try(expr, silent = TRUE))
@@ -127,4 +96,46 @@ create_discounted_assets <- function() {
     scenario = c("baseline", "shock", "baseline", "shock"),
     discounted_net_profit = c(100, 95, 80, 76)
   )
+}
+
+# Helper to get or create shared precomputed assets factors for tests
+get_shared_precomputed_assets_factors <- function() {
+  base_dir <- get_test_data_dir()
+  precomputed_file <- file.path(base_dir, "hazards", "assets_factors_precomputed.rds")
+  
+  # If file exists and is valid, return it immediately
+  if (file.exists(precomputed_file)) {
+    tryCatch({
+      cached_data <- readRDS(precomputed_file)
+      if (is.data.frame(cached_data) && nrow(cached_data) > 0) {
+        return(precomputed_file)
+      }
+    }, error = function(e) {
+      # File corrupted, will recreate below
+    })
+  }
+  
+  # Only load data and create file if it doesn't exist or is invalid
+  message("Creating shared precomputed assets factors for tests...")
+  
+  assets <- read_assets(base_dir)
+  hazards <- load_hazards(file.path(base_dir, "hazards"))
+  areas <- load_location_areas(
+    file.path(base_dir, "areas", "municipality"),
+    file.path(base_dir, "areas", "province")
+  )
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  suppressMessages({
+    precomputed_file <- precompute_assets_factors(
+      assets = assets,
+      hazards = hazards,
+      areas = areas,
+      damage_factors = damage_factors,
+      hazards_dir = file.path(base_dir, "hazards"),
+      force_recompute = TRUE
+    )
+  })
+  
+  return(precomputed_file)
 }

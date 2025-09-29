@@ -1,18 +1,15 @@
-testthat::test_that("compute_risk orchestrates new yearly trajectory functions", {
+testthat::test_that("compute_risk orchestrates new yearly trajectory functions with precomputed data", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"))
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
-  )
-  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  # Use shared precomputed assets factors for faster testing
+  precomputed_file <- get_shared_precomputed_assets_factors()
 
   # Define two events - one acute, one chronic
   events <- data.frame(
     event_id = c("e1", "e2"),
-    hazard_type = c("floods", "floods"),
+    hazard_type = c("flood", "flood"),
     scenario = c("amazonas_global_rcp85_h100glob", "amazonas_global_rcp85_h100glob"),
     event_year = c(2030L, NA_integer_),
     chronic = c(FALSE, TRUE)
@@ -22,10 +19,8 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   res <- compute_risk(
     assets = assets,
     companies = companies,
-    hazards = hazards,
-    areas = areas,
-    damage_factors = damage_factors,
     events = events,
+    precomputed_assets_factors = precomputed_file,
     growth_rate = 0.02,
     net_profit_margin = 0.1,
     discount_rate = 0.05
@@ -56,16 +51,13 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   testthat::expect_true(all(c("baseline", "shock") %in% unique(res$companies_yearly$scenario)))
 })
 
-testthat::test_that("compute_risk processes single acute event", {
+testthat::test_that("compute_risk processes single acute event with precomputed data", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"))
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
-  )
-  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  # Use shared precomputed assets factors for faster testing
+  precomputed_file <- get_shared_precomputed_assets_factors()
 
   # Single acute event
   events <- data.frame(
@@ -79,10 +71,8 @@ testthat::test_that("compute_risk processes single acute event", {
   res <- compute_risk(
     assets = assets,
     companies = companies,
-    hazards = hazards,
-    areas = areas,
-    damage_factors = damage_factors,
-    events = events
+    events = events,
+    precomputed_assets_factors = precomputed_file
   )
   
   # Should have valid results
@@ -107,16 +97,13 @@ testthat::test_that("compute_risk processes single acute event", {
   }
 })
 
-testthat::test_that("compute_risk processes chronic event", {
+testthat::test_that("compute_risk processes chronic event with precomputed data", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"))
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
-  )
-  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  # Use shared precomputed assets factors for faster testing
+  precomputed_file <- get_shared_precomputed_assets_factors()
 
   # Single chronic event
   events <- data.frame(
@@ -130,10 +117,8 @@ testthat::test_that("compute_risk processes chronic event", {
   res <- compute_risk(
     assets = assets,
     companies = companies,
-    hazards = hazards,
-    areas = areas,
-    damage_factors = damage_factors,
-    events = events
+    events = events,
+    precomputed_assets_factors = precomputed_file
   )
   
   # Should have valid results
@@ -151,6 +136,43 @@ testthat::test_that("compute_risk processes chronic event", {
     total_baseline_revenue <- sum(baseline_data$revenue)
     testthat::expect_true(total_shock_revenue <= total_baseline_revenue)
   }
+})
+
+
+testthat::test_that("compute_risk validates precomputed_assets_factors parameter", {
+  base_dir <- get_test_data_dir()
+  assets <- read_assets(base_dir)
+  companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
+  
+  events <- data.frame(
+    event_id = "test",
+    hazard_type = "floods",
+    scenario = "test_scenario",
+    event_year = 2030L,
+    chronic = FALSE
+  )
+  
+  # Test invalid precomputed_assets_factors
+  testthat::expect_error(
+    compute_risk(
+      assets = assets,
+      companies = companies,
+      events = events,
+      precomputed_assets_factors = "nonexistent_file.rds"
+    ),
+    "Precomputed assets factors file not found"
+  )
+  
+  # Test that precomputed_assets_factors is required
+  testthat::expect_error(
+    compute_risk(
+      assets = assets,
+      companies = companies,
+      events = events,
+      precomputed_assets_factors = NULL
+    ),
+    "precomputed_assets_factors is required"
+  )
 })
 
 
