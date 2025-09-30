@@ -24,5 +24,3 @@ list_hazard_inventory <- function(hazards) {
   attr(df, "by_hazard") <- split(df$hazard_name, df$hazard_type)
   df
 }
-
-

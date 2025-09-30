@@ -9,7 +9,7 @@
 
 testthat::test_that("join_damage_cost_factors adds numeric damage_factor and cost_factor", {
   base_dir <- get_test_data_dir()
-  
+
   # Create test data in long format with required columns
   assets_long <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
@@ -26,7 +26,7 @@ testthat::test_that("join_damage_cost_factors adds numeric damage_factor and cos
     hazard_intensity = c(12.4, 2.1, 8.7, 1.8),
     stringsAsFactors = FALSE
   )
-  
+
   # Load damage factors
   damage_factors <- read_damage_cost_factors(base_dir)
 

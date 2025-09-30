@@ -18,7 +18,7 @@ testthat::test_that("server loads inputs and runs analysis from base_dir and upl
       shiny::testServer(app_server, args = list(), {
         # Simulate company file upload
         session$setInputs(company_file = list(datapath = company_file_path))
-        
+
         # Simulate a Run click after setting the inputs
         session$setInputs(run_analysis = 1)
 
@@ -29,11 +29,11 @@ testthat::test_that("server loads inputs and runs analysis from base_dir and upl
 
         # After run, results should be non-null list with expected names
         # We allow lazy evaluation: isolate if needed
-        res <- try(results(), silent = TRUE)  # Call reactive if it's a reactive
+        res <- try(results(), silent = TRUE) # Call reactive if it's a reactive
         if (inherits(res, "try-error")) {
-          res <- try(results, silent = TRUE)  # Try as regular variable
+          res <- try(results, silent = TRUE) # Try as regular variable
         }
-        
+
         if (!inherits(res, "try-error") && !is.null(res)) {
           expect_type(res, "list")
           expect_true(all(c("assets", "companies") %in% names(res)))
@@ -97,8 +97,6 @@ testthat::test_that("server handles missing base_dir gracefully", {
         expect_true(exists("results"))
       })
     },
-    golem_opts = list()  # Empty golem options - no base_dir
+    golem_opts = list() # Empty golem options - no base_dir
   )
 })
-
-

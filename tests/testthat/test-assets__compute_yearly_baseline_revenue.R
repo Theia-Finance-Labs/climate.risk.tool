@@ -6,27 +6,27 @@ testthat::test_that("compute_yearly_baseline_revenue creates yearly trajectories
     company = c("C1", "C1"),
     share_of_economic_activity = c(0.6, 0.4)
   )
-  
+
   companies <- data.frame(
     company_name = "C1",
     revenues = 1000
   )
-  
+
   result <- compute_yearly_baseline_revenue(
-    baseline_assets, companies, 
+    baseline_assets, companies,
     growth_rate = 0.02, start_year = 2025, end_year = 2027
   )
-  
+
   # Should have required columns
   expected_cols <- c("asset", "company", "year", "baseline_revenue")
   testthat::expect_true(all(expected_cols %in% names(result)))
-  
+
   # Should have correct number of rows (2 assets * 3 years = 6 rows)
   testthat::expect_equal(nrow(result), 6)
-  
+
   # Should have correct years
   testthat::expect_equal(sort(unique(result$year)), c(2025, 2026, 2027))
-  
+
   # Should have correct assets and companies
   testthat::expect_equal(sort(unique(result$asset)), c("A1", "A2"))
   testthat::expect_equal(unique(result$company), "C1")
@@ -38,26 +38,26 @@ testthat::test_that("compute_yearly_baseline_revenue applies correct growth form
     company = "C1",
     share_of_economic_activity = 0.5
   )
-  
+
   companies <- data.frame(
     company_name = "C1",
     revenues = 1000
   )
-  
+
   result <- compute_yearly_baseline_revenue(
-    baseline_assets, companies, 
+    baseline_assets, companies,
     growth_rate = 0.02, start_year = 2025, end_year = 2027
   )
-  
+
   # Check growth formula: 2025 = 500, 2026 = 500 * 1.02 = 510, 2027 = 510 * 1.02 = 520.2
-  expected_2025 <- 1000 * 0.5  # 500
-  expected_2026 <- expected_2025 * 1.02  # 510
-  expected_2027 <- expected_2026 * 1.02  # 520.2
-  
+  expected_2025 <- 1000 * 0.5 # 500
+  expected_2026 <- expected_2025 * 1.02 # 510
+  expected_2027 <- expected_2026 * 1.02 # 520.2
+
   actual_2025 <- result$baseline_revenue[result$year == 2025]
   actual_2026 <- result$baseline_revenue[result$year == 2026]
   actual_2027 <- result$baseline_revenue[result$year == 2027]
-  
+
   testthat::expect_equal(actual_2025, expected_2025, tolerance = 1e-8)
   testthat::expect_equal(actual_2026, expected_2026, tolerance = 1e-8)
   testthat::expect_equal(actual_2027, expected_2027, tolerance = 1e-8)
@@ -69,28 +69,28 @@ testthat::test_that("compute_yearly_baseline_revenue validates inputs", {
     company = "C1",
     share_of_economic_activity = 0.5
   )
-  
+
   companies <- data.frame(
     company_name = "C1",
     revenues = 1000
   )
-  
+
   # Should error with invalid inputs
   testthat::expect_error(
     compute_yearly_baseline_revenue(NULL, companies),
     regexp = "non-empty data.frame"
   )
-  
+
   testthat::expect_error(
     compute_yearly_baseline_revenue(baseline_assets, NULL),
     regexp = "non-empty data.frame"
   )
-  
+
   testthat::expect_error(
     compute_yearly_baseline_revenue(baseline_assets, companies, growth_rate = "invalid"),
     regexp = "single numeric value"
   )
-  
+
   testthat::expect_error(
     compute_yearly_baseline_revenue(baseline_assets, companies, start_year = 2030, end_year = 2025),
     regexp = "start_year < end_year"
@@ -103,24 +103,24 @@ testthat::test_that("compute_yearly_baseline_revenue handles multiple assets and
     company = c("C1", "C1", "C2"),
     share_of_economic_activity = c(0.6, 0.4, 1.0)
   )
-  
+
   companies <- data.frame(
     company_name = c("C1", "C2"),
     revenues = c(1000, 500)
   )
-  
+
   result <- compute_yearly_baseline_revenue(
-    baseline_assets, companies, 
+    baseline_assets, companies,
     growth_rate = 0.02, start_year = 2025, end_year = 2026
   )
-  
+
   # Should have 3 assets * 2 years = 6 rows
   testthat::expect_equal(nrow(result), 6)
-  
+
   # Check revenue allocation
   c1_assets <- result[result$company == "C1" & result$year == 2025, ]
   c2_assets <- result[result$company == "C2" & result$year == 2025, ]
-  
+
   # C1: A1 = 1000 * 0.6 = 600, A2 = 1000 * 0.4 = 400
   # C2: B1 = 500 * 1.0 = 500
   testthat::expect_equal(c1_assets$baseline_revenue[c1_assets$asset == "A1"], 600)

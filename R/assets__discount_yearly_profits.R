@@ -21,10 +21,9 @@
 #' }
 #' @export
 discount_yearly_profits <- function(
-  yearly_scenarios_df,
-  discount_rate = 0.05,
-  base_year = 2025
-) {
+    yearly_scenarios_df,
+    discount_rate = 0.05,
+    base_year = 2025) {
   # Validate inputs
   if (!is.data.frame(yearly_scenarios_df) || nrow(yearly_scenarios_df) == 0) {
     stop("yearly_scenarios_df must be a non-empty data.frame")
@@ -35,39 +34,41 @@ discount_yearly_profits <- function(
   if (!is.numeric(base_year) || length(base_year) != 1) {
     stop("base_year must be a single numeric value")
   }
-  
+
   # Check required columns
   required_cols <- c("asset", "company", "year", "scenario", "revenue", "profit")
   missing_cols <- setdiff(required_cols, names(yearly_scenarios_df))
   if (length(missing_cols) > 0) {
-    stop(paste("Missing required columns in yearly_scenarios_df:", 
-               paste(missing_cols, collapse = ", ")))
+    stop(paste(
+      "Missing required columns in yearly_scenarios_df:",
+      paste(missing_cols, collapse = ", ")
+    ))
   }
-  
+
   # Make a copy to avoid modifying the input
   result <- yearly_scenarios_df
-  
+
   # Calculate discounted profit
   # Formula: discounted_profit = profit / (1 + discount_rate)^(year - base_year)
   years_from_base <- result$year - base_year
   discount_factor <- (1 + discount_rate)^years_from_base
-  
+
   result$discounted_profit <- result$profit / discount_factor
-  
+
   # Also create discounted_net_profit column for compatibility with downstream functions
   result$discounted_net_profit <- result$discounted_profit
-  
+
   # Validate the result
   if (!is.numeric(result$discounted_profit)) {
     stop("Calculated discounted_profit is not numeric")
   }
-  
+
   if (any(is.na(result$discounted_profit))) {
     stop("Calculated discounted_profit contains NA values")
   }
-  
+
   # Allow negative profits (losses) - do not force non-negative
   # Profits can be negative when companies have losses
-  
+
   return(result)
 }

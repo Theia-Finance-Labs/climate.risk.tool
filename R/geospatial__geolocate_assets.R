@@ -3,7 +3,7 @@
 #' @title Geolocate assets with priority-based fallback
 #' @description Adds geometry and centroid columns to assets data using a priority system:
 #'   1. Use lat/lon coordinates when available (create buffer around point)
-#'   2. Fall back to municipality matching against ADM2 boundaries  
+#'   2. Fall back to municipality matching against ADM2 boundaries
 #'   3. Fall back to province matching against ADM1 boundaries
 #' @param assets_df Data frame with asset information including latitude, longitude, municipality, province columns
 #' @param hazards Named list of hazard rasters (from load_hazards) used to determine target CRS
@@ -54,14 +54,14 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
   for (i in seq_len(n_assets)) {
     row <- assets_df[i, ]
     geom <- NULL
-    
+
     # Priority 1: Use lat/lon coordinates
     if (!is.na(row$latitude) && !is.na(row$longitude)) {
       # Create point geometry
       point <- sf::st_point(c(row$longitude, row$latitude))
-      point_sf <- sf::st_sfc(point, crs = 4326)  # WGS84
+      point_sf <- sf::st_sfc(point, crs = 4326) # WGS84
       point_sf <- sf::st_transform(point_sf, target_crs)
-      
+
       # Use size_in_m2 if available, otherwise default to 1000m buffer
       if (!is.na(row$size_in_m2) && is.numeric(row$size_in_m2) && row$size_in_m2 > 0) {
         # Calculate radius from area (assuming circular area: A = π * r²)
@@ -72,46 +72,50 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
         geom <- sf::st_buffer(point_sf, dist = default_buffer_size_m)
       }
       method_list[i] <- "coordinates"
-      
     } else if (!is.na(row$municipality) && nzchar(as.character(row$municipality))) {
       # Priority 2: Match municipality
       # Handle special characters safely
       municipality_name <- as.character(row$municipality)
-      tryCatch({
-        municipality_match <- adm2[grepl(municipality_name, adm2$shapeName, ignore.case = TRUE), ]
-        if (nrow(municipality_match) > 0) {
-          geom <- sf::st_geometry(municipality_match[1, ])
-          method_list[i] <- "municipality"
+      tryCatch(
+        {
+          municipality_match <- adm2[grepl(municipality_name, adm2$shapeName, ignore.case = TRUE), ]
+          if (nrow(municipality_match) > 0) {
+            geom <- sf::st_geometry(municipality_match[1, ])
+            method_list[i] <- "municipality"
+          }
+        },
+        error = function(e) {
+          # If grepl fails due to encoding issues, try exact match
+          municipality_match <- adm2[adm2$shapeName == municipality_name, ]
+          if (nrow(municipality_match) > 0) {
+            geom <- sf::st_geometry(municipality_match[1, ])
+            method_list[i] <- "municipality"
+          }
         }
-      }, error = function(e) {
-        # If grepl fails due to encoding issues, try exact match
-        municipality_match <- adm2[adm2$shapeName == municipality_name, ]
-        if (nrow(municipality_match) > 0) {
-          geom <- sf::st_geometry(municipality_match[1, ])
-          method_list[i] <- "municipality"
-        }
-      })
-      
+      )
     } else if (!is.na(row$province) && nzchar(as.character(row$province))) {
       # Priority 3: Match province
       # Handle special characters safely
       province_name <- as.character(row$province)
-      tryCatch({
-        province_match <- adm1[grepl(province_name, adm1$shapeName, ignore.case = TRUE), ]
-        if (nrow(province_match) > 0) {
-          geom <- sf::st_geometry(province_match[1, ])
-          method_list[i] <- "province"
+      tryCatch(
+        {
+          province_match <- adm1[grepl(province_name, adm1$shapeName, ignore.case = TRUE), ]
+          if (nrow(province_match) > 0) {
+            geom <- sf::st_geometry(province_match[1, ])
+            method_list[i] <- "province"
+          }
+        },
+        error = function(e) {
+          # If grepl fails due to encoding issues, try exact match
+          province_match <- adm1[adm1$shapeName == province_name, ]
+          if (nrow(province_match) > 0) {
+            geom <- sf::st_geometry(province_match[1, ])
+            method_list[i] <- "province"
+          }
         }
-      }, error = function(e) {
-        # If grepl fails due to encoding issues, try exact match
-        province_match <- adm1[adm1$shapeName == province_name, ]
-        if (nrow(province_match) > 0) {
-          geom <- sf::st_geometry(province_match[1, ])
-          method_list[i] <- "province"
-        }
-      })
+      )
     }
-    
+
     # If no geometry found, create a default small polygon at origin
     if (is.null(geom) || length(geom) == 0) {
       warning("No geometry found for asset ", i, ", using default location")
@@ -120,24 +124,24 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
       geom <- sf::st_sfc(sf::st_polygon(list(coords)), crs = target_crs)
       method_list[i] <- "default"
     }
-    
+
     # Store geometry and calculate centroid
     geometry_list[[i]] <- geom
     centroid_list[[i]] <- sf::st_centroid(geom)
   }
-  
+
   # Convert to sfc objects
   geometry_sfc <- do.call(c, geometry_list)
   centroid_sfc <- do.call(c, centroid_list)
-  
+
   # Add columns to original dataframe
   assets_df$geometry <- geometry_sfc
   assets_df$centroid <- centroid_sfc
   assets_df$geolocation_method <- method_list
-  
+
   # Summary statistics
   method_counts <- table(method_list)
   message("✅ [geolocate_assets] Geolocation completed for ", n_assets, " assets")
-  
+
   return(assets_df)
 }

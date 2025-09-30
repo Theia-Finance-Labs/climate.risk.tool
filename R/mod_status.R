@@ -8,7 +8,7 @@ mod_status_ui <- function(id) {
   shiny::tagList(
     shiny::div(
       class = "status-container",
-      
+
       # Status section
       shiny::div(
         class = "status-section",
@@ -25,7 +25,7 @@ mod_status_ui <- function(id) {
           )
         )
       ),
-      
+
       # Configured events section
       shiny::div(
         class = "events-section",
@@ -47,7 +47,7 @@ mod_status_ui <- function(id) {
 mod_status_server <- function(id, status_reactive, events_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
     # Status badge
     output$status_badge <- shiny::renderText({
       status <- status_reactive()
@@ -61,23 +61,27 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
         "WAITING"
       }
     })
-    
+
     # Status message
     output$status_message <- shiny::renderText({
       status_reactive()
     })
-    
+
     # Events table
-    output$events_table <- shiny::renderTable({
-      events <- try(events_reactive(), silent = TRUE)
-      if (inherits(events, "try-error") || is.null(events) || nrow(events) == 0) {
-        data.frame(
-          Message = "No events configured - will use default event",
-          stringsAsFactors = FALSE
-        )
-      } else {
-        events
-      }
-    }, bordered = TRUE, hover = TRUE)
+    output$events_table <- shiny::renderTable(
+      {
+        events <- try(events_reactive(), silent = TRUE)
+        if (inherits(events, "try-error") || is.null(events) || nrow(events) == 0) {
+          data.frame(
+            Message = "No events configured - will use default event",
+            stringsAsFactors = FALSE
+          )
+        } else {
+          events
+        }
+      },
+      bordered = TRUE,
+      hover = TRUE
+    )
   })
 }

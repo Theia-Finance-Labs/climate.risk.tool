@@ -24,11 +24,11 @@ testthat::test_that("compute_hazard_events prepares assets with geospatial data 
   # Should have required long format columns
   required_cols <- c("asset", "hazard_name", "hazard_type", "hazard_intensity", "damage_factor", "cost_factor")
   testthat::expect_true(all(required_cols %in% names(res)))
-  
+
   # Should have damage and cost factors
   testthat::expect_true(is.numeric(res$damage_factor))
   testthat::expect_true(is.numeric(res$cost_factor))
-  
+
   # Should be in long format (more rows than original assets)
   testthat::expect_gte(nrow(res), nrow(assets))
 })

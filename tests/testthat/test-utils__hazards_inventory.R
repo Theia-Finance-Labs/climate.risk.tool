@@ -5,5 +5,3 @@ testthat::test_that("list_hazard_inventory parses keys", {
   testthat::expect_true(all(c("key", "hazard_type", "scenario") %in% names(inv)))
   testthat::expect_equal(inv$hazard_type[1], "flood")
 })
-
-

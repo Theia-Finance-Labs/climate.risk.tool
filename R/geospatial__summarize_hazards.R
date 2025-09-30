@@ -26,9 +26,11 @@ summarize_hazards <- function(assets_with_hazard_values) {
   }
 
   # Identify standard asset columns to preserve
-  standard_columns <- c("asset", "company", "latitude", "longitude", "municipality",
-                       "province", "asset_category", "size_in_m2", "size_in_hectare", "share_of_economic_activity",
-                       "geometry", "centroid", "geolocation_method")
+  standard_columns <- c(
+    "asset", "company", "latitude", "longitude", "municipality",
+    "province", "asset_category", "size_in_m2", "size_in_hectare", "share_of_economic_activity",
+    "geometry", "centroid", "geolocation_method"
+  )
 
   # Find list columns that are not standard columns (these should be hazard columns with raw pixel values)
   all_list_cols <- names(assets_with_hazard_values)[sapply(assets_with_hazard_values, is.list)]
@@ -39,7 +41,7 @@ summarize_hazards <- function(assets_with_hazard_values) {
     # Return empty long format structure
     result <- assets_with_hazard_values[, standard_columns, drop = FALSE]
     result$hazard_name <- character(0)
-    result$hazard_type <- character(0) 
+    result$hazard_type <- character(0)
     result$hazard_intensity <- numeric(0)
     return(result[0, ])
   }
@@ -50,11 +52,11 @@ summarize_hazards <- function(assets_with_hazard_values) {
     hazard_column = hazard_columns,
     stringsAsFactors = FALSE
   )
-  
+
   # Parse hazard names to extract hazard_type
   # Split on "__" to separate hazard type from scenario
   hazard_parts <- strsplit(hazard_columns, "__", fixed = TRUE)
-  
+
   hazard_info$hazard_type <- sapply(hazard_parts, function(x) {
     if (length(x) >= 1) {
       return(x[1])
@@ -62,26 +64,26 @@ summarize_hazards <- function(assets_with_hazard_values) {
       return("unknown")
     }
   })
-  
-  hazard_info$hazard_name <- hazard_columns  # Full column name as hazard_name
-  
+
+  hazard_info$hazard_name <- hazard_columns # Full column name as hazard_name
+
   # Convert to long format
   # Get base asset data
   base_data <- assets_with_hazard_values[, standard_columns, drop = FALSE]
-  
+
   # Create long format data
   long_data_list <- list()
-  
+
   for (i in seq_len(nrow(hazard_info))) {
     hazard_col <- hazard_info$hazard_column[i]
     hazard_type <- hazard_info$hazard_type[i]
     hazard_name <- hazard_info$hazard_name[i]
-    
+
     # Create one row per asset for this hazard, aggregating raw pixel values
     asset_hazard_data <- base_data
     asset_hazard_data$hazard_name <- hazard_name
     asset_hazard_data$hazard_type <- hazard_type
-    
+
     # Aggregate raw pixel values to mean intensity per asset
     raw_values <- assets_with_hazard_values[[hazard_col]]
     asset_hazard_data$hazard_intensity <- sapply(raw_values, function(pixel_values) {
@@ -91,11 +93,11 @@ summarize_hazards <- function(assets_with_hazard_values) {
         NA_real_
       }
     })
-    
+
     # Keep all rows, including NA intensities (one row per asset-hazard)
     long_data_list[[i]] <- asset_hazard_data
   }
-  
+
   # Combine all hazard data
   if (length(long_data_list) > 0) {
     result <- do.call(rbind, long_data_list)
@@ -111,4 +113,3 @@ summarize_hazards <- function(assets_with_hazard_values) {
   message("✅ [summarize_hazards] Transformed to long format: ", nrow(result), " asset-hazard combinations from ", length(hazard_columns), " hazard types")
   return(result)
 }
-

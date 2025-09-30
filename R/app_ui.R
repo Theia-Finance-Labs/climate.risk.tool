@@ -11,14 +11,13 @@ app_ui <- function(request) {
     # Your application UI logic
     fluidPage(
       class = "climate-risk-app",
-      
+
       # Header
       div(
         class = "app-header",
         h1("Climate Risk Analysis Tool", class = "app-title"),
         p("Comprehensive climate risk assessment for financial portfolios", class = "app-subtitle")
       ),
-      
       sidebarLayout(
         # Sidebar with controls
         sidebarPanel(
@@ -26,7 +25,7 @@ app_ui <- function(request) {
           width = 3,
           mod_control_ui("control")
         ),
-        
+
         # Main content with tabs
         mainPanel(
           class = "app-main",
@@ -34,7 +33,7 @@ app_ui <- function(request) {
           tabsetPanel(
             id = "main_tabs",
             type = "pills",
-            
+
             # Tab 1: Parameters and Status
             tabPanel(
               title = "Parameters & Status",
@@ -42,7 +41,7 @@ app_ui <- function(request) {
               icon = icon("cog"),
               mod_status_ui("status")
             ),
-            
+
             # Tab 2: Asset Results (shown only after results)
             tabPanel(
               title = "Asset Analysis",
@@ -50,10 +49,10 @@ app_ui <- function(request) {
               icon = icon("building"),
               mod_results_assets_ui("results_assets")
             ),
-            
+
             # Tab 3: Company Results (shown only after results)
             tabPanel(
-              title = "Company Analysis", 
+              title = "Company Analysis",
               value = "companies",
               icon = icon("chart-line"),
               mod_results_companies_ui("results_companies")

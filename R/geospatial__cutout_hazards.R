@@ -21,9 +21,9 @@
 #' @export
 cutout_hazards <- function(assets_with_geometry,
                            hazards,
-                           use_exactextractr = TRUE,  # Use faster extraction
+                           use_exactextractr = TRUE, # Use faster extraction
                            parallel = FALSE,
-                           crop_margin = 0.001,  # Larger margin for safety
+                           crop_margin = 0.001, # Larger margin for safety
                            batch_groups = TRUE) {
   message("✂️ [cutout_hazards] Starting hazard extraction for ", nrow(assets_with_geometry), " assets...")
 
@@ -38,12 +38,12 @@ cutout_hazards <- function(assets_with_geometry,
   if (length(hazards) == 0) {
     stop("Hazards list is empty")
   }
-  
+
   # Configure terra to prefer on-disk processing for large rasters
   old_terra_opts <- terra::terraOptions()
   on.exit(try(terra::terraOptions(old_terra_opts), silent = TRUE), add = TRUE)
   terra::terraOptions(todisk = TRUE, memfrac = 0.3, progress = 0)
-  
+
   # Aggregation is now done at load time in load_hazards(), so hazards are already optimized
 
   # Start with the input dataframe
@@ -112,7 +112,12 @@ cutout_hazards <- function(assets_with_geometry,
 
     # Open hazard raster lazily if a path was provided
     hazard_raster <- if (is.character(hazard_source)) terra::rast(hazard_source) else hazard_source
-    on.exit({ try(terra::close(hazard_raster), silent = TRUE) }, add = TRUE)
+    on.exit(
+      {
+        try(terra::close(hazard_raster), silent = TRUE)
+      },
+      add = TRUE
+    )
 
     # Process per-group to bound memory usage
     if (isTRUE(batch_groups)) {
@@ -250,15 +255,15 @@ cutout_hazards <- function(assets_with_geometry,
 extract_hazard_values <- function(asset_geom, hazard_raster) {
   # Convert sf geometry to terra SpatVector for extraction
   asset_vect <- terra::vect(asset_geom)
-  
+
   # Ensure CRS compatibility
   if (!identical(terra::crs(asset_vect), terra::crs(hazard_raster))) {
     asset_vect <- terra::project(asset_vect, terra::crs(hazard_raster))
   }
-  
+
   # Extract all values within the polygon (no aggregation)
   extracted <- terra::extract(hazard_raster, asset_vect)
-  
+
   # Return all non-NA values
   if (nrow(extracted) > 0) {
     values <- extracted[, 2][!is.na(extracted[, 2])]

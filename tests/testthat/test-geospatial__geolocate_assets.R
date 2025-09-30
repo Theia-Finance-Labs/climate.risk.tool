@@ -41,7 +41,7 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
   df$longitude[1] <- -60.0
   df$municipality[1] <- "Borba"
   df$province[1] <- "Amazonas"
-  df$size_in_m2[1] <- 10000  # 10,000 m² for testing size-based buffer
+  df$size_in_m2[1] <- 10000 # 10,000 m² for testing size-based buffer
 
   # Row 2: no lat/long, has municipality that exists in test data - should use municipality (priority 2)
   df$latitude[2] <- NA_real_
@@ -66,7 +66,7 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
   df$longitude[5] <- -59.5
   df$municipality[5] <- "Borba"
   df$province[5] <- "Amazonas"
-  df$size_in_m2[5] <- 5000  # 5,000 m² for testing different size
+  df$size_in_m2[5] <- 5000 # 5,000 m² for testing different size
 
   out <- geolocate_assets(df, hazards, municipalities, provinces)
 
@@ -74,11 +74,11 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
   testthat::expect_false(any(is.na(out$centroid)))
 
   # Test that methods are correctly assigned based on priority
-  testthat::expect_equal(out$geolocation_method[1], "coordinates")  # Row 1: has lat/lon
-  testthat::expect_equal(out$geolocation_method[2], "municipality")  # Row 2: no lat/lon, has municipality
-  testthat::expect_equal(out$geolocation_method[3], "province")     # Row 3: no lat/lon, no municipality, has province
-  testthat::expect_equal(out$geolocation_method[4], "municipality")  # Row 4: no lat/lon, has municipality (priority over province)
-  testthat::expect_equal(out$geolocation_method[5], "coordinates")  # Row 5: has lat/lon (priority over municipality/province)
+  testthat::expect_equal(out$geolocation_method[1], "coordinates") # Row 1: has lat/lon
+  testthat::expect_equal(out$geolocation_method[2], "municipality") # Row 2: no lat/lon, has municipality
+  testthat::expect_equal(out$geolocation_method[3], "province") # Row 3: no lat/lon, no municipality, has province
+  testthat::expect_equal(out$geolocation_method[4], "municipality") # Row 4: no lat/lon, has municipality (priority over province)
+  testthat::expect_equal(out$geolocation_method[5], "coordinates") # Row 5: has lat/lon (priority over municipality/province)
 
   # Test that different methods produce different geometries
   # Row 1 and Row 5 should have different centroids (different lat/lon)
@@ -115,7 +115,7 @@ testthat::test_that("geolocate_assets returns valid sfc types and consistent CRS
   # Check that we have sfc geometry columns
   testthat::expect_s3_class(out$geometry, "sfc")
   testthat::expect_s3_class(out$centroid, "sfc")
-  
+
   # Check the geometry types in the sfc objects
   geom_types <- unique(sf::st_geometry_type(out$geometry))
   cent_types <- unique(sf::st_geometry_type(out$centroid))

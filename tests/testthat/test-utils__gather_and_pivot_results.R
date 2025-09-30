@@ -8,7 +8,7 @@ testthat::test_that("gather_and_pivot_results returns pivoted assets and compani
     scenario = c("baseline", "shock", "baseline", "shock"),
     discounted_net_profit = c(100, 95, 80, 76)
   )
-  
+
   # Create company expected loss data
   companies_el <- data.frame(
     company = c("C1", "C1"),
@@ -36,7 +36,7 @@ testthat::test_that("gather_and_pivot_results returns pivoted assets and compani
   # Assets: NPV for baseline and shock
   expected_asset_cols <- c("NPV_baseline", "NPV_shock")
   testthat::expect_true(all(expected_asset_cols %in% names(assets)))
-  
+
   # Check specific values
   testthat::expect_equal(comps$NPV_baseline, 180)
   testthat::expect_equal(comps$NPV_shock, 171)
@@ -52,7 +52,7 @@ testthat::test_that("gather_and_pivot_results handles edge cases", {
     scenario = "baseline",
     discounted_net_profit = 100
   )
-  
+
   companies_single <- data.frame(
     company = "C1",
     scenario = "baseline",
@@ -60,7 +60,7 @@ testthat::test_that("gather_and_pivot_results handles edge cases", {
     merton_pd = 0.05,
     expected_loss = 5
   )
-  
+
   # Should handle single scenario gracefully
   testthat::expect_no_error(
     gather_and_pivot_results(assets_single, companies_single)
@@ -74,7 +74,7 @@ testthat::test_that("gather_and_pivot_results validates inputs", {
     scenario = "baseline",
     discounted_net_profit = 100
   )
-  
+
   companies_el <- data.frame(
     company = "C1",
     scenario = "baseline",
@@ -82,16 +82,16 @@ testthat::test_that("gather_and_pivot_results validates inputs", {
     merton_pd = 0.05,
     expected_loss = 5
   )
-  
+
   # Should work with valid inputs
   testthat::expect_no_error(gather_and_pivot_results(assets_discounted, companies_el))
-  
+
   # Should error with invalid inputs
   testthat::expect_error(
     gather_and_pivot_results("not_a_dataframe", companies_el),
     info = "Should error with non-data.frame assets"
   )
-  
+
   testthat::expect_error(
     gather_and_pivot_results(assets_discounted, "not_a_dataframe"),
     info = "Should error with non-data.frame companies"

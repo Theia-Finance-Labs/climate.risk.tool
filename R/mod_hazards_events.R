@@ -64,7 +64,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
     # Render dynamic UI for current event only
     output$events_ui <- shiny::renderUI({
       k <- counter()
-      
+
       inv <- try(hazards_inventory(), silent = TRUE)
       hazard_choices <- character(0)
       hazard_name_choices <- character(0)
@@ -74,7 +74,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           hazard_name_choices <- unique(inv$hazard_name[inv$hazard_type == hazard_choices[[1]]])
         }
       }
-      
+
       # Only show form for current event (index k)
       shiny::wellPanel(
         shiny::selectInput(ns(paste0("hazard_", k)), "Hazard", choices = hazard_choices, selected = if (length(hazard_choices) > 0) hazard_choices[[1]] else NULL),
@@ -87,8 +87,10 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
     # Hazard name UI reacts to hazard selection for current event
     shiny::observe({
       k <- counter()
-      if (k == 0) return()
-      
+      if (k == 0) {
+        return()
+      }
+
       output[[paste0("hazard_name_ui_", k)]] <- shiny::renderUI({
         inv <- try(hazards_inventory(), silent = TRUE)
         hazard_val <- input[[paste0("hazard_", k)]]
@@ -112,5 +114,3 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
     return(list(events = events_rv))
   })
 }
-
-

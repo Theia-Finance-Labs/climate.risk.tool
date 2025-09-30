@@ -97,7 +97,7 @@ testthat::test_that("read_damage_cost_factors parses key columns with correct ty
 
   # Required columns (should be snake_case after processing)
   req_factor_cols <- c(
-    "hazard_intensity", "hazard_unit", "asset_category", 
+    "hazard_intensity", "hazard_unit", "asset_category",
     "damage_factor", "cost_factor", "hazard_type"
   )
   testthat::expect_true(all(req_factor_cols %in% names(factors)))
@@ -119,5 +119,3 @@ testthat::test_that("read_damage_cost_factors handles missing file gracefully", 
     "Damage and cost factors file not found at"
   )
 })
-
-

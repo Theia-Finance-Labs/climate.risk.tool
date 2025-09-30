@@ -17,28 +17,28 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
   })), {
     # Initially, one form is present (k=1)
     testthat::expect_equal(counter(), 1L)
-    
+
     # No events added yet
     testthat::expect_equal(nrow(events_rv()), 0)
-    
+
     # Provide selections for the first event
     session$setInputs("hazard_1" = "flood")
     session$setInputs("hazard_name_1" = "flood__global_rcp85_h100glob_brazil")
     session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
-    
+
     # First click of add_event should save the current event and increment counter
     session$setInputs(add_event = 1)
-    
+
     testthat::expect_equal(nrow(events_rv()), 1)
     testthat::expect_equal(counter(), 2L)
-    
+
     # Add a second event
     session$setInputs("hazard_2" = "flood")
     session$setInputs("hazard_name_2" = "flood__global_rcp85_h10glob_brazil")
     session$setInputs("chronic_2" = TRUE)
     session$setInputs(add_event = 2)
-    
+
     ret <- session$returned
     ev_fun <- ret$events
     ev <- ev_fun()
@@ -61,19 +61,17 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
     ui_html <- htmltools::renderTags(output$events_ui)$html
     testthat::expect_true(grepl("hazard_1", ui_html))
     testthat::expect_false(grepl("hazard_2", ui_html))
-    
+
     # Add first event
     session$setInputs("hazard_1" = "flood")
     session$setInputs("hazard_name_1" = "flood__global_rcp85_h100glob_brazil")
     session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1) # This is now the first 'add_event' click
-    
+
     # After adding event, should still show only one form (now hazard_2, not hazard_1)
     ui_html <- htmltools::renderTags(output$events_ui)$html
     testthat::expect_true(grepl("hazard_2", ui_html))
     testthat::expect_false(grepl("hazard_1", ui_html))
   })
 })
-
-

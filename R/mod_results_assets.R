@@ -21,14 +21,16 @@ mod_results_assets_ui <- function(id) {
 mod_results_assets_server <- function(id, results_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
     # Assets table
     output$assets_table <- DT::renderDataTable({
       results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors)) return(NULL)
-      
+      if (is.null(results) || is.null(results$assets_factors)) {
+        return(NULL)
+      }
+
       assets <- results$assets_factors
-      
+
       # Format numeric columns for better display
       numeric_cols <- sapply(assets, is.numeric)
       for (col in names(assets)[numeric_cols]) {
@@ -38,16 +40,16 @@ mod_results_assets_server <- function(id, results_reactive) {
           assets[[col]] <- round(assets[[col]], 0)
         }
       }
-      
+
       DT::datatable(
         assets,
         options = list(
           pageLength = 25,
           scrollX = TRUE,
-          dom = 'Bfrtip',
-          buttons = c('copy', 'csv', 'excel')
+          dom = "Bfrtip",
+          buttons = c("copy", "csv", "excel")
         ),
-        extensions = 'Buttons',
+        extensions = "Buttons",
         rownames = FALSE
       )
     })

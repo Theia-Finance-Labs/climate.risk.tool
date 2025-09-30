@@ -23,18 +23,17 @@
 #'   damage_factor = 0.1, cost_factor = 1000
 #' )
 #' events <- data.frame(
-#'   event_id = "ev1", hazard_type = "flood", scenario = "rcp85", 
+#'   event_id = "ev1", hazard_type = "flood", scenario = "rcp85",
 #'   event_year = 2030, chronic = FALSE
 #' )
 #' result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
 #' }
 #' @export
 compute_shock_trajectories <- function(
-  yearly_baseline_profits,
-  assets_with_factors,
-  events,
-  start_year = 2025
-) {
+    yearly_baseline_profits,
+    assets_with_factors,
+    events,
+    start_year = 2025) {
   # Validate inputs
   if (!is.data.frame(yearly_baseline_profits) || nrow(yearly_baseline_profits) == 0) {
     stop("yearly_baseline_profits must be a non-empty data.frame")
@@ -45,17 +44,21 @@ compute_shock_trajectories <- function(
   if (!is.data.frame(events) || nrow(events) == 0) {
     stop("events must be a non-empty data.frame")
   }
-  
+
   required_baseline_cols <- c("asset", "company", "year", "baseline_revenue", "baseline_profit")
   if (!all(required_baseline_cols %in% names(yearly_baseline_profits))) {
-    stop("yearly_baseline_profits missing required columns: ", 
-         paste(setdiff(required_baseline_cols, names(yearly_baseline_profits)), collapse = ", "))
+    stop(
+      "yearly_baseline_profits missing required columns: ",
+      paste(setdiff(required_baseline_cols, names(yearly_baseline_profits)), collapse = ", ")
+    )
   }
-  
+
   required_event_cols <- c("event_id", "hazard_type", "hazard_name", "event_year", "chronic")
   if (!all(required_event_cols %in% names(events))) {
-    stop("events missing required columns: ", 
-         paste(setdiff(required_event_cols, names(events)), collapse = ", "))
+    stop(
+      "events missing required columns: ",
+      paste(setdiff(required_event_cols, names(events)), collapse = ", ")
+    )
   }
 
   # Ensure hazard_name column exists in assets_with_factors
@@ -74,28 +77,28 @@ compute_shock_trajectories <- function(
   # Split events into acute and chronic dataframes
   acute_events <- events[!isTRUE(events$chronic), ]
   chronic_events <- events[isTRUE(events$chronic), ]
-  
+
   # Start with baseline trajectories
   current_trajectories <- yearly_baseline_profits
-  
+
   # Apply acute shocks first
   if (nrow(acute_events) > 0) {
     current_trajectories <- apply_acute_shock_yearly(
-      current_trajectories, 
-      filtered_assets, 
+      current_trajectories,
+      filtered_assets,
       acute_events
     )
   }
-  
+
   # Apply chronic shocks second
   if (nrow(chronic_events) > 0) {
     current_trajectories <- apply_chronic_shock_yearly(
-      current_trajectories, 
-      filtered_assets, 
+      current_trajectories,
+      filtered_assets,
       chronic_events
     )
   }
-  
+
   # Return final trajectories with shocked values
   return(current_trajectories)
 }

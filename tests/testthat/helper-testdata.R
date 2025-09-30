@@ -32,7 +32,7 @@ has_pkg <- function(pkg) {
 skip_slow_tests <- function() {
   skip_on_ci <- Sys.getenv("CI") != ""
   skip_slow <- Sys.getenv("SKIP_SLOW_TESTS", "TRUE") == "TRUE"
-  
+
   if (skip_on_ci || skip_slow) {
     testthat::skip("Skipping slow test (set SKIP_SLOW_TESTS=FALSE to run)")
   }
@@ -43,12 +43,14 @@ timed_test <- function(test_name, test_code, max_seconds = 60) {
   start_time <- Sys.time()
   result <- test_code
   elapsed <- as.numeric(difftime(Sys.time(), start_time, units = "secs"))
-  
+
   if (elapsed > max_seconds) {
-    message(sprintf("Test '%s' took %.2f seconds (> %d seconds threshold)", 
-                   test_name, elapsed, max_seconds))
+    message(sprintf(
+      "Test '%s' took %.2f seconds (> %d seconds threshold)",
+      test_name, elapsed, max_seconds
+    ))
   }
-  
+
   result
 }
 
@@ -71,7 +73,7 @@ create_yearly_scenarios <- function() {
     baseline_revenue = c(1000, 1020, 800, 816),
     baseline_profit = c(100, 102, 80, 81.6)
   )
-  
+
   yearly_shocked <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
@@ -79,12 +81,12 @@ create_yearly_scenarios <- function() {
     shocked_revenue = c(1000, 979, 800, 783),
     shocked_profit = c(100, 97.9, 80, 78.3)
   )
-  
+
   companies <- data.frame(
     company_name = "C1",
     revenues = 1000
   )
-  
+
   list(baseline = yearly_baseline, shocked = yearly_shocked, companies = companies)
 }
 

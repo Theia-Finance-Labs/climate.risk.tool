@@ -23,10 +23,10 @@ testthat::test_that("summarize_hazards returns long format with hazard data", {
   testthat::expect_true(is.character(out_long$hazard_name))
   testthat::expect_true(is.character(out_long$hazard_type))
   testthat::expect_true(is.numeric(out_long$hazard_intensity))
-  
+
   # Should have more rows than original assets (long format)
   testthat::expect_gte(nrow(out_long), nrow(assets_geo))
-  
+
   # Check that hazard_type is extracted correctly from hazard_name
   if (nrow(out_long) > 0) {
     testthat::expect_true(all(!is.na(out_long$hazard_type)))

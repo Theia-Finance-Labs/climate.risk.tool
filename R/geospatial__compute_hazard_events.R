@@ -15,13 +15,11 @@ compute_hazard_events <- function(assets, hazards, areas, damage_factors) {
   if (!is.list(hazards) || length(hazards) == 0) stop("hazards must be list")
   if (!is.list(areas) || !all(c("municipalities", "provinces") %in% names(areas))) stop("areas invalid")
   if (!is.data.frame(damage_factors) || nrow(damage_factors) == 0) stop("damage_factors must be data.frame")
-  
+
   assets_geo <- geolocate_assets(assets, hazards, areas$municipalities, areas$provinces)
-  assets_cut <- cutout_hazards(assets_geo, hazards)  
+  assets_cut <- cutout_hazards(assets_geo, hazards)
   assets_long <- summarize_hazards(assets_cut)
   assets_with_factors <- join_damage_cost_factors(assets_long, damage_factors)
-  
+
   assets_with_factors
 }
-
-

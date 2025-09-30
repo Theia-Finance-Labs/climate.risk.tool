@@ -3,7 +3,7 @@
 # Contract:
 # - load_location_areas(municipalities_dir, provinces_dir) loads both areas and returns list with municipalities and provinces
 # - load_municipalities(municipalities_dir) reads all geojson files from municipalities directory
-# - load_provinces(provinces_dir) reads all geojson files from provinces directory  
+# - load_provinces(provinces_dir) reads all geojson files from provinces directory
 # - All return named lists of sf objects with length >= 1
 # - Names are derived from basenames without extension
 
@@ -22,12 +22,12 @@ testthat::test_that("load_location_areas loads both municipalities and provinces
 
   testthat::expect_type(areas, "list")
   testthat::expect_true(all(c("municipalities", "provinces") %in% names(areas)))
-  
+
   # Check municipalities
   testthat::expect_type(areas$municipalities, "list")
   testthat::expect_gt(length(areas$municipalities), 0)
   testthat::expect_true(!is.null(names(areas$municipalities)))
-  
+
   # Check provinces
   testthat::expect_type(areas$provinces, "list")
   testthat::expect_gt(length(areas$provinces), 0)

@@ -1,11 +1,11 @@
 # Helper function to convert column names to snake_case
 to_snake_case <- function(names) {
   names |>
-    gsub("([a-z])([A-Z])", "\\1_\\2", x = _) |>  # camelCase to snake_case
-    gsub("\\s+", "_", x = _) |>                   # spaces to underscores
-    gsub("\\.", "_", x = _) |>                    # dots to underscores
-    gsub("_+", "_", x = _) |>                     # multiple underscores to single
-    gsub("^_|_$", "", x = _) |>                   # remove leading/trailing underscores
+    gsub("([a-z])([A-Z])", "\\1_\\2", x = _) |> # camelCase to snake_case
+    gsub("\\s+", "_", x = _) |> # spaces to underscores
+    gsub("\\.", "_", x = _) |> # dots to underscores
+    gsub("_+", "_", x = _) |> # multiple underscores to single
+    gsub("^_|_$", "", x = _) |> # remove leading/trailing underscores
     tolower()
 }
 
@@ -104,30 +104,29 @@ read_companies <- function(file_path) {
 #' @export
 read_damage_cost_factors <- function(base_dir) {
   message("📁 [read_damage_cost_factors] Reading damage and cost factors from: ", base_dir)
-  
+
   # Define file path
   factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
-  
+
   # Check if file exists
   if (!file.exists(factors_path)) {
     stop("Damage and cost factors file not found at: ", factors_path)
   }
-  
+
   # Read the damage and cost factors CSV
   # The CSV uses comma as decimal separator and quotes around numbers
   factors_df <- utils::read.csv(factors_path, stringsAsFactors = FALSE)
-  
+
   # Clean up the numeric columns that have comma decimal separators and quotes
   factors_df$damage_factor <- as.numeric(gsub(",", ".", gsub('"', "", factors_df$damage_factor)))
   factors_df$cost_factor <- as.numeric(gsub(",", ".", gsub('"', "", factors_df$cost_factor)))
-  
+
   # Ensure hazard_intensity is numeric
   factors_df$hazard_intensity <- as.numeric(factors_df$hazard_intensity)
-  
+
   # Convert column names to snake_case for consistency
   names(factors_df) <- to_snake_case(names(factors_df))
-  
+
   message("✅ [read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
   factors_df
 }
-

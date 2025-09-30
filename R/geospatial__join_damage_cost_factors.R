@@ -2,7 +2,7 @@
 #'
 #' @title Map hazard intensity to damage and cost factors
 #' @description Joins assets with damage and cost factors from a lookup table based on
-#'   hazard_type, rounded hazard intensity values and asset category. Hazard intensity 
+#'   hazard_type, rounded hazard intensity values and asset category. Hazard intensity
 #'   is rounded to the nearest integer for matching. Expects long format input with
 #'   hazard_type, hazard_intensity columns.
 #' @param assets_with_hazards Data frame in long format with asset and hazard information

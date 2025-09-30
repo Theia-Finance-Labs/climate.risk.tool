@@ -10,8 +10,10 @@ testthat::test_that("load_hazards caches aggregated rasters and reuses them", {
   original_files <- tif_files[!grepl("__agg\\d+\\.tif$", basename(tif_files))]
 
   # Ensure cache file paths for original files
-  cache_candidates <- file.path(dirname(original_files),
-                                paste0(tools::file_path_sans_ext(basename(original_files)), "__agg", agg_factor, ".tif"))
+  cache_candidates <- file.path(
+    dirname(original_files),
+    paste0(tools::file_path_sans_ext(basename(original_files)), "__agg", agg_factor, ".tif")
+  )
   unlink(cache_candidates[file.exists(cache_candidates)])
 
   # First load should aggregate and create cache files
@@ -26,7 +28,7 @@ testthat::test_that("load_hazards caches aggregated rasters and reuses them", {
   t2 <- system.time({
     hz2 <- load_hazards(hz_dir, aggregate_factor = agg_factor, cache_aggregated = TRUE, force_reaggregate = FALSE)
   })
-  testthat::expect_true(t2["elapsed"] <= t1["elapsed"])  # reuse must not be slower
+  testthat::expect_true(t2["elapsed"] <= t1["elapsed"]) # reuse must not be slower
 
   # Dimensions should be reduced relative to originals
   original <- load_hazards(hz_dir, aggregate_factor = 1L, cache_aggregated = FALSE)
@@ -46,24 +48,24 @@ testthat::test_that("load_hazards filters files by aggregation factor", {
   # Find all .tif files
   all_tif_files <- list.files(hz_dir, pattern = "\\.tif$", full.names = TRUE, recursive = TRUE)
   testthat::skip_if(length(all_tif_files) == 0, "no tif files in hazards directory")
-  
+
   # Count original files
   original_files <- all_tif_files[!grepl("__agg\\d+", basename(all_tif_files))]
-  
+
   # Count aggregated files for factor 64
   agg64_files <- all_tif_files[grepl("__agg64\\.tif$", basename(all_tif_files))]
-  
+
   # Test loading with aggregate_factor = 1 (should load only original files)
   hz_original <- load_hazards(hz_dir, aggregate_factor = 1L, cache_aggregated = FALSE)
   testthat::expect_equal(length(hz_original), length(original_files))
-  
+
   # Test loading with aggregate_factor = 64 (should load pre-aggregated files if available)
   if (length(agg64_files) > 0) {
     hz_agg64 <- load_hazards(hz_dir, aggregate_factor = 64L, cache_aggregated = TRUE, force_reaggregate = FALSE)
     testthat::expect_equal(length(hz_agg64), length(agg64_files))
-    testthat::expect_equal(length(hz_agg64), length(original_files))  # Should match number of original scenarios
+    testthat::expect_equal(length(hz_agg64), length(original_files)) # Should match number of original scenarios
   }
-  
+
   # Verify names are consistent (aggregated files should have same scenario names as originals)
   if (length(agg64_files) > 0) {
     hz_agg64 <- load_hazards(hz_dir, aggregate_factor = 64L, cache_aggregated = TRUE, force_reaggregate = FALSE)
@@ -85,8 +87,10 @@ testthat::test_that("load_hazards prevents recursive aggregation", {
   agg_factor <- 32L
 
   # Clean any existing cache files for this specific factor
-  cache_candidates <- file.path(dirname(original_files),
-                                paste0(tools::file_path_sans_ext(basename(original_files)), "__agg", agg_factor, ".tif"))
+  cache_candidates <- file.path(
+    dirname(original_files),
+    paste0(tools::file_path_sans_ext(basename(original_files)), "__agg", agg_factor, ".tif")
+  )
   unlink(cache_candidates[file.exists(cache_candidates)])
 
   # Load with aggregation - should create cache files with correct names
@@ -97,13 +101,15 @@ testthat::test_that("load_hazards prevents recursive aggregation", {
   # Allow for the possibility that no cache files are created if hazards are already aggregated
   if (length(original_files) > 0) {
     testthat::expect_true(length(cache_files) > 0,
-                         info = paste("Expected cache files for factor", agg_factor, "but found none"))
+      info = paste("Expected cache files for factor", agg_factor, "but found none")
+    )
   }
 
   # Check that no recursive aggregation occurred
   recursive_files <- list.files(hz_dir, pattern = "__agg\\d+__agg\\d+", full.names = TRUE)
   testthat::expect_equal(length(recursive_files), 0,
-                         info = "Found recursively aggregated files - bug not fixed")
+    info = "Found recursively aggregated files - bug not fixed"
+  )
 
   # Verify cache files have expected names
   for (cache_file in cache_files) {
@@ -111,7 +117,8 @@ testthat::test_that("load_hazards prevents recursive aggregation", {
     # Should contain exactly one __agg32 suffix
     agg_count <- length(gregexpr(paste0("__agg", agg_factor), filename)[[1]])
     testthat::expect_equal(agg_count, 1,
-                          info = paste("Cache file", filename, "has wrong number of aggregation suffixes"))
+      info = paste("Cache file", filename, "has wrong number of aggregation suffixes")
+    )
   }
 })
 

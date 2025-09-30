@@ -54,7 +54,7 @@
 #'   file.path(base_dir, "areas", "province")
 #' )
 #' damage_factors <- read_damage_cost_factors(base_dir)
-#' 
+#'
 #' # Define events
 #' events <- data.frame(
 #'   hazard_type = "flood",
@@ -75,25 +75,23 @@
 #'   net_profit_margin = 0.1,
 #'   discount_rate = 0.05
 #' )
-#' 
+#'
 #' # Access final results
-#' asset_results <- results$assets  # Aggregated asset NPV by scenario
-#' company_results <- results$companies  # Aggregated company NPV, PD, EL by scenario
-#' asset_yearly <- results$assets_yearly  # Detailed yearly asset trajectories
-#' company_yearly <- results$companies_yearly  # Detailed yearly company trajectories
+#' asset_results <- results$assets # Aggregated asset NPV by scenario
+#' company_results <- results$companies # Aggregated company NPV, PD, EL by scenario
+#' asset_yearly <- results$assets_yearly # Detailed yearly asset trajectories
+#' company_yearly <- results$companies_yearly # Detailed yearly company trajectories
 #' }
 #' @export
 compute_risk <- function(assets,
-                        companies,
-                        events,
-                        hazards,
-                        areas,
-                        damage_factors,
-                        growth_rate = 0.02,
-                        net_profit_margin = 0.1,
-                        discount_rate = 0.05
-) {
-  
+                         companies,
+                         events,
+                         hazards,
+                         areas,
+                         damage_factors,
+                         growth_rate = 0.02,
+                         net_profit_margin = 0.1,
+                         discount_rate = 0.05) {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -113,37 +111,37 @@ compute_risk <- function(assets,
   if (!is.data.frame(damage_factors) || nrow(damage_factors) == 0) {
     stop("damage_factors must be a non-empty data.frame (from read_damage_cost_factors())")
   }
-  
-  
+
+
   # ============================================================================
   # PHASE 1: UTILS - Input validation and data preparation
   # ============================================================================
-  
+
   # Prepare baseline asset data for later use
   baseline_assets <- assets[, c("asset", "share_of_economic_activity", "company"), drop = FALSE]
-  
-  
+
+
   # ============================================================================
   # PHASE 2: GEOSPATIAL - Asset geolocation and hazard processing
   # ============================================================================
-  
+
   # Step 2.1: Geolocate assets
   assets_geo <- geolocate_assets(assets, hazards, areas$municipalities, areas$provinces)
-  
+
   # Step 2.2: Cutout hazards
   assets_cut <- cutout_hazards(assets_geo, hazards)
-  
+
   # Step 2.3: Summarize hazards
   assets_long <- summarize_hazards(assets_cut)
-  
+
   # Step 2.4: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
-  
-  
+
+
   # ============================================================================
   # PHASE 3: SHOCK - Compute baseline and shocked yearly trajectories
   # ============================================================================
-  
+
   # Step 3.1: Compute baseline yearly trajectories
   yearly_baseline_profits <- compute_baseline_trajectories(
     baseline_assets = baseline_assets,
@@ -151,50 +149,50 @@ compute_risk <- function(assets,
     growth_rate = growth_rate,
     net_profit_margin = net_profit_margin
   )
-  
+
   # Step 3.2: Compute shocked yearly trajectories
   yearly_shocked_profits <- compute_shock_trajectories(
     yearly_baseline_profits = yearly_baseline_profits,
     assets_with_factors = assets_factors,
     events = events
   )
-  
+
   # Step 3.3: Build scenarios (concatenate baseline and shocked)
   yearly_scenarios <- build_yearly_scenarios(yearly_baseline_profits, yearly_shocked_profits)
-  
-  
+
+
   # ============================================================================
   # PHASE 4: FINANCIAL_ASSETS - Asset-level financial computations
   # ============================================================================
-  
+
   # Apply discounting to yearly scenarios
   assets_discounted_yearly <- discount_yearly_profits(yearly_scenarios, discount_rate)
-  
-  
+
+
   # ============================================================================
   # PHASE 5: FINANCIALS_COMPANY - Company-level aggregation and risk metrics
   # ============================================================================
-  
+
   # Compute company-level yearly trajectories for detailed analysis
   company_yearly_trajectories <- compute_company_yearly_trajectories(assets_discounted_yearly)
-  
+
   # Use companies financials function that works with yearly data
   fin <- compute_companies_financials(company_yearly_trajectories, assets_discounted_yearly, discount_rate)
-  
-  
+
+
   # ============================================================================
   # PHASE 6: UTILS - Final result formatting and output
   # ============================================================================
-  
+
   # Final results include both aggregated and yearly trajectory data
   final_results <- list(
-    assets_factors=assets_factors,
-    assets = fin$assets, 
+    assets_factors = assets_factors,
+    assets = fin$assets,
     companies = fin$companies,
     assets_yearly = assets_discounted_yearly,
     companies_yearly = company_yearly_trajectories
   )
-  
-  
+
+
   final_results
 }

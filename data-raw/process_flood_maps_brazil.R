@@ -80,87 +80,91 @@ cat("\n=== Processing Hazard Maps ===\n")
 for (i in seq_along(flood_files)) {
   flood_file <- flood_files[i]
   flood_file_rel <- flood_files_rel[i]
-  
+
   cat("\nProcessing:", flood_file_rel, "\n")
-  
+
   # Generate output filename maintaining directory structure
   base_name <- tools::file_path_sans_ext(basename(flood_file))
   output_subdir <- file.path(output_base_dir, dirname(flood_file_rel))
   output_file <- file.path(output_subdir, paste0(base_name, "_brazil.tif"))
-  
+
   # Create output subdirectory if it doesn't exist
   if (!dir.exists(output_subdir)) {
     dir.create(output_subdir, recursive = TRUE)
     cat("- Created output directory:", output_subdir, "\n")
   }
-  
+
   # Skip if file already exists
   if (file.exists(output_file)) {
     cat("- Output file already exists, skipping:", basename(output_file), "\n")
     next
   }
-  
-  tryCatch({
-    # Read the flood map raster
-    flood_raster <- terra::rast(flood_file)
-    
-    # Print raster information
-    cat("- Original raster dimensions:", nrow(flood_raster), "x", ncol(flood_raster), "\n")
-    cat("- Original CRS:", terra::crs(flood_raster), "\n")
-    cat("- Original extent:\n")
-    print(terra::ext(flood_raster))
-    
-    # Transform Brazil boundaries to match the raster CRS
-    brazil_transformed <- sf::st_transform(brazil_union, terra::crs(flood_raster))
-    
-    # Get bounding box for efficient cropping
-    brazil_bbox <- sf::st_bbox(brazil_transformed)
-    cat("- Brazil bounding box in raster CRS:\n")
-    print(brazil_bbox)
-    
-    # Crop the raster to Brazil's bounding box first (for efficiency)
-    flood_cropped <- terra::crop(flood_raster, brazil_bbox)
-    cat("- Cropped raster dimensions:", nrow(flood_cropped), "x", ncol(flood_cropped), "\n")
-    
-    # Mask the raster using Brazil's boundaries
-    flood_brazil <- terra::mask(flood_cropped, terra::vect(brazil_transformed))
-    
-    # Generate output filename (already defined above)
-    # base_name and output_file already set
-    
-    # Write the clipped raster
-    terra::writeRaster(flood_brazil, output_file, overwrite = TRUE)
-    
-    cat("- Output saved to:", basename(output_file), "\n")
-    cat("- Final raster dimensions:", nrow(flood_brazil), "x", ncol(flood_brazil), "\n")
-    
-    # Calculate some basic statistics
-    flood_values <- terra::values(flood_brazil)
-    flood_values <- flood_values[!is.na(flood_values)]
-    
-    if (length(flood_values) > 0) {
-      cat("- Statistics for Brazil:\n")
-      cat("  - Min value:", min(flood_values), "\n")
-      cat("  - Max value:", max(flood_values), "\n")
-      cat("  - Mean value:", round(mean(flood_values), 4), "\n")
-      cat("  - Non-zero cells:", sum(flood_values > 0), "\n")
-      cat("  - Total valid cells:", length(flood_values), "\n")
-      cat("  - Percentage of non-zero cells:", round(100 * sum(flood_values > 0) / length(flood_values), 2), "%\n")
-    } else {
-      cat("- Warning: No valid data found in Brazil region\n")
+
+  tryCatch(
+    {
+      # Read the flood map raster
+      flood_raster <- terra::rast(flood_file)
+
+      # Print raster information
+      cat("- Original raster dimensions:", nrow(flood_raster), "x", ncol(flood_raster), "\n")
+      cat("- Original CRS:", terra::crs(flood_raster), "\n")
+      cat("- Original extent:\n")
+      print(terra::ext(flood_raster))
+
+      # Transform Brazil boundaries to match the raster CRS
+      brazil_transformed <- sf::st_transform(brazil_union, terra::crs(flood_raster))
+
+      # Get bounding box for efficient cropping
+      brazil_bbox <- sf::st_bbox(brazil_transformed)
+      cat("- Brazil bounding box in raster CRS:\n")
+      print(brazil_bbox)
+
+      # Crop the raster to Brazil's bounding box first (for efficiency)
+      flood_cropped <- terra::crop(flood_raster, brazil_bbox)
+      cat("- Cropped raster dimensions:", nrow(flood_cropped), "x", ncol(flood_cropped), "\n")
+
+      # Mask the raster using Brazil's boundaries
+      flood_brazil <- terra::mask(flood_cropped, terra::vect(brazil_transformed))
+
+      # Generate output filename (already defined above)
+      # base_name and output_file already set
+
+      # Write the clipped raster
+      terra::writeRaster(flood_brazil, output_file, overwrite = TRUE)
+
+      cat("- Output saved to:", basename(output_file), "\n")
+      cat("- Final raster dimensions:", nrow(flood_brazil), "x", ncol(flood_brazil), "\n")
+
+      # Calculate some basic statistics
+      flood_values <- terra::values(flood_brazil)
+      flood_values <- flood_values[!is.na(flood_values)]
+
+      if (length(flood_values) > 0) {
+        cat("- Statistics for Brazil:\n")
+        cat("  - Min value:", min(flood_values), "\n")
+        cat("  - Max value:", max(flood_values), "\n")
+        cat("  - Mean value:", round(mean(flood_values), 4), "\n")
+        cat("  - Non-zero cells:", sum(flood_values > 0), "\n")
+        cat("  - Total valid cells:", length(flood_values), "\n")
+        cat("  - Percentage of non-zero cells:", round(100 * sum(flood_values > 0) / length(flood_values), 2), "%\n")
+      } else {
+        cat("- Warning: No valid data found in Brazil region\n")
+      }
+
+      # Calculate file size reduction
+      original_size <- file.size(flood_file) / (1024 * 1024) # Size in MB
+      processed_size <- file.size(output_file) / (1024 * 1024) # Size in MB
+      reduction_percent <- round(100 * (1 - processed_size / original_size), 1)
+
+      cat("- File size: ", sprintf("%.2f MB", original_size), " -> ", sprintf("%.2f MB", processed_size),
+        " (", reduction_percent, "% reduction)\n",
+        sep = ""
+      )
+    },
+    error = function(e) {
+      cat("ERROR processing", basename(flood_file), ":", e$message, "\n")
     }
-    
-    # Calculate file size reduction
-    original_size <- file.size(flood_file) / (1024 * 1024) # Size in MB
-    processed_size <- file.size(output_file) / (1024 * 1024) # Size in MB
-    reduction_percent <- round(100 * (1 - processed_size / original_size), 1)
-    
-    cat("- File size: ", sprintf("%.2f MB", original_size), " -> ", sprintf("%.2f MB", processed_size), 
-        " (", reduction_percent, "% reduction)\n", sep = "")
-    
-  }, error = function(e) {
-    cat("ERROR processing", basename(flood_file), ":", e$message, "\n")
-  })
+  )
 }
 
 cat("\n=== Processing Complete ===\n")

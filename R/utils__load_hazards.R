@@ -41,7 +41,7 @@ load_hazards <- function(hazards_dir,
     # If aggregate_factor > 1, prefer aggregated files that match this factor
     agg_pattern <- paste0("__agg", aggregate_factor, "\\.tif$")
     aggregated_files <- all_tif_files[grepl(agg_pattern, all_tif_files)]
-    
+
     if (length(aggregated_files) > 0) {
       # Use aggregated files that match the factor
       tif_files <- aggregated_files
@@ -69,10 +69,10 @@ load_hazards <- function(hazards_dir,
     tif_file <- tif_files[i]
     parent_dir <- basename(dirname(tif_file))
     scenario <- tools::file_path_sans_ext(basename(tif_file))
-    
+
     # Remove aggregation suffix from scenario name for cleaner display
     scenario <- sub("__agg\\d+$", "", scenario)
-    
+
     # If files are directly under hazards_dir, use parent_dir of hazards_dir's name
     # but still produce a stable name
     if (dirname(tif_file) == normalizePath(hazards_dir, mustWork = FALSE)) {
@@ -92,15 +92,15 @@ load_hazards <- function(hazards_dir,
   for (i in seq_along(tif_files)) {
     tif_file <- tif_files[i]
     message("🗺️ [load_hazards] Loading ", basename(tif_file), "...")
-    
+
     # Load raster
     r <- terra::rast(tif_file)
-    
+
     # Check if this file is already aggregated at the target factor
     base_filename <- basename(tif_file)
     target_agg_pattern <- paste0("__agg", aggregate_factor, "\\.tif$")
     is_already_target_aggregated <- grepl(target_agg_pattern, base_filename)
-    
+
     # Aggregate during loading if factor > 1 and file is not already at target aggregation
     if (is.numeric(aggregate_factor) && aggregate_factor > 1L && !is_already_target_aggregated) {
       orig_dims <- dim(r)
@@ -116,7 +116,7 @@ load_hazards <- function(hazards_dir,
       } else {
         original_name <- base_filename
       }
-      
+
       cache_filename <- paste0(tools::file_path_sans_ext(original_name), "__agg", aggregate_factor, ".tif")
       cache_file <- file.path(dirname(tif_file), cache_filename)
 
@@ -143,8 +143,10 @@ load_hazards <- function(hazards_dir,
         if (!inherits(r_agg, "try-error")) {
           new_dims <- dim(r_agg)
           reduction <- prod(orig_dims) / prod(new_dims)
-          message("   New dimensions: ", paste(new_dims, collapse = "x"), " (", 
-                  format(reduction, big.mark = ","), "x smaller)")
+          message(
+            "   New dimensions: ", paste(new_dims, collapse = "x"), " (",
+            format(reduction, big.mark = ","), "x smaller)"
+          )
           r <- if (isTRUE(cache_aggregated)) terra::rast(cache_file) else r_agg
         } else {
           message("   Aggregation failed, using original raster")
@@ -153,7 +155,7 @@ load_hazards <- function(hazards_dir,
     } else if (is_already_target_aggregated) {
       message("   Using pre-aggregated raster (factor ", aggregate_factor, ")")
     }
-    
+
     hazards[[i]] <- r
   }
 

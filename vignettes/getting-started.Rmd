@@ -11,7 +11,7 @@ vignette: >
 knitr::opts_chunk$set(
   collapse = TRUE,
   comment = "#>",
-  eval = FALSE  # Don't evaluate code chunks - this is a usage guide
+  eval = FALSE # Don't evaluate code chunks - this is a usage guide
 )
 ```
 
@@ -26,7 +26,7 @@ library(climate.risk.tool)
 # - areas/municipality/*.geojson
 # - areas/province/*.geojson
 # - damage_and_cost_factors.csv
-base_dir <- "/path/to/your/data"  # Replace with your actual data directory
+base_dir <- "/path/to/your/data" # Replace with your actual data directory
 ```
 
 ## Prepare inputs

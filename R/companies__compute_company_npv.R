@@ -13,19 +13,19 @@
 #' \dontrun{
 #' # With company yearly data
 #' company_yearly <- data.frame(
-#'   company = c("C1", "C1"), 
+#'   company = c("C1", "C1"),
 #'   year = c(2025, 2026),
-#'   scenario = c("baseline", "baseline"), 
+#'   scenario = c("baseline", "baseline"),
 #'   total_discounted_net_profit = c(100, 97)
 #' )
 #' result <- compute_company_npv(company_yearly)
-#' 
-#' # With asset yearly data  
+#'
+#' # With asset yearly data
 #' asset_yearly <- data.frame(
 #'   asset = c("A1", "A1"),
 #'   company = c("C1", "C1"),
 #'   year = c(2025, 2026),
-#'   scenario = c("baseline", "baseline"), 
+#'   scenario = c("baseline", "baseline"),
 #'   discounted_net_profit = c(100, 97)
 #' )
 #' result <- compute_company_npv(asset_yearly)
@@ -36,11 +36,11 @@ compute_company_npv <- function(yearly_data) {
   if (!is.data.frame(yearly_data)) {
     stop("yearly_data must be a data.frame")
   }
-  
+
   # Determine data type and required columns based on available columns
   has_total_discounted <- "total_discounted_net_profit" %in% names(yearly_data)
   has_asset_discounted <- "discounted_net_profit" %in% names(yearly_data)
-  
+
   if (has_total_discounted) {
     # Company yearly trajectories
     required_cols <- c("company", "scenario", "total_discounted_net_profit")
@@ -52,12 +52,12 @@ compute_company_npv <- function(yearly_data) {
   } else {
     stop("yearly_data must contain either 'total_discounted_net_profit' (company data) or 'discounted_net_profit' (asset data)")
   }
-  
+
   missing_cols <- setdiff(required_cols, names(yearly_data))
   if (length(missing_cols) > 0) {
     stop(paste("Missing required columns:", paste(missing_cols, collapse = ", ")))
   }
-  
+
   # Aggregate discounted net profits by company and scenario
   # Sum across years for each company-scenario combination
   formula_str <- paste(profit_col, "~ company + scenario")
@@ -67,35 +67,37 @@ compute_company_npv <- function(yearly_data) {
     FUN = sum,
     na.rm = TRUE
   )
-  
+
   # Rename the aggregated column to npv (snake_case preferred)
   names(result)[names(result) == profit_col] <- "npv"
-  
+
   # Ensure proper column types
   result$company <- as.character(result$company)
-  
+
   # Preserve scenario as ordered factor if it was one
   if (is.factor(yearly_data$scenario)) {
     if (is.ordered(yearly_data$scenario)) {
-      result$scenario <- factor(result$scenario, 
-                               levels = levels(yearly_data$scenario),
-                               ordered = TRUE)
+      result$scenario <- factor(result$scenario,
+        levels = levels(yearly_data$scenario),
+        ordered = TRUE
+      )
     } else {
-      result$scenario <- factor(result$scenario, 
-                               levels = levels(yearly_data$scenario))
+      result$scenario <- factor(result$scenario,
+        levels = levels(yearly_data$scenario)
+      )
     }
   }
-  
+
   # Ensure npv is numeric
   if (!is.numeric(result$npv)) {
     stop("Calculated NPV is not numeric")
   }
-  
+
   # Sort by company and scenario for consistent output
   result <- result[order(result$company, result$scenario), ]
-  
+
   # Reset row names
   rownames(result) <- NULL
-  
+
   return(result)
 }
