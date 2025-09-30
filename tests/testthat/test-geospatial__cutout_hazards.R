@@ -7,7 +7,6 @@
 
 
 testthat::test_that("cutout_hazards adds one list column per loaded hazard", {
-  skip_slow_tests()
 
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
@@ -26,7 +25,6 @@ testthat::test_that("cutout_hazards adds one list column per loaded hazard", {
 
 
 testthat::test_that("cutout_hazards optimizes by grouping municipality and province methods", {
-  skip_slow_tests()
   # Create a small test dataset with known geolocation methods
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
@@ -98,7 +96,6 @@ testthat::test_that("cutout_hazards optimizes by grouping municipality and provi
 
 
 testthat::test_that("cutout_hazards handles missing geolocation_method column", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())

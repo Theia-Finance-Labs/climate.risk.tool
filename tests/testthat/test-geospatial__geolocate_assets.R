@@ -11,7 +11,6 @@
 
 
 testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
@@ -26,7 +25,6 @@ testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows
 
 
 testthat::test_that("geolocate_assets uses geoloc > municipality > province priority", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())
@@ -102,7 +100,6 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
 
 
 testthat::test_that("geolocate_assets returns valid sfc types and consistent CRS with hazards", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir())

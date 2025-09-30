@@ -9,7 +9,6 @@
 
 
 testthat::test_that("load_location_areas loads both municipalities and provinces", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
@@ -36,7 +35,6 @@ testthat::test_that("load_location_areas loads both municipalities and provinces
 
 
 testthat::test_that("load_municipalities loads geojson files and returns a named list", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
 
@@ -48,7 +46,6 @@ testthat::test_that("load_municipalities loads geojson files and returns a named
 
 
 testthat::test_that("load_municipalities list elements are sf objects", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
 
@@ -60,7 +57,6 @@ testthat::test_that("load_municipalities list elements are sf objects", {
 
 
 testthat::test_that("load_provinces loads geojson files and returns a named list", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
@@ -72,7 +68,6 @@ testthat::test_that("load_provinces loads geojson files and returns a named list
 
 
 testthat::test_that("load_provinces list elements are sf objects", {
-  skip_slow_tests()
   base_dir <- get_test_data_dir()
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 

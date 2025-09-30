@@ -1,4 +1,5 @@
 testthat::test_that("e2e: upload base_dir, run analysis, download results", {
+  skip_slow_tests()
   # testthat::skip_if_not_installed("shinytest2")
 
   base_dir <- get_test_data_dir()
