@@ -45,7 +45,7 @@ assets_factors <- data.frame(
   damage_factor = 0.1, cost_factor = 1000
 )
 events <- data.frame(
-  event_id = "ev1", hazard_type = "flood", scenario = "rcp85", 
+  event_id = "ev1", hazard_type = "flood", scenario = "rcp85",
   event_year = 2030, chronic = FALSE
 )
 result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)

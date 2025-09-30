@@ -110,9 +110,9 @@ results <- compute_risk(
 )
 
 # Access final results
-asset_results <- results$assets  # Aggregated asset NPV by scenario
-company_results <- results$companies  # Aggregated company NPV, PD, EL by scenario
-asset_yearly <- results$assets_yearly  # Detailed yearly asset trajectories
-company_yearly <- results$companies_yearly  # Detailed yearly company trajectories
+asset_results <- results$assets # Aggregated asset NPV by scenario
+company_results <- results$companies # Aggregated company NPV, PD, EL by scenario
+asset_yearly <- results$assets_yearly # Detailed yearly asset trajectories
+company_yearly <- results$companies_yearly # Detailed yearly company trajectories
 }
 }

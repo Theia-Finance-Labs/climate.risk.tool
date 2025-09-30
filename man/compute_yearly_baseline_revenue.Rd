@@ -38,7 +38,7 @@ Compute Yearly Baseline Revenue Trajectories for Assets
 \dontrun{
 baseline_assets <- data.frame(
   asset = c("A1", "A2"),
-  company = c("C1", "C1"), 
+  company = c("C1", "C1"),
   share_of_economic_activity = c(0.6, 0.4)
 )
 companies <- data.frame(

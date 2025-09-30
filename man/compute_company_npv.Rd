@@ -27,19 +27,19 @@ Computes Net Present Value (NPV) for each company in each scenario by summing ye
 \dontrun{
 # With company yearly data
 company_yearly <- data.frame(
-  company = c("C1", "C1"), 
+  company = c("C1", "C1"),
   year = c(2025, 2026),
-  scenario = c("baseline", "baseline"), 
+  scenario = c("baseline", "baseline"),
   total_discounted_net_profit = c(100, 97)
 )
 result <- compute_company_npv(company_yearly)
 
-# With asset yearly data  
+# With asset yearly data
 asset_yearly <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2026),
-  scenario = c("baseline", "baseline"), 
+  scenario = c("baseline", "baseline"),
   discounted_net_profit = c(100, 97)
 )
 result <- compute_company_npv(asset_yearly)

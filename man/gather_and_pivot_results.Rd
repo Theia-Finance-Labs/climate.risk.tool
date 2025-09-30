@@ -28,8 +28,10 @@ Creates separate pivoted tables for assets and companies.
 \examples{
 \dontrun{
 assets <- data.frame(company = "A", scenario = "baseline", discounted_net_profit = 1000)
-companies <- data.frame(company = "A", scenario = "baseline", npv = 1000, 
-                       merton_pd = 0.1, expected_loss = 100)
+companies <- data.frame(
+  company = "A", scenario = "baseline", npv = 1000,
+  merton_pd = 0.1, expected_loss = 100
+)
 result <- gather_and_pivot_results(assets, companies)
 }
 }
