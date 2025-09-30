@@ -53,32 +53,25 @@ events <- data.frame(
   stringsAsFactors = FALSE
 )
 
-
-# Precompute assets factors once (this is the slow step)
-precomputed_file <- precompute_assets_factors(
-  assets = assets,
-  hazards = hazards,
-  areas = areas,
-  damage_factors = damage_factors,
-  hazards_dir = file.path(base_dir, "hazards")
-)
-
-# Now run analysis with precomputed data (fast!)
+# Run the complete climate risk analysis
 results <- compute_risk(
   assets = assets,
   companies = companies,
   events = events,
-  precomputed_assets_factors = precomputed_file,
+  hazards = hazards,
+  areas = areas,
+  damage_factors = damage_factors,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05
 )
 
 # Access results
-results$assets
-results$companies
-results$assets_yearly
-results$companies_yearly
+results$assets           # Aggregated asset NPV by scenario
+results$companies        # Company NPV, PD, and Expected Loss by scenario
+results$assets_yearly    # Detailed yearly asset trajectories
+results$companies_yearly # Detailed yearly company trajectories
+results$assets_factors   # Asset-level hazard exposure and damage factors
 ``` 
 
 ### 2. Interactive Shiny Application
@@ -153,7 +146,18 @@ Run full package checks:
 devtools::check()      # Full R CMD CHECK
 ```
 
-### 5. Package Structure
+### 5. Hazard Data Setup
+
+For setting up hazard data and running the Brazil extraction pipeline, see:
+
+**[HAZARD_DATA_SETUP.md](HAZARD_DATA_SETUP.md)** - Complete guide for developers
+
+Quick reference:
+- Create `workspace/hazards_world/{hazard_type}/{scenario}.tif` structure
+- Run `Rscript data-raw/process_flood_maps_brazil.R` to generate Brazil subsets
+- Processed files are saved to `tests/tests_data/hazards/`
+
+### 6. Package Structure
 
 The codebase is organized into logical modules using a clear naming convention:
 

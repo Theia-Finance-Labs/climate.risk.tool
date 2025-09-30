@@ -11,3 +11,5 @@ $run_dev.*
 ^.*\.pyc$
 ^__pycache__
 ^climate\.risk\.tool\.Rproj$
+^doc$
+^Meta$

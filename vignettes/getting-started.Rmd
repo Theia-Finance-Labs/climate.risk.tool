@@ -10,19 +10,30 @@ vignette: >
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>"
+  comment = "#>",
+  eval = FALSE  # Don't evaluate code chunks - this is a usage guide
 )
 ```
 
 ```{r setup}
 library(climate.risk.tool)
-base_dir <- "tests/tests_data"
+
+# Set the path to your data directory
+# This should contain:
+# - user_input/asset_information.csv
+# - user_input/company.csv
+# - hazards/[hazard_type]/*.tif files
+# - areas/municipality/*.geojson
+# - areas/province/*.geojson
+# - damage_and_cost_factors.csv
+base_dir <- "/path/to/your/data"  # Replace with your actual data directory
 ```
 
 ## Prepare inputs
 
-```{r}
+Load all required data from your base directory:
 
+```{r}
 # Load all required data
 assets <- read_assets(base_dir)
 companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
@@ -36,8 +47,9 @@ damage_factors <- read_damage_cost_factors(base_dir)
 
 ## Define events
 
-```{r}
+Define the climate scenarios you want to analyze:
 
+```{r}
 # Create test events
 events <- data.frame(
   event_id = "event_1",
@@ -47,70 +59,68 @@ events <- data.frame(
   chronic = FALSE,
   stringsAsFactors = FALSE
 )
-
-```
-
-
-## Precompute assets factors (recommended for faster analysis)
-
-```{r}
-
-# Precompute assets factors once (this is the slow step)
-precomputed_file <- precompute_assets_factors(
-  assets = assets,
-  hazards = hazards,
-  areas = areas,
-  damage_factors = damage_factors,
-  hazards_dir = file.path(base_dir, "hazards")
-)
-
 ```
 
 ## Run the model
 
-```{r}
+Run the complete climate risk analysis pipeline:
 
-# Run analysis with precomputed data (fast!)
+```{r}
+# Run the complete climate risk analysis
 results <- compute_risk(
   assets = assets,
   companies = companies,
   events = events,
-  precomputed_assets_factors = precomputed_file,
+  hazards = hazards,
+  areas = areas,
+  damage_factors = damage_factors,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05
 )
-
 ```
 
 
 
 ## Explore results
 
-Assets exposure : 
+The results object contains multiple dataframes with different levels of detail:
+
+### Assets hazard exposure and damage factors
+
+Shows how each asset is exposed to different hazards:
+
 ```{r}
 results$assets_factors
 ```
 
-Assets yearly profits
+### Assets yearly profits trajectory
+
+Detailed year-by-year profit projections for each asset under different scenarios:
 
 ```{r}
 results$assets_yearly
 ```
 
-Companies yearly profits
+### Companies yearly profits trajectory
+
+Aggregated year-by-year profit projections at the company level:
 
 ```{r}
 results$companies_yearly
 ```
 
-Assets financials
+### Assets aggregated financials
+
+Summary NPV metrics for each asset by scenario:
 
 ```{r}
 results$assets
 ```
 
-Companies financials
+### Companies aggregated financials
+
+Final company-level risk metrics including NPV, Probability of Default (PD), and Expected Loss:
 
 ```{r}
 results$companies

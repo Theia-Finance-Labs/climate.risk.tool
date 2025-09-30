@@ -88,7 +88,14 @@ These tests are written ahead of implementation to guide UI/module construction.
 - **Result**: Maintains accuracy while significantly improving performance
 - **Benefits**: No caching complexity, direct pipeline execution, easier to maintain
 
-## 6) Open questions / decisions
+## 6) Data Setup Documentation
+
+- **HAZARD_DATA_SETUP.md**: Complete guide for developers on setting up hazard data workspace structure and running the Brazil extraction pipeline
+- **Workspace Structure**: `workspace/hazards_world/{hazard_type}/{scenario}.tif` organization
+- **Processing Pipeline**: `data-raw/process_flood_maps_brazil.R` script for generating Brazil-specific subsets
+- **Integration**: Automatic discovery and loading through `load_hazards()` function
+
+## 7) Open questions / decisions
 - Nearest-integer match or floor/ceil for hazard_intensity mapping
 - CRS standardization for polygons and rasters
 - How to handle assets lacking any location info
