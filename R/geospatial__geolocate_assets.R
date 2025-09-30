@@ -18,7 +18,7 @@
 #' assets_geo <- geolocate_assets(assets, hazards)
 #' }
 #' @export
-geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces_areas, default_buffer_size_m = 1000) {
+geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces_areas, default_buffer_size_m = 1111) {
   message("📍 [geolocate_assets] Starting asset geolocation for ", nrow(assets_df), " assets...")
 
   if (length(hazards) == 0) {
@@ -33,17 +33,21 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
     stop("Provinces areas list is empty")
   }
 
-  # Get target CRS from first hazard raster
+  # Get target CRS from first hazard raster for final output
   target_crs <- terra::crs(hazards[[1]])
+
+  # Use CRS 3857 (Web Mercator) for buffering - it uses meters as units
+  # This ensures buffer distances are in actual meters, not degrees
+  buffer_crs <- 3857
 
   # Combine all municipality and province boundaries
   # For simplicity, take the first municipality and province files
   adm2 <- municipalities_areas[[1]]
   adm1 <- provinces_areas[[1]]
 
-  # Ensure boundaries are in target CRS
-  adm2 <- sf::st_transform(adm2, target_crs)
-  adm1 <- sf::st_transform(adm1, target_crs)
+  # Transform boundaries to buffer CRS for accurate metric operations
+  adm2 <- sf::st_transform(adm2, buffer_crs)
+  adm1 <- sf::st_transform(adm1, buffer_crs)
 
   # Initialize geometry, centroid, and method columns
   n_assets <- nrow(assets_df)
@@ -57,18 +61,19 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
 
     # Priority 1: Use lat/lon coordinates
     if (!is.na(row$latitude) && !is.na(row$longitude)) {
-      # Create point geometry
+      # Create point geometry in WGS84
       point <- sf::st_point(c(row$longitude, row$latitude))
       point_sf <- sf::st_sfc(point, crs = 4326) # WGS84
-      point_sf <- sf::st_transform(point_sf, target_crs)
+      # Transform to CRS 3857 for metric buffering
+      point_sf <- sf::st_transform(point_sf, buffer_crs)
 
-      # Use size_in_m2 if available, otherwise default to 1000m buffer
+      # Use size_in_m2 if available, otherwise default buffer
       if (!is.na(row$size_in_m2) && is.numeric(row$size_in_m2) && row$size_in_m2 > 0) {
         # Calculate radius from area (assuming circular area: A = π * r²)
         radius <- sqrt(row$size_in_m2 / pi)
         geom <- sf::st_buffer(point_sf, dist = radius)
       } else {
-        # Default buffer of 1000m
+        # Default buffer in meters (CRS 3857 uses meters)
         geom <- sf::st_buffer(point_sf, dist = default_buffer_size_m)
       }
       method_list[i] <- "coordinates"
@@ -119,11 +124,14 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
     # If no geometry found, create a default small polygon at origin
     if (is.null(geom) || length(geom) == 0) {
       warning("No geometry found for asset ", i, ", using default location")
-      # Create a small square polygon at origin
+      # Create a small square polygon at origin in buffer CRS
       coords <- matrix(c(0, 0, 0, 1000, 1000, 1000, 1000, 0, 0, 0), ncol = 2, byrow = TRUE)
-      geom <- sf::st_sfc(sf::st_polygon(list(coords)), crs = target_crs)
+      geom <- sf::st_sfc(sf::st_polygon(list(coords)), crs = buffer_crs)
       method_list[i] <- "default"
     }
+
+    # Transform geometry to target CRS (hazard raster CRS) for extraction
+    geom <- sf::st_transform(geom, target_crs)
 
     # Store geometry and calculate centroid
     geometry_list[[i]] <- geom

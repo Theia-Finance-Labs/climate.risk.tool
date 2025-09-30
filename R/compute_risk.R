@@ -6,8 +6,8 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `hazard_type`, `scenario`, `event_year` (or NA), `chronic`.
-#'   When multiple rows are provided, events are combined (currently min share per asset).
+#' @param events data.frame with columns `hazard_type`, `hazard_name`, `event_year` (or NA), `chronic`.
+#'   An `event_id` column will be added if missing. When multiple rows are provided, events are combined.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param areas List containing municipalities and provinces named lists (from load_location_areas())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
@@ -27,20 +27,19 @@
 #' 2. Load hazards: Read climate hazard raster files (.tif)
 #' 3. Load areas: Load municipality and province boundary files
 #' 4. Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > province priority
-#' 5. Cutout hazards: Extract hazard values for each asset geometry
-#' 6. Summarize hazards: Calculate mean hazard intensity per asset
-#' 7. Join damage factors: Map hazard intensity to damage/cost factors
-#' 8. Apply acute shock: Calculate sudden climate event impacts
-#' 9. Apply chronic shock: Calculate gradual climate change impacts
-#' 10. Compute asset impact: Update share_of_economic_activity with all impacts
-#' 11. Build scenarios: Create baseline vs shock scenario data
-#' 12. Compute asset revenue: Allocate company revenue to assets
-#' 13. Compute asset profits: Apply net profit margins
-#' 14. Discount net profits: Apply present value discounting
-#' 15. Compute company NPV: Aggregate asset profits to company level
-#' 16. Compute company PD: Calculate probability of default using Merton model
-#' 17. Compute expected loss: Calculate expected loss using EL = LGD * Loan_Size * PD
-#' 18. Gather and pivot results: Transform to wide format for reporting
+#' 5. Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
+#' 6. Join damage factors: Map hazard intensity to damage/cost factors
+#' 7. Apply acute shock: Calculate sudden climate event impacts
+#' 8. Apply chronic shock: Calculate gradual climate change impacts
+#' 9. Compute asset impact: Update share_of_economic_activity with all impacts
+#' 10. Build scenarios: Create baseline vs shock scenario data
+#' 11. Compute asset revenue: Allocate company revenue to assets
+#' 12. Compute asset profits: Apply net profit margins
+#' 13. Discount net profits: Apply present value discounting
+#' 14. Compute company NPV: Aggregate asset profits to company level
+#' 15. Compute company PD: Calculate probability of default using Merton model
+#' 16. Compute expected loss: Calculate expected loss using EL = LGD * Loan_Size * PD
+#' 17. Gather and pivot results: Transform to wide format for reporting
 #'
 #' @examples
 #' \dontrun{
@@ -117,8 +116,49 @@ compute_risk <- function(assets,
   # PHASE 1: UTILS - Input validation and data preparation
   # ============================================================================
 
+  # Filter assets to only include those with matching companies
+  assets <- filter_assets_by_companies(assets, companies)
   # Prepare baseline asset data for later use
   baseline_assets <- assets[, c("asset", "share_of_economic_activity", "company"), drop = FALSE]
+
+  # Filter hazards to only those referenced by events (exact matching by name; logs context)
+  if (is.data.frame(events)) {
+    inventory <- list_hazard_inventory(hazards)
+    available_names <- names(hazards)
+    selected <- hazards
+
+    if ("hazard_name" %in% names(events)) {
+      desired_names <- unique(as.character(events$hazard_name))
+      message("🗺️  [compute_risk] events$hazard_name: ", paste(desired_names, collapse = ", "))
+      message("🗺️  [compute_risk] available hazards: ", paste(available_names, collapse = ", "))
+
+      exact <- available_names[available_names %in% desired_names]
+      missing <- setdiff(desired_names, exact)
+      if (length(missing) > 0) {
+        message("⚠️  [compute_risk] missing hazards (no exact match): ", paste(missing, collapse = ", "))
+      }
+
+      selected <- if (length(exact) > 0) hazards[exact] else list()
+
+      if (!is.list(selected) || length(selected) == 0) {
+        stop("After filtering by events$hazard_name (exact match), no matching hazards remain.")
+      }
+    } else if ("hazard_type" %in% names(events)) {
+      event_types <- unique(as.character(events$hazard_type))
+      keep_names <- inventory$hazard_name[inventory$hazard_type %in% event_types]
+      keep_names <- intersect(keep_names, available_names)
+      message("🗺️  [compute_risk] events$hazard_type: ", paste(event_types, collapse = ", "))
+      message("🗺️  [compute_risk] keeping hazards by type: ", paste(keep_names, collapse = ", "))
+      selected <- hazards[keep_names]
+
+      if (!is.list(selected) || length(selected) == 0) {
+        stop("After filtering by events$hazard_type, no matching hazards remain.")
+      }
+    }
+
+    hazards <- selected
+    message("🗺️  [compute_risk] Using ", length(hazards), " hazard raster(s) after event filtering: ", paste(names(hazards), collapse = ", "))
+  }
 
 
   # ============================================================================
@@ -128,13 +168,10 @@ compute_risk <- function(assets,
   # Step 2.1: Geolocate assets
   assets_geo <- geolocate_assets(assets, hazards, areas$municipalities, areas$provinces)
 
-  # Step 2.2: Cutout hazards
-  assets_cut <- cutout_hazards(assets_geo, hazards)
+  # Step 2.2: Extract hazard statistics in long format
+  assets_long <- extract_hazard_statistics(assets_geo, hazards)
 
-  # Step 2.3: Summarize hazards
-  assets_long <- summarize_hazards(assets_cut)
-
-  # Step 2.4: Join damage cost factors
+  # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
 
 
@@ -158,7 +195,7 @@ compute_risk <- function(assets,
   )
 
   # Step 3.3: Build scenarios (concatenate baseline and shocked)
-  yearly_scenarios <- build_yearly_scenarios(yearly_baseline_profits, yearly_shocked_profits)
+  yearly_scenarios <- concatenate_baseline_and_shock(yearly_baseline_profits, yearly_shocked_profits)
 
 
   # ============================================================================
@@ -174,7 +211,7 @@ compute_risk <- function(assets,
   # ============================================================================
 
   # Compute company-level yearly trajectories for detailed analysis
-  company_yearly_trajectories <- compute_company_yearly_trajectories(assets_discounted_yearly)
+  company_yearly_trajectories <- aggregate_assets_to_company(assets_discounted_yearly)
 
   # Use companies financials function that works with yearly data
   fin <- compute_companies_financials(company_yearly_trajectories, assets_discounted_yearly, discount_rate)

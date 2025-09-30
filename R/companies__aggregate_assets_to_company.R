@@ -17,10 +17,10 @@
 #'   discounted_profit = c(60, 60, 40, 40),
 #'   discounted_net_profit = c(60, 60, 40, 40)
 #' )
-#' result <- compute_company_yearly_trajectories(yearly_data)
+#' result <- aggregate_assets_to_company(yearly_data)
 #' }
 #' @export
-compute_company_yearly_trajectories <- function(yearly_discounted_df) {
+aggregate_assets_to_company <- function(yearly_discounted_df) {
   # Validate inputs
   if (!is.data.frame(yearly_discounted_df) || nrow(yearly_discounted_df) == 0) {
     stop("yearly_discounted_df must be a non-empty data.frame")

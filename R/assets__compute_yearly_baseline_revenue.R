@@ -72,12 +72,6 @@ compute_yearly_baseline_revenue <- function(
   company_companies <- unique(companies_for_join$company)
   unmatched <- setdiff(asset_companies, company_companies)
 
-  if (length(unmatched) > 0) {
-    stop(paste(
-      "Assets contain companies not found in companies data:",
-      paste(unmatched, collapse = ", ")
-    ))
-  }
 
   # Join assets with company data
   assets_with_companies <- merge(baseline_assets, companies_for_join,

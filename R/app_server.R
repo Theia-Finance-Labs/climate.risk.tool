@@ -29,6 +29,13 @@ app_server <- function(input, output, session) {
     if (!is.null(golem_base_dir) && golem_base_dir != "") {
       return(golem_base_dir)
     }
+
+    # Fallback: try to get from environment variable (useful for testing)
+    env_base_dir <- Sys.getenv("CLIMATE_RISK_BASE_DIR")
+    if (env_base_dir != "") {
+      return(env_base_dir)
+    }
+
     return(NULL)
   })
 
@@ -93,8 +100,8 @@ app_server <- function(input, output, session) {
         values$data_loaded <- TRUE
         values$status <- "Data loaded. Running analysis..."
 
-        # Build events from control module
-        ev_df <- try(control$events()(), silent = TRUE)
+        # Build events from control module (single call; events is a reactiveVal)
+        ev_df <- try(control$events(), silent = TRUE)
         if (inherits(ev_df, "try-error") || !is.data.frame(ev_df) || nrow(ev_df) == 0) {
           # Provide a default using first hazard_type and its first scenario
           inv <- list_hazard_inventory(hazards)
@@ -108,6 +115,17 @@ app_server <- function(input, output, session) {
             chronic = FALSE,
             stringsAsFactors = FALSE
           )
+        }
+
+        # Reconcile events with currently loaded hazards (exact name match)
+        haz_names <- names(hazards)
+        if ("hazard_name" %in% names(ev_df)) {
+          keep <- ev_df$hazard_name %in% haz_names
+          if (any(!keep)) {
+            missing <- unique(ev_df$hazard_name[!keep])
+            message("⚠️  [app_server] Dropping events with missing hazards at current resolution: ", paste(missing, collapse = ", "))
+          }
+          ev_df <- ev_df[keep, , drop = FALSE]
         }
 
         # Run the complete climate risk analysis

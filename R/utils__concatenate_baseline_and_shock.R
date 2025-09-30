@@ -22,10 +22,10 @@
 #'   shocked_revenue = c(970, 989),
 #'   shocked_profit = c(97, 99)
 #' )
-#' result <- build_yearly_scenarios(baseline, shocked)
+#' result <- concatenate_baseline_and_shock(baseline, shocked)
 #' }
 #' @export
-build_yearly_scenarios <- function(
+concatenate_baseline_and_shock <- function(
     yearly_baseline_df,
     yearly_shocked_df) {
   # Validate inputs

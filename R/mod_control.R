@@ -22,8 +22,8 @@ mod_control_ui <- function(id) {
       shiny::selectInput(
         ns("agg_factor"),
         "Aggregation Factor:",
-        choices = c("16" = 16, "64" = 64, "128" = 128),
-        selected = 16
+        choices = c("1" = 1, "16" = 16, "64" = 64, "128" = 128),
+        selected = 1
       ),
       shiny::helpText("Higher values = faster processing, lower spatial resolution")
     ),

@@ -218,8 +218,7 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
   assets_geo <- geolocate_assets(assets, hazards, municipalities, provinces)
-  assets_cut <- cutout_hazards(assets_geo, hazards)
-  assets_long <- summarize_hazards(assets_cut)
+  assets_long <- extract_hazard_statistics(assets_geo, hazards)
   damage_factors <- read_damage_cost_factors(base_dir)
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
 

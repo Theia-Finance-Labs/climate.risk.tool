@@ -14,8 +14,9 @@ Purpose: living reference for code structure, data schemas, and test plan. Keep 
 
 - ✅ `compute_risk(assets, companies, events, hazards, areas, damage_factors, growth_rate, net_profit_margin, discount_rate)` → list(assets, companies, assets_yearly, companies_yearly)
   - **UPDATED**: Now uses direct geospatial pipeline for speed optimization through load_hazards aggregation factor instead of precomputation.
-  - Orchestrates: geospatial processing → yearly trajectory computations → company aggregation.
-- ✅ `compute_hazard_events(assets, hazards, areas, damage_factors)` → assets in long format with geospatial hazard data and damage/cost factors joined by hazard_type.
+  - **UPDATED**: Now filters assets at the start to only include those with matching companies, preventing downstream errors.
+  - Orchestrates: asset filtering → geospatial processing → yearly trajectory computations → company aggregation.
+- ⛔ Dropped: `compute_hazard_events(assets, hazards, areas, damage_factors)` logic is now integrated directly in `compute_risk()` via internal helpers `extract_hazard_statistics()` and `join_damage_cost_factors()`.
 - ✅ Pipeline now uses long format hazard data throughout, with hazard_type column enabling proper joins with damage cost factors.
 - 🔄 Shock functions are currently placeholders - they pass through baseline values while maintaining the expected interface.
 
@@ -40,15 +41,21 @@ Event combination rule: worst-case per asset (min share). Configurable later.
 - ✅ read_assets(base_dir) -> data.frame - reads asset CSV file from base_dir/user_input/, converts to snake_case, parses numeric columns
 - ✅ read_companies(file_path) -> data.frame - reads company CSV file from specified path, converts to snake_case, parses numeric columns
 - ✅ read_damage_cost_factors(base_dir) -> data.frame - reads damage and cost factors CSV from base_dir/, handles comma decimal separators, converts to snake_case
+- ✅ filter_assets_by_companies(assets, companies) -> filtered_assets - **NEW**: filters assets to only include those belonging to companies present in the companies data, provides informative messages about filtering
 - ✅ load_hazards(hazards_dir) -> named list of SpatRaster objects from .tif files; searches recursively in hazard-type subfolders (e.g., `floods/`, `heat/`) and names layers as `hazardType__scenario` based on subfolder and filename (sans extension)
 - ✅ load_location_areas(municipalities_dir, provinces_dir) -> list(municipalities, provinces) - loads both area types at once
 - ✅ load_municipalities(municipalities_dir) -> named list of sf objects from .geojson files
 - ✅ load_provinces(provinces_dir) -> named list of sf objects from .geojson files  
 - ✅ geolocate_assets(assets, hazards, municipalities_areas, provinces_areas) -> assets_with_geometry - adds geometry and centroid columns using lat/lon > municipality > province priority, uses size_in_m2 for lat/lon buffer sizing, now includes geolocation_method column
 - ✅ cutout_hazards(assets_with_geometry, hazards) -> assets_with_hazard_values - extracts hazard raster values for each asset geometry, optimized to group by municipality/province for efficiency
-- ✅ summarize_hazards(assets_with_hazard_values) -> assets_long_format - **NEW**: transforms to long format with hazard_name, hazard_type, hazard_intensity columns (one row per asset-hazard combination)
-- ✅ join_damage_cost_factors(assets_long_format, damage_factors_df) -> assets_with_factors - **UPDATED**: joins on hazard_type, rounded hazard_intensity, and asset_category using dataframe parameter
-- ✅ compute_hazard_events(assets, hazards, areas, damage_factors) -> assets_with_factors - **UPDATED**: orchestrates geolocation, cutout, summarize, and join operations in one function
+- ✅ extract_hazard_statistics(assets_with_geometry, hazards) -> assets_long_format - internal helper within `compute_risk()`; outputs long format with hazard stats and `hazard_intensity` as mean
+- ✅ join_damage_cost_factors(assets_long_format, damage_factors_df) -> assets_with_factors - internal helper within `compute_risk()`; joins on `hazard_type`, rounded `hazard_intensity`, and `asset_category`
+- ⛔ Dropped: compute_hazard_events; pipeline now calls geolocation → extract_hazard_statistics → join_damage_cost_factors inside `compute_risk()`
+
+### Event-driven hazard filtering
+- ✅ Hazards list is filtered up-front in `compute_risk()` using `events`:
+  - When `events$hazard_name` present: keep only matching raster names
+  - Else fall back to `events$hazard_type` matching the raster name prefix before `__`
 - 🔄 apply_acute_shock_yearly(yearly_trajectories, assets_factors, acute_events) -> shocked_trajectories - **REFACTORED**: now takes events dataframe as input, currently passes through values unchanged (shock logic to be implemented)
 - 🔄 apply_chronic_shock_yearly(yearly_trajectories, assets_factors, chronic_events) -> shocked_trajectories - **REFACTORED**: now takes events dataframe as input, currently passes through values unchanged (shock logic to be implemented)
 - ✅ compute_shock_trajectories(yearly_baseline, assets_with_factors, events) -> shocked_yearly - **REFACTORED**: splits events into acute/chronic dataframes, applies shocks sequentially (acute first, then chronic), removes metadata aggregation logic

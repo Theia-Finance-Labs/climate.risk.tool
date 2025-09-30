@@ -9,7 +9,7 @@ geolocate_assets(
   hazards,
   municipalities_areas,
   provinces_areas,
-  default_buffer_size_m = 1000
+  default_buffer_size_m = 1111
 )
 }
 \arguments{

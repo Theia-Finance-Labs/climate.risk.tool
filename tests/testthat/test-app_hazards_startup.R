@@ -7,6 +7,9 @@ testthat::test_that("hazards inventory is available at startup", {
   skip_if_not_installed("shiny")
   base_dir <- get_test_data_dir()
 
+  # Set environment variable for testing
+  Sys.setenv(CLIMATE_RISK_BASE_DIR = base_dir)
+
   golem::with_golem_options(
     app = {
       shiny::testServer(app_server, args = list(), {
@@ -17,7 +20,7 @@ testthat::test_that("hazards inventory is available at startup", {
         testthat::expect_gt(nrow(inv), 0)
       })
     },
-    golem_opts = list(base_dir = base_dir)
+    golem_opts = list()
   )
 })
 
@@ -29,6 +32,9 @@ testthat::test_that("control module exposes hazards inventory and aggregation_fa
   }
   skip_if_not_installed("shiny")
   base_dir <- get_test_data_dir()
+
+  # Set environment variable for testing
+  Sys.setenv(CLIMATE_RISK_BASE_DIR = base_dir)
 
   golem::with_golem_options(
     app = {
@@ -44,6 +50,6 @@ testthat::test_that("control module exposes hazards inventory and aggregation_fa
         testthat::expect_gt(nrow(inv), 0)
       })
     },
-    golem_opts = list(base_dir = base_dir)
+    golem_opts = list()
   )
 })

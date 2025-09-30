@@ -21,8 +21,8 @@ compute_risk(
 
 \item{companies}{Data frame containing company information (from read_companies())}
 
-\item{events}{data.frame with columns \code{hazard_type}, \code{scenario}, \code{event_year} (or NA), \code{chronic}.
-When multiple rows are provided, events are combined (currently min share per asset).}
+\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{event_year} (or NA), \code{chronic}.
+An \code{event_id} column will be added if missing. When multiple rows are provided, events are combined.}
 
 \item{hazards}{Named list of SpatRaster objects (from load_hazards())}
 
@@ -59,8 +59,7 @@ The function executes the following 16-step pipeline:
 \item Load hazards: Read climate hazard raster files (.tif)
 \item Load areas: Load municipality and province boundary files
 \item Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > province priority
-\item Cutout hazards: Extract hazard values for each asset geometry
-\item Summarize hazards: Calculate mean hazard intensity per asset
+\item Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
 \item Join damage factors: Map hazard intensity to damage/cost factors
 \item Apply acute shock: Calculate sudden climate event impacts
 \item Apply chronic shock: Calculate gradual climate change impacts
