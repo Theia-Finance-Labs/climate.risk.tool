@@ -10,7 +10,7 @@
 #' @param net_profit_margin numeric. Net profit margin to apply (default: 0.1)
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @param end_year numeric. Ending year for projections (default: 2050)
-#' @return data.frame with columns: asset, company, year, baseline_revenue, baseline_profit
+#' @return data.frame with columns: asset, company, year, revenue, profit
 #' @examples
 #' \dontrun{
 #' baseline_assets <- data.frame(
@@ -29,15 +29,18 @@ compute_baseline_trajectories <- function(
     net_profit_margin = 0.1,
     start_year = 2025,
     end_year = 2050) {
-  # Step 1: Compute yearly baseline revenue trajectories
-  yearly_baseline_revenue <- compute_yearly_baseline_revenue(
+  # Step 1: Compute yearly revenue trajectories
+  yearly_revenue <- compute_yearly_baseline_revenue(
     baseline_assets, companies, growth_rate, start_year, end_year
   )
 
-  # Step 2: Compute yearly baseline profit trajectories
-  yearly_baseline_profits <- compute_yearly_baseline_profits(
-    yearly_baseline_revenue, net_profit_margin
+  # Step 2: Compute profit from revenue using scenario-agnostic function
+  yearly_trajectories <- compute_profits_from_revenue(
+    yearly_revenue,
+    revenue_col = "revenue",
+    profit_col = "profit",
+    net_profit_margin = net_profit_margin
   )
 
-  return(yearly_baseline_profits)
+  return(yearly_trajectories)
 }

@@ -27,7 +27,7 @@ compute_baseline_trajectories(
 \item{end_year}{numeric. Ending year for projections (default: 2050)}
 }
 \value{
-data.frame with columns: asset, company, year, baseline_revenue, baseline_profit
+data.frame with columns: asset, company, year, revenue, profit
 }
 \description{
 Computes baseline yearly revenue and profit trajectories for assets

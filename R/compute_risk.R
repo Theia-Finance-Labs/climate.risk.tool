@@ -118,46 +118,22 @@ compute_risk <- function(assets,
 
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
-  # Prepare baseline asset data for later use
-  baseline_assets <- assets[, c("asset", "share_of_economic_activity", "company"), drop = FALSE]
 
-  # Filter hazards to only those referenced by events (exact matching by name; logs context)
+  # Filter hazards to only those referenced by events
   if (is.data.frame(events)) {
-    inventory <- list_hazard_inventory(hazards)
     available_names <- names(hazards)
-    selected <- hazards
 
     if ("hazard_name" %in% names(events)) {
       desired_names <- unique(as.character(events$hazard_name))
-      message("🗺️  [compute_risk] events$hazard_name: ", paste(desired_names, collapse = ", "))
-      message("🗺️  [compute_risk] available hazards: ", paste(available_names, collapse = ", "))
-
       exact <- available_names[available_names %in% desired_names]
-      missing <- setdiff(desired_names, exact)
-      if (length(missing) > 0) {
-        message("⚠️  [compute_risk] missing hazards (no exact match): ", paste(missing, collapse = ", "))
-      }
-
-      selected <- if (length(exact) > 0) hazards[exact] else list()
-
-      if (!is.list(selected) || length(selected) == 0) {
-        stop("After filtering by events$hazard_name (exact match), no matching hazards remain.")
-      }
+      hazards <- hazards[exact]
     } else if ("hazard_type" %in% names(events)) {
+      inventory <- list_hazard_inventory(hazards)
       event_types <- unique(as.character(events$hazard_type))
       keep_names <- inventory$hazard_name[inventory$hazard_type %in% event_types]
       keep_names <- intersect(keep_names, available_names)
-      message("🗺️  [compute_risk] events$hazard_type: ", paste(event_types, collapse = ", "))
-      message("🗺️  [compute_risk] keeping hazards by type: ", paste(keep_names, collapse = ", "))
-      selected <- hazards[keep_names]
-
-      if (!is.list(selected) || length(selected) == 0) {
-        stop("After filtering by events$hazard_type, no matching hazards remain.")
-      }
+      hazards <- hazards[keep_names]
     }
-
-    hazards <- selected
-    message("🗺️  [compute_risk] Using ", length(hazards), " hazard raster(s) after event filtering: ", paste(names(hazards), collapse = ", "))
   }
 
 
@@ -180,22 +156,21 @@ compute_risk <- function(assets,
   # ============================================================================
 
   # Step 3.1: Compute baseline yearly trajectories
-  yearly_baseline_profits <- compute_baseline_trajectories(
-    baseline_assets = baseline_assets,
+  yearly_baseline <- compute_baseline_trajectories(
+    baseline_assets = assets,
     companies = companies,
     growth_rate = growth_rate,
     net_profit_margin = net_profit_margin
   )
 
-  # Step 3.2: Compute shocked yearly trajectories
-  yearly_shocked_profits <- compute_shock_trajectories(
-    yearly_baseline_profits = yearly_baseline_profits,
+  # Step 3.2: Compute shocked trajectories and concatenate with baseline
+  # This now returns both baseline and shock scenarios in one dataframe
+  yearly_scenarios <- compute_shock_trajectories(
+    yearly_baseline_profits = yearly_baseline,
     assets_with_factors = assets_factors,
-    events = events
+    events = events,
+    net_profit_margin = net_profit_margin
   )
-
-  # Step 3.3: Build scenarios (concatenate baseline and shocked)
-  yearly_scenarios <- concatenate_baseline_and_shock(yearly_baseline_profits, yearly_shocked_profits)
 
 
   # ============================================================================

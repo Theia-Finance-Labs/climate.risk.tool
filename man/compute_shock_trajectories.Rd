@@ -8,28 +8,38 @@ compute_shock_trajectories(
   yearly_baseline_profits,
   assets_with_factors,
   events,
+  net_profit_margin = 0.1,
   start_year = 2025
 )
 }
 \arguments{
-\item{yearly_baseline_profits}{data.frame with columns: asset, company, year, baseline_revenue, baseline_profit}
+\item{yearly_baseline_profits}{data.frame with columns: asset, company, year, revenue, profit}
 
 \item{assets_with_factors}{data.frame with hazard data and damage/cost factors}
 
-\item{events}{data.frame with columns: event_id, hazard_type, scenario, event_year (or NA), chronic (logical)}
+\item{events}{data.frame with columns: event_id, hazard_type, hazard_name, event_year (or NA), chronic (logical)}
+
+\item{net_profit_margin}{numeric. Net profit margin for computing profits from shocked revenue (default: 0.1)}
 
 \item{start_year}{numeric. Starting year for projections (default: 2025)}
 }
 \value{
-data.frame with columns: asset, company, year, shocked_revenue, shocked_profit
+data.frame with columns: asset, company, year, scenario, revenue, profit
+where scenario is either "baseline" or "shock"
 }
 \description{
-Applies climate shocks to baseline yearly trajectories by splitting events
-into acute and chronic categories and applying them sequentially. Acute shocks are
-applied first, followed by chronic shocks to the resulting trajectories.
+Applies climate shocks to baseline yearly trajectories through a clear sequence:
+\enumerate{
+\item Apply acute revenue shocks
+\item Apply chronic revenue shocks
+\item Compute profits from shocked revenue
+\item Apply acute profit shocks
+\item Concatenate with baseline scenarios
+Returns a single dataframe with both baseline and shock scenarios ready for downstream analysis.
+}
 }
 \details{
-Compute Shock Yearly Trajectories for Assets
+Compute Shock Yearly Trajectories and Concatenate with Baseline
 }
 \examples{
 \dontrun{
@@ -37,17 +47,19 @@ yearly_baseline <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2030),
-  baseline_revenue = c(1000, 1200),
-  baseline_profit = c(100, 120)
+  revenue = c(1000, 1200),
+  profit = c(100, 120)
 )
 assets_factors <- data.frame(
-  asset_id = "A1", hazard_type = "flood", hazard_intensity = 5,
+  asset = "A1", hazard_name = "flood__global_rcp85_h100glob_brazil",
   damage_factor = 0.1, cost_factor = 1000
 )
 events <- data.frame(
-  event_id = "ev1", hazard_type = "flood", scenario = "rcp85",
+  event_id = "ev1", hazard_type = "flood",
+  hazard_name = "flood__global_rcp85_h100glob_brazil",
   event_year = 2030, chronic = FALSE
 )
 result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
+# result contains both baseline and shock scenarios
 }
 }

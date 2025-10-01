@@ -19,18 +19,18 @@ testthat::test_that("compute_baseline_trajectories integrates baseline revenue a
   )
 
   # Should have both revenue and profit columns
-  expected_cols <- c("asset", "company", "year", "baseline_revenue", "baseline_profit")
+  expected_cols <- c("asset", "company", "year", "revenue", "profit")
   testthat::expect_true(all(expected_cols %in% names(result)))
 
   # Should have correct number of rows (2 assets * 3 years = 6 rows)
   testthat::expect_equal(nrow(result), 6)
 
   # Should have correct profit calculation (revenue * margin)
-  testthat::expect_equal(result$baseline_profit, result$baseline_revenue * 0.1)
+  testthat::expect_equal(result$profit, result$revenue * 0.1)
 
   # Should have growth applied correctly
-  a1_2025 <- result$baseline_revenue[result$asset == "A1" & result$year == 2025]
-  a1_2026 <- result$baseline_revenue[result$asset == "A1" & result$year == 2026]
+  a1_2025 <- result$revenue[result$asset == "A1" & result$year == 2025]
+  a1_2026 <- result$revenue[result$asset == "A1" & result$year == 2026]
 
   testthat::expect_equal(a1_2026, a1_2025 * 1.02, tolerance = 1e-8)
 })

@@ -9,7 +9,7 @@
 #' @param growth_rate numeric. Annual growth rate (default: 0.02)
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @param end_year numeric. Ending year for projections (default: 2050)
-#' @return data.frame with columns: asset, company, year, baseline_revenue
+#' @return data.frame with columns: asset, company, year, revenue
 #' @examples
 #' \dontrun{
 #' baseline_assets <- data.frame(
@@ -104,7 +104,7 @@ compute_yearly_baseline_revenue <- function(
     )
 
     # Apply growth rate: revenue_year = revenue_2025 * (1 + growth_rate)^(year - 2025)
-    yearly_data$baseline_revenue <- asset_row$revenue_2025 *
+    yearly_data$revenue <- asset_row$revenue_2025 *
       (1 + growth_rate)^(years - start_year)
 
     yearly_data
@@ -114,16 +114,16 @@ compute_yearly_baseline_revenue <- function(
   result <- do.call(rbind, result_list)
 
   # Validate the result
-  if (!is.numeric(result$baseline_revenue)) {
-    stop("Calculated baseline_revenue is not numeric")
+  if (!is.numeric(result$revenue)) {
+    stop("Calculated revenue is not numeric")
   }
 
-  if (any(is.na(result$baseline_revenue))) {
-    stop("Calculated baseline_revenue contains NA values")
+  if (any(is.na(result$revenue))) {
+    stop("Calculated revenue contains NA values")
   }
 
   # Ensure revenue is non-negative
-  result$baseline_revenue <- pmax(0, result$baseline_revenue)
+  result$revenue <- pmax(0, result$revenue)
 
   return(result)
 }
