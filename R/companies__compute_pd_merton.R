@@ -16,7 +16,6 @@
 #' }
 #' @export
 compute_pd_merton <- function(companies_npv) {
-  browser()
   # Validate inputs
   if (!is.data.frame(companies_npv)) {
     stop("companies_npv must be a data.frame")
