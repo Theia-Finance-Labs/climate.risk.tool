@@ -10,7 +10,7 @@ testthat::test_that("extract_hazard_statistics returns long format with hazard s
 
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
   assets_geo <- geolocate_assets(assets, hazards, municipalities, provinces)
@@ -35,7 +35,7 @@ testthat::test_that("extract_hazard_statistics optimizes by grouping municipalit
   # Create a small test dataset with known geolocation methods
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
@@ -108,7 +108,7 @@ testthat::test_that("extract_hazard_statistics optimizes by grouping municipalit
 testthat::test_that("extract_hazard_statistics handles missing geolocation_method column", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
 
   # Create assets with geometry but without geolocation_method column
   assets_with_geom <- assets[1:2, , drop = FALSE]

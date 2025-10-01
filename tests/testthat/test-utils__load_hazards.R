@@ -132,7 +132,7 @@ testthat::test_that("load_hazards prevents recursive aggregation", {
 
 
 testthat::test_that("load_hazards loads rasters and returns a named list", {
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
 
   testthat::expect_type(hazards, "list")
   testthat::expect_gt(length(hazards), 0)
@@ -142,7 +142,7 @@ testthat::test_that("load_hazards loads rasters and returns a named list", {
 
 
 testthat::test_that("load_hazards list elements carry CRS and are usable", {
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
 
   # We only check the first element for CRS existence notionally
   first <- hazards[[1]]

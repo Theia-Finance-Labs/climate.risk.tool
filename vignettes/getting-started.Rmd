@@ -36,8 +36,8 @@ Load all required data from your base directory:
 ```{r}
 # Load all required data
 assets <- read_assets(base_dir)
-companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-hazards <- load_hazards(file.path(base_dir, "hazards"))
+companies <- read_companies(file.path(base_dir, "user_input", "company_small.csv"))
+hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor=1L)
 areas <- load_location_areas(
   file.path(base_dir, "areas", "municipality"),
   file.path(base_dir, "areas", "province")
@@ -54,7 +54,7 @@ Define the climate scenarios you want to analyze:
 events <- data.frame(
   event_id = "event_1",
   hazard_type = "flood",
-  scenario = "amazonas_global_rcp85_h100glob",
+  hazard_name = "flood__global_rcp85_h100glob",
   event_year = 2030,
   chronic = FALSE,
   stringsAsFactors = FALSE

@@ -2,7 +2,7 @@ testthat::test_that("compute_risk filters hazards by exact hazard_name", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"))
+  hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   areas <- load_location_areas(
     file.path(base_dir, "areas", "municipality"),
     file.path(base_dir, "areas", "province")

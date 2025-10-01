@@ -6,8 +6,8 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `hazard_type`, `hazard_name`, `event_year` (or NA), `chronic`.
-#'   An `event_id` column will be added if missing. When multiple rows are provided, events are combined.
+#' @param events data.frame with columns `event_id`, `hazard_type`, `hazard_name`, `event_year` (or NA), `chronic`.
+#'   The `event_id` column will be auto-generated if missing.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param areas List containing municipalities and provinces named lists (from load_location_areas())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
@@ -122,18 +122,14 @@ compute_risk <- function(assets,
   # Filter hazards to only those referenced by events
   if (is.data.frame(events)) {
     available_names <- names(hazards)
-
-    if ("hazard_name" %in% names(events)) {
-      desired_names <- unique(as.character(events$hazard_name))
-      exact <- available_names[available_names %in% desired_names]
-      hazards <- hazards[exact]
-    } else if ("hazard_type" %in% names(events)) {
-      inventory <- list_hazard_inventory(hazards)
-      event_types <- unique(as.character(events$hazard_type))
-      keep_names <- inventory$hazard_name[inventory$hazard_type %in% event_types]
-      keep_names <- intersect(keep_names, available_names)
-      hazards <- hazards[keep_names]
-    }
+    desired_names <- unique(as.character(events$hazard_name))
+    exact <- available_names[available_names %in% desired_names]
+    hazards <- hazards[exact]
+  }
+  
+  # Ensure event_id column exists
+  if (!"event_id" %in% names(events)) {
+    events$event_id <- paste0("event_", seq_len(nrow(events)))
   }
 
 

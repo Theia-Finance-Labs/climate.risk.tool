@@ -13,7 +13,7 @@
 testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
@@ -27,7 +27,7 @@ testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows
 testthat::test_that("geolocate_assets uses geoloc > municipality > province priority", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
@@ -102,7 +102,7 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
 testthat::test_that("geolocate_assets returns valid sfc types and consistent CRS with hazards", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir())
+  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 

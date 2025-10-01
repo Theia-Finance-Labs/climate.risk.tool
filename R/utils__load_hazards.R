@@ -19,7 +19,7 @@
 #' }
 #' @export
 load_hazards <- function(hazards_dir,
-                         aggregate_factor = 16L,
+                         aggregate_factor = 1L,
                          cache_aggregated = TRUE,
                          force_reaggregate = FALSE,
                          memfrac = 0.3) {
