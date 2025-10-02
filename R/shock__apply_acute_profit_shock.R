@@ -49,7 +49,7 @@ apply_acute_profit_shock <- function(
     ))
   }
 
-  # NEW: compute acute damages for floods in assets_factors (non-invasive; only adds a column)
+  #compute acute damages for floods in assets_factors (non-invasive; only adds a column)
   if (all(c("hazard_type", "damage_factor", "cost_factor") %in% names(assets_factors))) {
     assets_factors$acute_damage <- NA_real_
     flood_idx <- tolower(as.character(assets_factors$hazard_type)) == "flood"
