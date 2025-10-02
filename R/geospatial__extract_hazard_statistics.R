@@ -140,7 +140,8 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
     stop("assets_with_hazards missing required columns: ",
          paste(setdiff(req_cols_assets, names(assets_with_hazards)), collapse = ", "))
   }
-  req_cols_factors <- c("hazard_type", "asset_category", "hazard_intensity", "damage_factor", "cost_factor")
+  req_cols_factors <- c("hazard_type", "asset_category", "hazard_intensity",
+                        "damage_factor", "cost_factor", "business_disruption")
   if (!all(req_cols_factors %in% names(damage_factors_df))) {
     stop("damage_factors_df missing required columns: ",
          paste(setdiff(req_cols_factors, names(damage_factors_df)), collapse = ", "))
@@ -169,8 +170,7 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
     sort = FALSE
   )
 
-  # Effective key: if asset key > group max, cap to max; otherwise use asset key
-  # If there is no matching group in factors (NA max), keep original key (merge later may yield NAs)
+  # Effective key with capping
   assets_tmp$.__effective_intensity_key__. <- ifelse(
     !is.na(assets_tmp$.__max_intensity_key__.) &
       assets_tmp$.__intensity_key__. > assets_tmp$.__max_intensity_key__.,
@@ -178,7 +178,8 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
     assets_tmp$.__intensity_key__.
   )
 
-  factors_key_cols <- c("hazard_type", "asset_category", ".__intensity_key__.", "damage_factor", "cost_factor")
+  factors_key_cols <- c("hazard_type", "asset_category", ".__intensity_key__.",
+                        "damage_factor", "cost_factor", "business_disruption")
   factors_key <- factors_tmp[, factors_key_cols, drop = FALSE]
 
   merged <- merge(
@@ -192,8 +193,11 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
 
   if (!"damage_factor" %in% names(merged)) merged$damage_factor <- NA_real_
   if (!"cost_factor" %in% names(merged)) merged$cost_factor <- NA_real_
+  if (!"business_disruption" %in% names(merged)) merged$business_disruption <- NA_real_
+
   merged$damage_factor <- as.numeric(merged$damage_factor)
   merged$cost_factor <- as.numeric(merged$cost_factor)
+  merged$business_disruption <- as.numeric(merged$business_disruption)
 
   # Clean helper columns
   merged$.__intensity_key__. <- NULL
