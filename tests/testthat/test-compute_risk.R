@@ -15,7 +15,7 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   events <- data.frame(
     event_id = c("e1", "e2"),
     hazard_type = rep("flood", 2),
-    hazard_name = rep("flood__global_rcp85_h10glob_brazil", 2),
+    hazard_name = rep("flood__global_rcp85_h10glob", 2),
     event_year = c(2030L, NA_integer_),
     chronic = c(FALSE, TRUE)
   )
@@ -34,11 +34,11 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   )
 
   # Should have both aggregated and yearly results
-  expected_components <- c("assets", "companies", "assets_yearly", "companies_yearly")
+  expected_components <- c("assets_factors", "companies", "assets_yearly", "companies_yearly")
   testthat::expect_true(all(expected_components %in% names(res)))
 
   # Aggregated results should be data frames
-  testthat::expect_s3_class(res$assets, "data.frame")
+  testthat::expect_s3_class(res$assets_factors, "data.frame")
   testthat::expect_s3_class(res$companies, "data.frame")
   testthat::expect_s3_class(res$assets_yearly, "data.frame")
   testthat::expect_s3_class(res$companies_yearly, "data.frame")
@@ -74,7 +74,7 @@ testthat::test_that("compute_risk processes single acute event", {
   events <- data.frame(
     event_id = "acute_2030",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob_brazil",
+    hazard_name = "flood__global_rcp85_h10glob",
     event_year = 2030L,
     chronic = FALSE
   )
@@ -89,7 +89,7 @@ testthat::test_that("compute_risk processes single acute event", {
   )
 
   # Should have valid results
-  testthat::expect_true(nrow(res$assets) > 0)
+  testthat::expect_true(nrow(res$assets_factors) > 0)
   testthat::expect_true(nrow(res$companies) > 0)
 
   # Yearly data should show shock effects only from 2030 onwards
@@ -126,7 +126,7 @@ testthat::test_that("compute_risk processes chronic event", {
   events <- data.frame(
     event_id = "chronic",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob_brazil",
+    hazard_name = "flood__global_rcp85_h10glob",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -141,7 +141,7 @@ testthat::test_that("compute_risk processes chronic event", {
   )
 
   # Should have valid results
-  testthat::expect_true(nrow(res$assets) > 0)
+  testthat::expect_true(nrow(res$assets_factors) > 0)
   testthat::expect_true(nrow(res$companies) > 0)
 
   # Chronic effects should compound over time
@@ -222,7 +222,7 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
   events <- data.frame(
     event_id = "ev1",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob_brazil",
+    hazard_name = "flood__global_rcp85_h10glob",
     event_year = 2030,
     chronic = FALSE
   )

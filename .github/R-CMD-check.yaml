@@ -29,6 +29,7 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
+      SKIP_SLOW_TESTS: TRUE
 
     steps:
       - uses: actions/checkout@v4

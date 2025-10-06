@@ -21,7 +21,7 @@
 #' }
 #' @export
 geolocate_assets <- function(assets_df, municipalities_areas, provinces_areas, default_buffer_size_m = 1111, output_crs = 4326) {
-  message("📍 [geolocate_assets] Starting asset geolocation for ", nrow(assets_df), " assets...")
+  message("[geolocate_assets] Starting asset geolocation for ", nrow(assets_df), " assets...")
 
   # Use CRS 3857 (Web Mercator) for buffering - it uses meters as units
   # This ensures buffer distances are in actual meters, not degrees (needed for default_buffer_size_m)
@@ -38,13 +38,12 @@ geolocate_assets <- function(assets_df, municipalities_areas, provinces_areas, d
 
   # Initialize geometry, centroid, and method columns
   n_assets <- nrow(assets_df)
-  geometry_list <- vector("list", n_assets)
-  centroid_list <- vector("list", n_assets)
-  method_list <- character(n_assets)
 
-  for (i in seq_len(n_assets)) {
+  # Use purrr::map for functional approach (more readable than for loop)
+  geolocation_results <- purrr::map(seq_len(n_assets), function(i) {
     row <- assets_df[i, ]
     geom <- NULL
+    method <- "failed"
 
     # Priority 1: Use lat/lon coordinates
     if (!is.na(row$latitude) && !is.na(row$longitude)) {
@@ -56,60 +55,72 @@ geolocate_assets <- function(assets_df, municipalities_areas, provinces_areas, d
 
       # Use size_in_m2 if available, otherwise default buffer
       if (!is.na(row$size_in_m2) && is.numeric(row$size_in_m2) && row$size_in_m2 > 0) {
-        # Calculate radius from area (assuming circular area: A = π * r²)
+        # Calculate radius from area (assuming circular area: A = pi * r^2)
         radius <- sqrt(row$size_in_m2 / pi)
         geom <- sf::st_buffer(point_sf, dist = radius)
       } else {
         # Default buffer in meters (CRS 3857 uses meters)
         geom <- sf::st_buffer(point_sf, dist = default_buffer_size_m)
       }
-      method_list[i] <- "coordinates"
+      method <- "coordinates"
     } else if (!is.na(row$municipality) && nzchar(as.character(row$municipality))) {
       # Priority 2: Match municipality
       municipality_name <- as.character(row$municipality)
       municipality_match <- adm2[adm2$shapeName == municipality_name, ]
-          if (nrow(municipality_match) > 0) {
-            geom <- sf::st_geometry(municipality_match[1, ])
-            method_list[i] <- "municipality"
-          }
+      if (nrow(municipality_match) > 0) {
+        geom <- sf::st_geometry(municipality_match[1, ])
+        method <- "municipality"
+      }
     } else if (!is.na(row$province) && nzchar(as.character(row$province))) {
       # Priority 3: Match province
       province_name <- as.character(row$province)
       province_match <- adm1[adm1$shapeName == province_name, ]
-          if (nrow(province_match) > 0) {
-            geom <- sf::st_geometry(province_match[1, ])
-            method_list[i] <- "province"
-          }
+      if (nrow(province_match) > 0) {
+        geom <- sf::st_geometry(province_match[1, ])
+        method <- "province"
+      }
     }
 
     # Check if geometry was successfully created
     if (is.null(geom)) {
       asset_name <- if (!is.null(row$asset)) row$asset else paste0("row ", i)
-      stop("Failed to geolocate asset ", i, " (", asset_name, "). ",
-           "Asset must have valid coordinates, municipality, or province information.")
+      stop(
+        "Failed to geolocate asset ", i, " (", asset_name, "). ",
+        "Asset must have valid coordinates, municipality, or province information."
+      )
     }
 
     # Transform geometry to output CRS (WGS84)
     # extract_hazard_statistics will handle transformation to each hazard's specific CRS
     geom <- sf::st_transform(geom, output_crs)
 
-    # Store geometry and calculate centroid
-    geometry_list[[i]] <- geom
-    centroid_list[[i]] <- sf::st_centroid(geom)
-  }
+    list(
+      geometry = geom,
+      centroid = sf::st_centroid(geom),
+      method = method
+    )
+  })
+
+  # Extract results
+  geometry_list <- purrr::map(geolocation_results, "geometry")
+  centroid_list <- purrr::map(geolocation_results, "centroid")
+  method_list <- purrr::map_chr(geolocation_results, "method")
 
   # Convert to sfc objects
   geometry_sfc <- do.call(c, geometry_list)
   centroid_sfc <- do.call(c, centroid_list)
 
-  # Add columns to original dataframe
-  assets_df$geometry <- geometry_sfc
-  assets_df$centroid <- centroid_sfc
-  assets_df$geolocation_method <- method_list
+  # Add columns to original dataframe using mutate for consistency
+  assets_df <- assets_df |>
+    dplyr::mutate(
+      geometry = geometry_sfc,
+      centroid = centroid_sfc,
+      geolocation_method = method_list
+    )
 
   # Summary statistics
   method_counts <- table(method_list)
-  message("✅ [geolocate_assets] Geolocation completed for ", n_assets, " assets")
+  message("[geolocate_assets] Geolocation completed for ", n_assets, " assets")
 
   return(assets_df)
 }

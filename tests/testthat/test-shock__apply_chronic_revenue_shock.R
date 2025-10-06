@@ -33,7 +33,6 @@ testthat::test_that("apply_chronic_revenue_shock applies shocks to yearly trajec
 
   # Since this is a placeholder, values should be copied from baseline
   testthat::expect_equal(result$revenue, yearly_baseline$revenue)
-  
 })
 
 testthat::test_that("apply_chronic_revenue_shock works with already shocked trajectories", {
@@ -63,6 +62,4 @@ testthat::test_that("apply_chronic_revenue_shock works with already shocked traj
 
   # Should preserve shocked_revenue values (placeholder behavior)
   testthat::expect_equal(result$revenue, yearly_shocked$revenue)
-  
 })
-

@@ -8,17 +8,18 @@ Authors@R:
            email = "your@email.com")
 Description: What the package does (one paragraph).
 License: MIT + file LICENSE
-Imports: 
+Imports:
     config,
-    dplyr,
+    dplyr (>= 1.0.0),
     DT,
     golem,
-    htmltools,
-    rlang,
+    purrr,
+    readr,
     sf,
     shiny,
     terra,
     tibble,
+    tidyr,
     tools
 Encoding: UTF-8
 LazyData: true

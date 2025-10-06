@@ -13,7 +13,6 @@
 #' }
 #' @export
 filter_assets_by_companies <- function(assets, companies) {
-
   # Get unique company names from both datasets
   asset_companies <- unique(assets$company)
   company_names <- unique(companies$company)

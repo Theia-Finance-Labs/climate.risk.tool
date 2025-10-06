@@ -7,7 +7,7 @@
 discount_yearly_profits(
   yearly_scenarios_df,
   discount_rate = 0.05,
-  base_year = 2025
+  base_year = NULL
 )
 }
 \arguments{
@@ -15,7 +15,7 @@ discount_yearly_profits(
 
 \item{discount_rate}{numeric. Discount rate for NPV calculation (default: 0.05)}
 
-\item{base_year}{numeric. Base year for discounting (default: 2025)}
+\item{base_year}{numeric. Base year for discounting (default: NULL, uses minimum year in data)}
 }
 \value{
 data.frame with all original columns plus 'discounted_profit' column
@@ -37,6 +37,9 @@ scenarios <- data.frame(
   revenue = c(1000, 1200),
   profit = c(100, 120)
 )
+# Uses minimum year (2025) as base year automatically
 result <- discount_yearly_profits(scenarios, 0.05)
+# Or specify base year explicitly
+result2 <- discount_yearly_profits(scenarios, 0.05, base_year = 2025)
 }
 }

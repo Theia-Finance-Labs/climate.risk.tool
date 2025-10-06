@@ -27,38 +27,39 @@
 apply_acute_revenue_shock <- function(
     yearly_trajectories,
     assets_factors,
-    acute_events
-) {
-
+    acute_events) {
   # --- Build flood disruption map (asset, event_year -> total disruption days) ---
 
   # Keep only FLOOD rows from here. Additional hazards have to be integrated seperately
-  flood_events <- acute_events[tolower(as.character(acute_events$hazard_type)) == "flood", , drop = FALSE]
+  flood_events <- acute_events |>
+    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood")
 
-  assets_flood <- assets_factors[tolower(as.character(assets_factors$hazard_type)) == "flood", , drop = FALSE]
+  assets_flood <- assets_factors |>
+    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood")
 
   # Map by hazard_name, then sum per (asset, event_year)
   if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
     shock_map <- merge(
-      assets_flood[, c("asset", "hazard_name", "business_disruption"), drop = FALSE],
-      flood_events[, c("hazard_name", "event_year"), drop = FALSE],
+      assets_flood |>
+        dplyr::select("asset", "hazard_name", "business_disruption"),
+      flood_events |>
+        dplyr::select("hazard_name", "event_year"),
       by = "hazard_name",
       all = FALSE
     )
 
-    # Remove rows with NA in key columns before aggregating
-    shock_map <- shock_map[!is.na(shock_map$asset) & !is.na(shock_map$event_year), , drop = FALSE]
-    
     if (nrow(shock_map) > 0) {
-      shocks_by_asset_year <- stats::aggregate(
-        business_disruption ~ asset + event_year,
-        data = shock_map,
-        FUN = function(x) sum(as.numeric(x), na.rm = TRUE)
-      )
+      shocks_by_asset_year <- shock_map |>
+        dplyr::group_by(.data$asset, .data$event_year) |>
+        dplyr::summarize(
+          business_disruption = sum(as.numeric(.data$business_disruption), na.rm = TRUE),
+          .groups = "drop"
+        )
       # Cap summed disruption into [0, 365]
-      shocks_by_asset_year$business_disruption <- pmax(0, pmin(365, as.numeric(shocks_by_asset_year$business_disruption)))
+      shocks_by_asset_year <- shocks_by_asset_year |>
+        dplyr::mutate(business_disruption = pmax(0, pmin(365, as.numeric(.data$business_disruption))))
     } else {
-      shocks_by_asset_year <- data.frame(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
+      shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
     }
   } else {
     shocks_by_asset_year <- data.frame(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
@@ -67,25 +68,21 @@ apply_acute_revenue_shock <- function(
 
   # Start with the baseline trajectories
   result <- yearly_trajectories
-  
+
   if (nrow(shocks_by_asset_year) > 0) {
-    result <- merge(
-      result,
-      setNames(shocks_by_asset_year, c("asset", "year", "disruption_days")),
-      by = c("asset", "year"),
-      all.x = TRUE,
-      sort = FALSE
-    )
+    disruption_data <- setNames(shocks_by_asset_year, c("asset", "year", "disruption_days"))
+    result <- dplyr::left_join(result, disruption_data, by = c("asset", "year"))
 
     # Apply formula only where disruption is present
-    result$revenue <- ifelse(
-      is.na(result$disruption_days),
-      result$revenue,
-      as.numeric(result$revenue) * (1 - as.numeric(result$disruption_days) / 365)
-    )
-
-    # Drop helper
-    result$disruption_days <- NULL
+    result <- result |>
+      dplyr::mutate(
+        revenue = ifelse(
+          is.na(.data$disruption_days),
+          .data$revenue,
+          as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
+        )
+      ) |>
+      dplyr::select(-"disruption_days")
   }
 
 

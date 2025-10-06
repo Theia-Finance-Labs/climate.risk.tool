@@ -9,9 +9,9 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
   shiny::testServer(mod_hazards_events_server, args = list(id = "hz", hazards_inventory = shiny::reactive({
     # Minimal fake inventory
     data.frame(
-      key = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h10glob_brazil"),
+      key = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
       hazard_type = c("flood", "flood"),
-      hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h10glob_brazil"),
+      hazard_name = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
       stringsAsFactors = FALSE
     )
   })), {
@@ -23,7 +23,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 
     # Provide selections for the first event
     session$setInputs("hazard_1" = "flood")
-    session$setInputs("hazard_name_1" = "flood__global_rcp85_h100glob_brazil")
+    session$setInputs("hazard_name_1" = "flood__global_rcp85_h100glob")
     session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
 
@@ -35,7 +35,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 
     # Add a second event
     session$setInputs("hazard_2" = "flood")
-    session$setInputs("hazard_name_2" = "flood__global_rcp85_h10glob_brazil")
+    session$setInputs("hazard_name_2" = "flood__global_rcp85_h10glob")
     session$setInputs("chronic_2" = TRUE)
     session$setInputs(add_event = 2)
 
@@ -51,9 +51,9 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
   shiny::testServer(mod_hazards_events_server, args = list(id = "hz", hazards_inventory = shiny::reactive({
     # Minimal fake inventory
     data.frame(
-      key = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h10glob_brazil"),
+      key = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
       hazard_type = c("flood", "flood"),
-      hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h10glob_brazil"),
+      hazard_name = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
       stringsAsFactors = FALSE
     )
   })), {

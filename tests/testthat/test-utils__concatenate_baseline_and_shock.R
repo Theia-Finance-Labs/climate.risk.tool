@@ -101,4 +101,3 @@ testthat::test_that("concatenate_baseline_and_shock preserves row integrity and 
   testthat::expect_equal(baseline_subset$revenue, yearly_baseline_ordered$revenue)
   testthat::expect_equal(baseline_subset$profit, yearly_baseline_ordered$profit)
 })
-

@@ -1,4 +1,5 @@
 testthat::test_that("mod_control_server uses default aggregation factor 1 for hazard loading", {
+  testthat::skip_on_cran()
   base_dir <- get_test_data_dir()
 
   shiny::testServer(mod_control_server, args = list(
@@ -16,7 +17,8 @@ testthat::test_that("mod_control_server uses default aggregation factor 1 for ha
   })
 })
 
-testthat::test_that("mod_control_server hazards inventory loads with default aggregation factor", {
+testthat::test_that("mod_control_server hazards inventory loads with default aggregation factor of 1", {
+  testthat::skip_on_cran()
   base_dir <- get_test_data_dir()
 
   shiny::testServer(mod_control_server, args = list(

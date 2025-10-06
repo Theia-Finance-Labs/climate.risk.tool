@@ -23,7 +23,7 @@ load_hazards <- function(hazards_dir,
                          cache_aggregated = TRUE,
                          force_reaggregate = FALSE,
                          memfrac = 0.3) {
-  message("🗺️ [load_hazards] Loading hazard rasters from: ", hazards_dir)
+  message("[load_hazards] Loading hazard rasters from: ", hazards_dir)
 
   if (!dir.exists(hazards_dir)) {
     stop("Hazards directory not found: ", hazards_dir)
@@ -45,18 +45,18 @@ load_hazards <- function(hazards_dir,
     if (length(aggregated_files) > 0) {
       # Use aggregated files that match the factor
       tif_files <- aggregated_files
-      message("🗺️ [load_hazards] Found ", length(aggregated_files), " pre-aggregated files matching factor ", aggregate_factor)
+      message("[load_hazards] Found ", length(aggregated_files), " pre-aggregated files matching factor ", aggregate_factor)
     } else {
       # No matching aggregated files, use original files (will be aggregated on-the-fly)
       original_files <- all_tif_files[!grepl("__agg\\d+\\.tif$", all_tif_files)]
       tif_files <- original_files
-      message("🗺️ [load_hazards] No pre-aggregated files found, will aggregate ", length(original_files), " original files")
+      message("[load_hazards] No pre-aggregated files found, will aggregate ", length(original_files), " original files")
     }
   } else {
     # If aggregate_factor <= 1, use only original files (not pre-aggregated)
     original_files <- all_tif_files[!grepl("__agg\\d+\\.tif$", all_tif_files)]
     tif_files <- original_files
-    message("🗺️ [load_hazards] Using ", length(original_files), " original files (no aggregation)")
+    message("[load_hazards] Using ", length(original_files), " original files (no aggregation)")
   }
 
   if (length(tif_files) == 0) {
@@ -91,7 +91,7 @@ load_hazards <- function(hazards_dir,
   attr(hazards, "source_files") <- tif_files
   for (i in seq_along(tif_files)) {
     tif_file <- tif_files[i]
-    message("🗺️ [load_hazards] Loading ", basename(tif_file), "...")
+    message("[load_hazards] Loading ", basename(tif_file), "...")
 
     # Load raster
     r <- terra::rast(tif_file)
@@ -159,6 +159,6 @@ load_hazards <- function(hazards_dir,
     hazards[[i]] <- r
   }
 
-  message("✅ [load_hazards] Successfully loaded ", length(hazards), " hazard rasters")
+  message("[load_hazards] Successfully loaded ", length(hazards), " hazard rasters")
   return(hazards)
 }

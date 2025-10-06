@@ -14,7 +14,8 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
     asset = c("A1", "A2"),
     hazard_type = c("flood", "flood"),
     hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
-    cost_factor = c(100, 80),
+    damage_factor = c(0.5, 0.4),
+    cost_factor = c(200, 200),
     asset_category = c("Industrial", "Commercial")
   )
 
@@ -38,9 +39,9 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
   # Note: merge may reorder rows, so we need to sort both for comparison
   result_sorted <- result[order(result$asset, result$year), ]
   baseline_sorted <- yearly_trajectories[order(yearly_trajectories$asset, yearly_trajectories$year), ]
-  
+
   testthat::expect_equal(result_sorted$revenue, baseline_sorted$revenue) # Revenue unchanged
-  
+
   # For year 2030 (event_year), profit should be reduced by cost_factor
   # A1 in 2030: 120 - 100 = 20
   # A2 in 2030: 96 - 80 = 16
@@ -50,4 +51,3 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
   testthat::expect_equal(result$profit[result$asset == "A1" & result$year == 2025], 100)
   testthat::expect_equal(result$profit[result$asset == "A2" & result$year == 2025], 80)
 })
-

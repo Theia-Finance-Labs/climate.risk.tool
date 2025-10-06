@@ -36,17 +36,14 @@
 compute_profits_from_revenue <- function(
     yearly_revenue_df,
     net_profit_margin = 0.1) {
-
   # Make a copy to avoid modifying the input
   result <- yearly_revenue_df
 
   # Calculate profit from revenue
   # Formula: profit = revenue * net_profit_margin
-  revenue_values <- result$revenue
-  # Calculate profit
-  result$profit <- revenue_values * net_profit_margin
+  result <- result |>
+    dplyr::mutate(profit = .data$revenue * net_profit_margin)
 
 
   return(result)
 }
-

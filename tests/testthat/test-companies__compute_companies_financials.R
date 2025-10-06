@@ -1,5 +1,4 @@
 testthat::test_that("compute_companies_financials works with yearly trajectories", {
-
   companies <- data.frame(
     company = c("C1"),
     revenues = c(1000),
@@ -34,21 +33,20 @@ testthat::test_that("compute_companies_financials works with yearly trajectories
     discounted_net_profit = c(100, 97.14, 97, 94.19)
   )
 
-  res <- compute_companies_financials(
+  companies <- compute_companies_financials(
     companies = companies,
     company_yearly_trajectories = company_yearly,
     assets_discounted_yearly = assets_yearly,
     discount_rate = 0.05
   )
 
-  testthat::expect_true(all(c("assets", "companies") %in% names(res)))
-  testthat::expect_true(is.data.frame(res$assets))
-  testthat::expect_true(is.data.frame(res$companies))
+
+  testthat::expect_true(is.data.frame(companies))
 
   # Should have NPV, PD, and Expected Loss columns
   expected_company_cols <- c(
     "NPV_baseline", "NPV_shock", "PD_baseline", "PD_shock",
     "Expected_loss_baseline", "Expected_loss_shock"
   )
-  testthat::expect_true(all(expected_company_cols %in% names(res$companies)))
+  testthat::expect_true(all(expected_company_cols %in% names(companies)))
 })

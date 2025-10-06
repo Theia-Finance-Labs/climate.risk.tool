@@ -23,5 +23,3 @@ testthat::test_that("compute_profits_from_revenue works without errors", {
   # Should preserve all original columns
   testthat::expect_true(all(names(yearly_revenue) %in% names(result)))
 })
-
-

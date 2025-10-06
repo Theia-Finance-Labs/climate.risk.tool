@@ -23,7 +23,7 @@ to_snake_case <- function(names) {
 #' }
 #' @export
 read_assets <- function(base_dir) {
-  message("📁 [read_assets] Reading asset data from: ", base_dir)
+  message("[read_assets] Reading asset data from: ", base_dir)
 
   # Define file path
   assets_path <- file.path(base_dir, "user_input", "asset_information.csv")
@@ -34,7 +34,7 @@ read_assets <- function(base_dir) {
   }
 
   # Read assets data
-  assets_raw <- utils::read.csv(assets_path, stringsAsFactors = FALSE)
+  assets_raw <- readr::read_csv(assets_path, show_col_types = FALSE)
   names(assets_raw) <- to_snake_case(names(assets_raw))
 
   # Convert numeric columns for assets
@@ -43,7 +43,7 @@ read_assets <- function(base_dir) {
     if (col %in% names(assets_raw)) {
       # Replace empty strings with NA before converting to numeric
       assets_raw[[col]][assets_raw[[col]] == ""] <- NA
-      
+
       # For latitude, longitude - suppress coercion warnings as they can have empty values
       if (col %in% c("latitude", "longitude")) {
         assets_raw[[col]] <- suppressWarnings(as.numeric(assets_raw[[col]]))
@@ -55,19 +55,19 @@ read_assets <- function(base_dir) {
       }
     }
   }
-  
+
   # Handle character columns that can have empty values (municipality, province)
   char_cols_with_empty <- c("municipality", "province")
   for (col in char_cols_with_empty) {
     if (col %in% names(assets_raw)) {
       # Replace empty strings with NA for character columns
       assets_raw[[col]][assets_raw[[col]] == ""] <- NA
-      # Set UTF-8 encoding for proper string comparison (handles accented characters like é, á, ñ, etc.)
+      # Set UTF-8 encoding for proper string comparison (handles accented characters like e, a, n, etc.)
       Encoding(assets_raw[[col]]) <- "UTF-8"
     }
   }
 
-  message("✅ [read_assets] Loaded ", nrow(assets_raw), " assets")
+  message("[read_assets] Loaded ", nrow(assets_raw), " assets")
   assets_raw
 }
 
@@ -84,7 +84,7 @@ read_assets <- function(base_dir) {
 #' }
 #' @export
 read_companies <- function(file_path) {
-  message("📁 [read_companies] Reading company data from: ", file_path)
+  message("[read_companies] Reading company data from: ", file_path)
 
   # Check if file exists
   if (!file.exists(file_path)) {
@@ -92,7 +92,7 @@ read_companies <- function(file_path) {
   }
 
   # Read companies data
-  companies_raw <- utils::read.csv(file_path, stringsAsFactors = FALSE)
+  companies_raw <- readr::read_csv(file_path, show_col_types = FALSE)
   names(companies_raw) <- to_snake_case(names(companies_raw))
 
   # Convert numeric columns for companies
@@ -105,7 +105,7 @@ read_companies <- function(file_path) {
     }
   }
 
-  message("✅ [read_companies] Loaded ", nrow(companies_raw), " companies")
+  message("[read_companies] Loaded ", nrow(companies_raw), " companies")
   companies_raw
 }
 
@@ -123,7 +123,7 @@ read_companies <- function(file_path) {
 #' }
 #' @export
 read_damage_cost_factors <- function(base_dir) {
-  message("📁 [read_damage_cost_factors] Reading damage and cost factors from: ", base_dir)
+  message("[read_damage_cost_factors] Reading damage and cost factors from: ", base_dir)
 
   # Define file path
   factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
@@ -135,7 +135,7 @@ read_damage_cost_factors <- function(base_dir) {
 
   # Read the damage and cost factors CSV
   # The CSV uses comma as decimal separator and quotes around numbers
-  factors_df <- utils::read.csv(factors_path, stringsAsFactors = FALSE)
+  factors_df <- readr::read_csv(factors_path, show_col_types = FALSE)
 
   # Clean up the numeric columns that have comma decimal separators and quotes
   factors_df$damage_factor <- as.numeric(gsub(",", ".", gsub('"', "", factors_df$damage_factor)))
@@ -147,6 +147,6 @@ read_damage_cost_factors <- function(base_dir) {
   # Convert column names to snake_case for consistency
   names(factors_df) <- to_snake_case(names(factors_df))
 
-  message("✅ [read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
+  message("[read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
   factors_df
 }

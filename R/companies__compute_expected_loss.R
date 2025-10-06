@@ -16,15 +16,13 @@
 #' }
 #' @export
 compute_expected_loss <- function(companies_pd) {
-
   # Make a copy to avoid modifying the input
   result <- companies_pd
 
   # Calculate Expected Loss: EL = LGD * Loan_Size * PD
   # lgd and loan_size should already be in the input dataframe
-  result$expected_loss <- result$lgd *
-    result$loan_size *
-    result$merton_pd
+  result <- result |>
+    dplyr::mutate(expected_loss = .data$lgd * .data$loan_size * .data$merton_pd)
 
 
   return(result)

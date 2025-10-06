@@ -43,8 +43,6 @@ compute_shock_trajectories <- function(
     events,
     net_profit_margin = 0.1,
     start_year = 2025) {
-
-
   # Filter assets_with_factors to only the hazards referenced in events
   relevant_hazards <- unique(events$hazard_name)
   filtered_assets <- assets_with_factors[assets_with_factors$hazard_name %in% relevant_hazards, , drop = FALSE]
@@ -60,7 +58,7 @@ compute_shock_trajectories <- function(
   # ============================================================================
   # SHOCK SEQUENCE: Apply shocks in the correct order
   # ============================================================================
-  
+
   # Start with baseline trajectories (keeping only revenue for shock application)
   current_trajectories <- yearly_baseline_profits[, c("asset", "company", "year", "revenue")]
 

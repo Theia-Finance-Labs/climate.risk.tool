@@ -104,7 +104,7 @@ testthat::test_that("geolocate_assets returns valid sfc types in WGS84 CRS", {
   hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
-output_crs <- terra::crs(hazards[[1]])
+  output_crs <- terra::crs(hazards[[1]])
   out <- geolocate_assets(assets, municipalities, provinces, output_crs = output_crs)
 
   # geometry should be polygons/multipolygons; centroid should be points
@@ -117,39 +117,38 @@ output_crs <- terra::crs(hazards[[1]])
   cent_types <- unique(sf::st_geometry_type(out$centroid))
   testthat::expect_true(all(geom_types %in% c("POLYGON", "MULTIPOLYGON")))
   testthat::expect_true(all(cent_types %in% c("POINT")))
-  
+
   # Check that CRS is WGS84 (EPSG:4326)
   geom_crs <- sf::st_crs(out$geometry)
   testthat::expect_equal(geom_crs$epsg, 4326)
 })
 
 #' Test that geolocate_assets handles assets without valid location data
-#' 
+#'
 #' This test ensures that geolocate_assets provides a meaningful error message
 #' when an asset cannot be geolocated.
 
 testthat::test_that("geolocate_assets handles assets without valid location data", {
   # Load test data
   base_dir <- get_test_data_dir()
-  
+
   # Load required data
   assets <- read_assets(base_dir)
   areas <- load_location_areas(
     file.path(base_dir, "areas", "municipality"),
     file.path(base_dir, "areas", "province")
   )
-  
+
   # Create asset with no valid location data
   bad_asset <- assets[1, , drop = FALSE]
   bad_asset$latitude <- NA_real_
   bad_asset$longitude <- NA_real_
   bad_asset$municipality <- NA_character_
   bad_asset$province <- NA_character_
-  
+
   # Test that geolocate_assets provides a meaningful error message
   testthat::expect_error(
     geolocate_assets(bad_asset, areas$municipalities, areas$provinces),
     regexp = "Failed to geolocate asset"
   )
 })
-

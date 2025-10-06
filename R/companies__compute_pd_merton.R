@@ -20,25 +20,22 @@ compute_pd_merton <- function(companies_npv) {
   result_with_financials <- companies_npv
 
   # Use NPV as part of asset value proxy: V = debt + npv
-  V <- pmax(result_with_financials$debt + result_with_financials$npv, 1)   # avoid non-positive
-  D <- pmax(result_with_financials$debt, 1)                                # avoid non-positive
-  sigma <- pmax(result_with_financials$volatility, 1e-8)                   # avoid zero
-  T <- pmax(result_with_financials$term, 1)                                # default Term = 1
-
-  # Risk-free rate hard-coded at 2%,needs to be coded into parameters
-  r <- 0.02
-
-  # Excel-equivalent:
-  # d1 = ( ln(V/D) + (r + 0.5*sigma^2)*T ) / (sigma*sqrt(T))
-  # PD = N( -(d1 - sigma*sqrt(T)) )
-  d1 <- (log(V / D) + (r + 0.5 * sigma^2) * T) / (sigma * sqrt(T))
-  result_with_financials$merton_pd <- pnorm(-(d1 - sigma * sqrt(T)))
-
-  # Update result with the calculated values
-  result <- result_with_financials
-
-  # Ensure PD is in [0, 1] range
-  result$merton_pd <- pmax(0, pmin(1, result$merton_pd))
+  result <- result_with_financials |>
+    dplyr::mutate(
+      V = pmax(.data$debt + .data$npv, 1), # avoid non-positive
+      D = pmax(.data$debt, 1), # avoid non-positive
+      sigma = pmax(.data$volatility, 1e-8), # avoid zero
+      T = pmax(.data$term, 1), # default Term = 1
+      r = 0.02, # Risk-free rate hard-coded at 2%
+      # Excel-equivalent:
+      # d1 = ( ln(V/D) + (r + 0.5*sigma^2)*T ) / (sigma*sqrt(T))
+      # PD = N( -(d1 - sigma*sqrt(T)) )
+      d1 = (log(.data$V / .data$D) + (.data$r + 0.5 * .data$sigma^2) * .data$T) / (.data$sigma * sqrt(.data$T)),
+      merton_pd = pnorm(-(.data$d1 - .data$sigma * sqrt(.data$T))),
+      # Ensure PD is in [0, 1] range
+      merton_pd = pmax(0, pmin(1, .data$merton_pd))
+    ) |>
+    dplyr::select(-.data$V, -.data$D, -.data$sigma, -.data$T, -.data$r, -.data$d1)
 
   return(result)
 }

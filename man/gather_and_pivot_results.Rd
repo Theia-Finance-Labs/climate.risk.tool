@@ -4,12 +4,12 @@
 \alias{gather_and_pivot_results}
 \title{Gather and Pivot Results}
 \usage{
-gather_and_pivot_results(assets_discounted, companies_expected_loss)
+gather_and_pivot_results(companies_expected_loss)
 }
 \arguments{
-\item{assets_discounted}{data.frame. Asset data with discounted_net_profit by scenario}
-
 \item{companies_expected_loss}{data.frame. Company data with NPV, PD, and expected_loss by scenario}
+
+\item{assets_discounted}{data.frame. Asset data with discounted_net_profit by scenario}
 }
 \value{
 list with two elements: assets (pivoted asset data) and companies (pivoted company data)

@@ -21,53 +21,21 @@
 #' }
 #' @export
 aggregate_assets_to_company <- function(yearly_discounted_df) {
-  # Validate inputs
-  if (!is.data.frame(yearly_discounted_df) || nrow(yearly_discounted_df) == 0) {
-    stop("yearly_discounted_df must be a non-empty data.frame")
-  }
+  # Aggregate by company, year, and scenario using dplyr
+  result <- yearly_discounted_df |>
+    dplyr::group_by(.data$company, .data$year, .data$scenario) |>
+    dplyr::summarize(
+      total_revenue = sum(.data$revenue, na.rm = TRUE),
+      total_profit = sum(.data$profit, na.rm = TRUE),
+      total_discounted_profit = sum(.data$discounted_profit, na.rm = TRUE),
+      total_discounted_net_profit = sum(.data$discounted_net_profit, na.rm = TRUE),
+      .groups = "drop"
+    )
 
-  # Check required columns
-  required_cols <- c(
-    "asset", "company", "year", "scenario", "revenue", "profit",
-    "discounted_profit", "discounted_net_profit"
-  )
-  missing_cols <- setdiff(required_cols, names(yearly_discounted_df))
-  if (length(missing_cols) > 0) {
-    stop(paste(
-      "Missing required columns in yearly_discounted_df:",
-      paste(missing_cols, collapse = ", ")
-    ))
-  }
-
-  # Aggregate by company, year, and scenario
-  result <- stats::aggregate(
-    cbind(revenue, profit, discounted_profit, discounted_net_profit) ~ company + year + scenario,
-    data = yearly_discounted_df,
-    FUN = sum,
-    na.rm = TRUE
-  )
-
-  # Rename columns for clarity
-  names(result)[names(result) == "revenue"] <- "total_revenue"
-  names(result)[names(result) == "profit"] <- "total_profit"
-  names(result)[names(result) == "discounted_profit"] <- "total_discounted_profit"
-  names(result)[names(result) == "discounted_net_profit"] <- "total_discounted_net_profit"
-
-  # Validate the result
-  numeric_cols <- c("total_revenue", "total_profit", "total_discounted_profit", "total_discounted_net_profit")
-  for (col in numeric_cols) {
-    if (!is.numeric(result[[col]])) {
-      stop(paste("Calculated", col, "is not numeric"))
-    }
-
-    if (any(is.na(result[[col]]))) {
-      stop(paste("Calculated", col, "contains NA values"))
-    }
-
-  }
 
   # Sort by company, scenario, and year for consistency
-  result <- result[order(result$company, result$scenario, result$year), ]
+  result <- result |>
+    dplyr::arrange(.data$company, .data$scenario, .data$year)
 
   # Reset row names
   rownames(result) <- NULL

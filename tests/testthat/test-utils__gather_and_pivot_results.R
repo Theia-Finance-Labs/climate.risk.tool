@@ -18,12 +18,8 @@ testthat::test_that("gather_and_pivot_results returns pivoted assets and compani
     expected_loss = c(15, 20)
   )
 
-  piv <- gather_and_pivot_results(assets_discounted, companies_el)
-  testthat::expect_type(piv, "list")
-  testthat::expect_true(all(c("companies", "assets") %in% names(piv)))
-
-  comps <- piv$companies
-  assets <- piv$assets
+  comps <- gather_and_pivot_results(companies_el)
+  testthat::expect_s3_class(comps, "data.frame")
 
   # Companies: NPV, PD, Expected loss for baseline and shock
   expected_company_cols <- c(
@@ -32,10 +28,6 @@ testthat::test_that("gather_and_pivot_results returns pivoted assets and compani
     "Expected_loss_baseline", "Expected_loss_shock"
   )
   testthat::expect_true(all(expected_company_cols %in% names(comps)))
-
-  # Assets: NPV for baseline and shock
-  expected_asset_cols <- c("NPV_baseline", "NPV_shock")
-  testthat::expect_true(all(expected_asset_cols %in% names(assets)))
 
   # Check specific values
   testthat::expect_equal(comps$NPV_baseline, 180)

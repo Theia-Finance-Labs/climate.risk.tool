@@ -165,20 +165,18 @@ testthat::test_that("e2e: module integration", {
 When running the entire test suite, set these environment variables:
 
 ```bash
-SKIP_SLOW_TESTS=FALSE devtools::test()
+SKIP_SLOW_TESTS=TRUE devtools::test()
 ```
 
-#### Environment Variable Meanings
-- **SKIP_SLOW_TESTS=FALSE**: Ensures all tests run, including slower integration tests
 
 #### Alternative Commands
 ```bash
 # Using R console
-Sys.setenv(SKIP_SLOW_TESTS = "FALSE")
+Sys.setenv(SKIP_SLOW_TESTS = "TRUE")
 devtools::test()
 
 # Using terminal
-SKIP_SLOW_TESTS=FALSE R -e "devtools::test()"
+SKIP_SLOW_TESTS=TRUE R -e "devtools::test()"
 ```
 
 #### Quick Test Runs

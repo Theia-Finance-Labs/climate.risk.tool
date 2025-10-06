@@ -123,7 +123,7 @@ app_server <- function(input, output, session) {
           keep <- ev_df$hazard_name %in% haz_names
           if (any(!keep)) {
             missing <- unique(ev_df$hazard_name[!keep])
-            message("⚠️  [app_server] Dropping events with missing hazards at current resolution: ", paste(missing, collapse = ", "))
+            message("[app_server] Dropping events with missing hazards at current resolution: ", paste(missing, collapse = ", "))
           }
           ev_df <- ev_df[keep, , drop = FALSE]
         }

@@ -10,7 +10,6 @@ testthat::test_that("compute_risk filters hazards by exact hazard_name", {
   damage_factors <- read_damage_cost_factors(base_dir)
 
   available <- names(hazards)
-  testthat::skip_if(length(available) < 2, "Need at least two hazards to test filtering")
 
   # Pick two distinct hazard names
   selected_two <- unique(available)[1:2]
@@ -18,8 +17,10 @@ testthat::test_that("compute_risk filters hazards by exact hazard_name", {
   # Events with exact hazard_name
   events <- data.frame(
     event_id = c("e1", "e2"),
-    hazard_type = c(strsplit(selected_two[1], "__", fixed = TRUE)[[1]][1],
-                    strsplit(selected_two[2], "__", fixed = TRUE)[[1]][1]),
+    hazard_type = c(
+      strsplit(selected_two[1], "__", fixed = TRUE)[[1]][1],
+      strsplit(selected_two[2], "__", fixed = TRUE)[[1]][1]
+    ),
     hazard_name = selected_two,
     event_year = c(2030L, 2035L),
     chronic = c(FALSE, TRUE)
@@ -40,5 +41,3 @@ testthat::test_that("compute_risk filters hazards by exact hazard_name", {
   testthat::expect_true(all(selected_two %in% hnames))
   testthat::expect_true(all(hnames %in% selected_two))
 })
-
-

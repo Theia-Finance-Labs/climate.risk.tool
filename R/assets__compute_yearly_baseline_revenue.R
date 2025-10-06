@@ -30,12 +30,8 @@ compute_yearly_baseline_revenue <- function(
     growth_rate = 0.02,
     start_year = 2025,
     end_year = 2050) {
-
-
   # Join assets with company data
-  assets_with_companies <- merge(baseline_assets, companies,
-    by = "company", all.x = TRUE
-  )
+  assets_with_companies <- dplyr::left_join(baseline_assets, companies, by = "company")
 
   # Check for any failed joins
   if (any(is.na(assets_with_companies$revenues))) {
@@ -44,33 +40,20 @@ compute_yearly_baseline_revenue <- function(
 
   # Calculate 2025 baseline revenue for each asset
   # Formula: company_revenue * share_of_economic_activity
-  assets_with_companies$revenue_2025 <- assets_with_companies$revenues *
-    assets_with_companies$share_of_economic_activity
+  assets_with_companies <- assets_with_companies |>
+    dplyr::mutate(revenue_2025 = .data$revenues * .data$share_of_economic_activity)
 
   # Generate yearly trajectories
   years <- start_year:end_year
 
-    # Create expanded data frame with one row per asset-year combination
-    result_list <- lapply(seq_len(nrow(assets_with_companies)), function(i) {
-    asset_row <- assets_with_companies[i, ]
-
-    # Calculate revenue for each year
-    yearly_data <- data.frame(
-      asset = rep(asset_row$asset, length(years)),
-      company = rep(asset_row$company, length(years)),
-      year = years,
-      stringsAsFactors = FALSE
-    )
-
+  # Create expanded data frame with one row per asset-year combination
+  # First expand each asset to have one row per year
+  result <- assets_with_companies |>
+    dplyr::mutate(year = list(years)) |>
+    tidyr::unnest("year") |>
     # Apply growth rate: revenue_year = revenue_2025 * (1 + growth_rate)^(year - 2025)
-    yearly_data$revenue <- asset_row$revenue_2025 *
-      (1 + growth_rate)^(years - start_year)
-
-    yearly_data
-  })
-
-  # Combine all asset trajectories
-  result <- do.call(rbind, result_list)
+    dplyr::mutate(revenue = .data$revenue_2025 * (1 + growth_rate)^(.data$year - start_year)) |>
+    dplyr::select("asset", "company", "year", "revenue")
 
 
   return(result)

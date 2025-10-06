@@ -37,7 +37,7 @@ Load all required data from your base directory:
 # Load all required data
 assets <- read_assets(base_dir)
 companies <- read_companies(file.path(base_dir, "user_input", "company_small.csv"))
-hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor=1L)
+hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor = 1L)
 areas <- load_location_areas(
   file.path(base_dir, "areas", "municipality"),
   file.path(base_dir, "areas", "province")
@@ -57,7 +57,7 @@ events <- data.frame(
   hazard_name = c(
     "flood__global_rcp85_h100glob_brazil",
     "flood__global_rcp85_h10glob_brazil"
-    ),
+  ),
   event_year = c(2030, 2030),
   chronic = c(FALSE, FALSE),
   stringsAsFactors = FALSE

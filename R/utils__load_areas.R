@@ -15,7 +15,7 @@
 #' }
 #' @export
 load_location_areas <- function(municipalities_dir, provinces_dir) {
-  message("🗺️ [load_location_areas] Loading administrative boundaries...")
+  message("[load_location_areas] Loading administrative boundaries...")
 
   # Helper function to load geojson files from a directory
   load_geojson_files <- function(dir_path, dir_type) {
@@ -38,13 +38,13 @@ load_location_areas <- function(municipalities_dir, provinces_dir) {
 
       # Load the sf object
       sf_obj <- sf::st_read(geojson_file, quiet = TRUE)
-      
+
       # Set UTF-8 encoding on shapeName column for proper string comparison
-      # (handles accented characters like é, á, ñ, etc.)
+      # (handles accented characters like e, a, n, etc.)
       if ("shapeName" %in% names(sf_obj)) {
         Encoding(sf_obj$shapeName) <- "UTF-8"
       }
-      
+
       areas[[name]] <- sf_obj
     }
 
@@ -55,7 +55,7 @@ load_location_areas <- function(municipalities_dir, provinces_dir) {
   municipalities <- load_geojson_files(municipalities_dir, "Municipalities")
   provinces <- load_geojson_files(provinces_dir, "Provinces")
 
-  message("✅ [load_location_areas] Loaded ", length(municipalities), " municipalities, ", length(provinces), " provinces")
+  message("[load_location_areas] Loaded ", length(municipalities), " municipalities, ", length(provinces), " provinces")
   return(list(
     municipalities = municipalities,
     provinces = provinces

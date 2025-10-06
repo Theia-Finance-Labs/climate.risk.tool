@@ -4,18 +4,17 @@
 \alias{compute_company_npv}
 \title{Compute Company NPV from Yearly Data}
 \usage{
-compute_company_npv(yearly_data)
+compute_company_npv(company_yearly_data)
 }
 \arguments{
-\item{yearly_data}{data.frame. Either company yearly trajectories or asset yearly data with discounted profit columns}
+\item{company_yearly_data}{data.frame. Company yearly trajectories with total_discounted_net_profit column}
 }
 \value{
 data.frame with columns: company, scenario, npv
 }
 \description{
 Aggregates yearly discounted net profits from company trajectories to compute company-level NPV.
-Can work with either company yearly trajectories or asset yearly data.
-Groups by company and scenario, summing discounted_net_profit or total_discounted_net_profit values across years.
+Groups by company and scenario, summing total_discounted_net_profit values across years.
 }
 \details{
 Compute Company NPV from Yearly Trajectories
@@ -25,7 +24,6 @@ Computes Net Present Value (NPV) for each company in each scenario by summing ye
 }
 \examples{
 \dontrun{
-# With company yearly data
 company_yearly <- data.frame(
   company = c("C1", "C1"),
   year = c(2025, 2026),
@@ -33,15 +31,5 @@ company_yearly <- data.frame(
   total_discounted_net_profit = c(100, 97)
 )
 result <- compute_company_npv(company_yearly)
-
-# With asset yearly data
-asset_yearly <- data.frame(
-  asset = c("A1", "A1"),
-  company = c("C1", "C1"),
-  year = c(2025, 2026),
-  scenario = c("baseline", "baseline"),
-  discounted_net_profit = c(100, 97)
-)
-result <- compute_company_npv(asset_yearly)
 }
 }

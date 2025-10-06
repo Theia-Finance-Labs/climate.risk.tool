@@ -28,7 +28,6 @@ apply_chronic_revenue_shock <- function(
     yearly_trajectories,
     assets_factors,
     chronic_events) {
-
   # PLACEHOLDER IMPLEMENTATION:
   # For now, just pass through revenue values unchanged
   # This maintains the expected output structure while preserving the interface

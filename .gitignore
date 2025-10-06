@@ -1,4 +1,9 @@
 tests/tests_data/hazards
+!tests/tests_data/hazards/flood/global_rcp85_h10glob__agg16.tif
+!tests/tests_data/hazards/flood/global_rcp85_h100glob__agg16.tif
+!tests/tests_data/hazards/flood/global_rcp85_h10glob__agg32.tif
+!tests/tests_data/hazards/flood/global_rcp85_h100glob__agg32.tif
+
 .env
 .venv/
 workspace/

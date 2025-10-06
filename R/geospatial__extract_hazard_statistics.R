@@ -9,13 +9,15 @@
 #'   hazard_mean, hazard_median, hazard_max, hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5
 #' @noRd
 extract_hazard_statistics <- function(assets_with_geometry, hazards, use_exactextractr = FALSE) {
-  # Ensure sf structure
+  # ========= Ensure sf structure =========
+  # TODO what is this and why is it necessary
   assets_sf <- assets_with_geometry
   if (!inherits(assets_sf$geometry, "sfc")) {
     assets_sf <- sf::st_as_sf(assets_sf)
   } else {
     assets_sf <- sf::st_as_sf(assets_sf, sf_column_name = "geometry")
   }
+  # ========= End Ensure sf structure =========
 
   out_list <- vector("list", length(hazards))
   hn <- names(hazards)
@@ -27,7 +29,7 @@ extract_hazard_statistics <- function(assets_with_geometry, hazards, use_exactex
     parts <- strsplit(hazard_name, "__", fixed = TRUE)[[1]]
     hazard_type <- if (length(parts) >= 1) parts[[1]] else "unknown"
 
-    message("🗺️  [extract_hazard_statistics] Processing hazard ", i, "/", length(hazards), ": ", hazard_name)
+    message("[extract_hazard_statistics] Processing hazard ", i, "/", length(hazards), ": ", hazard_name)
 
     # Pre-allocate statistics data frame
     n_geoms <- nrow(assets_sf)
@@ -94,7 +96,7 @@ extract_hazard_statistics <- function(assets_with_geometry, hazards, use_exactex
     df_i$hazard_name <- hazard_name
     df_i$hazard_type <- hazard_type
     df_i$hazard_intensity <- df_i$hazard_mean
-    
+
     # Replace NA hazard values with 0 (treat as no hazard exposure)
     # This is for assets outside the hazard zone or where raster data is missing
     df_i$hazard_intensity[is.na(df_i$hazard_intensity)] <- 0
@@ -111,6 +113,5 @@ extract_hazard_statistics <- function(assets_with_geometry, hazards, use_exactex
 
   out <- do.call(rbind, out_list)
   out <- sf::st_drop_geometry(out)
-  out
+  return(out)
 }
-

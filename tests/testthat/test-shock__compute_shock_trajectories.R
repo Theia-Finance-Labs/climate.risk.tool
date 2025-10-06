@@ -14,7 +14,8 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
     hazard_type = "flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     business_disruption = 10,
-    cost_factor = 50,
+    damage_factor = 0.5,
+    cost_factor = 100,
     asset_category = "Industrial"
   )
 
@@ -32,10 +33,10 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
   # Should return shocked trajectories (no baseline, no scenario column)
   expected_cols <- c("asset", "company", "year", "revenue", "profit")
   testthat::expect_true(all(expected_cols %in% names(result)))
-  
+
   # Should NOT have scenario column (that's added by concatenate_baseline_and_shock)
   testthat::expect_false("scenario" %in% names(result))
-  
+
   # Should have same number of rows as input (only shocked scenario)
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
 })
@@ -43,10 +44,10 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
 testthat::test_that("compute_shock_trajectories applies full shock sequence", {
   # Test that the function applies:
   # 1. Acute revenue shock
-  # 2. Chronic revenue shock  
+  # 2. Chronic revenue shock
   # 3. Compute profit from shocked revenue
   # 4. Acute profit shock
-  
+
   yearly_baseline <- data.frame(
     asset = c("A1", "A1"),
     company = c("C1", "C1"),
@@ -60,7 +61,8 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
     hazard_type = "flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     business_disruption = 10,
-    cost_factor = 50
+    damage_factor = 0.5,
+    cost_factor = 100
   )
 
   events <- data.frame(
@@ -75,11 +77,11 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
 
   # Should return shocked trajectories only (no baseline)
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
-  
+
   # Should have revenue and profit columns
   testthat::expect_true("revenue" %in% names(result))
   testthat::expect_true("profit" %in% names(result))
-  
+
   # Profit should be computed from shocked revenue using margin, then modified by acute profit shock
   # (actual values will depend on shock implementation)
   testthat::expect_true(all(!is.na(result$profit)))
@@ -100,7 +102,8 @@ testthat::test_that("compute_shock_trajectories handles mixed acute and chronic 
     hazard_type = "flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     business_disruption = 10,
-    cost_factor = 50
+    damage_factor = 0.5,
+    cost_factor = 100
   )
 
   events <- data.frame(
@@ -115,7 +118,7 @@ testthat::test_that("compute_shock_trajectories handles mixed acute and chronic 
 
   # Should return shocked trajectories only (no scenario column)
   testthat::expect_false("scenario" %in% names(result))
-  
+
   # Should have 3 rows (one for each year in baseline)
   testthat::expect_equal(nrow(result), 3)
 })

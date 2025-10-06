@@ -30,9 +30,7 @@ testthat::test_that("apply_acute_revenue_shock applies shocks to yearly trajecto
   expected_cols <- c("asset", "company", "year", "revenue", "profit")
   testthat::expect_true(all(expected_cols %in% names(result)))
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
-  
+
   # Should keep profit column (baseline profit carried through to apply profit shocks later)
   testthat::expect_true("profit" %in% names(result))
 })
-
-

@@ -28,45 +28,51 @@ apply_acute_profit_shock <- function(
     yearly_trajectories,
     assets_factors,
     acute_events) {
-
-
   # --- APPLY FLOOD ACUTE DAMAGE TO PROFITS ---
 
-  #compute acute damages for floods in assets_factors (non-invasive; only adds a column)
+  # compute acute damages for floods in assets_factors (non-invasive; only adds a column)
   if (all(c("hazard_type", "damage_factor", "cost_factor") %in% names(assets_factors))) {
-    assets_factors$acute_damage <- NA_real_
-    flood_idx <- tolower(as.character(assets_factors$hazard_type)) == "flood"
-    assets_factors$acute_damage[flood_idx] <-
-      as.numeric(assets_factors$damage_factor[flood_idx]) *
-      as.numeric(assets_factors$cost_factor[flood_idx])
+    assets_factors <- assets_factors |>
+      dplyr::mutate(
+        acute_damage = dplyr::case_when(
+          tolower(as.character(.data$hazard_type)) == "flood" ~
+            as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor),
+          TRUE ~ NA_real_
+        )
+      )
   }
 
   # Select only floods from events
-  flood_events <- acute_events[tolower(as.character(acute_events$hazard_type)) == "flood", , drop = FALSE]
-  flood_events <- flood_events[!is.na(flood_events$event_year), , drop = FALSE]
+  flood_events <- acute_events |>
+    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood") |>
+    dplyr::filter(!is.na(.data$event_year))
 
   # Select only floods from assets_factors
-  assets_flood <- assets_factors[tolower(as.character(assets_factors$hazard_type)) == "flood", , drop = FALSE]
+  assets_flood <- assets_factors |>
+    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood")
 
   # Merge by hazard_name to attach event_year to each asset-hazard
   # -> (asset, hazard_name, event_year, acute_damage)
   if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
     shock_map <- merge(
-      assets_flood[, c("asset", "hazard_name", "acute_damage"), drop = FALSE],
-      flood_events[, c("hazard_name", "event_year"), drop = FALSE],
+      assets_flood |>
+        dplyr::select("asset", "hazard_name", "acute_damage"),
+      flood_events |>
+        dplyr::select("hazard_name", "event_year"),
       by = "hazard_name",
       all = FALSE
     )
 
     # Sum acute_damage per (asset, event_year) in case multiple hazards per asset-year
     if (nrow(shock_map) > 0) {
-      shocks_by_asset_year <- stats::aggregate(
-        acute_damage ~ asset + event_year,
-        data = shock_map,
-        FUN = function(x) sum(as.numeric(x), na.rm = TRUE)
-      )
+      shocks_by_asset_year <- shock_map |>
+        dplyr::group_by(.data$asset, .data$event_year) |>
+        dplyr::summarize(
+          acute_damage = sum(as.numeric(.data$acute_damage), na.rm = TRUE),
+          .groups = "drop"
+        )
     } else {
-      shocks_by_asset_year <- data.frame(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
+      shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
     }
   } else {
     shocks_by_asset_year <- data.frame(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
@@ -77,23 +83,18 @@ apply_acute_profit_shock <- function(
 
   # Attach shock (by asset + year == event_year), then deduct from profit
   if (nrow(shocks_by_asset_year) > 0) {
-    result <- merge(
-      result,
-      setNames(shocks_by_asset_year, c("asset", "year", "acute_damage_to_apply")),
-      by = c("asset", "year"),
-      all.x = TRUE,
-      sort = FALSE
-    )
+    shock_data <- setNames(shocks_by_asset_year, c("asset", "year", "acute_damage_to_apply"))
+    result <- dplyr::left_join(result, shock_data, by = c("asset", "year"))
 
     # Deduct (do not alter revenue here as per request)
-    result$profit <- as.numeric(result$profit) -
-      ifelse(is.na(result$acute_damage_to_apply), 0, as.numeric(result$acute_damage_to_apply))
-
-    # Drop helper column
-    result$acute_damage_to_apply <- NULL
+    result <- result |>
+      dplyr::mutate(
+        profit = as.numeric(.data$profit) -
+          ifelse(is.na(.data$acute_damage_to_apply), 0, as.numeric(.data$acute_damage_to_apply))
+      ) |>
+      dplyr::select(-"acute_damage_to_apply")
   }
 
 
   return(result)
 }
-
