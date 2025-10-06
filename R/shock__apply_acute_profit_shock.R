@@ -6,18 +6,18 @@
 #'   while the actual shock calculation logic is being developed. Unlike revenue shocks,
 #'   profit shocks may involve fixed costs or operational disruptions that aren't
 #'   proportional to revenue impacts.
-#' @param yearly_trajectories data.frame with columns: asset, company, year, shocked_revenue, shocked_profit
+#' @param yearly_trajectories data.frame with columns: asset, company, year, revenue, profit
 #' @param assets_factors data.frame with hazard data and cost factors (currently unused)
 #' @param acute_events data.frame with acute event information (currently unused)
-#' @return data.frame with columns: asset, company, year, shocked_revenue, shocked_profit
+#' @return data.frame with columns: asset, company, year, revenue, profit
 #' @examples
 #' \dontrun{
 #' yearly_trajectories <- data.frame(
 #'   asset = c("A1", "A1"),
 #'   company = c("C1", "C1"),
 #'   year = c(2025, 2030),
-#'   shocked_revenue = c(1000, 1200),
-#'   shocked_profit = c(100, 120)
+#'   revenue = c(1000, 1200),
+#'   profit = c(100, 120)
 #' )
 #' assets_factors <- data.frame(asset = "A1", hazard_type = "flood", cost_factor = 100)
 #' acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030, chronic = FALSE)
@@ -28,26 +28,9 @@ apply_acute_profit_shock <- function(
     yearly_trajectories,
     assets_factors,
     acute_events) {
-  # Validate inputs
-  if (!is.data.frame(yearly_trajectories) || nrow(yearly_trajectories) == 0) {
-    stop("yearly_trajectories must be a non-empty data.frame")
-  }
-  if (!is.data.frame(assets_factors) || nrow(assets_factors) == 0) {
-    stop("assets_factors must be a non-empty data.frame")
-  }
-  if (!is.data.frame(acute_events) || nrow(acute_events) == 0) {
-    stop("acute_events must be a non-empty data.frame")
-  }
 
-  # Check required columns in trajectory data
-  required_trajectory_cols <- c("asset", "company", "year", "shocked_revenue", "shocked_profit")
-  missing_trajectory_cols <- setdiff(required_trajectory_cols, names(yearly_trajectories))
-  if (length(missing_trajectory_cols) > 0) {
-    stop(paste(
-      "Missing required columns in yearly_trajectories:",
-      paste(missing_trajectory_cols, collapse = ", ")
-    ))
-  }
+
+  # --- APPLY FLOOD ACUTE DAMAGE TO PROFITS ---
 
   #compute acute damages for floods in assets_factors (non-invasive; only adds a column)
   if (all(c("hazard_type", "damage_factor", "cost_factor") %in% names(assets_factors))) {
@@ -56,20 +39,6 @@ apply_acute_profit_shock <- function(
     assets_factors$acute_damage[flood_idx] <-
       as.numeric(assets_factors$damage_factor[flood_idx]) *
       as.numeric(assets_factors$cost_factor[flood_idx])
-  }
-
-  # --- APPLY FLOOD ACUTE DAMAGE TO PROFITS ---
-  # Requirements for mapping
-  req_af_cols <- c("asset", "hazard_type", "hazard_name", "acute_damage")
-  req_events_cols <- c("hazard_type", "hazard_name", "event_year")
-
-  if (!all(req_af_cols %in% names(assets_factors))) {
-    stop("assets_factors missing required columns: ",
-         paste(setdiff(req_af_cols, names(assets_factors)), collapse = ", "))
-  }
-  if (!all(req_events_cols %in% names(acute_events))) {
-    stop("acute_events missing required columns: ",
-         paste(setdiff(req_events_cols, names(acute_events)), collapse = ", "))
   }
 
   # Select only floods from events
@@ -106,7 +75,7 @@ apply_acute_profit_shock <- function(
   # Start from trajectories
   result <- yearly_trajectories
 
-  # Attach shock (by asset + year == event_year), then deduct from shocked_profit
+  # Attach shock (by asset + year == event_year), then deduct from profit
   if (nrow(shocks_by_asset_year) > 0) {
     result <- merge(
       result,
@@ -117,24 +86,13 @@ apply_acute_profit_shock <- function(
     )
 
     # Deduct (do not alter revenue here as per request)
-    result$shocked_profit <- as.numeric(result$shocked_profit) -
+    result$profit <- as.numeric(result$profit) -
       ifelse(is.na(result$acute_damage_to_apply), 0, as.numeric(result$acute_damage_to_apply))
 
     # Drop helper column
     result$acute_damage_to_apply <- NULL
   }
 
-  # Ensure shocked values are non-negative
-  result$shocked_profit <- pmax(0, result$shocked_profit)
-  result$shocked_revenue <- pmax(0, result$shocked_revenue)
-
-  # Return only the required columns
-  result <- result[, c("asset", "company", "year", "shocked_revenue", "shocked_profit"), drop = FALSE]
-
-  # Validate the result structure
-  if (!is.numeric(result$shocked_profit) || !is.numeric(result$shocked_revenue)) {
-    stop("Shocked values are not numeric")
-  }
 
   return(result)
 }

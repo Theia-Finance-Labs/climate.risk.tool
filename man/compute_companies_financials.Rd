@@ -5,6 +5,7 @@
 \title{Compute Company Financials}
 \usage{
 compute_companies_financials(
+  companies,
   company_yearly_trajectories,
   assets_discounted_yearly,
   discount_rate = 0.05

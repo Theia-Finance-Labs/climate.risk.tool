@@ -11,7 +11,7 @@ apply_chronic_revenue_shock(
 )
 }
 \arguments{
-\item{yearly_trajectories}{data.frame with columns: asset, company, year, baseline_revenue (or shocked_revenue if already processed)}
+\item{yearly_trajectories}{data.frame with columns: asset, company, year, revenue}
 
 \item{assets_factors}{data.frame with hazard data and damage factors (currently unused)}
 
@@ -35,8 +35,8 @@ yearly_trajectories <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2030),
-  baseline_revenue = c(1000, 1200),
-  baseline_profit = c(100, 120)
+  revenue = c(1000, 1200),
+  profit = c(100, 120)
 )
 assets_factors <- data.frame(asset = "A1", hazard_type = "temperature", damage_factor = 0.05)
 chronic_events <- data.frame(event_id = "e1", hazard_type = "temperature", chronic = TRUE)

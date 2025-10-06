@@ -1,13 +1,12 @@
 # Tests for function: geolocate_assets
 
 # Contract:
-# - geolocate_assets(assets_df, hazards)
-# - hazards is a named list of raster objects and metadata, loaded by load_hazards(hazards_dir)
+# - geolocate_assets(assets_df, municipalities_areas, provinces_areas)
 # - Priority: if latitude/longitude present -> use point -> polygon lookup
 #   else if municipality present -> match within ADM2 names
 #   else if province present -> match within ADM1 names
-# - Returns original columns + geometry (polygon) and centroid (POINT) columns
-# - CRS aligns with hazards and row count preserved
+# - Returns original columns + geometry (polygon) and centroid (POINT) columns in WGS84 (EPSG:4326)
+# - Row count preserved
 
 
 testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows", {
@@ -16,8 +15,8 @@ testthat::test_that("geolocate_assets adds geometry and centroid, preserves rows
   hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
-
-  out <- geolocate_assets(assets, hazards, municipalities, provinces)
+  output_crs <- terra::crs(hazards[[1]])
+  out <- geolocate_assets(assets, municipalities, provinces, output_crs = output_crs)
 
   testthat::expect_equal(nrow(out), nrow(assets))
   testthat::expect_true(all(c("geometry", "centroid", "geolocation_method") %in% names(out)))
@@ -65,8 +64,8 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
   df$municipality[5] <- "Borba"
   df$province[5] <- "Amazonas"
   df$size_in_m2[5] <- 5000 # 5,000 m² for testing different size
-
-  out <- geolocate_assets(df, hazards, municipalities, provinces)
+  output_crs <- terra::crs(hazards[[1]])
+  out <- geolocate_assets(df, municipalities, provinces, output_crs = output_crs)
 
   testthat::expect_true(all(c("geometry", "centroid", "geolocation_method") %in% names(out)))
   testthat::expect_false(any(is.na(out$centroid)))
@@ -99,14 +98,14 @@ testthat::test_that("geolocate_assets uses geoloc > municipality > province prio
 })
 
 
-testthat::test_that("geolocate_assets returns valid sfc types and consistent CRS with hazards", {
+testthat::test_that("geolocate_assets returns valid sfc types in WGS84 CRS", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
-
-  out <- geolocate_assets(assets, hazards, municipalities, provinces)
+output_crs <- terra::crs(hazards[[1]])
+  out <- geolocate_assets(assets, municipalities, provinces, output_crs = output_crs)
 
   # geometry should be polygons/multipolygons; centroid should be points
   # Check that we have sfc geometry columns
@@ -118,4 +117,39 @@ testthat::test_that("geolocate_assets returns valid sfc types and consistent CRS
   cent_types <- unique(sf::st_geometry_type(out$centroid))
   testthat::expect_true(all(geom_types %in% c("POLYGON", "MULTIPOLYGON")))
   testthat::expect_true(all(cent_types %in% c("POINT")))
+  
+  # Check that CRS is WGS84 (EPSG:4326)
+  geom_crs <- sf::st_crs(out$geometry)
+  testthat::expect_equal(geom_crs$epsg, 4326)
 })
+
+#' Test that geolocate_assets handles assets without valid location data
+#' 
+#' This test ensures that geolocate_assets provides a meaningful error message
+#' when an asset cannot be geolocated.
+
+testthat::test_that("geolocate_assets handles assets without valid location data", {
+  # Load test data
+  base_dir <- get_test_data_dir()
+  
+  # Load required data
+  assets <- read_assets(base_dir)
+  areas <- load_location_areas(
+    file.path(base_dir, "areas", "municipality"),
+    file.path(base_dir, "areas", "province")
+  )
+  
+  # Create asset with no valid location data
+  bad_asset <- assets[1, , drop = FALSE]
+  bad_asset$latitude <- NA_real_
+  bad_asset$longitude <- NA_real_
+  bad_asset$municipality <- NA_character_
+  bad_asset$province <- NA_character_
+  
+  # Test that geolocate_assets provides a meaningful error message
+  testthat::expect_error(
+    geolocate_assets(bad_asset, areas$municipalities, areas$provinces),
+    regexp = "Failed to geolocate asset"
+  )
+})
+

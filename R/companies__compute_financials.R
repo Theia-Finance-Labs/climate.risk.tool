@@ -33,19 +33,14 @@
 #' }
 #' @export
 compute_companies_financials <- function(
+    companies,
     company_yearly_trajectories,
     assets_discounted_yearly,
     discount_rate = 0.05) {
-  # Validate inputs
-  if (!is.data.frame(company_yearly_trajectories) || nrow(company_yearly_trajectories) == 0) {
-    stop("company_yearly_trajectories must be a non-empty data.frame")
-  }
-  if (!is.data.frame(assets_discounted_yearly) || nrow(assets_discounted_yearly) == 0) {
-    stop("assets_discounted_yearly must be a non-empty data.frame")
-  }
-
+      
   # Step 1: Compute company NPV from yearly trajectories
   companies_npv <- compute_company_npv(company_yearly_trajectories)
+  companies_with_financial_data <- merge(companies, companies_npv, by = "company", all.x = TRUE)
 
   # Step 2: Aggregate asset yearly trajectories to asset-scenario level for pivot results
   assets_aggregated <- stats::aggregate(
@@ -54,9 +49,10 @@ compute_companies_financials <- function(
     FUN = sum,
     na.rm = TRUE
   )
+  
 
   # Step 3: Apply company-level risk models
-  companies_pd <- compute_pd_merton(companies_npv)
+  companies_pd <- compute_pd_merton(companies_with_financial_data)
   companies_el <- compute_expected_loss(companies_pd)
 
   # Step 4: Format final results

@@ -42,7 +42,7 @@ Event combination rule: worst-case per asset (min share). Configurable later.
 - ✅ read_companies(file_path) -> data.frame - reads company CSV file from specified path, converts to snake_case, parses numeric columns
 - ✅ read_damage_cost_factors(base_dir) -> data.frame - reads damage and cost factors CSV from base_dir/, handles comma decimal separators, converts to snake_case
 - ✅ filter_assets_by_companies(assets, companies) -> filtered_assets - **NEW**: filters assets to only include those belonging to companies present in the companies data, provides informative messages about filtering
-- ✅ load_hazards(hazards_dir) -> named list of SpatRaster objects from .tif files; searches recursively in hazard-type subfolders (e.g., `floods/`, `heat/`) and names layers as `hazardType__scenario` based on subfolder and filename (sans extension)
+- ✅ load_hazards(hazards_dir) -> named list of SpatRaster objects from .tif files; searches recursively in hazard-type subfolders (e.g., `floods/`, `heat/`) and names layers as `hazardType__scenario` based on subfolder and filename (sans extension). **UPDATED**: Now uses fixed aggregation factor of 1 (granularity choice removed from UI)
 - ✅ load_location_areas(municipalities_dir, provinces_dir) -> list(municipalities, provinces) - loads both area types at once
 - ✅ load_municipalities(municipalities_dir) -> named list of sf objects from .geojson files
 - ✅ load_provinces(provinces_dir) -> named list of sf objects from .geojson files  
@@ -66,10 +66,6 @@ Event combination rule: worst-case per asset (min share). Configurable later.
 - ✅ compute_companies_financials(company_yearly, assets_yearly, discount_rate) -> list(assets, companies) - computes final NPV, PD, and Expected Loss metrics
 - ✅ gather_and_pivot_results(df_assets, df_companies) -> list(assets_pivot, companies_pivot) - transforms scenario data into wide format for reporting
 
-## 4) Testing strategy
-- Snapshot representative rows after each stage
-- Validate column presence, types, and row counts; minimal numeric checks
-- Use deterministic seeds and small polygons
 
 ### Shiny Interface TDD
 - UI contract tests:
@@ -94,6 +90,7 @@ These tests are written ahead of implementation to guide UI/module construction.
 - **Implementation**: `load_hazards()` includes aggregation_factor parameter to reduce raster resolution for faster processing
 - **Result**: Maintains accuracy while significantly improving performance
 - **Benefits**: No caching complexity, direct pipeline execution, easier to maintain
+- **UPDATED**: Granularity choice removed from UI, fixed to aggregation factor of 1 for maximum spatial resolution
 
 ## 6) Data Setup Documentation
 

@@ -43,37 +43,7 @@ compute_shock_trajectories <- function(
     events,
     net_profit_margin = 0.1,
     start_year = 2025) {
-  # Validate inputs
-  if (!is.data.frame(yearly_baseline_profits) || nrow(yearly_baseline_profits) == 0) {
-    stop("yearly_baseline_profits must be a non-empty data.frame")
-  }
-  if (!is.data.frame(assets_with_factors) || nrow(assets_with_factors) == 0) {
-    stop("assets_with_factors must be a non-empty data.frame")
-  }
-  if (!is.data.frame(events) || nrow(events) == 0) {
-    stop("events must be a non-empty data.frame")
-  }
 
-  required_baseline_cols <- c("asset", "company", "year", "revenue", "profit")
-  if (!all(required_baseline_cols %in% names(yearly_baseline_profits))) {
-    stop(
-      "yearly_baseline_profits missing required columns: ",
-      paste(setdiff(required_baseline_cols, names(yearly_baseline_profits)), collapse = ", ")
-    )
-  }
-
-  required_event_cols <- c("event_id", "hazard_type", "hazard_name", "event_year", "chronic")
-  if (!all(required_event_cols %in% names(events))) {
-    stop(
-      "events missing required columns: ",
-      paste(setdiff(required_event_cols, names(events)), collapse = ", ")
-    )
-  }
-
-  # Ensure hazard_name column exists in assets_with_factors
-  if (!"hazard_name" %in% names(assets_with_factors)) {
-    stop("assets_with_factors must contain 'hazard_name' column")
-  }
 
   # Filter assets_with_factors to only the hazards referenced in events
   relevant_hazards <- unique(events$hazard_name)
@@ -92,9 +62,7 @@ compute_shock_trajectories <- function(
   # ============================================================================
   
   # Start with baseline trajectories (keeping only revenue for shock application)
-  # Rename to baseline_revenue temporarily for shock functions
   current_trajectories <- yearly_baseline_profits[, c("asset", "company", "year", "revenue")]
-  names(current_trajectories)[names(current_trajectories) == "revenue"] <- "baseline_revenue"
 
   # STEP 1: Apply acute revenue shocks
   if (nrow(acute_events) > 0) {
@@ -104,9 +72,8 @@ compute_shock_trajectories <- function(
       acute_events
     )
   } else {
-    # No acute events, just convert baseline_revenue to shocked_revenue
-    current_trajectories$shocked_revenue <- current_trajectories$baseline_revenue
-    current_trajectories <- current_trajectories[, c("asset", "company", "year", "shocked_revenue")]
+    # No acute events, just convert revenue to shocked_revenue
+    current_trajectories <- current_trajectories[, c("asset", "company", "year", "revenue")]
   }
 
   # STEP 2: Apply chronic revenue shocks
@@ -117,16 +84,14 @@ compute_shock_trajectories <- function(
       chronic_events
     )
   }
-  # At this point: current_trajectories has columns: asset, company, year, shocked_revenue
+  # At this point: current_trajectories has columns: asset, company, year, revenue
 
   # STEP 3: Compute profits from shocked revenue
   current_trajectories <- compute_profits_from_revenue(
     current_trajectories,
-    revenue_col = "shocked_revenue",
-    profit_col = "shocked_profit",
     net_profit_margin = net_profit_margin
   )
-  # At this point: current_trajectories has columns: asset, company, year, shocked_revenue, shocked_profit
+  # At this point: current_trajectories has columns: asset, company, year, revenue, profit
 
   # STEP 4: Apply acute profit shocks
   if (nrow(acute_events) > 0) {
@@ -136,43 +101,6 @@ compute_shock_trajectories <- function(
       acute_events
     )
   }
-  # Final shocked trajectories: asset, company, year, shocked_revenue, shocked_profit
 
-  # ============================================================================
-  # CONCATENATION: Build combined baseline + shock scenarios
-  # ============================================================================
-  
-  # Prepare baseline scenario (already has clean revenue/profit columns)
-  baseline_scenario <- yearly_baseline_profits[, c("asset", "company", "year", "revenue", "profit")]
-  baseline_scenario$scenario <- "baseline"
-
-  # Prepare shocked scenario
-  shocked_scenario <- current_trajectories[, c("asset", "company", "year", "shocked_revenue", "shocked_profit")]
-  shocked_scenario$scenario <- "shock"
-  names(shocked_scenario)[names(shocked_scenario) == "shocked_revenue"] <- "revenue"
-  names(shocked_scenario)[names(shocked_scenario) == "shocked_profit"] <- "profit"
-
-  # Combine scenarios
-  result <- rbind(baseline_scenario, shocked_scenario)
-
-  # Reorder columns for consistency
-  result <- result[, c("asset", "company", "year", "scenario", "revenue", "profit")]
-
-  # Validate the result
-  if (!is.numeric(result$revenue) || !is.numeric(result$profit)) {
-    stop("Revenue and profit columns must be numeric")
-  }
-
-  if (any(is.na(result$revenue)) || any(is.na(result$profit))) {
-    stop("Revenue and profit columns contain NA values")
-  }
-
-  # Ensure values are non-negative
-  result$revenue <- pmax(0, result$revenue)
-  result$profit <- pmax(0, result$profit)
-
-  # Sort by asset, scenario, and year for consistency
-  result <- result[order(result$asset, result$scenario, result$year), ]
-
-  return(result)
+  return(current_trajectories)
 }

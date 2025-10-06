@@ -64,12 +64,6 @@ aggregate_assets_to_company <- function(yearly_discounted_df) {
       stop(paste("Calculated", col, "contains NA values"))
     }
 
-    # Ensure values are finite (allow negative profits for losses)
-    if (col == "total_revenue") {
-      # Revenue should be non-negative
-      result[[col]] <- pmax(0, result[[col]])
-    }
-    # Profits can be negative (losses), so don't force non-negative
   }
 
   # Sort by company, scenario, and year for consistency

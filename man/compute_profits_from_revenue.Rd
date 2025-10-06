@@ -4,19 +4,10 @@
 \alias{compute_profits_from_revenue}
 \title{Compute Profit from Revenue}
 \usage{
-compute_profits_from_revenue(
-  yearly_revenue_df,
-  revenue_col,
-  profit_col,
-  net_profit_margin = 0.1
-)
+compute_profits_from_revenue(yearly_revenue_df, net_profit_margin = 0.1)
 }
 \arguments{
 \item{yearly_revenue_df}{data.frame containing revenue data}
-
-\item{revenue_col}{character. Name of the revenue column to use (e.g., "baseline_revenue", "shocked_revenue")}
-
-\item{profit_col}{character. Name of the profit column to create (e.g., "baseline_profit", "shocked_profit")}
 
 \item{net_profit_margin}{numeric. Net profit margin to apply (default: 0.1)}
 }
@@ -25,7 +16,6 @@ data.frame with added profit column
 }
 \description{
 Generic function to compute profit from revenue by applying net profit margin.
-Works with any column names (baseline_revenue, shocked_revenue, or custom names).
 Formula: profit = revenue * net_profit_margin
 }
 \details{
@@ -38,12 +28,10 @@ baseline_revenue <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2026),
-  baseline_revenue = c(1000, 1020)
+  revenue = c(1000, 1020)
 )
 result <- compute_profits_from_revenue(
-  baseline_revenue,
-  revenue_col = "baseline_revenue",
-  profit_col = "baseline_profit",
+  revenue,
   net_profit_margin = 0.1
 )
 
@@ -52,12 +40,10 @@ shocked_revenue <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2026),
-  shocked_revenue = c(950, 970)
+  revenue = c(950, 970)
 )
 result <- compute_profits_from_revenue(
   shocked_revenue,
-  revenue_col = "shocked_revenue",
-  profit_col = "shocked_profit",
   net_profit_margin = 0.15
 )
 }

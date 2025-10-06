@@ -18,17 +18,6 @@ mod_control_ui <- function(id) {
     ),
     shiny::div(
       class = "control-section",
-      shiny::h4("Hazard Resolution", class = "section-header"),
-      shiny::selectInput(
-        ns("agg_factor"),
-        "Aggregation Factor:",
-        choices = c("1" = 1, "16" = 16, "64" = 64, "128" = 128),
-        selected = 1
-      ),
-      shiny::helpText("Higher values = faster processing, lower spatial resolution")
-    ),
-    shiny::div(
-      class = "control-section",
       mod_hazards_events_ui(ns("hazards"), title = "Hazard Events")
     ),
     shiny::div(
@@ -59,7 +48,7 @@ mod_control_ui <- function(id) {
 #' control Server Functions
 #'
 #' @param base_dir_reactive reactive containing base directory path
-#' @return list with reactive values for company_file, events, run_trigger, results_ready, aggregation_factor, and get_hazards_at_factor
+#' @return list with reactive values for company_file, events, run_trigger, results_ready, and get_hazards_at_factor
 #' @export
 mod_control_server <- function(id, base_dir_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -82,9 +71,8 @@ mod_control_server <- function(id, base_dir_reactive) {
         return(NULL)
       }
 
-      # Use the aggregation factor from the slider
-      agg_factor <- input$agg_factor
-      if (is.null(agg_factor)) agg_factor <- 16L
+      # Use default aggregation factor of 1
+      agg_factor <- 1L
 
       load_hazards(dir_hz, aggregate_factor = as.integer(agg_factor))
     })
@@ -126,10 +114,6 @@ mod_control_server <- function(id, base_dir_reactive) {
       }),
       results = shiny::reactive({
         values$results
-      }),
-      aggregation_factor = shiny::reactive({
-        agg <- input$agg_factor
-        if (is.null(agg)) 16L else as.integer(agg)
       }),
       hazards_inventory = hazards_inventory,
       get_hazards_at_factor = get_hazards_at_factor,

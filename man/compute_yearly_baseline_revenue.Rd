@@ -15,7 +15,7 @@ compute_yearly_baseline_revenue(
 \arguments{
 \item{baseline_assets}{data.frame with columns: asset, company, share_of_economic_activity}
 
-\item{companies}{data.frame with columns: company_name, revenues}
+\item{companies}{data.frame with columns: company, revenues}
 
 \item{growth_rate}{numeric. Annual growth rate (default: 0.02)}
 
@@ -42,7 +42,7 @@ baseline_assets <- data.frame(
   share_of_economic_activity = c(0.6, 0.4)
 )
 companies <- data.frame(
-  company_name = "C1",
+  company = "C1",
   revenues = 1000
 )
 result <- compute_yearly_baseline_revenue(baseline_assets, companies, 0.02)

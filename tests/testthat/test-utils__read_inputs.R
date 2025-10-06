@@ -56,13 +56,13 @@ testthat::test_that("read_companies parses key columns with correct types and sn
 
   # Companies required columns (snake_case)
   req_company_cols <- c(
-    "company_name", "revenues", "debt", "volatility", "net_profit_margin",
+    "company", "revenues", "debt", "volatility", "net_profit_margin",
     "loan_size", "lgd", "term"
   )
   testthat::expect_true(all(req_company_cols %in% names(companies)))
 
   # Types
-  testthat::expect_type(companies$company_name, "character")
+  testthat::expect_type(companies$company, "character")
   testthat::expect_true(is.numeric(companies$revenues))
   testthat::expect_true(is.numeric(companies$debt))
   testthat::expect_true(is.numeric(companies$volatility))

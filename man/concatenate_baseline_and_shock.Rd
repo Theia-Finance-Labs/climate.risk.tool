@@ -7,9 +7,9 @@
 concatenate_baseline_and_shock(yearly_baseline_df, yearly_shocked_df)
 }
 \arguments{
-\item{yearly_baseline_df}{data.frame with columns: asset, company, year, baseline_revenue, baseline_profit}
+\item{yearly_baseline_df}{data.frame with columns: asset, company, year, revenue, profit}
 
-\item{yearly_shocked_df}{data.frame with columns: asset, company, year, shocked_revenue, shocked_profit}
+\item{yearly_shocked_df}{data.frame with columns: asset, company, year, revenue, profit}
 }
 \value{
 data.frame with columns: asset, company, year, scenario, revenue, profit
@@ -27,15 +27,15 @@ baseline <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2026),
-  baseline_revenue = c(1000, 1020),
-  baseline_profit = c(100, 102)
+  revenue = c(1000, 1020),
+  profit = c(100, 102)
 )
 shocked <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2026),
-  shocked_revenue = c(970, 989),
-  shocked_profit = c(97, 99)
+  revenue = c(970, 989),
+  profit = c(97, 99)
 )
 result <- concatenate_baseline_and_shock(baseline, shocked)
 }

@@ -2,6 +2,7 @@
 # climate.risk.tool
 
 <!-- badges: start -->
+[![Codecov test coverage](https://codecov.io/gh/Theia-Finance-Labs/climate.risk.tool/graph/badge.svg)](https://app.codecov.io/gh/Theia-Finance-Labs/climate.risk.tool)
 <!-- badges: end -->
 
 The goal of climate.risk.tool is to ...

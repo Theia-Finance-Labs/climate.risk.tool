@@ -1,5 +1,3 @@
-
-
 #' Extract hazard statistics for asset geometries in long format (internal function)
 #'
 #' @param assets_with_geometry Data frame with asset information including geometry and geolocation_method columns (from geolocate_assets)
@@ -11,19 +9,6 @@
 #'   hazard_mean, hazard_median, hazard_max, hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5
 #' @noRd
 extract_hazard_statistics <- function(assets_with_geometry, hazards, use_exactextractr = FALSE) {
-  if (!is.data.frame(assets_with_geometry)) {
-    stop("assets_with_geometry must be a data.frame")
-  }
-  if (!"geometry" %in% names(assets_with_geometry)) {
-    stop("Input dataframe must have a 'geometry' column (sf geometry)")
-  }
-  if (!"geolocation_method" %in% names(assets_with_geometry)) {
-    stop("Input dataframe must have a 'geolocation_method' column")
-  }
-  if (!is.list(hazards) || length(hazards) == 0) {
-    stop("hazards must be a non-empty named list")
-  }
-
   # Ensure sf structure
   assets_sf <- assets_with_geometry
   if (!inherits(assets_sf$geometry, "sfc")) {
@@ -109,6 +94,17 @@ extract_hazard_statistics <- function(assets_with_geometry, hazards, use_exactex
     df_i$hazard_name <- hazard_name
     df_i$hazard_type <- hazard_type
     df_i$hazard_intensity <- df_i$hazard_mean
+    
+    # Replace NA hazard values with 0 (treat as no hazard exposure)
+    # This is for assets outside the hazard zone or where raster data is missing
+    df_i$hazard_intensity[is.na(df_i$hazard_intensity)] <- 0
+    df_i$hazard_mean[is.na(df_i$hazard_mean)] <- 0
+    df_i$hazard_median[is.na(df_i$hazard_median)] <- 0
+    df_i$hazard_max[is.na(df_i$hazard_max)] <- 0
+    df_i$hazard_p2_5[is.na(df_i$hazard_p2_5)] <- 0
+    df_i$hazard_p5[is.na(df_i$hazard_p5)] <- 0
+    df_i$hazard_p95[is.na(df_i$hazard_p95)] <- 0
+    df_i$hazard_p97_5[is.na(df_i$hazard_p97_5)] <- 0
 
     out_list[[i]] <- df_i
   }
@@ -118,91 +114,3 @@ extract_hazard_statistics <- function(assets_with_geometry, hazards, use_exactex
   out
 }
 
-
-#' Join damage and cost factors based on hazard type, intensity and asset category (internal function)
-#'
-#' @param assets_with_hazards Data frame in long format with asset and hazard information
-#'   including hazard_type, hazard_intensity columns (from extract_hazard_statistics)
-#' @param damage_factors_df Data frame with damage and cost factors lookup table
-#' @return Data frame with original columns plus damage_factor and cost_factor columns
-#' @noRd
-join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
-  if (!is.data.frame(assets_with_hazards) || nrow(assets_with_hazards) == 0) {
-    stop("assets_with_hazards must be a non-empty data.frame")
-  }
-  if (!is.data.frame(damage_factors_df) || nrow(damage_factors_df) == 0) {
-    stop("damage_factors_df must be a non-empty data.frame")
-  }
-
-  # REQUIRED columns
-  req_cols_assets <- c("hazard_type", "asset_category", "hazard_intensity")
-  if (!all(req_cols_assets %in% names(assets_with_hazards))) {
-    stop("assets_with_hazards missing required columns: ",
-         paste(setdiff(req_cols_assets, names(assets_with_hazards)), collapse = ", "))
-  }
-  req_cols_factors <- c("hazard_type", "asset_category", "hazard_intensity",
-                        "damage_factor", "cost_factor", "business_disruption")
-  if (!all(req_cols_factors %in% names(damage_factors_df))) {
-    stop("damage_factors_df missing required columns: ",
-         paste(setdiff(req_cols_factors, names(damage_factors_df)), collapse = ", "))
-  }
-
-  assets_tmp <- assets_with_hazards
-  assets_tmp$.__intensity_key__. <- as.integer(round(as.numeric(assets_tmp$hazard_intensity)))
-
-  factors_tmp <- damage_factors_df
-  factors_tmp$.__intensity_key__. <- as.integer(round(as.numeric(factors_tmp$hazard_intensity)))
-
-  # Compute max available intensity key per (hazard_type, asset_category)
-  max_key_by_group <- stats::aggregate(
-    .__intensity_key__. ~ hazard_type + asset_category,
-    data = factors_tmp,
-    FUN = max
-  )
-  names(max_key_by_group)[names(max_key_by_group) == ".__intensity_key__."] <- ".__max_intensity_key__."
-
-  # Attach group max to assets and cap effective key to the group's max
-  assets_tmp <- merge(
-    assets_tmp,
-    max_key_by_group,
-    by = c("hazard_type", "asset_category"),
-    all.x = TRUE,
-    sort = FALSE
-  )
-
-  # Effective key with capping
-  assets_tmp$.__effective_intensity_key__. <- ifelse(
-    !is.na(assets_tmp$.__max_intensity_key__.) &
-      assets_tmp$.__intensity_key__. > assets_tmp$.__max_intensity_key__.,
-    assets_tmp$.__max_intensity_key__.,
-    assets_tmp$.__intensity_key__.
-  )
-
-  factors_key_cols <- c("hazard_type", "asset_category", ".__intensity_key__.",
-                        "damage_factor", "cost_factor", "business_disruption")
-  factors_key <- factors_tmp[, factors_key_cols, drop = FALSE]
-
-  merged <- merge(
-    assets_tmp,
-    factors_key,
-    by.x = c("hazard_type", "asset_category", ".__effective_intensity_key__."),
-    by.y = c("hazard_type", "asset_category", ".__intensity_key__."),
-    all.x = TRUE,
-    sort = FALSE
-  )
-
-  if (!"damage_factor" %in% names(merged)) merged$damage_factor <- NA_real_
-  if (!"cost_factor" %in% names(merged)) merged$cost_factor <- NA_real_
-  if (!"business_disruption" %in% names(merged)) merged$business_disruption <- NA_real_
-
-  merged$damage_factor <- as.numeric(merged$damage_factor)
-  merged$cost_factor <- as.numeric(merged$cost_factor)
-  merged$business_disruption <- as.numeric(merged$business_disruption)
-
-  # Clean helper columns
-  merged$.__intensity_key__. <- NULL
-  merged$.__max_intensity_key__. <- NULL
-  merged$.__effective_intensity_key__. <- NULL
-
-  merged
-}

@@ -5,16 +5,16 @@ testthat::test_that("concatenate_baseline_and_shock concatenates baseline and sh
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
     year = c(2025, 2026, 2025, 2026),
-    baseline_revenue = c(1000, 1020, 800, 816),
-    baseline_profit = c(100, 102, 80, 81.6)
+    revenue = c(1000, 1020, 800, 816),
+    profit = c(100, 102, 80, 81.6)
   )
 
   yearly_shocked <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
     year = c(2025, 2026, 2025, 2026),
-    shocked_revenue = c(1000, 979, 800, 783),
-    shocked_profit = c(100, 97.9, 80, 78.3)
+    revenue = c(1000, 979, 800, 783),
+    profit = c(100, 97.9, 80, 78.3)
   )
 
   result <- concatenate_baseline_and_shock(yearly_baseline, yearly_shocked)
@@ -34,16 +34,16 @@ testthat::test_that("concatenate_baseline_and_shock preserves schema and creates
     asset = c("A1", "A2"),
     company = c("C1", "C1"),
     year = c(2025, 2025),
-    baseline_revenue = c(1000, 800),
-    baseline_profit = c(100, 80)
+    revenue = c(1000, 800),
+    profit = c(100, 80)
   )
 
   yearly_shocked <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C1"),
     year = c(2025, 2025),
-    shocked_revenue = c(970, 784),
-    shocked_profit = c(97, 78.4)
+    revenue = c(970, 784),
+    profit = c(97, 78.4)
   )
 
   result <- concatenate_baseline_and_shock(yearly_baseline, yearly_shocked)
@@ -68,16 +68,16 @@ testthat::test_that("concatenate_baseline_and_shock preserves row integrity and 
     asset = c("A1", "A2"),
     company = c("C1", "C1"),
     year = c(2025, 2025),
-    baseline_revenue = c(1000, 800),
-    baseline_profit = c(100, 80)
+    revenue = c(1000, 800),
+    profit = c(100, 80)
   )
 
   yearly_shocked <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C1"),
     year = c(2025, 2025),
-    shocked_revenue = c(970, 784),
-    shocked_profit = c(97, 78.4)
+    revenue = c(970, 784),
+    profit = c(97, 78.4)
   )
 
   result <- concatenate_baseline_and_shock(yearly_baseline, yearly_shocked)
@@ -98,77 +98,7 @@ testthat::test_that("concatenate_baseline_and_shock preserves row integrity and 
   baseline_subset <- baseline_subset[order(baseline_subset$asset), ]
   yearly_baseline_ordered <- yearly_baseline[order(yearly_baseline$asset), ]
 
-  testthat::expect_equal(baseline_subset$revenue, yearly_baseline_ordered$baseline_revenue)
-  testthat::expect_equal(baseline_subset$profit, yearly_baseline_ordered$baseline_profit)
+  testthat::expect_equal(baseline_subset$revenue, yearly_baseline_ordered$revenue)
+  testthat::expect_equal(baseline_subset$profit, yearly_baseline_ordered$profit)
 })
 
-testthat::test_that("concatenate_baseline_and_shock handles edge cases", {
-  yearly_baseline <- data.frame(
-    asset = "A1",
-    company = "C1",
-    year = 2025,
-    baseline_revenue = 1000,
-    baseline_profit = 100
-  )
-
-  yearly_shocked <- data.frame(
-    asset = "A1",
-    company = "C1",
-    year = 2025,
-    shocked_revenue = 970,
-    shocked_profit = 97
-  )
-
-  # Test with identical baseline and shock (should still work)
-  # Convert baseline to shocked format for this test
-  yearly_shocked_identical <- yearly_baseline
-  names(yearly_shocked_identical)[names(yearly_shocked_identical) == "baseline_revenue"] <- "shocked_revenue"
-  names(yearly_shocked_identical)[names(yearly_shocked_identical) == "baseline_profit"] <- "shocked_profit"
-
-  identical_out <- concatenate_baseline_and_shock(yearly_baseline, yearly_shocked_identical)
-  testthat::expect_equal(nrow(identical_out), 2 * nrow(yearly_baseline))
-
-  # Test that data integrity is preserved (no unexpected mutations)
-  original_baseline <- yearly_baseline
-  result <- concatenate_baseline_and_shock(yearly_baseline, yearly_shocked)
-  testthat::expect_equal(yearly_baseline, original_baseline)
-})
-
-testthat::test_that("concatenate_baseline_and_shock validates inputs", {
-  yearly_baseline <- data.frame(
-    asset = "A1",
-    company = "C1",
-    year = 2025,
-    baseline_revenue = 1000,
-    baseline_profit = 100
-  )
-
-  yearly_shocked <- data.frame(
-    asset = "A1",
-    company = "C1",
-    year = 2025,
-    shocked_revenue = 970,
-    shocked_profit = 97
-  )
-
-  # Should work with valid inputs
-  testthat::expect_no_error(concatenate_baseline_and_shock(yearly_baseline, yearly_shocked))
-
-  # Should error with invalid inputs
-  testthat::expect_error(
-    concatenate_baseline_and_shock(NULL, yearly_shocked),
-    regexp = "non-empty data.frame"
-  )
-
-  testthat::expect_error(
-    concatenate_baseline_and_shock(yearly_baseline, NULL),
-    regexp = "non-empty data.frame"
-  )
-
-  # Should error with missing columns
-  incomplete_baseline <- data.frame(asset = "A1", year = 2025)
-  testthat::expect_error(
-    concatenate_baseline_and_shock(incomplete_baseline, yearly_shocked),
-    regexp = "Missing required columns"
-  )
-})

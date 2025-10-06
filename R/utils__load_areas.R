@@ -37,7 +37,15 @@ load_location_areas <- function(municipalities_dir, provinces_dir) {
       name <- tools::file_path_sans_ext(basename(geojson_file))
 
       # Load the sf object
-      areas[[name]] <- sf::st_read(geojson_file, quiet = TRUE)
+      sf_obj <- sf::st_read(geojson_file, quiet = TRUE)
+      
+      # Set UTF-8 encoding on shapeName column for proper string comparison
+      # (handles accented characters like é, á, ñ, etc.)
+      if ("shapeName" %in% names(sf_obj)) {
+        Encoding(sf_obj$shapeName) <- "UTF-8"
+      }
+      
+      areas[[name]] <- sf_obj
     }
 
     return(areas)

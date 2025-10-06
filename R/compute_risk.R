@@ -136,8 +136,14 @@ compute_risk <- function(assets,
   # PHASE 2: GEOSPATIAL - Asset geolocation and hazard processing
   # ============================================================================
 
+  output_crs <- terra::crs(hazards[[1]])
   # Step 2.1: Geolocate assets
-  assets_geo <- geolocate_assets(assets, hazards, areas$municipalities, areas$provinces)
+  assets_geo <- geolocate_assets(
+    assets, 
+    areas$municipalities, 
+    areas$provinces, 
+    output_crs = output_crs
+    )
 
   # Step 2.2: Extract hazard statistics in long format
   assets_long <- extract_hazard_statistics(assets_geo, hazards)
@@ -160,14 +166,15 @@ compute_risk <- function(assets,
 
   # Step 3.2: Compute shocked trajectories and concatenate with baseline
   # This now returns both baseline and shock scenarios in one dataframe
-  yearly_scenarios <- compute_shock_trajectories(
+  yearly_shock <- compute_shock_trajectories(
     yearly_baseline_profits = yearly_baseline,
     assets_with_factors = assets_factors,
     events = events,
     net_profit_margin = net_profit_margin
   )
-
-
+  
+  yearly_scenarios <- concatenate_baseline_and_shock(yearly_baseline, yearly_shock)
+  
   # ============================================================================
   # PHASE 4: FINANCIAL_ASSETS - Asset-level financial computations
   # ============================================================================
@@ -184,7 +191,7 @@ compute_risk <- function(assets,
   company_yearly_trajectories <- aggregate_assets_to_company(assets_discounted_yearly)
 
   # Use companies financials function that works with yearly data
-  fin <- compute_companies_financials(company_yearly_trajectories, assets_discounted_yearly, discount_rate)
+  fin <- compute_companies_financials(companies, company_yearly_trajectories, assets_discounted_yearly, discount_rate)
 
 
   # ============================================================================

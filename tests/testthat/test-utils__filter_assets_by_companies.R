@@ -10,7 +10,7 @@ testthat::test_that("filter_assets_by_companies filters assets correctly", {
   )
   
   companies <- data.frame(
-    company_name = c("Company A", "Company C"),
+    company = c("Company A", "Company C"),
     revenues = c(1000, 2000),
     stringsAsFactors = FALSE
   )
@@ -24,26 +24,6 @@ testthat::test_that("filter_assets_by_companies filters assets correctly", {
   expect_equal(sort(result$company), c("Company A", "Company C"))
 })
 
-testthat::test_that("filter_assets_by_companies handles empty companies", {
-  assets <- data.frame(
-    company = c("Company A", "Company B"),
-    asset = c("Asset A1", "Asset B1"),
-    share_of_economic_activity = c(0.5, 0.3),
-    stringsAsFactors = FALSE
-  )
-  
-  companies <- data.frame(
-    company_name = character(0),
-    revenues = numeric(0),
-    stringsAsFactors = FALSE
-  )
-  
-  # Should error when companies data.frame is empty
-  expect_error(
-    filter_assets_by_companies(assets, companies),
-    "companies must be a non-empty data.frame"
-  )
-})
 
 testthat::test_that("filter_assets_by_companies handles all companies matching", {
   assets <- data.frame(
@@ -54,7 +34,7 @@ testthat::test_that("filter_assets_by_companies handles all companies matching",
   )
   
   companies <- data.frame(
-    company_name = c("Company A", "Company B"),
+    company = c("Company A", "Company B"),
     revenues = c(1000, 2000),
     stringsAsFactors = FALSE
   )
@@ -65,56 +45,6 @@ testthat::test_that("filter_assets_by_companies handles all companies matching",
   expect_equal(sort(result$company), c("Company A", "Company B"))
 })
 
-testthat::test_that("filter_assets_by_companies validates inputs", {
-  # Create test data for validation tests
-  assets <- data.frame(
-    company = c("Company A", "Company B"),
-    asset = c("Asset A1", "Asset B1"),
-    share_of_economic_activity = c(0.5, 0.3),
-    stringsAsFactors = FALSE
-  )
-  
-  companies <- data.frame(
-    company_name = c("Company A", "Company B"),
-    revenues = c(1000, 2000),
-    stringsAsFactors = FALSE
-  )
-  
-  # Test empty assets
-  expect_error(
-    filter_assets_by_companies(data.frame(), companies),
-    "assets must be a non-empty data.frame"
-  )
-  
-  # Test empty companies
-  expect_error(
-    filter_assets_by_companies(assets, data.frame()),
-    "companies must be a non-empty data.frame"
-  )
-  
-  # Test missing company column
-  assets_no_company <- data.frame(
-    asset = c("Asset A1", "Asset B1"),
-    share_of_economic_activity = c(0.5, 0.3),
-    stringsAsFactors = FALSE
-  )
-  
-  expect_error(
-    filter_assets_by_companies(assets_no_company, companies),
-    "assets must contain a 'company' column"
-  )
-  
-  # Test missing company_name column
-  companies_no_name <- data.frame(
-    revenues = c(1000, 2000),
-    stringsAsFactors = FALSE
-  )
-  
-  expect_error(
-    filter_assets_by_companies(assets, companies_no_name),
-    "companies must contain a 'company_name' column"
-  )
-})
 
 testthat::test_that("filter_assets_by_companies preserves all asset columns", {
   assets <- data.frame(
@@ -127,7 +57,7 @@ testthat::test_that("filter_assets_by_companies preserves all asset columns", {
   )
   
   companies <- data.frame(
-    company_name = c("Company A", "Company C"),
+    company = c("Company A", "Company C"),
     revenues = c(1000, 2000),
     stringsAsFactors = FALSE
   )

@@ -7,14 +7,14 @@
 apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 }
 \arguments{
-\item{yearly_trajectories}{data.frame with columns: asset, company, year, baseline_revenue (or shocked_revenue if already processed)}
+\item{yearly_trajectories}{data.frame with columns: asset, company, year, revenue}
 
 \item{assets_factors}{data.frame with hazard data and damage factors (currently unused)}
 
 \item{acute_events}{data.frame with acute event information (currently unused)}
 }
 \value{
-data.frame with columns: asset, company, year, shocked_revenue
+data.frame with columns: asset, company, year, revenue
 }
 \description{
 Placeholder function that passes through baseline revenue as shocked revenue.
@@ -31,12 +31,12 @@ yearly_trajectories <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2030),
-  baseline_revenue = c(1000, 1200),
-  baseline_profit = c(100, 120)
+  revenue = c(1000, 1200),
+  profit = c(100, 120)
 )
 assets_factors <- data.frame(asset = "A1", hazard_type = "flood", damage_factor = 0.1)
 acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030, chronic = FALSE)
-# Apply revenue shock (returns only shocked_revenue, not profit)
+# Apply revenue shock (returns only revenue, not profit)
 result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 }
 }

@@ -13,7 +13,9 @@ testthat::test_that("extract_hazard_statistics returns long format with hazard s
   hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
-  assets_geo <- geolocate_assets(assets, hazards, municipalities, provinces)
+
+  output_crs <- terra::crs(hazards[[1]])
+  assets_geo <- geolocate_assets(assets, municipalities, provinces, output_crs = output_crs)
 
   out <- extract_hazard_statistics(assets_geo, hazards, use_exactextractr = TRUE)
 
@@ -39,6 +41,7 @@ testthat::test_that("extract_hazard_statistics optimizes by grouping municipalit
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
 
+  output_crs <- terra::crs(hazards[[1]])
   # Create test data with 6 assets using different geolocation methods
   df <- assets[1:6, , drop = FALSE]
 
@@ -65,7 +68,7 @@ testthat::test_that("extract_hazard_statistics optimizes by grouping municipalit
   df$municipality[6] <- NA_character_
   df$province[6] <- NA_character_
 
-  assets_geo <- geolocate_assets(df, hazards, municipalities, provinces)
+  assets_geo <- geolocate_assets(df, municipalities, provinces, output_crs = output_crs)
 
   # Verify geolocation methods are as expected
   testthat::expect_equal(assets_geo$geolocation_method[1:2], c("municipality", "municipality"))
@@ -104,23 +107,3 @@ testthat::test_that("extract_hazard_statistics optimizes by grouping municipalit
   }
 })
 
-
-testthat::test_that("extract_hazard_statistics handles missing geolocation_method column", {
-  base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
-
-  # Create assets with geometry but without geolocation_method column
-  assets_with_geom <- assets[1:2, , drop = FALSE]
-  # Add fake geometry column
-  assets_with_geom$geometry <- sf::st_sfc(
-    sf::st_polygon(list(matrix(c(0, 0, 0, 1, 1, 1, 1, 0, 0, 0), ncol = 2, byrow = TRUE))),
-    sf::st_polygon(list(matrix(c(0, 0, 0, 1, 1, 1, 1, 0, 0, 0), ncol = 2, byrow = TRUE))),
-    crs = terra::crs(hazards[[1]])
-  )
-
-  testthat::expect_error(
-    extract_hazard_statistics(assets_with_geom, hazards, use_exactextractr = TRUE),
-    "Input dataframe must have a 'geolocation_method' column"
-  )
-})

@@ -26,7 +26,7 @@ library(climate.risk.tool)
 # - areas/municipality/*.geojson
 # - areas/province/*.geojson
 # - damage_and_cost_factors.csv
-base_dir <- "/path/to/your/data" # Replace with your actual data directory
+base_dir <- system.file("tests", "tests_data", package = "climate.risk.tool")
 ```
 
 ## Prepare inputs
@@ -52,11 +52,14 @@ Define the climate scenarios you want to analyze:
 ```{r}
 # Create test events
 events <- data.frame(
-  event_id = "event_1",
-  hazard_type = "flood",
-  hazard_name = "flood__global_rcp85_h100glob",
-  event_year = 2030,
-  chronic = FALSE,
+  event_id = c("event_1", "event_2"),
+  hazard_type = c("flood", "flood"),
+  hazard_name = c(
+    "flood__global_rcp85_h100glob_brazil",
+    "flood__global_rcp85_h10glob_brazil"
+    ),
+  event_year = c(2030, 2030),
+  chronic = c(FALSE, FALSE),
   stringsAsFactors = FALSE
 )
 ```

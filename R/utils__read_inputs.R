@@ -43,7 +43,27 @@ read_assets <- function(base_dir) {
     if (col %in% names(assets_raw)) {
       # Replace empty strings with NA before converting to numeric
       assets_raw[[col]][assets_raw[[col]] == ""] <- NA
-      assets_raw[[col]] <- as.numeric(assets_raw[[col]])
+      
+      # For latitude, longitude - suppress coercion warnings as they can have empty values
+      if (col %in% c("latitude", "longitude")) {
+        assets_raw[[col]] <- suppressWarnings(as.numeric(assets_raw[[col]]))
+      } else if (col == "size_in_m2") {
+        # Clean size_in_m2 column by extracting numeric part (e.g., "4693m2" -> 4693)
+        assets_raw[[col]] <- suppressWarnings(as.numeric(gsub("^([0-9.]+).*", "\\1", assets_raw[[col]])))
+      } else {
+        assets_raw[[col]] <- as.numeric(assets_raw[[col]])
+      }
+    }
+  }
+  
+  # Handle character columns that can have empty values (municipality, province)
+  char_cols_with_empty <- c("municipality", "province")
+  for (col in char_cols_with_empty) {
+    if (col %in% names(assets_raw)) {
+      # Replace empty strings with NA for character columns
+      assets_raw[[col]][assets_raw[[col]] == ""] <- NA
+      # Set UTF-8 encoding for proper string comparison (handles accented characters like é, á, ñ, etc.)
+      Encoding(assets_raw[[col]]) <- "UTF-8"
     }
   }
 

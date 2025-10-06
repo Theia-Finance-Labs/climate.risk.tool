@@ -6,38 +6,25 @@
 #'   2. Fall back to municipality matching against ADM2 boundaries
 #'   3. Fall back to province matching against ADM1 boundaries
 #' @param assets_df Data frame with asset information including latitude, longitude, municipality, province columns
-#' @param hazards Named list of hazard rasters (from load_hazards) used to determine target CRS
 #' @param municipalities_areas Named list of sf objects for municipality boundaries (from load_municipalities)
 #' @param provinces_areas Named list of sf objects for province boundaries (from load_provinces)
-#' @return Data frame with original columns plus geometry (polygon) and centroid (point) columns
+#' @param default_buffer_size_m Numeric. Default buffer size in meters for point geometries when size_in_m2 is not available (default: 1111)
+#' @param output_crs Character or numeric. Output CRS for the geometries (default: 4326 for WGS84). Can be EPSG code or proj4string.
+#' @return Data frame with original columns plus geometry (polygon) and centroid (point) columns in the specified output CRS
 #' @examples
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
 #' assets <- read_inputs(base_dir)$assets
-#' hazards <- load_hazards(file.path(base_dir, "hazards"))
-#' assets_geo <- geolocate_assets(assets, hazards)
+#' municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
+#' provinces <- load_provinces(file.path(base_dir, "areas", "province"))
+#' assets_geo <- geolocate_assets(assets, municipalities, provinces)
 #' }
 #' @export
-geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces_areas, default_buffer_size_m = 1111) {
+geolocate_assets <- function(assets_df, municipalities_areas, provinces_areas, default_buffer_size_m = 1111, output_crs = 4326) {
   message("📍 [geolocate_assets] Starting asset geolocation for ", nrow(assets_df), " assets...")
 
-  if (length(hazards) == 0) {
-    stop("Hazards list is empty")
-  }
-
-  if (length(municipalities_areas) == 0) {
-    stop("Municipalities areas list is empty")
-  }
-
-  if (length(provinces_areas) == 0) {
-    stop("Provinces areas list is empty")
-  }
-
-  # Get target CRS from first hazard raster for final output
-  target_crs <- terra::crs(hazards[[1]])
-
   # Use CRS 3857 (Web Mercator) for buffering - it uses meters as units
-  # This ensures buffer distances are in actual meters, not degrees
+  # This ensures buffer distances are in actual meters, not degrees (needed for default_buffer_size_m)
   buffer_crs <- 3857
 
   # Combine all municipality and province boundaries
@@ -79,59 +66,32 @@ geolocate_assets <- function(assets_df, hazards, municipalities_areas, provinces
       method_list[i] <- "coordinates"
     } else if (!is.na(row$municipality) && nzchar(as.character(row$municipality))) {
       # Priority 2: Match municipality
-      # Handle special characters safely
       municipality_name <- as.character(row$municipality)
-      tryCatch(
-        {
-          municipality_match <- adm2[grepl(municipality_name, adm2$shapeName, ignore.case = TRUE), ]
+      municipality_match <- adm2[adm2$shapeName == municipality_name, ]
           if (nrow(municipality_match) > 0) {
             geom <- sf::st_geometry(municipality_match[1, ])
             method_list[i] <- "municipality"
           }
-        },
-        error = function(e) {
-          # If grepl fails due to encoding issues, try exact match
-          municipality_match <- adm2[adm2$shapeName == municipality_name, ]
-          if (nrow(municipality_match) > 0) {
-            geom <- sf::st_geometry(municipality_match[1, ])
-            method_list[i] <- "municipality"
-          }
-        }
-      )
     } else if (!is.na(row$province) && nzchar(as.character(row$province))) {
       # Priority 3: Match province
-      # Handle special characters safely
       province_name <- as.character(row$province)
-      tryCatch(
-        {
-          province_match <- adm1[grepl(province_name, adm1$shapeName, ignore.case = TRUE), ]
+      province_match <- adm1[adm1$shapeName == province_name, ]
           if (nrow(province_match) > 0) {
             geom <- sf::st_geometry(province_match[1, ])
             method_list[i] <- "province"
           }
-        },
-        error = function(e) {
-          # If grepl fails due to encoding issues, try exact match
-          province_match <- adm1[adm1$shapeName == province_name, ]
-          if (nrow(province_match) > 0) {
-            geom <- sf::st_geometry(province_match[1, ])
-            method_list[i] <- "province"
-          }
-        }
-      )
     }
 
-    # If no geometry found, create a default small polygon at origin
-    if (is.null(geom) || length(geom) == 0) {
-      warning("No geometry found for asset ", i, ", using default location")
-      # Create a small square polygon at origin in buffer CRS
-      coords <- matrix(c(0, 0, 0, 1000, 1000, 1000, 1000, 0, 0, 0), ncol = 2, byrow = TRUE)
-      geom <- sf::st_sfc(sf::st_polygon(list(coords)), crs = buffer_crs)
-      method_list[i] <- "default"
+    # Check if geometry was successfully created
+    if (is.null(geom)) {
+      asset_name <- if (!is.null(row$asset)) row$asset else paste0("row ", i)
+      stop("Failed to geolocate asset ", i, " (", asset_name, "). ",
+           "Asset must have valid coordinates, municipality, or province information.")
     }
 
-    # Transform geometry to target CRS (hazard raster CRS) for extraction
-    geom <- sf::st_transform(geom, target_crs)
+    # Transform geometry to output CRS (WGS84)
+    # extract_hazard_statistics will handle transformation to each hazard's specific CRS
+    geom <- sf::st_transform(geom, output_crs)
 
     # Store geometry and calculate centroid
     geometry_list[[i]] <- geom

@@ -7,14 +7,14 @@
 apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
 }
 \arguments{
-\item{yearly_trajectories}{data.frame with columns: asset, company, year, shocked_revenue, shocked_profit}
+\item{yearly_trajectories}{data.frame with columns: asset, company, year, revenue, profit}
 
 \item{assets_factors}{data.frame with hazard data and cost factors (currently unused)}
 
 \item{acute_events}{data.frame with acute event information (currently unused)}
 }
 \value{
-data.frame with columns: asset, company, year, shocked_revenue, shocked_profit
+data.frame with columns: asset, company, year, revenue, profit
 }
 \description{
 Placeholder function that passes through profit values unchanged.
@@ -32,8 +32,8 @@ yearly_trajectories <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2030),
-  shocked_revenue = c(1000, 1200),
-  shocked_profit = c(100, 120)
+  revenue = c(1000, 1200),
+  profit = c(100, 120)
 )
 assets_factors <- data.frame(asset = "A1", hazard_type = "flood", cost_factor = 100)
 acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030, chronic = FALSE)

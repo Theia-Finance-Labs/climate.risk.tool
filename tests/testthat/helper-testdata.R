@@ -70,20 +70,20 @@ create_yearly_scenarios <- function() {
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
     year = c(2025, 2026, 2025, 2026),
-    baseline_revenue = c(1000, 1020, 800, 816),
-    baseline_profit = c(100, 102, 80, 81.6)
+    revenue = c(1000, 1020, 800, 816),
+    profit = c(100, 102, 80, 81.6)
   )
 
   yearly_shocked <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
     year = c(2025, 2026, 2025, 2026),
-    shocked_revenue = c(1000, 979, 800, 783),
-    shocked_profit = c(100, 97.9, 80, 78.3)
+    revenue = c(1000, 979, 800, 783),
+    profit = c(100, 97.9, 80, 78.3)
   )
 
   companies <- data.frame(
-    company_name = "C1",
+    company = "C1",
     revenues = 1000
   )
 

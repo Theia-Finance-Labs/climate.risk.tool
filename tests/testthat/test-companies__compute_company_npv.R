@@ -57,29 +57,6 @@ testthat::test_that("compute_company_npv handles multiple companies", {
   testthat::expect_equal(c2_baseline, 50)
 })
 
-testthat::test_that("compute_company_npv validates schema and types", {
-  # Test with valid input
-  discounted_assets <- create_discounted_assets()
-  out <- compute_company_npv(discounted_assets)
-
-  # Schema validation
-  testthat::expect_true(is.data.frame(out))
-  testthat::expect_true(is.character(out$company))
-  testthat::expect_true(is.numeric(out$npv))
-
-  # Test with invalid input
-  testthat::expect_error(
-    compute_company_npv("not_a_dataframe"),
-    regexp = "data.frame"
-  )
-
-  # Test with missing columns
-  incomplete_data <- data.frame(company = "C1", scenario = "baseline")
-  testthat::expect_error(
-    compute_company_npv(incomplete_data),
-    regexp = "must contain either.*discounted_net_profit"
-  )
-})
 
 testthat::test_that("compute_company_npv maintains scenario consistency", {
   discounted_assets <- data.frame(

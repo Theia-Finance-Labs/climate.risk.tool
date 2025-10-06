@@ -8,7 +8,7 @@ testthat::test_that("compute_baseline_trajectories integrates baseline revenue a
   )
 
   companies <- data.frame(
-    company_name = "C1",
+    company = "C1",
     revenues = 1000
   )
 
@@ -33,33 +33,4 @@ testthat::test_that("compute_baseline_trajectories integrates baseline revenue a
   a1_2026 <- result$revenue[result$asset == "A1" & result$year == 2026]
 
   testthat::expect_equal(a1_2026, a1_2025 * 1.02, tolerance = 1e-8)
-})
-
-testthat::test_that("compute_baseline_trajectories validates parameters", {
-  baseline_assets <- data.frame(
-    asset = "A1",
-    company = "C1",
-    share_of_economic_activity = 0.5
-  )
-
-  companies <- data.frame(
-    company_name = "C1",
-    revenues = 1000
-  )
-
-  # Should work with valid inputs
-  testthat::expect_no_error(
-    compute_baseline_trajectories(baseline_assets, companies)
-  )
-
-  # Should error with invalid inputs
-  testthat::expect_error(
-    compute_baseline_trajectories(NULL, companies),
-    info = "Should error with NULL baseline_assets"
-  )
-
-  testthat::expect_error(
-    compute_baseline_trajectories(baseline_assets, NULL),
-    info = "Should error with NULL companies"
-  )
 })

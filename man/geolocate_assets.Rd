@@ -6,23 +6,25 @@
 \usage{
 geolocate_assets(
   assets_df,
-  hazards,
   municipalities_areas,
   provinces_areas,
-  default_buffer_size_m = 1111
+  default_buffer_size_m = 1111,
+  output_crs = 4326
 )
 }
 \arguments{
 \item{assets_df}{Data frame with asset information including latitude, longitude, municipality, province columns}
 
-\item{hazards}{Named list of hazard rasters (from load_hazards) used to determine target CRS}
-
 \item{municipalities_areas}{Named list of sf objects for municipality boundaries (from load_municipalities)}
 
 \item{provinces_areas}{Named list of sf objects for province boundaries (from load_provinces)}
+
+\item{default_buffer_size_m}{Numeric. Default buffer size in meters for point geometries when size_in_m2 is not available (default: 1111)}
+
+\item{output_crs}{Character or numeric. Output CRS for the geometries (default: 4326 for WGS84). Can be EPSG code or proj4string.}
 }
 \value{
-Data frame with original columns plus geometry (polygon) and centroid (point) columns
+Data frame with original columns plus geometry (polygon) and centroid (point) columns in the specified output CRS
 }
 \description{
 Adds geometry and centroid columns to assets data using a priority system:
@@ -39,7 +41,8 @@ Geolocate assets using coordinates or administrative boundaries
 \dontrun{
 base_dir <- system.file("tests_data", package = "climate.risk.tool")
 assets <- read_inputs(base_dir)$assets
-hazards <- load_hazards(file.path(base_dir, "hazards"))
-assets_geo <- geolocate_assets(assets, hazards)
+municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
+provinces <- load_provinces(file.path(base_dir, "areas", "province"))
+assets_geo <- geolocate_assets(assets, municipalities, provinces)
 }
 }

@@ -16,7 +16,7 @@ compute_baseline_trajectories(
 \arguments{
 \item{baseline_assets}{data.frame with columns: asset, company, share_of_economic_activity}
 
-\item{companies}{data.frame with columns: company_name, revenues}
+\item{companies}{data.frame with columns: company, revenues}
 
 \item{growth_rate}{numeric. Annual growth rate for revenue trajectories (default: 0.02)}
 
@@ -44,7 +44,7 @@ baseline_assets <- data.frame(
   company = c("C1", "C1"),
   share_of_economic_activity = c(0.6, 0.4)
 )
-companies <- data.frame(company_name = "C1", revenues = 1000)
+companies <- data.frame(company = "C1", revenues = 1000)
 result <- compute_baseline_trajectories(baseline_assets, companies)
 }
 }

@@ -5,7 +5,7 @@
 #'   Starting with 2025 revenues = company_revenue * share_of_economic_activity,
 #'   then applying growth rate for subsequent years: 2026 = 2025 * (1 + growth_rate), etc.
 #' @param baseline_assets data.frame with columns: asset, company, share_of_economic_activity
-#' @param companies data.frame with columns: company_name, revenues
+#' @param companies data.frame with columns: company, revenues
 #' @param growth_rate numeric. Annual growth rate (default: 0.02)
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @param end_year numeric. Ending year for projections (default: 2050)
@@ -18,7 +18,7 @@
 #'   share_of_economic_activity = c(0.6, 0.4)
 #' )
 #' companies <- data.frame(
-#'   company_name = "C1",
+#'   company = "C1",
 #'   revenues = 1000
 #' )
 #' result <- compute_yearly_baseline_revenue(baseline_assets, companies, 0.02)
@@ -30,51 +30,10 @@ compute_yearly_baseline_revenue <- function(
     growth_rate = 0.02,
     start_year = 2025,
     end_year = 2050) {
-  # Validate inputs
-  if (!is.data.frame(baseline_assets) || nrow(baseline_assets) == 0) {
-    stop("baseline_assets must be a non-empty data.frame")
-  }
-  if (!is.data.frame(companies) || nrow(companies) == 0) {
-    stop("companies must be a non-empty data.frame")
-  }
-  if (!is.numeric(growth_rate) || length(growth_rate) != 1) {
-    stop("growth_rate must be a single numeric value")
-  }
-  if (!is.numeric(start_year) || !is.numeric(end_year) || start_year >= end_year) {
-    stop("start_year and end_year must be numeric with start_year < end_year")
-  }
-
-  # Check required columns
-  required_asset_cols <- c("asset", "company", "share_of_economic_activity")
-  missing_asset_cols <- setdiff(required_asset_cols, names(baseline_assets))
-  if (length(missing_asset_cols) > 0) {
-    stop(paste(
-      "Missing required columns in baseline_assets:",
-      paste(missing_asset_cols, collapse = ", ")
-    ))
-  }
-
-  required_company_cols <- c("company_name", "revenues")
-  missing_company_cols <- setdiff(required_company_cols, names(companies))
-  if (length(missing_company_cols) > 0) {
-    stop(paste(
-      "Missing required columns in companies:",
-      paste(missing_company_cols, collapse = ", ")
-    ))
-  }
-
-  # Prepare companies data for joining
-  companies_for_join <- companies[, c("company_name", "revenues"), drop = FALSE]
-  names(companies_for_join) <- c("company", "revenues")
-
-  # Check for unmatched companies
-  asset_companies <- unique(baseline_assets$company)
-  company_companies <- unique(companies_for_join$company)
-  unmatched <- setdiff(asset_companies, company_companies)
 
 
   # Join assets with company data
-  assets_with_companies <- merge(baseline_assets, companies_for_join,
+  assets_with_companies <- merge(baseline_assets, companies,
     by = "company", all.x = TRUE
   )
 
@@ -91,8 +50,8 @@ compute_yearly_baseline_revenue <- function(
   # Generate yearly trajectories
   years <- start_year:end_year
 
-  # Create expanded data frame with one row per asset-year combination
-  result_list <- lapply(seq_len(nrow(assets_with_companies)), function(i) {
+    # Create expanded data frame with one row per asset-year combination
+    result_list <- lapply(seq_len(nrow(assets_with_companies)), function(i) {
     asset_row <- assets_with_companies[i, ]
 
     # Calculate revenue for each year
@@ -113,17 +72,6 @@ compute_yearly_baseline_revenue <- function(
   # Combine all asset trajectories
   result <- do.call(rbind, result_list)
 
-  # Validate the result
-  if (!is.numeric(result$revenue)) {
-    stop("Calculated revenue is not numeric")
-  }
-
-  if (any(is.na(result$revenue))) {
-    stop("Calculated revenue contains NA values")
-  }
-
-  # Ensure revenue is non-negative
-  result$revenue <- pmax(0, result$revenue)
 
   return(result)
 }

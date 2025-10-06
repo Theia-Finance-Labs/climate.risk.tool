@@ -11,10 +11,11 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   inventory <- list_hazard_inventory(hazards)
 
   # Define two events - one acute, one chronic
+  # Use h10 which has actual data, not h100 which is empty
   events <- data.frame(
     event_id = c("e1", "e2"),
-    hazard_type = rep(inventory$hazard_type[1], 2),
-    hazard_name = rep(inventory$hazard_name[1], 2),
+    hazard_type = rep("flood", 2),
+    hazard_name = rep("flood__global_rcp85_h10glob_brazil", 2),
     event_year = c(2030L, NA_integer_),
     chronic = c(FALSE, TRUE)
   )
@@ -69,14 +70,11 @@ testthat::test_that("compute_risk processes single acute event", {
   damage_factors <- read_damage_cost_factors(base_dir)
 
   # Single acute event
-  inventory <- list_hazard_inventory(hazards)
-  default_hazard <- inventory$hazard_name[1]
-  default_type <- inventory$hazard_type[1]
-
+  # Use h10 which has actual data, not h100 which is empty
   events <- data.frame(
     event_id = "acute_2030",
-    hazard_type = default_type,
-    hazard_name = default_hazard,
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h10glob_brazil",
     event_year = 2030L,
     chronic = FALSE
   )
@@ -124,14 +122,11 @@ testthat::test_that("compute_risk processes chronic event", {
   damage_factors <- read_damage_cost_factors(base_dir)
 
   # Single chronic event
-  inventory <- list_hazard_inventory(hazards)
-  default_hazard <- inventory$hazard_name[1]
-  default_type <- inventory$hazard_type[1]
-
+  # Use h10 which has actual data, not h100 which is empty
   events <- data.frame(
     event_id = "chronic",
-    hazard_type = default_type,
-    hazard_name = default_hazard,
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h10glob_brazil",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -216,16 +211,18 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
   hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
   municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
   provinces <- load_provinces(file.path(base_dir, "areas", "province"))
+  output_crs <- terra::crs(hazards[[1]])
 
-  assets_geo <- geolocate_assets(assets, hazards, municipalities, provinces)
+  assets_geo <- geolocate_assets(assets, municipalities, provinces, output_crs = output_crs)
   assets_long <- extract_hazard_statistics(assets_geo, hazards)
   damage_factors <- read_damage_cost_factors(base_dir)
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
 
+  # Use h10 which has actual data, not h100 which is empty
   events <- data.frame(
     event_id = "ev1",
-    hazard_type = unique(assets_long$hazard_type)[1],
-    hazard_name = unique(assets_long$hazard_name)[1],
+    hazard_type = "flood",
+    hazard_name = "flood__global_rcp85_h10glob_brazil",
     event_year = 2030,
     chronic = FALSE
   )
