@@ -4,12 +4,12 @@
 #' @description Computes yearly baseline revenue trajectories for assets from 2025 onwards.
 #'   Starting with 2025 revenues = company_revenue * share_of_economic_activity,
 #'   then applying growth rate for subsequent years: 2026 = 2025 * (1 + growth_rate), etc.
-#' @param baseline_assets data.frame with columns: asset, company, share_of_economic_activity
-#' @param companies data.frame with columns: company, revenues
+#' @param baseline_assets tibble with columns: asset, company, share_of_economic_activity
+#' @param companies tibble with columns: company, revenues
 #' @param growth_rate numeric. Annual growth rate (default: 0.02)
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @param end_year numeric. Ending year for projections (default: 2050)
-#' @return data.frame with columns: asset, company, year, revenue
+#' @return tibble with columns: asset, company, year, revenue
 #' @examples
 #' \dontrun{
 #' baseline_assets <- data.frame(
@@ -34,7 +34,8 @@ compute_yearly_baseline_revenue <- function(
   assets_with_companies <- dplyr::left_join(baseline_assets, companies, by = "company")
 
   # Check for any failed joins
-  if (any(is.na(assets_with_companies$revenues))) {
+  revenue_col <- assets_with_companies |> dplyr::pull(.data$revenues)
+  if (any(is.na(revenue_col))) {
     stop("Join failed: some assets could not be matched to companies")
   }
 

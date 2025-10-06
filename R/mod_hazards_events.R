@@ -25,13 +25,12 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 mod_hazards_events_server <- function(id, hazards_inventory) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    events_rv <- shiny::reactiveVal(data.frame(
+    events_rv <- shiny::reactiveVal(tibble::tibble(
       event_id = character(),
       hazard_type = character(),
       hazard_name = character(),
       event_year = integer(),
-      chronic = logical(),
-      stringsAsFactors = FALSE
+      chronic = logical()
     ))
 
     # Counter for dynamic UIs
@@ -48,13 +47,12 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         counter(k + 1L)
         return()
       }
-      new_row <- data.frame(
+      new_row <- tibble::tibble(
         event_id = paste0("ev", nrow(events_rv()) + 1L),
         hazard_type = haz,
         hazard_name = hn,
         event_year = if (isTRUE(input[[paste0("chronic_", k)]])) NA_integer_ else as.integer(input[[paste0("year_", k)]]),
-        chronic = isTRUE(input[[paste0("chronic_", k)]]),
-        stringsAsFactors = FALSE
+        chronic = isTRUE(input[[paste0("chronic_", k)]])
       )
       cur <- events_rv()
       events_rv(rbind(cur, new_row))
@@ -68,7 +66,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       inv <- try(hazards_inventory(), silent = TRUE)
       hazard_choices <- character(0)
       hazard_name_choices <- character(0)
-      if (!inherits(inv, "try-error") && is.data.frame(inv) && nrow(inv) > 0) {
+      if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && nrow(inv) > 0) {
         hazard_choices <- unique(inv$hazard_type)
         if (length(hazard_choices) > 0) {
           hazard_name_choices <- unique(inv$hazard_name[inv$hazard_type == hazard_choices[[1]]])
@@ -95,7 +93,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         inv <- try(hazards_inventory(), silent = TRUE)
         hazard_val <- input[[paste0("hazard_", k)]]
         names_vec <- character(0)
-        if (!inherits(inv, "try-error") && is.data.frame(inv) && !is.null(hazard_val)) {
+        if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && !is.null(hazard_val)) {
           names_vec <- unique(inv$hazard_name[inv$hazard_type == hazard_val])
         }
         shiny::selectInput(ns(paste0("hazard_name_", k)), "Hazard Name", choices = names_vec, selected = if (length(names_vec) > 0) names_vec[[1]] else NULL)

@@ -7,8 +7,8 @@
 #' @description Computes probability of default using Merton model approach.
 #'   Uses company NPV as proxy for asset value, along with debt and volatility.
 #'   Returns PD values in the range [0, 1].
-#' @param companies_npv data.frame. Company NPV data with company, scenario, npv columns
-#' @return data.frame with all original columns plus 'merton_pd' column
+#' @param companies_npv tibble. Company NPV data with company, scenario, npv columns
+#' @return tibble with all original columns plus 'merton_pd' column
 #' @examples
 #' \dontrun{
 #' companies <- data.frame(company = "A", scenario = "baseline", npv = 1000)

@@ -10,7 +10,7 @@ read_companies(file_path)
 \item{file_path}{Character string specifying the path to the company CSV file}
 }
 \value{
-data.frame with company information
+tibble with company information
 }
 \description{
 Reads company information from a CSV file,

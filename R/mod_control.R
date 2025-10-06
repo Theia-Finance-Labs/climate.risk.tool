@@ -81,14 +81,14 @@ mod_control_server <- function(id, base_dir_reactive) {
     hazards_inventory <- shiny::reactive({
       base_dir <- base_dir_reactive()
       if (is.null(base_dir) || base_dir == "") {
-        return(data.frame())
+        return(tibble::tibble())
       }
       haz <- get_hazards_at_factor()
       if (is.null(haz) || length(haz) == 0) {
-        return(data.frame())
+        return(tibble::tibble())
       }
       inv <- try(list_hazard_inventory(haz), silent = TRUE)
-      if (inherits(inv, "try-error")) data.frame() else inv
+      if (inherits(inv, "try-error")) tibble::tibble() else inv
     })
 
     # Hazards events module

@@ -10,7 +10,7 @@ list_hazard_inventory(hazards)
 \item{hazards}{list of SpatRaster as returned by load_hazards()}
 }
 \value{
-data.frame with columns: key, hazard_type, scenario
+tibble with columns: key, hazard_type, scenario
 }
 \description{
 List hazard inventory from loaded hazards

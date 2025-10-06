@@ -7,12 +7,12 @@
 filter_assets_by_companies(assets, companies)
 }
 \arguments{
-\item{assets}{data.frame with columns: company, asset, and other asset attributes}
+\item{assets}{tibble with columns: company, asset, and other asset attributes}
 
-\item{companies}{data.frame with columns: company_name and other company attributes}
+\item{companies}{tibble with columns: company_name and other company attributes}
 }
 \value{
-data.frame containing only assets that belong to companies present in the companies data
+tibble containing only assets that belong to companies present in the companies data
 }
 \description{
 Filters assets to only include those belonging to companies that exist in the companies data.

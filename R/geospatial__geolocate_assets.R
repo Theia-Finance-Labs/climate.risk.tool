@@ -41,49 +41,59 @@ geolocate_assets <- function(assets_df, municipalities_areas, provinces_areas, d
 
   # Use purrr::map for functional approach (more readable than for loop)
   geolocation_results <- purrr::map(seq_len(n_assets), function(i) {
-    row <- assets_df[i, ]
+    row <- assets_df |> dplyr::slice(i)
     geom <- NULL
     method <- "failed"
 
     # Priority 1: Use lat/lon coordinates
-    if (!is.na(row$latitude) && !is.na(row$longitude)) {
+    lat_val <- row |> dplyr::pull(.data$latitude)
+    lon_val <- row |> dplyr::pull(.data$longitude)
+    
+    if (!is.na(lat_val) && !is.na(lon_val)) {
       # Create point geometry in WGS84
-      point <- sf::st_point(c(row$longitude, row$latitude))
+      point <- sf::st_point(c(lon_val, lat_val))
       point_sf <- sf::st_sfc(point, crs = 4326) # WGS84
       # Transform to CRS 3857 for metric buffering
       point_sf <- sf::st_transform(point_sf, buffer_crs)
 
       # Use size_in_m2 if available, otherwise default buffer
-      if (!is.na(row$size_in_m2) && is.numeric(row$size_in_m2) && row$size_in_m2 > 0) {
+      size_m2_val <- row |> dplyr::pull(.data$size_in_m2)
+      if (!is.na(size_m2_val) && is.numeric(size_m2_val) && size_m2_val > 0) {
         # Calculate radius from area (assuming circular area: A = pi * r^2)
-        radius <- sqrt(row$size_in_m2 / pi)
+        radius <- sqrt(size_m2_val / pi)
         geom <- sf::st_buffer(point_sf, dist = radius)
       } else {
         # Default buffer in meters (CRS 3857 uses meters)
         geom <- sf::st_buffer(point_sf, dist = default_buffer_size_m)
       }
       method <- "coordinates"
-    } else if (!is.na(row$municipality) && nzchar(as.character(row$municipality))) {
-      # Priority 2: Match municipality
-      municipality_name <- as.character(row$municipality)
-      municipality_match <- adm2[adm2$shapeName == municipality_name, ]
-      if (nrow(municipality_match) > 0) {
-        geom <- sf::st_geometry(municipality_match[1, ])
-        method <- "municipality"
-      }
-    } else if (!is.na(row$province) && nzchar(as.character(row$province))) {
-      # Priority 3: Match province
-      province_name <- as.character(row$province)
-      province_match <- adm1[adm1$shapeName == province_name, ]
-      if (nrow(province_match) > 0) {
-        geom <- sf::st_geometry(province_match[1, ])
-        method <- "province"
+    } else {
+      municipality_val <- row |> dplyr::pull(.data$municipality)
+      if (!is.na(municipality_val) && nzchar(as.character(municipality_val))) {
+        # Priority 2: Match municipality
+        municipality_name <- as.character(municipality_val)
+        municipality_match <- adm2 |> dplyr::filter(.data$shapeName == municipality_name)
+        if (nrow(municipality_match) > 0) {
+          geom <- sf::st_geometry(municipality_match |> dplyr::slice(1))
+          method <- "municipality"
+        }
+      } else {
+        province_val <- row |> dplyr::pull(.data$province)
+        if (!is.na(province_val) && nzchar(as.character(province_val))) {
+          # Priority 3: Match province
+          province_name <- as.character(province_val)
+          province_match <- adm1 |> dplyr::filter(.data$shapeName == province_name)
+          if (nrow(province_match) > 0) {
+            geom <- sf::st_geometry(province_match |> dplyr::slice(1))
+            method <- "province"
+          }
+        }
       }
     }
 
     # Check if geometry was successfully created
     if (is.null(geom)) {
-      asset_name <- if (!is.null(row$asset)) row$asset else paste0("row ", i)
+      asset_name <- row |> dplyr::pull(.data$asset)  
       stop(
         "Failed to geolocate asset ", i, " (", asset_name, "). ",
         "Asset must have valid coordinates, municipality, or province information."

@@ -13,18 +13,18 @@ compute_shock_trajectories(
 )
 }
 \arguments{
-\item{yearly_baseline_profits}{data.frame with columns: asset, company, year, revenue, profit}
+\item{yearly_baseline_profits}{tibble with columns: asset, company, year, revenue, profit}
 
-\item{assets_with_factors}{data.frame with hazard data and damage/cost factors}
+\item{assets_with_factors}{tibble with hazard data and damage/cost factors}
 
-\item{events}{data.frame with columns: event_id, hazard_type, hazard_name, event_year (or NA), chronic (logical)}
+\item{events}{tibble with columns: event_id, hazard_type, hazard_name, event_year (or NA), chronic (logical)}
 
 \item{net_profit_margin}{numeric. Net profit margin for computing profits from shocked revenue (default: 0.1)}
 
 \item{start_year}{numeric. Starting year for projections (default: 2025)}
 }
 \value{
-data.frame with columns: asset, company, year, scenario, revenue, profit
+tibble with columns: asset, company, year, scenario, revenue, profit
 where scenario is either "baseline" or "shock"
 }
 \description{

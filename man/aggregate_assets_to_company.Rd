@@ -7,10 +7,10 @@
 aggregate_assets_to_company(yearly_discounted_df)
 }
 \arguments{
-\item{yearly_discounted_df}{data.frame with columns: asset, company, year, scenario, revenue, profit, discounted_profit, discounted_net_profit}
+\item{yearly_discounted_df}{tibble with columns: asset, company, year, scenario, revenue, profit, discounted_profit, discounted_net_profit}
 }
 \value{
-data.frame with columns: company, year, scenario, total_revenue, total_profit, total_discounted_profit, total_discounted_net_profit
+tibble with columns: company, year, scenario, total_revenue, total_profit, total_discounted_profit, total_discounted_net_profit
 }
 \description{
 Aggregates asset-level yearly trajectories to company-level yearly trajectories.

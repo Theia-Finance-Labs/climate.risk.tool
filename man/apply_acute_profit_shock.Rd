@@ -7,14 +7,14 @@
 apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
 }
 \arguments{
-\item{yearly_trajectories}{data.frame with columns: asset, company, year, revenue, profit}
+\item{yearly_trajectories}{tibble with columns: asset, company, year, revenue, profit}
 
-\item{assets_factors}{data.frame with hazard data and cost factors (currently unused)}
+\item{assets_factors}{tibble with hazard data and cost factors (currently unused)}
 
-\item{acute_events}{data.frame with acute event information (currently unused)}
+\item{acute_events}{tibble with acute event information (currently unused)}
 }
 \value{
-data.frame with columns: asset, company, year, revenue, profit
+tibble with columns: asset, company, year, revenue, profit
 }
 \description{
 Placeholder function that passes through profit values unchanged.

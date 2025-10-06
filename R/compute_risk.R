@@ -120,15 +120,20 @@ compute_risk <- function(assets,
   assets <- filter_assets_by_companies(assets, companies)
 
   # Filter hazards to only those referenced by events
-  if (is.data.frame(events)) {
+  if (tibble::is_tibble(events) || is.data.frame(events)) {
     available_names <- names(hazards)
-    desired_names <- unique(as.character(events$hazard_name))
+    desired_names <- events |>
+      dplyr::distinct(.data$hazard_name) |>
+      dplyr::pull(.data$hazard_name) |>
+      as.character() |>
+      unique()
     exact <- available_names[available_names %in% desired_names]
     hazards <- hazards[exact]
   }
   # Ensure event_id column exists
   if (!"event_id" %in% names(events)) {
-    events$event_id <- paste0("event_", seq_len(nrow(events)))
+    events <- events |>
+      dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
   }
 
 

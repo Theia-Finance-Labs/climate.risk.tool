@@ -7,10 +7,10 @@
 compute_expected_loss(companies_pd)
 }
 \arguments{
-\item{companies_pd}{data.frame. Company PD data with company, scenario, merton_pd columns}
+\item{companies_pd}{tibble. Company PD data with company, scenario, merton_pd columns}
 }
 \value{
-data.frame with all original columns plus 'expected_loss' column
+tibble with all original columns plus 'expected_loss' column
 }
 \description{
 Computes expected loss using the standard credit risk formula:

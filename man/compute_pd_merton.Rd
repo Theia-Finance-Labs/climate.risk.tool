@@ -7,10 +7,10 @@
 compute_pd_merton(companies_npv)
 }
 \arguments{
-\item{companies_npv}{data.frame. Company NPV data with company, scenario, npv columns}
+\item{companies_npv}{tibble. Company NPV data with company, scenario, npv columns}
 }
 \value{
-data.frame with all original columns plus 'merton_pd' column
+tibble with all original columns plus 'merton_pd' column
 }
 \description{
 Computes probability of default using Merton model approach.

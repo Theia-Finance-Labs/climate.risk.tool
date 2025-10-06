@@ -7,12 +7,12 @@
 gather_and_pivot_results(companies_expected_loss)
 }
 \arguments{
-\item{companies_expected_loss}{data.frame. Company data with NPV, PD, and expected_loss by scenario}
+\item{companies_expected_loss}{tibble. Company data with NPV, PD, and expected_loss by scenario}
 
-\item{assets_discounted}{data.frame. Asset data with discounted_net_profit by scenario}
+\item{assets_discounted}{tibble. Asset data with discounted_net_profit by scenario}
 }
 \value{
-list with two elements: assets (pivoted asset data) and companies (pivoted company data)
+tibble with pivoted company data
 }
 \description{
 Pivots long-format scenario data into wide format suitable for reporting.

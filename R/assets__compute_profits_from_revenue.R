@@ -3,9 +3,9 @@
 #' @title Compute Profit from Revenue
 #' @description Generic function to compute profit from revenue by applying net profit margin.
 #'   Formula: profit = revenue * net_profit_margin
-#' @param yearly_revenue_df data.frame containing revenue data
+#' @param yearly_revenue_df tibble containing revenue data
 #' @param net_profit_margin numeric. Net profit margin to apply (default: 0.1)
-#' @return data.frame with added profit column
+#' @return tibble with added profit column
 #' @examples
 #' \dontrun{
 #' # With baseline columns

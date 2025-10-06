@@ -11,14 +11,14 @@ discount_yearly_profits(
 )
 }
 \arguments{
-\item{yearly_scenarios_df}{data.frame with columns: asset, company, year, scenario, revenue, profit}
+\item{yearly_scenarios_df}{tibble with columns: asset, company, year, scenario, revenue, profit}
 
 \item{discount_rate}{numeric. Discount rate for NPV calculation (default: 0.05)}
 
 \item{base_year}{numeric. Base year for discounting (default: NULL, uses minimum year in data)}
 }
 \value{
-data.frame with all original columns plus 'discounted_profit' column
+tibble with all original columns plus 'discounted_profit' column
 }
 \description{
 Applies present value discounting to yearly profit trajectories.

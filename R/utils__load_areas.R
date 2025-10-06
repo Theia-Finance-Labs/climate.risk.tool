@@ -42,7 +42,12 @@ load_location_areas <- function(municipalities_dir, provinces_dir) {
       # Set UTF-8 encoding on shapeName column for proper string comparison
       # (handles accented characters like e, a, n, etc.)
       if ("shapeName" %in% names(sf_obj)) {
-        Encoding(sf_obj$shapeName) <- "UTF-8"
+        sf_obj <- sf_obj |>
+          dplyr::mutate(shapeName = {
+            col_data <- .data$shapeName
+            Encoding(col_data) <- "UTF-8"
+            col_data
+          })
       }
 
       areas[[name]] <- sf_obj

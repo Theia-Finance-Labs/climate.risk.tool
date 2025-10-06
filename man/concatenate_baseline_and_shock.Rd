@@ -7,12 +7,12 @@
 concatenate_baseline_and_shock(yearly_baseline_df, yearly_shocked_df)
 }
 \arguments{
-\item{yearly_baseline_df}{data.frame with columns: asset, company, year, revenue, profit}
+\item{yearly_baseline_df}{tibble with columns: asset, company, year, revenue, profit}
 
-\item{yearly_shocked_df}{data.frame with columns: asset, company, year, revenue, profit}
+\item{yearly_shocked_df}{tibble with columns: asset, company, year, revenue, profit}
 }
 \value{
-data.frame with columns: asset, company, year, scenario, revenue, profit
+tibble with columns: asset, company, year, scenario, revenue, profit
 }
 \description{
 Concatenates baseline and shocked yearly trajectories into a single dataframe

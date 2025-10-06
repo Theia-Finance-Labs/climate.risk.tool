@@ -5,10 +5,10 @@
 #'   This is a temporary implementation that maintains the expected output structure
 #'   while the actual shock calculation logic is being developed. NOTE: This function
 #'   only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
-#' @param yearly_trajectories data.frame with columns: asset, company, year, revenue
-#' @param assets_factors data.frame with hazard data and damage factors (currently unused)
-#' @param chronic_events data.frame with chronic event information (currently unused)
-#' @return data.frame with columns: asset, company, year, shocked_revenue
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue
+#' @param assets_factors tibble with hazard data and damage factors (currently unused)
+#' @param chronic_events tibble with chronic event information (currently unused)
+#' @return tibble with columns: asset, company, year, shocked_revenue
 #' @examples
 #' \dontrun{
 #' yearly_trajectories <- data.frame(
@@ -32,10 +32,9 @@ apply_chronic_revenue_shock <- function(
   # For now, just pass through revenue values unchanged
   # This maintains the expected output structure while preserving the interface
 
-  result <- yearly_trajectories
-
-  # Return only the required columns (revenue only, not profit)
-  result <- result[, c("asset", "company", "year", "revenue"), drop = FALSE]
+  result <- yearly_trajectories |>
+    # Return only the required columns (revenue only, not profit)
+    dplyr::select(.data$asset, .data$company, .data$year, .data$revenue)
 
   return(result)
 }

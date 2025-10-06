@@ -4,13 +4,13 @@
 #' @description Computes baseline yearly revenue and profit trajectories for assets
 #'   from baseline assets and company data. This is the first step in the yearly
 #'   trajectory approach, creating baseline projections before shock application.
-#' @param baseline_assets data.frame with columns: asset, company, share_of_economic_activity
-#' @param companies data.frame with columns: company, revenues
+#' @param baseline_assets tibble with columns: asset, company, share_of_economic_activity
+#' @param companies tibble with columns: company, revenues
 #' @param growth_rate numeric. Annual growth rate for revenue trajectories (default: 0.02)
 #' @param net_profit_margin numeric. Net profit margin to apply (default: 0.1)
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @param end_year numeric. Ending year for projections (default: 2050)
-#' @return data.frame with columns: asset, company, year, revenue, profit
+#' @return tibble with columns: asset, company, year, revenue, profit
 #' @examples
 #' \dontrun{
 #' baseline_assets <- data.frame(

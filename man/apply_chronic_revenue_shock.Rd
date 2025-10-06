@@ -11,14 +11,14 @@ apply_chronic_revenue_shock(
 )
 }
 \arguments{
-\item{yearly_trajectories}{data.frame with columns: asset, company, year, revenue}
+\item{yearly_trajectories}{tibble with columns: asset, company, year, revenue}
 
-\item{assets_factors}{data.frame with hazard data and damage factors (currently unused)}
+\item{assets_factors}{tibble with hazard data and damage factors (currently unused)}
 
-\item{chronic_events}{data.frame with chronic event information (currently unused)}
+\item{chronic_events}{tibble with chronic event information (currently unused)}
 }
 \value{
-data.frame with columns: asset, company, year, shocked_revenue
+tibble with columns: asset, company, year, shocked_revenue
 }
 \description{
 Placeholder function that passes through baseline revenue as shocked revenue.

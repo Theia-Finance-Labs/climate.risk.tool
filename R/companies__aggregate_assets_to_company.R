@@ -3,8 +3,8 @@
 #' @title Compute Company-Level Yearly Trajectories
 #' @description Aggregates asset-level yearly trajectories to company-level yearly trajectories.
 #'   This provides yearly revenue and profit trajectories at the company level for detailed analysis.
-#' @param yearly_discounted_df data.frame with columns: asset, company, year, scenario, revenue, profit, discounted_profit, discounted_net_profit
-#' @return data.frame with columns: company, year, scenario, total_revenue, total_profit, total_discounted_profit, total_discounted_net_profit
+#' @param yearly_discounted_df tibble with columns: asset, company, year, scenario, revenue, profit, discounted_profit, discounted_net_profit
+#' @return tibble with columns: company, year, scenario, total_revenue, total_profit, total_discounted_profit, total_discounted_net_profit
 #' @examples
 #' \dontrun{
 #' yearly_data <- data.frame(
@@ -36,9 +36,6 @@ aggregate_assets_to_company <- function(yearly_discounted_df) {
   # Sort by company, scenario, and year for consistency
   result <- result |>
     dplyr::arrange(.data$company, .data$scenario, .data$year)
-
-  # Reset row names
-  rownames(result) <- NULL
 
   return(result)
 }

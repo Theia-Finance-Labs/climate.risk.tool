@@ -7,8 +7,8 @@
 #' @description Computes expected loss using the standard credit risk formula:
 #'   Expected Loss = Loss Given Default * Loan Size * Probability of Default
 #'   Joins company PD data with LGD and loan size information.
-#' @param companies_pd data.frame. Company PD data with company, scenario, merton_pd columns
-#' @return data.frame with all original columns plus 'expected_loss' column
+#' @param companies_pd tibble. Company PD data with company, scenario, merton_pd columns
+#' @return tibble with all original columns plus 'expected_loss' column
 #' @examples
 #' \dontrun{
 #' companies <- data.frame(company = "A", scenario = "baseline", merton_pd = 0.1)

@@ -102,18 +102,19 @@ app_server <- function(input, output, session) {
 
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)
-        if (inherits(ev_df, "try-error") || !is.data.frame(ev_df) || nrow(ev_df) == 0) {
+        if (inherits(ev_df, "try-error") || !(tibble::is_tibble(ev_df) || is.data.frame(ev_df)) || nrow(ev_df) == 0) {
           # Provide a default using first hazard_type and its first scenario
           inv <- list_hazard_inventory(hazards)
-          default_ht <- unique(inv$hazard_type)[1]
-          default_hn <- inv$hazard_name[inv$hazard_type == default_ht][1]
-          ev_df <- data.frame(
+          default_ht_col <- inv |> dplyr::pull(.data$hazard_type) |> unique()
+          default_ht <- default_ht_col[1]
+          default_hn_col <- inv |> dplyr::filter(.data$hazard_type == default_ht) |> dplyr::pull(.data$hazard_name)
+          default_hn <- default_hn_col[1]
+          ev_df <- tibble::tibble(
             event_id = "ev1",
             hazard_type = default_ht,
             hazard_name = default_hn,
             event_year = 2030L,
-            chronic = FALSE,
-            stringsAsFactors = FALSE
+            chronic = FALSE
           )
         }
 

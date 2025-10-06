@@ -7,14 +7,14 @@
 apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 }
 \arguments{
-\item{yearly_trajectories}{data.frame with columns: asset, company, year, revenue}
+\item{yearly_trajectories}{tibble with columns: asset, company, year, revenue}
 
-\item{assets_factors}{data.frame with hazard data and damage factors (currently unused)}
+\item{assets_factors}{tibble with hazard data and damage factors (currently unused)}
 
-\item{acute_events}{data.frame with acute event information (currently unused)}
+\item{acute_events}{tibble with acute event information (currently unused)}
 }
 \value{
-data.frame with columns: asset, company, year, revenue
+tibble with columns: asset, company, year, revenue
 }
 \description{
 Placeholder function that passes through baseline revenue as shocked revenue.

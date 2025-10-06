@@ -10,7 +10,7 @@ read_assets(base_dir)
 \item{base_dir}{Character string specifying the base directory containing user_input subdirectory}
 }
 \value{
-data.frame with asset information
+tibble with asset information
 }
 \description{
 Reads asset information from CSV file in the user_input directory,

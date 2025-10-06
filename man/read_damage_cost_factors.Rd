@@ -10,7 +10,7 @@ read_damage_cost_factors(base_dir)
 \item{base_dir}{Character string specifying the base directory containing damage_and_cost_factors.csv}
 }
 \value{
-data.frame with damage and cost factors
+tibble with damage and cost factors
 }
 \description{
 Reads damage and cost factors from CSV file, parsing numeric columns

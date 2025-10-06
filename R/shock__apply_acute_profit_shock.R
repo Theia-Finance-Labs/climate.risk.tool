@@ -6,10 +6,10 @@
 #'   while the actual shock calculation logic is being developed. Unlike revenue shocks,
 #'   profit shocks may involve fixed costs or operational disruptions that aren't
 #'   proportional to revenue impacts.
-#' @param yearly_trajectories data.frame with columns: asset, company, year, revenue, profit
-#' @param assets_factors data.frame with hazard data and cost factors (currently unused)
-#' @param acute_events data.frame with acute event information (currently unused)
-#' @return data.frame with columns: asset, company, year, revenue, profit
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue, profit
+#' @param assets_factors tibble with hazard data and cost factors (currently unused)
+#' @param acute_events tibble with acute event information (currently unused)
+#' @return tibble with columns: asset, company, year, revenue, profit
 #' @examples
 #' \dontrun{
 #' yearly_trajectories <- data.frame(
@@ -54,13 +54,12 @@ apply_acute_profit_shock <- function(
   # Merge by hazard_name to attach event_year to each asset-hazard
   # -> (asset, hazard_name, event_year, acute_damage)
   if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
-    shock_map <- merge(
+    shock_map <- dplyr::inner_join(
       assets_flood |>
-        dplyr::select("asset", "hazard_name", "acute_damage"),
+        dplyr::select(.data$asset, .data$hazard_name, .data$acute_damage),
       flood_events |>
-        dplyr::select("hazard_name", "event_year"),
-      by = "hazard_name",
-      all = FALSE
+        dplyr::select(.data$hazard_name, .data$event_year),
+      by = "hazard_name"
     )
 
     # Sum acute_damage per (asset, event_year) in case multiple hazards per asset-year
@@ -75,7 +74,7 @@ apply_acute_profit_shock <- function(
       shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
     }
   } else {
-    shocks_by_asset_year <- data.frame(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
+    shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
   }
 
   # Start from trajectories
@@ -83,16 +82,17 @@ apply_acute_profit_shock <- function(
 
   # Attach shock (by asset + year == event_year), then deduct from profit
   if (nrow(shocks_by_asset_year) > 0) {
-    shock_data <- setNames(shocks_by_asset_year, c("asset", "year", "acute_damage_to_apply"))
+    shock_data <- shocks_by_asset_year |>
+      dplyr::rename(year = .data$event_year, acute_damage_to_apply = .data$acute_damage)
     result <- dplyr::left_join(result, shock_data, by = c("asset", "year"))
 
     # Deduct (do not alter revenue here as per request)
     result <- result |>
       dplyr::mutate(
         profit = as.numeric(.data$profit) -
-          ifelse(is.na(.data$acute_damage_to_apply), 0, as.numeric(.data$acute_damage_to_apply))
+          dplyr::if_else(is.na(.data$acute_damage_to_apply), 0, as.numeric(.data$acute_damage_to_apply))
       ) |>
-      dplyr::select(-"acute_damage_to_apply")
+      dplyr::select(-.data$acute_damage_to_apply)
   }
 
 

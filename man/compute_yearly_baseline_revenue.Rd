@@ -13,9 +13,9 @@ compute_yearly_baseline_revenue(
 )
 }
 \arguments{
-\item{baseline_assets}{data.frame with columns: asset, company, share_of_economic_activity}
+\item{baseline_assets}{tibble with columns: asset, company, share_of_economic_activity}
 
-\item{companies}{data.frame with columns: company, revenues}
+\item{companies}{tibble with columns: company, revenues}
 
 \item{growth_rate}{numeric. Annual growth rate (default: 0.02)}
 
@@ -24,7 +24,7 @@ compute_yearly_baseline_revenue(
 \item{end_year}{numeric. Ending year for projections (default: 2050)}
 }
 \value{
-data.frame with columns: asset, company, year, revenue
+tibble with columns: asset, company, year, revenue
 }
 \description{
 Computes yearly baseline revenue trajectories for assets from 2025 onwards.

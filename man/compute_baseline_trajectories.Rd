@@ -14,9 +14,9 @@ compute_baseline_trajectories(
 )
 }
 \arguments{
-\item{baseline_assets}{data.frame with columns: asset, company, share_of_economic_activity}
+\item{baseline_assets}{tibble with columns: asset, company, share_of_economic_activity}
 
-\item{companies}{data.frame with columns: company, revenues}
+\item{companies}{tibble with columns: company, revenues}
 
 \item{growth_rate}{numeric. Annual growth rate for revenue trajectories (default: 0.02)}
 
@@ -27,7 +27,7 @@ compute_baseline_trajectories(
 \item{end_year}{numeric. Ending year for projections (default: 2050)}
 }
 \value{
-data.frame with columns: asset, company, year, revenue, profit
+tibble with columns: asset, company, year, revenue, profit
 }
 \description{
 Computes baseline yearly revenue and profit trajectories for assets

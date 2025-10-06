@@ -5,10 +5,10 @@
 #'   This is a temporary implementation that maintains the expected output structure
 #'   while the actual shock calculation logic is being developed. NOTE: This function
 #'   only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
-#' @param yearly_trajectories data.frame with columns: asset, company, year, revenue
-#' @param assets_factors data.frame with hazard data and damage factors (currently unused)
-#' @param acute_events data.frame with acute event information (currently unused)
-#' @return data.frame with columns: asset, company, year, revenue
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue
+#' @param assets_factors tibble with hazard data and damage factors (currently unused)
+#' @param acute_events tibble with acute event information (currently unused)
+#' @return tibble with columns: asset, company, year, revenue
 #' @examples
 #' \dontrun{
 #' yearly_trajectories <- data.frame(
@@ -39,13 +39,12 @@ apply_acute_revenue_shock <- function(
 
   # Map by hazard_name, then sum per (asset, event_year)
   if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
-    shock_map <- merge(
+    shock_map <- dplyr::inner_join(
       assets_flood |>
-        dplyr::select("asset", "hazard_name", "business_disruption"),
+        dplyr::select(.data$asset, .data$hazard_name, .data$business_disruption),
       flood_events |>
-        dplyr::select("hazard_name", "event_year"),
-      by = "hazard_name",
-      all = FALSE
+        dplyr::select(.data$hazard_name, .data$event_year),
+      by = "hazard_name"
     )
 
     if (nrow(shock_map) > 0) {
@@ -62,7 +61,7 @@ apply_acute_revenue_shock <- function(
       shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
     }
   } else {
-    shocks_by_asset_year <- data.frame(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
+    shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
   }
 
 
@@ -70,19 +69,20 @@ apply_acute_revenue_shock <- function(
   result <- yearly_trajectories
 
   if (nrow(shocks_by_asset_year) > 0) {
-    disruption_data <- setNames(shocks_by_asset_year, c("asset", "year", "disruption_days"))
+    disruption_data <- shocks_by_asset_year |>
+      dplyr::rename(year = .data$event_year, disruption_days = .data$business_disruption)
     result <- dplyr::left_join(result, disruption_data, by = c("asset", "year"))
 
     # Apply formula only where disruption is present
     result <- result |>
       dplyr::mutate(
-        revenue = ifelse(
+        revenue = dplyr::if_else(
           is.na(.data$disruption_days),
           .data$revenue,
           as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
         )
       ) |>
-      dplyr::select(-"disruption_days")
+      dplyr::select(-.data$disruption_days)
   }
 
 

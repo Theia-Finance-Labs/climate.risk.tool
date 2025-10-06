@@ -7,10 +7,10 @@
 compute_company_npv(company_yearly_data)
 }
 \arguments{
-\item{company_yearly_data}{data.frame. Company yearly trajectories with total_discounted_net_profit column}
+\item{company_yearly_data}{tibble. Company yearly trajectories with total_discounted_net_profit column}
 }
 \value{
-data.frame with columns: company, scenario, npv
+tibble with columns: company, scenario, npv
 }
 \description{
 Aggregates yearly discounted net profits from company trajectories to compute company-level NPV.

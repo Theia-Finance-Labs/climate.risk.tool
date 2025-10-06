@@ -6,8 +6,8 @@
 #' @title Compute Company NPV from Yearly Data
 #' @description Aggregates yearly discounted net profits from company trajectories to compute company-level NPV.
 #'   Groups by company and scenario, summing total_discounted_net_profit values across years.
-#' @param company_yearly_data data.frame. Company yearly trajectories with total_discounted_net_profit column
-#' @return data.frame with columns: company, scenario, npv
+#' @param company_yearly_data tibble. Company yearly trajectories with total_discounted_net_profit column
+#' @return tibble with columns: company, scenario, npv
 #' @examples
 #' \dontrun{
 #' company_yearly <- data.frame(
@@ -31,19 +31,20 @@ compute_company_npv <- function(company_yearly_data) {
     )
 
   # Ensure proper column types and format
+  scenario_col <- company_yearly_data |> dplyr::pull(.data$scenario)
   company_npv_data <- company_npv_data |>
     dplyr::mutate(
       company = as.character(.data$company),
       scenario = {
-        if (is.factor(company_yearly_data$scenario)) {
-          if (is.ordered(company_yearly_data$scenario)) {
+        if (is.factor(scenario_col)) {
+          if (is.ordered(scenario_col)) {
             factor(.data$scenario,
-              levels = levels(company_yearly_data$scenario),
+              levels = levels(scenario_col),
               ordered = TRUE
             )
           } else {
             factor(.data$scenario,
-              levels = levels(company_yearly_data$scenario)
+              levels = levels(scenario_col)
             )
           }
         } else {

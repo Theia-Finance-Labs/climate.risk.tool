@@ -72,9 +72,8 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
       {
         events <- try(events_reactive(), silent = TRUE)
         if (inherits(events, "try-error") || is.null(events) || nrow(events) == 0) {
-          data.frame(
-            Message = "No events configured - will use default event",
-            stringsAsFactors = FALSE
+          tibble::tibble(
+            Message = "No events configured - will use default event"
           )
         } else {
           events

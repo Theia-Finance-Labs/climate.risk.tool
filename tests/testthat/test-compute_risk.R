@@ -44,7 +44,7 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   testthat::expect_s3_class(res$companies_yearly, "data.frame")
 
   # Yearly results should have more rows than aggregated (multiple years per asset/company)
-  testthat::expect_true(nrow(res$assets_yearly) > nrow(res$assets))
+  testthat::expect_true(nrow(res$assets_yearly) > nrow(res$assets_factors))
   testthat::expect_true(nrow(res$companies_yearly) > nrow(res$companies))
 
   # Yearly assets should have year and scenario columns

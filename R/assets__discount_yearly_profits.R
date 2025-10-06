@@ -3,10 +3,10 @@
 #' @title Discount Yearly Profit Trajectories
 #' @description Applies present value discounting to yearly profit trajectories.
 #'   Formula: discounted_profit = profit / (1 + discount_rate)^(year - base_year)
-#' @param yearly_scenarios_df data.frame with columns: asset, company, year, scenario, revenue, profit
+#' @param yearly_scenarios_df tibble with columns: asset, company, year, scenario, revenue, profit
 #' @param discount_rate numeric. Discount rate for NPV calculation (default: 0.05)
 #' @param base_year numeric. Base year for discounting (default: NULL, uses minimum year in data)
-#' @return data.frame with all original columns plus 'discounted_profit' column
+#' @return tibble with all original columns plus 'discounted_profit' column
 #' @examples
 #' \dontrun{
 #' scenarios <- data.frame(
@@ -32,7 +32,8 @@ discount_yearly_profits <- function(
 
   # Use minimum year as base year if not provided
   if (is.null(base_year)) {
-    base_year <- min(result$year, na.rm = TRUE)
+    year_col <- result |> dplyr::pull(.data$year)
+    base_year <- min(year_col, na.rm = TRUE)
   }
 
   # Calculate discounted profit

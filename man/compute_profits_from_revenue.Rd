@@ -7,12 +7,12 @@
 compute_profits_from_revenue(yearly_revenue_df, net_profit_margin = 0.1)
 }
 \arguments{
-\item{yearly_revenue_df}{data.frame containing revenue data}
+\item{yearly_revenue_df}{tibble containing revenue data}
 
 \item{net_profit_margin}{numeric. Net profit margin to apply (default: 0.1)}
 }
 \value{
-data.frame with added profit column
+tibble with added profit column
 }
 \description{
 Generic function to compute profit from revenue by applying net profit margin.
