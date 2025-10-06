@@ -31,10 +31,9 @@ compute_pd_merton <- function(companies_npv) {
   # Make a copy to avoid modifying the input
   result <- companies_npv
 
-  # Try to get company-specific debt and volatility data
+  # Try to get company-specific debt, volatility, and term data
   company_financial_data <- NULL
 
-  # Try to load company data to get debt and volatility
   tryCatch(
     {
       # Get test data directory (hack for test environment)
@@ -49,51 +48,48 @@ compute_pd_merton <- function(companies_npv) {
         names(companies_raw) <- gsub("^_|_$", "", names(companies_raw))
 
         if ("company_name" %in% names(companies_raw) &&
-          "debt" %in% names(companies_raw) &&
-          "volatility" %in% names(companies_raw)) {
-          company_financial_data <- companies_raw[, c("company_name", "debt", "volatility")]
-          names(company_financial_data) <- c("company", "debt", "volatility")
+            "debt" %in% names(companies_raw) &&
+            "volatility" %in% names(companies_raw) &&
+            "term" %in% names(companies_raw)) {
+
+          cols_to_keep <- c("company_name", "debt", "volatility", "term")
+          company_financial_data <- companies_raw[, cols_to_keep]
+          names(company_financial_data)[names(company_financial_data) == "company_name"] <- "company"
         }
       }
     },
     error = function(e) {
-      # If we can't load company data, continue with simplified approach
+      # If we can't load company data, continue as per surrounding logic
     }
   )
 
   # Compute Merton PD
-  if (!is.null(company_financial_data)) {
+  if (is.null(company_financial_data)) {
+    stop("Company financial data not found. Need 'company_name', 'debt', 'volatility', 'term' in company.csv.")
+  } else {
     # Join with financial data
     result_with_financials <- merge(result, company_financial_data, by = "company", all.x = TRUE)
 
-    # Simplified Merton model calculation
-    # PD is influenced by leverage (debt/asset_value) and volatility
-    # Higher leverage and volatility increase PD
+    # Ensure required cols present in working frame
+    result_with_financials <- result_with_financials[, intersect(
+      c("company", "scenario", "npv", "debt", "volatility", "term"),
+      names(result_with_financials)
+    )]
 
-    # Use NPV as proxy for asset value
-    asset_value <- pmax(result_with_financials$npv, 1) # Avoid division by zero
-    leverage <- result_with_financials$debt / asset_value
-    volatility <- result_with_financials$volatility
+    # Use NPV as part of asset value proxy: V = debt + npv
+    V <- pmax(result_with_financials$debt + result_with_financials$npv, 1)   # avoid non-positive
+    D <- pmax(result_with_financials$debt, 1)                                # avoid non-positive
+    sigma <- pmax(result_with_financials$volatility, 1e-8)                   # avoid zero
+    T <- pmax(result_with_financials$term, 1)                                # default Term = 1
 
-    # Simplified PD calculation: higher leverage and volatility increase PD
-    # Use logistic transformation to ensure [0, 1] range
-    # This is a simplified approach - real Merton model is more complex
-    logit_pd <- pmax(-5, pmin(5, 2 * leverage + volatility - 1))
-    result$merton_pd <- 1 / (1 + exp(-logit_pd))
+    # Risk-free rate hard-coded at 2%,needs to be coded into parameters
+    r <- 0.02
 
-    # Handle missing values
-    result$merton_pd[is.na(result$merton_pd)] <- 0.1 # Default PD
-  } else {
-    # Simplified approach without company financial data
-    # Use NPV to estimate PD: lower NPV suggests higher default risk
-
-    # Normalize NPV to get a PD estimate
-    # Negative NPV suggests higher default risk
-    normalized_npv <- pmax(-1000000, pmin(1000000, result$npv)) # Cap extreme values
-
-    # Transform to [0, 1] range where negative NPV gives higher PD
-    # This is a very simplified approach
-    result$merton_pd <- 1 / (1 + exp(normalized_npv / 100000))
+    # Excel-equivalent:
+    # d1 = ( ln(V/D) + (r + 0.5*sigma^2)*T ) / (sigma*sqrt(T))
+    # PD = N( -(d1 - sigma*sqrt(T)) )
+    d1 <- (log(V / D) + (r + 0.5 * sigma^2) * T) / (sigma * sqrt(T))
+    result$merton_pd <- pnorm(-(d1 - sigma * sqrt(T)))
   }
 
   # Ensure PD is in [0, 1] range
@@ -104,10 +100,7 @@ compute_pd_merton <- function(companies_npv) {
     stop("Calculated merton_pd is not numeric")
   }
 
-  if (any(is.na(result$merton_pd))) {
-    # Replace any remaining NAs with a default value
-    result$merton_pd[is.na(result$merton_pd)] <- 0.1
-  }
+  # Keep NA values as NA (no replacement)
 
   return(result)
 }
