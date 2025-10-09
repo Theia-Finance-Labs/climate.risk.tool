@@ -1,12 +1,4 @@
 testthat::test_that("server loads inputs and runs analysis from base_dir and uploaded company file", {
-  # Define a minimal contract for server logic using reactive values names
-  # We assume app_server reads golem option `base_dir` and exposes reactiveValues: data_loaded, results_ready, results
-  skip_if_not_installed <- function(pkg) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      testthat::skip(paste0("Package not installed: ", pkg))
-    }
-  }
-  skip_if_not_installed("shiny")
 
   # Use real test data directory
   base_dir <- get_test_data_dir()
@@ -46,12 +38,6 @@ testthat::test_that("server loads inputs and runs analysis from base_dir and upl
 
 
 testthat::test_that("server handles missing company file gracefully", {
-  skip_if_not_installed <- function(pkg) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      testthat::skip(paste0("Package not installed: ", pkg))
-    }
-  }
-  skip_if_not_installed("shiny")
 
   # Use real test data directory
   base_dir <- get_test_data_dir()
@@ -76,12 +62,7 @@ testthat::test_that("server handles missing company file gracefully", {
 
 
 testthat::test_that("server handles missing base_dir gracefully", {
-  skip_if_not_installed <- function(pkg) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      testthat::skip(paste0("Package not installed: ", pkg))
-    }
-  }
-  skip_if_not_installed("shiny")
+
 
   # Test without setting golem options (no base_dir)
   golem::with_golem_options(

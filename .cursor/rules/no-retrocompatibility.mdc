@@ -1,0 +1,154 @@
+---
+alwaysApply: true
+description: No backwards compatibility - clean refactoring without safety nets
+---
+
+# No Backwards Compatibility Policy
+
+## Core Principle: Clean, Decisive Refactoring
+
+When editing existing features, **NEVER maintain backwards compatibility or old code paths**. Make clean, decisive changes and update all dependent code immediately.
+
+## What NOT to Do
+
+### ❌ Don't Keep Old Parameters
+```r
+# BAD - keeping old parameter with default
+my_function <- function(data, new_param = NULL, old_param = NULL) {
+  if (!is.null(old_param)) {
+    warning("old_param is deprecated, use new_param")
+    new_param <- old_param
+  }
+  # ...
+}
+```
+
+### ❌ Don't Add Compatibility Flags
+```r
+# BAD - adding use_new_behavior flag
+my_function <- function(data, use_new_behavior = FALSE) {
+  if (use_new_behavior) {
+    # new code
+  } else {
+    # old code for compatibility
+  }
+}
+```
+
+### ❌ Don't Keep Old Function Names
+```r
+# BAD - keeping deprecated function around
+calculate_risk_old <- function(...) { ... }
+calculate_risk <- function(...) { ... }
+```
+
+### ❌ Don't Add Excessive Safety Checks
+```r
+# BAD - wrapping everything in try-catch "just in case"
+result <- tryCatch({
+  tryCatch({
+    maybe_do_something()
+  }, error = function(e) fallback_v1())
+}, error = function(e) fallback_v2())
+```
+
+## What TO Do
+
+### ✅ Change Signatures Directly
+```r
+# GOOD - just change it
+my_function <- function(data, new_param) {
+  # use new_param directly
+}
+```
+
+### ✅ Update All Callers Immediately
+1. Change the function signature
+2. Use `grep` to find ALL callers
+3. Update every single caller in the same change
+4. Run tests to verify
+
+### ✅ Remove Old Code Completely
+```r
+# GOOD - only the new implementation exists
+calculate_risk <- function(assets, scenarios, discount_rate) {
+  # new implementation only
+}
+```
+
+### ✅ Keep Error Handling Minimal
+```r
+# GOOD - only essential error checks
+if (missing(required_param)) {
+  stop("required_param is required")
+}
+# proceed with confidence
+```
+
+## Refactoring Workflow
+
+1. **Change the code directly** - don't add compatibility layers
+2. **Find all dependencies** - use grep/codebase search
+3. **Update all callers** - change every usage site immediately
+4. **Update tests** - make tests match new behavior
+5. **Remove old code** - delete deprecated functions/parameters completely
+6. **Run full test suite** - verify everything works
+
+## Philosophy
+
+- **Be decisive**: Make the change you want, don't hedge
+- **Be thorough**: Update ALL dependent code, no exceptions
+- **Be clean**: Remove old code completely, don't comment it out
+- **Trust tests**: Let tests catch issues, don't add defensive code
+- **No safety nets**: Don't keep old implementations "just in case"
+
+## Examples of Clean Refactoring
+
+### Function Signature Change
+```r
+# Before
+compute_risk <- function(assets, scenarios) { ... }
+
+# After - just change it and update all 15 callers
+compute_risk <- function(assets, scenarios, discount_rate) { ... }
+```
+
+### Changing Data Structure
+```r
+# Before: returns data.frame
+get_results <- function() {
+  data.frame(...)
+}
+
+# After: returns tibble - update ALL code that uses this
+get_results <- function() {
+  tibble::tibble(...)
+}
+```
+
+### Renaming Functions
+```r
+# Delete old function completely, add new one
+# OLD: calculate_company_risk() - DELETE THIS
+# NEW: compute_company_npv() - ADD THIS
+
+# Update ALL 23 places that called calculate_company_risk()
+```
+
+## When User Says "Edit Feature X"
+
+1. **Understand the change** - what exactly needs to change?
+2. **Make the change directly** - no compatibility layer
+3. **Find all impacts** - where else does this affect?
+4. **Update everything** - all tests, all callers, all documentation
+5. **Delete old code** - remove deprecated implementations completely
+
+## Remember
+
+- **No backwards compatibility**
+- **No deprecated functions**
+- **No compatibility flags/parameters**
+- **No excessive try-catch blocks**
+- **No "just in case" code**
+- **Update ALL dependent code immediately**
+- **Delete old implementations completely**

@@ -1,10 +1,5 @@
 testthat::test_that("hazards inventory is available at startup", {
-  skip_if_not_installed <- function(pkg) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      testthat::skip(paste0("Package not installed: ", pkg))
-    }
-  }
-  skip_if_not_installed("shiny")
+
   base_dir <- get_test_data_dir()
 
   # Set environment variable for testing
@@ -25,12 +20,7 @@ testthat::test_that("hazards inventory is available at startup", {
 })
 
 testthat::test_that("control module exposes hazards inventory and aggregation_factor", {
-  skip_if_not_installed <- function(pkg) {
-    if (!requireNamespace(pkg, quietly = TRUE)) {
-      testthat::skip(paste0("Package not installed: ", pkg))
-    }
-  }
-  skip_if_not_installed("shiny")
+
   base_dir <- get_test_data_dir()
 
   # Set environment variable for testing

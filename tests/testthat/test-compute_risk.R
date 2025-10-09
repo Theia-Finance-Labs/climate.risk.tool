@@ -2,20 +2,18 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
-  )
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
-  inventory <- list_hazard_inventory(hazards)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   # Define two events - one acute, one chronic
   # Use h10 which has actual data, not h100 which is empty
   events <- data.frame(
     event_id = c("e1", "e2"),
     hazard_type = rep("flood", 2),
-    hazard_name = rep("flood__global_rcp85_h10glob", 2),
+    hazard_name = rep("flood__rcp85_h10glob", 2),
     event_year = c(2030L, NA_integer_),
     chronic = c(FALSE, TRUE)
   )
@@ -26,7 +24,7 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
     companies = companies,
     events = events,
     hazards = hazards,
-    areas = areas,
+    precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors,
     growth_rate = 0.02,
     net_profit_margin = 0.1,
@@ -56,17 +54,19 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   # Should have baseline and shock scenarios
   testthat::expect_true(all(c("baseline", "shock") %in% unique(res$assets_yearly$scenario)))
   testthat::expect_true(all(c("baseline", "shock") %in% unique(res$companies_yearly$scenario)))
+  
+  # Should have matching_method column in assets_factors
+  testthat::expect_true("matching_method" %in% names(res$assets_factors))
+  testthat::expect_true(all(res$assets_factors$matching_method %in% c("coordinates", "municipality", "province")))
 })
 
 testthat::test_that("compute_risk processes single acute event", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
-  )
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
 
   # Single acute event
@@ -74,7 +74,7 @@ testthat::test_that("compute_risk processes single acute event", {
   events <- data.frame(
     event_id = "acute_2030",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob",
+    hazard_name = "flood__rcp85_h10glob",
     event_year = 2030L,
     chronic = FALSE
   )
@@ -84,7 +84,7 @@ testthat::test_that("compute_risk processes single acute event", {
     companies = companies,
     events = events,
     hazards = hazards,
-    areas = areas,
+    precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors
   )
 
@@ -114,11 +114,9 @@ testthat::test_that("compute_risk processes chronic event", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
-  )
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
 
   # Single chronic event
@@ -126,7 +124,7 @@ testthat::test_that("compute_risk processes chronic event", {
   events <- data.frame(
     event_id = "chronic",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob",
+    hazard_name = "flood__rcp85_h10glob",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -136,7 +134,7 @@ testthat::test_that("compute_risk processes chronic event", {
     companies = companies,
     events = events,
     hazards = hazards,
-    areas = areas,
+    precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors
   )
 
@@ -162,13 +160,11 @@ testthat::test_that("compute_risk validates required parameters", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  hazards <- load_hazards(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  areas <- load_location_areas(
-    file.path(base_dir, "areas", "municipality"),
-    file.path(base_dir, "areas", "province")
-  )
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
-  inventory <- list_hazard_inventory(hazards)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   events <- data.frame(
     event_id = "test",
@@ -185,36 +181,34 @@ testthat::test_that("compute_risk validates required parameters", {
       companies = companies,
       events = events,
       hazards = NULL,
-      areas = areas,
+      precomputed_hazards = precomputed_hazards,
       damage_factors = damage_factors
     ),
     "hazards must be a non-empty named list"
   )
 
-  # Test missing areas parameter
+  # Test missing precomputed_hazards parameter
   testthat::expect_error(
     compute_risk(
       assets = assets,
       companies = companies,
       events = events,
       hazards = hazards,
-      areas = NULL,
+      precomputed_hazards = NULL,
       damage_factors = damage_factors
     ),
-    "areas must be a list with 'municipalities' and 'provinces'"
+    "precomputed_hazards must be"
   )
 })
 
 testthat::test_that("compute_risk carries hazard_name through to events", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
-  municipalities <- load_municipalities(file.path(base_dir, "areas", "municipality"))
-  provinces <- load_provinces(file.path(base_dir, "areas", "province"))
-  output_crs <- terra::crs(hazards[[1]])
-
-  assets_geo <- geolocate_assets(assets, municipalities, provinces, output_crs = output_crs)
-  assets_long <- extract_hazard_statistics(assets_geo, hazards)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  precomputed_hazards <- read_precomputed_hazards(base_dir)
+  
+  assets_long <- extract_hazard_statistics(assets, hazards, precomputed_hazards)
   damage_factors <- read_damage_cost_factors(base_dir)
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
 
@@ -222,7 +216,7 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
   events <- data.frame(
     event_id = "ev1",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob",
+    hazard_name = "flood__rcp85_h10glob",
     event_year = 2030,
     chronic = FALSE
   )
@@ -235,7 +229,7 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
       companies = companies,
       events = events,
       hazards = hazards,
-      areas = list(municipalities = municipalities, provinces = provinces),
+      precomputed_hazards = precomputed_hazards,
       damage_factors = damage_factors
     ),
     NA

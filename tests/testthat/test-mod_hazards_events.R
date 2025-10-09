@@ -7,11 +7,14 @@ testthat::test_that("mod_hazards_events_ui renders controls", {
 
 testthat::test_that("mod_hazards_events_server exposes events reactive", {
   shiny::testServer(mod_hazards_events_server, args = list(id = "hz", hazards_inventory = shiny::reactive({
-    # Minimal fake inventory
+    # Minimal fake inventory with required columns
     data.frame(
-      key = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
+      key = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       hazard_type = c("flood", "flood"),
-      hazard_name = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
+      scenario_name = c("RCP8.5", "RCP8.5"),
+      hazard_return_period = c(100, 10),
+      scenario_code = c("rcp85", "rcp85"),
+      hazard_name = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       stringsAsFactors = FALSE
     )
   })), {
@@ -22,8 +25,9 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     testthat::expect_equal(nrow(events_rv()), 0)
 
     # Provide selections for the first event
-    session$setInputs("hazard_1" = "flood")
-    session$setInputs("hazard_name_1" = "flood__global_rcp85_h100glob")
+    session$setInputs("hazard_type_1" = "flood")
+    session$setInputs("scenario_name_1" = "RCP8.5")
+    session$setInputs("return_period_1" = 100)
     session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
 
@@ -34,8 +38,9 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     testthat::expect_equal(counter(), 2L)
 
     # Add a second event
-    session$setInputs("hazard_2" = "flood")
-    session$setInputs("hazard_name_2" = "flood__global_rcp85_h10glob")
+    session$setInputs("hazard_type_2" = "flood")
+    session$setInputs("scenario_name_2" = "RCP8.5")
+    session$setInputs("return_period_2" = 10)
     session$setInputs("chronic_2" = TRUE)
     session$setInputs(add_event = 2)
 
@@ -49,29 +54,33 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 
 testthat::test_that("mod_hazards_events_server shows only one form at a time", {
   shiny::testServer(mod_hazards_events_server, args = list(id = "hz", hazards_inventory = shiny::reactive({
-    # Minimal fake inventory
+    # Minimal fake inventory with required columns
     data.frame(
-      key = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
+      key = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       hazard_type = c("flood", "flood"),
-      hazard_name = c("flood__global_rcp85_h100glob", "flood__global_rcp85_h10glob"),
+      scenario_name = c("RCP8.5", "RCP8.5"),
+      hazard_return_period = c(100, 10),
+      scenario_code = c("rcp85", "rcp85"),
+      hazard_name = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       stringsAsFactors = FALSE
     )
   })), {
-    # Initially, one form is present (hazard_1)
+    # Initially, one form is present (hazard_type_1, scenario_name_1, return_period_1)
     ui_html <- htmltools::renderTags(output$events_ui)$html
-    testthat::expect_true(grepl("hazard_1", ui_html))
-    testthat::expect_false(grepl("hazard_2", ui_html))
+    testthat::expect_true(grepl("hazard_type_1", ui_html))
+    testthat::expect_false(grepl("hazard_type_2", ui_html))
 
     # Add first event
-    session$setInputs("hazard_1" = "flood")
-    session$setInputs("hazard_name_1" = "flood__global_rcp85_h100glob_brazil")
+    session$setInputs("hazard_type_1" = "flood")
+    session$setInputs("scenario_name_1" = "RCP8.5")
+    session$setInputs("return_period_1" = 100)
     session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1) # This is now the first 'add_event' click
 
-    # After adding event, should still show only one form (now hazard_2, not hazard_1)
+    # After adding event, should still show only one form (now hazard_type_2, not hazard_type_1)
     ui_html <- htmltools::renderTags(output$events_ui)$html
-    testthat::expect_true(grepl("hazard_2", ui_html))
-    testthat::expect_false(grepl("hazard_1", ui_html))
+    testthat::expect_true(grepl("hazard_type_2", ui_html))
+    testthat::expect_false(grepl("hazard_type_1", ui_html))
   })
 })

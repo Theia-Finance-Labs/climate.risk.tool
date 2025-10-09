@@ -161,3 +161,63 @@ read_damage_cost_factors <- function(base_dir) {
   message("[read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
   factors_df
 }
+
+#' Read precomputed administrative hazard statistics from CSV file
+#'
+#' @title Read precomputed hazard statistics for provinces and municipalities
+#' @description Reads precomputed hazard statistics from CSV file containing hazard data 
+#'   aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard 
+#'   values for assets without coordinates but with province or municipality information.
+#' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
+#' @return tibble with precomputed hazard statistics including columns: region, adm_level, 
+#'   scenario_code, scenario_name, hazard_return_period, hazard_type, min, max, mean, median, 
+#'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
+#' @examples
+#' \dontrun{
+#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
+#' precomputed <- read_precomputed_hazards(base_dir)
+#' # Look up Amazonas province flood hazard
+#' amazonas_flood <- precomputed |>
+#'   dplyr::filter(region == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
+#' }
+#' @export
+read_precomputed_hazards <- function(base_dir) {
+  message("[read_precomputed_hazards] Reading precomputed hazard statistics from: ", base_dir)
+
+  # Define file path
+  precomputed_path <- file.path(base_dir, "precomputed_adm_hazards.csv")
+
+  # Check if file exists
+  if (!file.exists(precomputed_path)) {
+    stop("Precomputed hazards file not found at: ", precomputed_path)
+  }
+
+  # Read the precomputed hazards CSV
+  precomputed_df <- readr::read_csv(precomputed_path, show_col_types = FALSE) |>
+    tibble::as_tibble()
+
+  # Ensure numeric columns are numeric
+  numeric_cols <- c("hazard_return_period", "min", "max", "mean", "median", 
+                    "p2_5", "p5", "p95", "p97_5", "n_obs")
+  
+  precomputed_df <- precomputed_df |>
+    dplyr::mutate(
+      dplyr::across(
+        dplyr::any_of(numeric_cols),
+        ~ as.numeric(.)
+      )
+    )
+
+  # Validate adm_level values
+  valid_adm_levels <- c("ADM1", "ADM2")
+  invalid_levels <- setdiff(unique(precomputed_df$adm_level), valid_adm_levels)
+  if (length(invalid_levels) > 0) {
+    warning("Found unexpected adm_level values: ", paste(invalid_levels, collapse = ", "))
+  }
+
+  message("[read_precomputed_hazards] Loaded ", nrow(precomputed_df), " precomputed hazard records")
+  message("  ADM1 (province) records: ", sum(precomputed_df$adm_level == "ADM1"))
+  message("  ADM2 (municipality) records: ", sum(precomputed_df$adm_level == "ADM2"))
+  
+  precomputed_df
+}

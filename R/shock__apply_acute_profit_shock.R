@@ -30,17 +30,15 @@ apply_acute_profit_shock <- function(
     acute_events) {
   # --- APPLY FLOOD ACUTE DAMAGE TO PROFITS ---
 
-  # compute acute damages for floods in assets_factors (non-invasive; only adds a column)
-  if (all(c("hazard_type", "damage_factor", "cost_factor") %in% names(assets_factors))) {
-    assets_factors <- assets_factors |>
-      dplyr::mutate(
-        acute_damage = dplyr::case_when(
-          tolower(as.character(.data$hazard_type)) == "flood" ~
-            as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor),
-          TRUE ~ NA_real_
-        )
+
+  assets_factors <- assets_factors |>
+    dplyr::mutate(
+      acute_damage = dplyr::case_when(
+        tolower(as.character(.data$hazard_type)) == "flood" ~
+          as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor),
+        TRUE ~ NA_real_
       )
-  }
+    )
 
   # Select only floods from events
   flood_events <- acute_events |>
@@ -56,16 +54,16 @@ apply_acute_profit_shock <- function(
   if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
     shock_map <- dplyr::inner_join(
       assets_flood |>
-        dplyr::select(.data$asset, .data$hazard_name, .data$acute_damage),
+        dplyr::select("asset", "hazard_name", "acute_damage"),
       flood_events |>
-        dplyr::select(.data$hazard_name, .data$event_year),
+        dplyr::select("hazard_name", "event_year"),
       by = "hazard_name"
     )
 
     # Sum acute_damage per (asset, event_year) in case multiple hazards per asset-year
     if (nrow(shock_map) > 0) {
       shocks_by_asset_year <- shock_map |>
-        dplyr::group_by(.data$asset, .data$event_year) |>
+        dplyr::group_by(asset, event_year) |>
         dplyr::summarize(
           acute_damage = sum(as.numeric(.data$acute_damage), na.rm = TRUE),
           .groups = "drop"
@@ -92,7 +90,7 @@ apply_acute_profit_shock <- function(
         profit = as.numeric(.data$profit) -
           dplyr::if_else(is.na(.data$acute_damage_to_apply), 0, as.numeric(.data$acute_damage_to_apply))
       ) |>
-      dplyr::select(-.data$acute_damage_to_apply)
+      dplyr::select(-"acute_damage_to_apply")
   }
 
 

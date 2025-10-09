@@ -76,7 +76,18 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
             Message = "No events configured - will use default event"
           )
         } else {
-          events
+          
+          # Exclude event_id column and rename for better display
+          events |>
+            dplyr::select(-"event_id") |>
+            dplyr::rename(
+              "Hazard Type" = .data$hazard_type,
+              "Hazard Name" = .data$hazard_name,
+              "Scenario" = .data$scenario_name,
+              "Return Period (years)" = .data$hazard_return_period,
+              "Shock Year" = .data$event_year,
+              "Chronic" = .data$chronic
+            )
         }
       },
       bordered = TRUE,

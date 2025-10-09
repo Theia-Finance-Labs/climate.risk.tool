@@ -17,7 +17,7 @@ compute_shock_trajectories(
 
 \item{assets_with_factors}{tibble with hazard data and damage/cost factors}
 
-\item{events}{tibble with columns: event_id, hazard_type, hazard_name, event_year (or NA), chronic (logical)}
+\item{events}{tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA), chronic (logical)}
 
 \item{net_profit_margin}{numeric. Net profit margin for computing profits from shocked revenue (default: 0.1)}
 

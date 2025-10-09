@@ -41,6 +41,15 @@ mod_results_assets_server <- function(id, results_reactive) {
         }
       }
 
+      # Reorder columns to show matching_method prominently
+      if ("matching_method" %in% names(assets)) {
+        col_order <- c(
+          "asset", "company", "matching_method",
+          setdiff(names(assets), c("asset", "company", "matching_method"))
+        )
+        assets <- assets[, col_order, drop = FALSE]
+      }
+
       DT::datatable(
         assets,
         options = list(

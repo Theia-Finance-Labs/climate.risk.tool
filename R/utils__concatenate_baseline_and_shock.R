@@ -30,18 +30,18 @@ concatenate_baseline_and_shock <- function(
     yearly_shocked_df) {
   # Prepare baseline scenario data
   baseline_scenario <- yearly_baseline_df |>
-    dplyr::select(.data$asset, .data$company, .data$year, .data$revenue, .data$profit) |>
+    dplyr::select("asset", "company", "year", "revenue", "profit") |>
     dplyr::mutate(scenario = "baseline")
 
   # Prepare shocked scenario data
   shocked_scenario <- yearly_shocked_df |>
-    dplyr::select(.data$asset, .data$company, .data$year, .data$revenue, .data$profit) |>
+    dplyr::select("asset", "company", "year", "revenue", "profit") |>
     dplyr::mutate(scenario = "shock")
 
   # Combine scenarios and reorder columns for consistency
   result <- dplyr::bind_rows(baseline_scenario, shocked_scenario) |>
-    dplyr::select(.data$asset, .data$company, .data$year, .data$scenario, .data$revenue, .data$profit) |>
-    dplyr::arrange(.data$asset, .data$scenario, .data$year)
+    dplyr::select("asset", "company", "year", "scenario", "revenue", "profit") |>
+    dplyr::arrange("asset", "scenario", "year")
 
   return(result)
 }
