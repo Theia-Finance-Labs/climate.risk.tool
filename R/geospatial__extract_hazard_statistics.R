@@ -8,7 +8,7 @@
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_intensity, hazard_mean, hazard_median, hazard_max, 
-#'   hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5
+#'   hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5, matching_method
 #' @noRd
 extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = NULL, use_exactextractr = FALSE) {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
@@ -122,7 +122,8 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
         dplyr::mutate(
           hazard_name = hazard_name,
           hazard_type = hazard_type,
-          hazard_intensity = .data$hazard_mean
+          hazard_intensity = .data$hazard_mean,
+          matching_method = "coordinates"
         ) |>
         dplyr::mutate(
           hazard_intensity = dplyr::coalesce(.data$hazard_intensity, 0),
@@ -140,7 +141,7 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
           "municipality", "province", "asset_category", "size_in_m2",
           "share_of_economic_activity", "hazard_name", "hazard_type",
           "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
-          "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5"
+          "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5", "matching_method"
         )
       
       coord_results_list[[i]] <- df_i
@@ -218,14 +219,15 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
           hazard_p2_5 = .data$p2_5,
           hazard_p5 = .data$p5,
           hazard_p95 = .data$p95,
-          hazard_p97_5 = .data$p97_5
+          hazard_p97_5 = .data$p97_5,
+          matching_method = match_level
         ) |>
         dplyr::select(
           "asset", "company", "latitude", "longitude",
           "municipality", "province", "asset_category", "size_in_m2",
           "share_of_economic_activity", "hazard_name", "hazard_type",
           "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
-          "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5"
+          "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5", "matching_method"
         )
       
       precomp_results_list[[i]] <- asset_hazard_data

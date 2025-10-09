@@ -54,6 +54,10 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   # Should have baseline and shock scenarios
   testthat::expect_true(all(c("baseline", "shock") %in% unique(res$assets_yearly$scenario)))
   testthat::expect_true(all(c("baseline", "shock") %in% unique(res$companies_yearly$scenario)))
+  
+  # Should have matching_method column in assets_factors
+  testthat::expect_true("matching_method" %in% names(res$assets_factors))
+  testthat::expect_true(all(res$assets_factors$matching_method %in% c("coordinates", "municipality", "province")))
 })
 
 testthat::test_that("compute_risk processes single acute event", {

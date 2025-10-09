@@ -23,8 +23,8 @@ testthat::test_that("extract_hazard_statistics returns long format with hazard s
 
   out <- extract_hazard_statistics(assets, hazards, precomputed, use_exactextractr = FALSE)
 
-  # Should have required long format columns
-  required_cols <- c("asset", "hazard_name", "hazard_type", "hazard_mean", "hazard_median", "hazard_max")
+  # Should have required long format columns including matching_method
+  required_cols <- c("asset", "hazard_name", "hazard_type", "hazard_mean", "hazard_median", "hazard_max", "matching_method")
   testthat::expect_true(all(required_cols %in% names(out)))
 
   # Should be in long format (more rows than original assets due to multiple hazards)
@@ -34,6 +34,10 @@ testthat::test_that("extract_hazard_statistics returns long format with hazard s
   testthat::expect_true(is.numeric(out$hazard_mean))
   testthat::expect_true(is.numeric(out$hazard_median))
   testthat::expect_true(is.numeric(out$hazard_max))
+  
+  # Should have matching_method column with valid values
+  testthat::expect_true(is.character(out$matching_method))
+  testthat::expect_true(all(out$matching_method %in% c("coordinates", "municipality", "province")))
 })
 
 
@@ -78,6 +82,17 @@ testthat::test_that("extract_hazard_statistics handles mixed assets (coordinates
   
   # All should have hazard statistics
   testthat::expect_true(all(!is.na(out$hazard_mean)))
+  
+  # Test matching_method column values
+  asset1_method <- unique(out$matching_method[out$asset == df$asset[1]])
+  asset2_method <- unique(out$matching_method[out$asset == df$asset[2]])
+  asset3_method <- unique(out$matching_method[out$asset == df$asset[3]])
+  asset4_method <- unique(out$matching_method[out$asset == df$asset[4]])
+  
+  testthat::expect_equal(asset1_method, "coordinates")
+  testthat::expect_equal(asset2_method, "municipality")
+  testthat::expect_equal(asset3_method, "province")
+  testthat::expect_equal(asset4_method, "coordinates")
 })
 
 
