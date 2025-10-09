@@ -6,7 +6,7 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `event_id`, `hazard_type`, `hazard_name`, `event_year` (or NA), `chronic`.
+#' @param events data.frame with columns `event_id`, `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA), `chronic`.
 #'   The `event_id` column will be auto-generated if missing.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())

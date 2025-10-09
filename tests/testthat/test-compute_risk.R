@@ -13,7 +13,7 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   events <- data.frame(
     event_id = c("e1", "e2"),
     hazard_type = rep("flood", 2),
-    hazard_name = rep("flood__global_rcp85_h10glob", 2),
+    hazard_name = rep("flood__rcp85_h10glob", 2),
     event_year = c(2030L, NA_integer_),
     chronic = c(FALSE, TRUE)
   )
@@ -70,7 +70,7 @@ testthat::test_that("compute_risk processes single acute event", {
   events <- data.frame(
     event_id = "acute_2030",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob",
+    hazard_name = "flood__rcp85_h10glob",
     event_year = 2030L,
     chronic = FALSE
   )
@@ -120,7 +120,7 @@ testthat::test_that("compute_risk processes chronic event", {
   events <- data.frame(
     event_id = "chronic",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob",
+    hazard_name = "flood__rcp85_h10glob",
     event_year = NA_integer_,
     chronic = TRUE
   )
@@ -212,7 +212,7 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
   events <- data.frame(
     event_id = "ev1",
     hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h10glob",
+    hazard_name = "flood__rcp85_h10glob",
     event_year = 2030,
     chronic = FALSE
   )

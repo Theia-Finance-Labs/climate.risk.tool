@@ -16,7 +16,7 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
   # Separate assets into coordinate-based and administrative-based
   assets_with_coords <- assets_df |>
     dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
-  
+
   assets_without_coords <- assets_df |>
     dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude))
   

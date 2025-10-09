@@ -9,7 +9,7 @@ test_that("load_hazards_from_mapping loads from mapping dataframe", {
     hazard_return_period = c(10, 10)
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
   rasters <- load_hazards_from_mapping(
@@ -33,7 +33,7 @@ test_that("load_hazards_from_mapping validates all files exist", {
     hazard_return_period = c(10)
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests/tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
   expect_error(
@@ -54,7 +54,7 @@ test_that("load_hazards_from_mapping checks for duplicates on filter columns", {
     hazard_return_period = c(10, 10)  # Duplicate!
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests/tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
   
   expect_error(
     load_hazards_from_mapping(
@@ -74,7 +74,7 @@ test_that("load_hazards_from_mapping loads rasters correctly", {
     hazard_return_period = c(10, 10, 100)
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
   rasters <- load_hazards_from_mapping(
@@ -102,7 +102,7 @@ test_that("load_hazards_from_mapping works with metadata workflow", {
     hazard_return_period = c(10, 10)
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
   # Load rasters from mapping
@@ -121,7 +121,7 @@ test_that("load_hazards_from_mapping works with metadata workflow", {
 
 test_that("read_hazards_mapping and list_hazard_inventory_from_metadata workflow", {
   # Load full mapping from actual file
-  mapping_file <- file.path(get_test_data_dir(), "hazards_name_mapping.csv")
+  mapping_file <- file.path(get_test_data_dir(), "hazards_metadata.csv")
 
   
   # Read mapping once
@@ -164,7 +164,7 @@ test_that("load_hazards_from_mapping rasters are properly named", {
     hazard_return_period = c(10, 10)
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
   rasters <- load_hazards_from_mapping(
@@ -192,7 +192,7 @@ test_that("load_hazards_from_mapping supports aggregation parameter", {
     hazard_return_period = c(10)
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
   # Test with aggregate_factor = 1 (no aggregation, just pass the parameter)
@@ -219,7 +219,7 @@ test_that("load_hazards_from_mapping handles subdirectories", {
     hazard_return_period = c(10)
   )
   
-  hazards_dir <- file.path(get_test_data_dir(), "../tests_data/hazards")
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
   rasters <- load_hazards_from_mapping(

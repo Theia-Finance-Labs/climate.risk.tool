@@ -20,7 +20,7 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 #' hazards_events Server Functions
 #'
 #' @param hazards_inventory reactive data.frame with columns: key, hazard_type, hazard_name
-#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_name, event_year, chronic
+#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year, chronic
 #' @export
 mod_hazards_events_server <- function(id, hazards_inventory) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -29,6 +29,8 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       event_id = character(),
       hazard_type = character(),
       hazard_name = character(),
+      scenario_name = character(),
+      hazard_return_period = numeric(),
       event_year = integer(),
       chronic = logical()
     ))
@@ -75,6 +77,8 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         event_id = paste0("ev", nrow(events_rv()) + 1L),
         hazard_type = haz_type,
         hazard_name = hazard_name_val,
+        scenario_name = scenario,
+        hazard_return_period = return_period,
         event_year = if (isTRUE(input[[paste0("chronic_", k)]])) NA_integer_ else as.integer(input[[paste0("year_", k)]]),
         chronic = isTRUE(input[[paste0("chronic_", k)]])
       )

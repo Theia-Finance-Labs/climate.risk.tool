@@ -34,7 +34,7 @@ apply_chronic_revenue_shock <- function(
 
   result <- yearly_trajectories |>
     # Return only the required columns (revenue only, not profit)
-    dplyr::select(.data$asset, .data$company, .data$year, .data$revenue)
+    dplyr::select("asset", "company", "year", "revenue")
 
   return(result)
 }

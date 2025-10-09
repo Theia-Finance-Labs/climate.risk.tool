@@ -41,9 +41,9 @@ apply_acute_revenue_shock <- function(
   if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
     shock_map <- dplyr::inner_join(
       assets_flood |>
-        dplyr::select(.data$asset, .data$hazard_name, .data$business_disruption),
+        dplyr::select("asset", "hazard_name", "business_disruption"),
       flood_events |>
-        dplyr::select(.data$hazard_name, .data$event_year),
+        dplyr::select("hazard_name", "event_year"),
       by = "hazard_name"
     )
 
@@ -82,7 +82,7 @@ apply_acute_revenue_shock <- function(
           as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
         )
       ) |>
-      dplyr::select(-.data$disruption_days)
+      dplyr::select(-"disruption_days")
   }
 
 

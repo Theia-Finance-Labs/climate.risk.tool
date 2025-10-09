@@ -19,6 +19,9 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
     asset_category = c("Industrial", "Commercial")
   )
 
+  # Add acute_damage column as expected by the function
+  assets_factors$acute_damage <- assets_factors$damage_factor * assets_factors$cost_factor
+
   acute_events <- data.frame(
     event_id = "e1",
     hazard_type = "flood",

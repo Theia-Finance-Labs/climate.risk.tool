@@ -36,18 +36,6 @@ load_hazards_from_mapping <- function(mapping_df,
                                        memfrac = 0.3) {
   message("[load_hazards_from_mapping] Loading hazards...")
   
-  # Validate mapping_df
-  if (!tibble::is_tibble(mapping_df) && !is.data.frame(mapping_df)) {
-    stop("mapping_df must be a tibble or data frame")
-  }
-  
-  # Validate required columns
-  required_cols <- c("hazard_file", "hazard_type", "scenario_code", 
-                     "scenario_name", "hazard_return_period")
-  missing_cols <- setdiff(required_cols, names(mapping_df))
-  if (length(missing_cols) > 0) {
-    stop("mapping_df missing required columns: ", paste(missing_cols, collapse = ", "))
-  }
   
   mapping <- tibble::as_tibble(mapping_df)
   message("  Found ", nrow(mapping), " hazard entries in mapping")

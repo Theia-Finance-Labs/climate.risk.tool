@@ -32,18 +32,18 @@ gather_and_pivot_results <- function(companies_expected_loss) {
     companies_baseline_vals <- companies_baseline |>
       dplyr::select("company", "npv", "merton_pd", "expected_loss") |>
       dplyr::rename(
-        NPV_baseline = "npv",
-        PD_baseline = "merton_pd",
-        Expected_loss_baseline = "expected_loss"
+        NPV_baseline = .data$npv,
+        PD_baseline = .data$merton_pd,
+        Expected_loss_baseline = .data$expected_loss
       )
 
     # Extract shock values
     companies_shock_vals <- companies_shock |>
       dplyr::select("company", "npv", "merton_pd", "expected_loss") |>
       dplyr::rename(
-        NPV_shock = "npv",
-        PD_shock = "merton_pd",
-        Expected_loss_shock = "expected_loss"
+        NPV_shock = .data$npv,
+        PD_shock = .data$merton_pd,
+        Expected_loss_shock = .data$expected_loss
       )
 
     # Join baseline and shock data
