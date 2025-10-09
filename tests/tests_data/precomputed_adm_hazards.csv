@@ -1,4 +1,4 @@
-﻿region,adm_level,scenario_code,scenario_name,hazard_return,hazard_type,min,max,mean,median,p2_5,p5,p95,p97_5,n_obs,max_x,max_y
+﻿region,adm_level,scenario_code,scenario_name,hazard_return_period,hazard_type,min,max,mean,median,p2_5,p5,p95,p97_5,n_obs,max_x,max_y
 Roraima,ADM1,pc,CurrentClimate,10,flood,1.0,3138.0,446.1051967101339,370.0,18.0,35.0,1168.0,1385.0,3538989,-59.63958333333332,4.092916666666659
 Amapa,ADM1,pc,CurrentClimate,10,flood,1.0,4060.0,471.0793909629963,267.0,23.0,43.0,1764.0,1930.0,2362221,-53.16958333333333,0.3870833333333312
 Amazonas,ADM1,pc,CurrentClimate,10,flood,1.0,4393.0,857.9133386223981,775.0,42.0,83.0,1902.0,2026.0,29972533,-58.345416666666665,-8.342083333333344

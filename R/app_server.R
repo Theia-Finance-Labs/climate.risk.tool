@@ -89,7 +89,7 @@ app_server <- function(input, output, session) {
         companies <- read_companies(company_file$datapath)
 
         hazards <- control$get_hazards_at_factor()
-        if (is.null(hazards)) stop("Hazards could not be loaded")
+        if (is.null(hazards) || length(hazards) == 0) stop("Hazards could not be loaded")
 
         precomputed_hazards <- read_precomputed_hazards(base_dir)
         damage_factors <- read_damage_cost_factors(base_dir)
@@ -100,12 +100,15 @@ app_server <- function(input, output, session) {
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)
         if (inherits(ev_df, "try-error") || !(tibble::is_tibble(ev_df) || is.data.frame(ev_df)) || nrow(ev_df) == 0) {
-          # Provide a default using first hazard_type and its first scenario
-          inv <- list_hazard_inventory(hazards)
-          default_ht_col <- inv |> dplyr::pull(.data$hazard_type) |> unique()
-          default_ht <- default_ht_col[1]
-          default_hn_col <- inv |> dplyr::filter(.data$hazard_type == default_ht) |> dplyr::pull(.data$hazard_name)
-          default_hn <- default_hn_col[1]
+          # Provide a default using first hazard from loaded hazards
+          haz_names <- names(hazards)
+          if (length(haz_names) == 0) stop("No hazard names available")
+          
+          # Parse first hazard name to get type
+          parts <- strsplit(haz_names[1], "__", fixed = TRUE)[[1]]
+          default_ht <- if (length(parts) >= 1) parts[[1]] else "unknown"
+          default_hn <- haz_names[1]
+          
           ev_df <- tibble::tibble(
             event_id = "ev1",
             hazard_type = default_ht,

@@ -35,7 +35,7 @@ compute_pd_merton <- function(companies_npv) {
       # Ensure PD is in [0, 1] range
       merton_pd = pmax(0, pmin(1, .data$merton_pd))
     ) |>
-    dplyr::select(-.data$V, -.data$D, -.data$sigma, -.data$T, -.data$r, -.data$d1)
+    dplyr::select(-"V", -"D", -"sigma", -"T", -"r", -"d1")
 
   return(result)
 }

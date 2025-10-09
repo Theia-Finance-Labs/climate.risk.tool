@@ -4,7 +4,7 @@
 # - read_precomputed_hazards(base_dir) -> data.frame
 # - Reads precomputed_adm_hazards.csv from base_dir/
 # - Returns data frame with columns: region, adm_level, scenario_code, scenario_name, 
-#   hazard_return, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
+#   hazard_return_period, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
 # - adm_level values: "ADM1" (province), "ADM2" (municipality)
 # - Used to look up hazard statistics for assets matched by municipality or province name
 
@@ -19,7 +19,7 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
   
   # Should have required columns
   required_cols <- c("region", "adm_level", "scenario_code", "scenario_name", 
-                     "hazard_return", "hazard_type", "min", "max", "mean", 
+                     "hazard_return_period", "hazard_type", "min", "max", "mean", 
                      "median", "p2_5", "p5", "p95", "p97_5")
   testthat::expect_true(all(required_cols %in% names(precomputed)))
   
@@ -27,7 +27,7 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
   testthat::expect_true(all(precomputed$adm_level %in% c("ADM1", "ADM2")))
   
   # Numeric columns should be numeric
-  numeric_cols <- c("min", "max", "mean", "median", "p2_5", "p5", "p95", "p97_5", "hazard_return")
+  numeric_cols <- c("min", "max", "mean", "median", "p2_5", "p5", "p95", "p97_5", "hazard_return_period")
   for (col in numeric_cols) {
     testthat::expect_true(is.numeric(precomputed[[col]]))
   }

@@ -210,7 +210,7 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
           size_in_m2 = asset_row |> dplyr::pull(.data$size_in_m2),
           share_of_economic_activity = asset_row |> dplyr::pull(.data$share_of_economic_activity),
           # Map precomputed columns to output format
-          hazard_name = paste0(.data$hazard_type, "__", .data$scenario_code, "_h", .data$hazard_return, "glob"),
+          hazard_name = paste0(.data$hazard_type, "__", .data$scenario_code, "_h", .data$hazard_return_period, "glob"),
           hazard_intensity = .data$mean,
           hazard_mean = .data$mean,
           hazard_median = .data$median,

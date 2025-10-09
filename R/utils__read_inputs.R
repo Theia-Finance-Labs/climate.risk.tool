@@ -170,7 +170,7 @@ read_damage_cost_factors <- function(base_dir) {
 #'   values for assets without coordinates but with province or municipality information.
 #' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level, 
-#'   scenario_code, scenario_name, hazard_return, hazard_type, min, max, mean, median, 
+#'   scenario_code, scenario_name, hazard_return_period, hazard_type, min, max, mean, median, 
 #'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
 #' @examples
 #' \dontrun{
@@ -197,7 +197,7 @@ read_precomputed_hazards <- function(base_dir) {
     tibble::as_tibble()
 
   # Ensure numeric columns are numeric
-  numeric_cols <- c("hazard_return", "min", "max", "mean", "median", 
+  numeric_cols <- c("hazard_return_period", "min", "max", "mean", "median", 
                     "p2_5", "p5", "p95", "p97_5", "n_obs")
   
   precomputed_df <- precomputed_df |>

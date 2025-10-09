@@ -17,7 +17,8 @@
 testthat::test_that("extract_hazard_statistics returns long format with hazard statistics", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
 
   out <- extract_hazard_statistics(assets, hazards, precomputed, use_exactextractr = FALSE)
@@ -40,7 +41,8 @@ testthat::test_that("extract_hazard_statistics handles mixed assets (coordinates
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   precomputed <- read_precomputed_hazards(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   
   # Create mixed dataset
   df <- assets[1:4, , drop = FALSE]
@@ -83,7 +85,8 @@ testthat::test_that("extract_hazard_statistics raises error for unmatchable asse
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   precomputed <- read_precomputed_hazards(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   
   # Create asset with no location data
   df <- assets[1, , drop = FALSE]
@@ -107,7 +110,8 @@ testthat::test_that("extract_hazard_statistics raises error for unmatchable asse
 testthat::test_that("PRIORITY 1: coordinates take priority over municipality/province", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
 
   # Create two assets:
@@ -152,7 +156,8 @@ testthat::test_that("PRIORITY 1: coordinates take priority over municipality/pro
 testthat::test_that("PRIORITY 2: municipality takes priority over province", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
 
   # Create two assets:
@@ -197,7 +202,8 @@ testthat::test_that("PRIORITY 2: municipality takes priority over province", {
 testthat::test_that("cascade priority works end-to-end with all levels", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
 
   # Create 5 test assets demonstrating each priority level
@@ -265,7 +271,8 @@ testthat::test_that("cascade priority works end-to-end with all levels", {
 testthat::test_that("same municipality assets get identical precomputed values", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
 
   # Create test data with 6 assets using different methods
@@ -330,7 +337,8 @@ testthat::test_that("municipality not in precomputed data raises error", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   precomputed <- read_precomputed_hazards(base_dir)
-  hazards <- load_hazards(get_hazards_dir(), aggregate_factor = 16L)
+  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   
   # Create asset with municipality not in precomputed data
   df <- assets[1, , drop = FALSE]
