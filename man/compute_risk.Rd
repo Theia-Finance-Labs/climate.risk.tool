@@ -9,7 +9,7 @@ compute_risk(
   companies,
   events,
   hazards,
-  areas,
+  precomputed_hazards,
   damage_factors,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
@@ -26,7 +26,7 @@ The \code{event_id} column will be auto-generated if missing.}
 
 \item{hazards}{Named list of SpatRaster objects (from load_hazards())}
 
-\item{areas}{List containing municipalities and provinces named lists (from load_location_areas())}
+\item{precomputed_hazards}{Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())}
 
 \item{damage_factors}{Data frame with damage and cost factors (from read_damage_cost_factors())}
 
@@ -81,10 +81,7 @@ base_dir <- system.file("tests_data", package = "climate.risk.tool")
 assets <- read_assets(base_dir)
 companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
 hazards <- load_hazards(file.path(base_dir, "hazards"))
-areas <- load_location_areas(
-  file.path(base_dir, "areas", "municipality"),
-  file.path(base_dir, "areas", "province")
-)
+precomputed_hazards <- read_precomputed_hazards(base_dir)
 damage_factors <- read_damage_cost_factors(base_dir)
 
 # Define events
@@ -101,7 +98,7 @@ results <- compute_risk(
   companies = companies,
   events = events,
   hazards = hazards,
-  areas = areas,
+  precomputed_hazards = precomputed_hazards,
   damage_factors = damage_factors,
   growth_rate = 0.02,
   net_profit_margin = 0.1,

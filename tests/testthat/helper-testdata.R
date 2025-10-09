@@ -108,10 +108,7 @@ get_test_compute_risk_data <- function() {
     assets = read_assets(base_dir),
     companies = read_companies(file.path(base_dir, "user_input", "company.csv")),
     hazards = load_hazards(file.path(base_dir, "hazards")),
-    areas = load_location_areas(
-      file.path(base_dir, "areas", "municipality"),
-      file.path(base_dir, "areas", "province")
-    ),
+    precomputed_hazards = read_precomputed_hazards(base_dir),
     damage_factors = read_damage_cost_factors(base_dir)
   )
 }

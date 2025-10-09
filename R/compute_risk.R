@@ -9,7 +9,7 @@
 #' @param events data.frame with columns `event_id`, `hazard_type`, `hazard_name`, `event_year` (or NA), `chronic`.
 #'   The `event_id` column will be auto-generated if missing.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
-#' @param areas List containing municipalities and provinces named lists (from load_location_areas())
+#' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
@@ -48,10 +48,7 @@
 #' assets <- read_assets(base_dir)
 #' companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
 #' hazards <- load_hazards(file.path(base_dir, "hazards"))
-#' areas <- load_location_areas(
-#'   file.path(base_dir, "areas", "municipality"),
-#'   file.path(base_dir, "areas", "province")
-#' )
+#' precomputed_hazards <- read_precomputed_hazards(base_dir)
 #' damage_factors <- read_damage_cost_factors(base_dir)
 #'
 #' # Define events
@@ -68,7 +65,7 @@
 #'   companies = companies,
 #'   events = events,
 #'   hazards = hazards,
-#'   areas = areas,
+#'   precomputed_hazards = precomputed_hazards,
 #'   damage_factors = damage_factors,
 #'   growth_rate = 0.02,
 #'   net_profit_margin = 0.1,
@@ -86,7 +83,7 @@ compute_risk <- function(assets,
                          companies,
                          events,
                          hazards,
-                         areas,
+                         precomputed_hazards,
                          damage_factors,
                          growth_rate = 0.02,
                          net_profit_margin = 0.1,
@@ -104,8 +101,8 @@ compute_risk <- function(assets,
   if (!is.list(hazards) || length(hazards) == 0) {
     stop("hazards must be a non-empty named list of SpatRaster objects (from load_hazards())")
   }
-  if (!is.list(areas) || !all(c("municipalities", "provinces") %in% names(areas))) {
-    stop("areas must be a list with 'municipalities' and 'provinces' elements (from load_location_areas())")
+  if (!is.data.frame(precomputed_hazards) || nrow(precomputed_hazards) == 0) {
+    stop("precomputed_hazards must be a non-empty data.frame (from read_precomputed_hazards())")
   }
   if (!is.data.frame(damage_factors) || nrow(damage_factors) == 0) {
     stop("damage_factors must be a non-empty data.frame (from read_damage_cost_factors())")
@@ -138,20 +135,12 @@ compute_risk <- function(assets,
 
 
   # ============================================================================
-  # PHASE 2: GEOSPATIAL - Asset geolocation and hazard processing
+  # PHASE 2: GEOSPATIAL - Extract hazard statistics (spatial or precomputed)
   # ============================================================================
 
-  output_crs <- terra::crs(hazards[[1]])
-  # Step 2.1: Geolocate assets
-  assets_geo <- geolocate_assets(
-    assets,
-    areas$municipalities,
-    areas$provinces,
-    output_crs = output_crs
-  )
-
-  # Step 2.2: Extract hazard statistics in long format
-  assets_long <- extract_hazard_statistics(assets_geo, hazards)
+  # Extract hazard statistics: spatial extraction for assets with coordinates,
+  # precomputed lookup for assets with municipality/province only
+  assets_long <- extract_hazard_statistics(assets, hazards, precomputed_hazards)
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)

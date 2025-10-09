@@ -91,10 +91,7 @@ app_server <- function(input, output, session) {
         hazards <- control$get_hazards_at_factor()
         if (is.null(hazards)) stop("Hazards could not be loaded")
 
-        areas <- load_location_areas(
-          file.path(base_dir, "areas", "municipality"),
-          file.path(base_dir, "areas", "province")
-        )
+        precomputed_hazards <- read_precomputed_hazards(base_dir)
         damage_factors <- read_damage_cost_factors(base_dir)
 
         values$data_loaded <- TRUE
@@ -135,7 +132,7 @@ app_server <- function(input, output, session) {
           companies = companies,
           events = ev_df,
           hazards = hazards,
-          areas = areas,
+          precomputed_hazards = precomputed_hazards,
           damage_factors = damage_factors,
           growth_rate = 0.02,
           net_profit_margin = 0.1,
