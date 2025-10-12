@@ -2,10 +2,10 @@
 #'
 #' @title Read hazards metadata from CSV file
 #' @description Reads the hazards name mapping CSV file and validates that it
-#'   contains all required columns. The hazard_indicator column is optional.
+#'   contains all required columns including hazard_indicator.
 #' @param mapping_path Character path to the CSV mapping file
-#' @return Tibble with columns: hazard_file, hazard_type, scenario_code,
-#'   scenario_name, hazard_return_period, and optionally hazard_indicator
+#' @return Tibble with columns: hazard_file, hazard_type, hazard_indicator,
+#'   scenario_code, scenario_name, hazard_return_period
 #' @examples
 #' \dontrun{
 #' mapping <- read_hazards_mapping("hazards_name_mapping.csv")
@@ -20,7 +20,7 @@ read_hazards_mapping <- function(mapping_path) {
   mapping <- tibble::as_tibble(mapping)
   
   # Validate required columns
-  required_cols <- c("hazard_file", "hazard_type", "scenario_code", 
+  required_cols <- c("hazard_file", "hazard_type", "hazard_indicator", "scenario_code", 
                      "scenario_name", "hazard_return_period")
   missing_cols <- setdiff(required_cols, names(mapping))
   if (length(missing_cols) > 0) {

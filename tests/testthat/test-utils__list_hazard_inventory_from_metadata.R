@@ -5,6 +5,7 @@ test_that("list_hazard_inventory_from_metadata creates inventory from metadata",
   metadata <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_pc_h100glob.tif"),
     hazard_type = c("flood", "flood"),
+    hazard_indicator = c("Flood Height", "Flood Height"),
     scenario_code = c("pc", "pc"),
     scenario_name = c("CurrentClimate", "CurrentClimate"),
     hazard_return_period = c(10, 100)
@@ -15,6 +16,7 @@ test_that("list_hazard_inventory_from_metadata creates inventory from metadata",
   # Should return a tibble with expected columns
   expect_true(tibble::is_tibble(inventory))
   expect_true("hazard_type" %in% names(inventory))
+  expect_true("hazard_indicator" %in% names(inventory))
   expect_true("scenario_name" %in% names(inventory))
   expect_true("hazard_return_period" %in% names(inventory))
   expect_true("hazard_name" %in% names(inventory))
@@ -24,6 +26,7 @@ test_that("list_hazard_inventory_from_metadata creates unique hazard names", {
   metadata <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h100glob.tif"),
     hazard_type = c("flood", "flood"),
+    hazard_indicator = c("Flood Height", "Flood Height"),
     scenario_code = c("pc", "rcp85"),
     scenario_name = c("CurrentClimate", "RCP8.5"),
     hazard_return_period = c(10, 100)
@@ -42,6 +45,7 @@ test_that("list_hazard_inventory_from_metadata preserves all metadata columns", 
   metadata <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif"),
     hazard_type = c("flood"),
+    hazard_indicator = c("Flood Height"),
     scenario_code = c("pc"),
     scenario_name = c("CurrentClimate"),
     hazard_return_period = c(10)
@@ -51,9 +55,11 @@ test_that("list_hazard_inventory_from_metadata preserves all metadata columns", 
   
   # Should preserve key filtering columns
   expect_true("hazard_type" %in% names(inventory))
+  expect_true("hazard_indicator" %in% names(inventory))
   expect_true("scenario_name" %in% names(inventory))
   expect_true("hazard_return_period" %in% names(inventory))
   expect_equal(inventory$hazard_type[1], "flood")
+  expect_equal(inventory$hazard_indicator[1], "Flood Height")
   expect_equal(inventory$scenario_name[1], "CurrentClimate")
   expect_equal(inventory$hazard_return_period[1], 10)
 })
@@ -62,6 +68,7 @@ test_that("list_hazard_inventory_from_metadata creates consistent naming", {
   metadata <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_pc_h100glob.tif", "global_rcp85_h10glob.tif"),
     hazard_type = c("flood", "flood", "flood"),
+    hazard_indicator = c("Flood Height", "Flood Height", "Flood Height"),
     scenario_code = c("pc", "pc", "rcp85"),
     scenario_name = c("CurrentClimate", "CurrentClimate", "RCP8.5"),
     hazard_return_period = c(10, 100, 10)
@@ -80,6 +87,7 @@ test_that("list_hazard_inventory_from_metadata handles multiple hazard types", {
   metadata <- tibble::tibble(
     hazard_file = c("flood1.tif", "heat1.tif"),
     hazard_type = c("flood", "heat"),
+    hazard_indicator = c("Flood Height", "Heat Index"),
     scenario_code = c("pc", "pc"),
     scenario_name = c("CurrentClimate", "CurrentClimate"),
     hazard_return_period = c(10, 10)

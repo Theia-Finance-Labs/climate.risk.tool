@@ -7,17 +7,17 @@
 list_hazard_inventory_from_metadata(metadata)
 }
 \arguments{
-\item{metadata}{Data frame with columns: hazard_file, hazard_type, scenario_code,
-scenario_name, hazard_return_period}
+\item{metadata}{Data frame with columns: hazard_file, hazard_type, hazard_indicator,
+scenario_code, scenario_name, hazard_return_period}
 }
 \value{
-Tibble with columns: hazard_type, scenario_name, hazard_return_period,
-scenario_code, hazard_name
+Tibble with columns: hazard_type, hazard_indicator, scenario_name,
+hazard_return_period, scenario_code, hazard_name
 }
 \description{
 Creates a tibble inventory from hazard metadata, providing
-columns needed for UI selection and filtering: hazard_type, scenario_name,
-hazard_return_period, and hazard_name.
+columns needed for UI selection and filtering: hazard_type, hazard_indicator,
+scenario_name, hazard_return_period, and hazard_name.
 }
 \details{
 List hazard inventory from metadata
