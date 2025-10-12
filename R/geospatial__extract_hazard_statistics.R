@@ -56,8 +56,9 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
       hazard_name <- hn[[i]]
       
       # Look up hazard metadata from inventory
+      # Use !! to force evaluation of hazard_name variable (avoid name collision with column)
       hazard_meta <- hazards_inventory |>
-        dplyr::filter(.data$hazard_name == hazard_name) |>
+        dplyr::filter(.data$hazard_name == !!hazard_name) |>
         dplyr::slice(1)
       
       if (nrow(hazard_meta) == 0) {

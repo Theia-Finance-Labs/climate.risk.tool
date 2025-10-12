@@ -170,15 +170,15 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
     # Open NetCDF and discover structure
     nc <- ncdf4::nc_open(f)
 
-    # Identify main data variable (exclude typical coordinate dims)
+    # Identify main data variable: must be exactly one
     var_names <- names(nc$var)
-    coord_like <- tolower(names(nc$dim))
-    # prefer variable with "_max" suffix if present (FWI_max, HI_max ...)
-    main_var <- NULL
-    if (length(var_names) > 0) {
-      mv <- var_names[grepl("_max$", var_names)]
-      main_var <- if (length(mv) > 0) mv[[1]] else var_names[[1]]
+    if (length(var_names) != 1) {
+      stop(
+        "[load_nc_hazards_with_metadata] Expected exactly one variable in NetCDF, found: ",
+        paste(var_names, collapse = ", ")
+      )
     }
+    main_var <- var_names[[1]]
 
     # Coordinate variables and values
     dim_names <- vapply(nc$var[[main_var]]$dim, function(d) d$name, character(1))
