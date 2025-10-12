@@ -3,14 +3,15 @@
 #' @param assets_df Data frame with asset information. Can have geometry column (for spatial extraction)
 #'   or municipality/province columns (for precomputed lookups)
 #' @param hazards Named list of hazard rasters (from load_hazards) - used for spatial extraction
+#' @param hazards_inventory Data frame with hazard metadata (hazard_name, hazard_type, hazard_indicator, etc.)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
 #' @param use_exactextractr Logical. If TRUE and package is available, use exactextractr; otherwise use terra::extract.
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
-#'   hazard_name, hazard_type, hazard_intensity, hazard_mean, hazard_median, hazard_max, 
+#'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, hazard_mean, hazard_median, hazard_max, 
 #'   hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = NULL, use_exactextractr = FALSE) {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, use_exactextractr = FALSE) {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
   
   # Separate assets into coordinate-based and administrative-based
@@ -53,10 +54,24 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
     for (i in seq_along(hazards)) {
       hazard_rast <- hazards[[i]]
       hazard_name <- hn[[i]]
-      parts <- strsplit(hazard_name, "__", fixed = TRUE)[[1]]
-      hazard_type <- if (length(parts) >= 1) parts[[1]] else "unknown"
       
-      message("  Processing hazard ", i, "/", length(hazards), ": ", hazard_name)
+      # Look up hazard metadata from inventory
+      hazard_meta <- hazards_inventory |>
+        dplyr::filter(.data$hazard_name == hazard_name) |>
+        dplyr::slice(1)
+      
+      if (nrow(hazard_meta) == 0) {
+        # Fallback: parse from hazard_name if not in inventory
+        parts <- strsplit(hazard_name, "__", fixed = TRUE)[[1]]
+        hazard_type <- if (length(parts) >= 1) parts[[1]] else "unknown"
+        hazard_indicator <- hazard_type
+        message("  Warning: Hazard '", hazard_name, "' not found in inventory, using fallback parsing")
+      } else {
+        hazard_type <- hazard_meta$hazard_type
+        hazard_indicator <- hazard_meta$hazard_indicator
+      }
+      
+      message("  Processing hazard ", i, "/", length(hazards), ": ", hazard_name, " (", hazard_indicator, ")")
       
       # Pre-allocate statistics tibble
       n_geoms <- nrow(assets_sf)
@@ -122,6 +137,7 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
         dplyr::mutate(
           hazard_name = hazard_name,
           hazard_type = hazard_type,
+          hazard_indicator = hazard_indicator,
           hazard_intensity = .data$hazard_mean,
           matching_method = "coordinates"
         ) |>
@@ -140,7 +156,7 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
           "asset", "company", "latitude", "longitude",
           "municipality", "province", "asset_category", "size_in_m2",
           "share_of_economic_activity", "hazard_name", "hazard_type",
-          "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
+          "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
           "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5", "matching_method"
         )
       
@@ -212,6 +228,7 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
           share_of_economic_activity = asset_row |> dplyr::pull(.data$share_of_economic_activity),
           # Map precomputed columns to output format
           hazard_name = paste0(.data$hazard_type, "__", .data$scenario_code, "_h", .data$hazard_return_period, "glob"),
+          hazard_indicator = .data$hazard_type,  # Default to hazard_type for precomputed data
           hazard_intensity = .data$mean,
           hazard_mean = .data$mean,
           hazard_median = .data$median,
@@ -226,7 +243,7 @@ extract_hazard_statistics <- function(assets_df, hazards, precomputed_hazards = 
           "asset", "company", "latitude", "longitude",
           "municipality", "province", "asset_category", "size_in_m2",
           "share_of_economic_activity", "hazard_name", "hazard_type",
-          "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
+          "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
           "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5", "matching_method"
         )
       

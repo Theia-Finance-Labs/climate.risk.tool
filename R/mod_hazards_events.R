@@ -19,8 +19,8 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 
 #' hazards_events Server Functions
 #'
-#' @param hazards_inventory reactive data.frame with columns: key, hazard_type, hazard_name
-#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year, chronic
+#' @param hazards_inventory reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, hazard_return_period, hazard_name
+#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, chronic
 #' @export
 mod_hazards_events_server <- function(id, hazards_inventory) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -28,6 +28,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
     events_rv <- shiny::reactiveVal(tibble::tibble(
       event_id = character(),
       hazard_type = character(),
+      hazard_indicator = character(),
       hazard_name = character(),
       scenario_name = character(),
       hazard_return_period = numeric(),
@@ -41,24 +42,26 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
     # Add event button
     shiny::observeEvent(input$add_event, {
       k <- counter()
-      # Get all three filter selections
+      # Get all four filter selections
       haz_type <- input[[paste0("hazard_type_", k)]]
+      haz_indicator <- input[[paste0("hazard_indicator_", k)]]
       scenario <- input[[paste0("scenario_name_", k)]]
       return_period <- input[[paste0("return_period_", k)]]
       
-      if (is.null(haz_type) || is.null(scenario) || is.null(return_period)) {
+      if (is.null(haz_type) || is.null(haz_indicator) || is.null(scenario) || is.null(return_period)) {
         # If the current form is incomplete, just increment counter to create a new empty form
         counter(k + 1L)
         return()
       }
       
-      # Derive hazard_name from the three filters
+      # Derive hazard_name from the four filters
       inv <- try(hazards_inventory(), silent = TRUE)
       hazard_name_val <- NA_character_
       if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && nrow(inv) > 0) {
         matched <- inv |>
           dplyr::filter(
             .data$hazard_type == haz_type,
+            .data$hazard_indicator == haz_indicator,
             .data$scenario_name == scenario,
             .data$hazard_return_period == return_period
           )
@@ -68,7 +71,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       }
       
       if (is.na(hazard_name_val)) {
-        message("Could not determine hazard_name for: ", haz_type, ", ", scenario, ", ", return_period)
+        message("Could not determine hazard_name for: ", haz_type, ", ", haz_indicator, ", ", scenario, ", ", return_period)
         counter(k + 1L)
         return()
       }
@@ -76,6 +79,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       new_row <- tibble::tibble(
         event_id = paste0("ev", nrow(events_rv()) + 1L),
         hazard_type = haz_type,
+        hazard_indicator = haz_indicator,
         hazard_name = hazard_name_val,
         scenario_name = scenario,
         hazard_return_period = return_period,
@@ -93,21 +97,31 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
 
       inv <- try(hazards_inventory(), silent = TRUE)
       hazard_type_choices <- character(0)
+      hazard_indicator_choices <- character(0)
       scenario_choices <- character(0)
       return_period_choices <- numeric(0)
       
       if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && nrow(inv) > 0) {
         hazard_type_choices <- unique(inv$hazard_type)
         if (length(hazard_type_choices) > 0) {
-          # Get scenarios for first hazard type
+          # Get indicators for first hazard type
           first_hazard <- hazard_type_choices[[1]]
-          scenario_choices <- unique(inv$scenario_name[inv$hazard_type == first_hazard])
-          if (length(scenario_choices) > 0) {
-            # Get return periods for first hazard type and scenario
-            first_scenario <- scenario_choices[[1]]
-            return_period_choices <- unique(inv$hazard_return_period[
-              inv$hazard_type == first_hazard & inv$scenario_name == first_scenario
+          hazard_indicator_choices <- unique(inv$hazard_indicator[inv$hazard_type == first_hazard])
+          if (length(hazard_indicator_choices) > 0) {
+            # Get scenarios for first hazard type and indicator
+            first_indicator <- hazard_indicator_choices[[1]]
+            scenario_choices <- unique(inv$scenario_name[
+              inv$hazard_type == first_hazard & inv$hazard_indicator == first_indicator
             ])
+            if (length(scenario_choices) > 0) {
+              # Get return periods for first hazard type, indicator, and scenario
+              first_scenario <- scenario_choices[[1]]
+              return_period_choices <- unique(inv$hazard_return_period[
+                inv$hazard_type == first_hazard & 
+                inv$hazard_indicator == first_indicator & 
+                inv$scenario_name == first_scenario
+              ])
+            }
           }
         }
       }
@@ -117,6 +131,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         shiny::selectInput(ns(paste0("hazard_type_", k)), "Hazard Type", 
                            choices = hazard_type_choices, 
                            selected = if (length(hazard_type_choices) > 0) hazard_type_choices[[1]] else NULL),
+        shiny::uiOutput(ns(paste0("hazard_indicator_ui_", k))),
         shiny::uiOutput(ns(paste0("scenario_name_ui_", k))),
         shiny::uiOutput(ns(paste0("return_period_ui_", k))),
         shiny::checkboxInput(ns(paste0("chronic_", k)), label = "Chronic hazard (every year)", value = FALSE),
@@ -124,36 +139,56 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       )
     })
 
-    # Create cascading dropdowns: hazard_type -> scenario_name -> return_period
+    # Create cascading dropdowns: hazard_type -> hazard_indicator -> scenario_name -> return_period
     shiny::observe({
       k <- counter()
       if (k == 0) {
         return()
       }
 
-      # Scenario name UI reacts to hazard type selection
+      # Hazard indicator UI reacts to hazard type selection
+      output[[paste0("hazard_indicator_ui_", k)]] <- shiny::renderUI({
+        inv <- try(hazards_inventory(), silent = TRUE)
+        hazard_type_val <- input[[paste0("hazard_type_", k)]]
+        indicator_vec <- character(0)
+        if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && !is.null(hazard_type_val)) {
+          indicator_vec <- unique(inv$hazard_indicator[inv$hazard_type == hazard_type_val])
+        }
+        shiny::selectInput(ns(paste0("hazard_indicator_", k)), "Hazard Indicator", 
+                           choices = indicator_vec, 
+                           selected = if (length(indicator_vec) > 0) indicator_vec[[1]] else NULL)
+      })
+
+      # Scenario name UI reacts to hazard type and indicator selection
       output[[paste0("scenario_name_ui_", k)]] <- shiny::renderUI({
         inv <- try(hazards_inventory(), silent = TRUE)
         hazard_type_val <- input[[paste0("hazard_type_", k)]]
+        hazard_indicator_val <- input[[paste0("hazard_indicator_", k)]]
         scenario_vec <- character(0)
-        if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && !is.null(hazard_type_val)) {
-          scenario_vec <- unique(inv$scenario_name[inv$hazard_type == hazard_type_val])
+        if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && 
+            !is.null(hazard_type_val) && !is.null(hazard_indicator_val)) {
+          scenario_vec <- unique(inv$scenario_name[
+            inv$hazard_type == hazard_type_val & inv$hazard_indicator == hazard_indicator_val
+          ])
         }
         shiny::selectInput(ns(paste0("scenario_name_", k)), "Scenario", 
                            choices = scenario_vec, 
                            selected = if (length(scenario_vec) > 0) scenario_vec[[1]] else NULL)
       })
       
-      # Return period UI reacts to both hazard type and scenario selection
+      # Return period UI reacts to hazard type, indicator, and scenario selection
       output[[paste0("return_period_ui_", k)]] <- shiny::renderUI({
         inv <- try(hazards_inventory(), silent = TRUE)
         hazard_type_val <- input[[paste0("hazard_type_", k)]]
+        hazard_indicator_val <- input[[paste0("hazard_indicator_", k)]]
         scenario_val <- input[[paste0("scenario_name_", k)]]
         return_period_vec <- numeric(0)
         if (!inherits(inv, "try-error") && (tibble::is_tibble(inv) || is.data.frame(inv)) && 
-            !is.null(hazard_type_val) && !is.null(scenario_val)) {
+            !is.null(hazard_type_val) && !is.null(hazard_indicator_val) && !is.null(scenario_val)) {
           return_period_vec <- unique(inv$hazard_return_period[
-            inv$hazard_type == hazard_type_val & inv$scenario_name == scenario_val
+            inv$hazard_type == hazard_type_val & 
+            inv$hazard_indicator == hazard_indicator_val & 
+            inv$scenario_name == scenario_val
           ])
         }
         shiny::selectInput(ns(paste0("return_period_", k)), "Return Period (years)", 

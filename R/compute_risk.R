@@ -9,6 +9,7 @@
 #' @param events data.frame with columns `event_id`, `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA), `chronic`.
 #'   The `event_id` column will be auto-generated if missing.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
+#' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
@@ -83,6 +84,7 @@ compute_risk <- function(assets,
                          companies,
                          events,
                          hazards,
+                         hazards_inventory,
                          precomputed_hazards,
                          damage_factors,
                          growth_rate = 0.02,
@@ -140,7 +142,7 @@ compute_risk <- function(assets,
 
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/province only
-  assets_long <- extract_hazard_statistics(assets, hazards, precomputed_hazards)
+  assets_long <- extract_hazard_statistics(assets, hazards, hazards_inventory, precomputed_hazards)
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)

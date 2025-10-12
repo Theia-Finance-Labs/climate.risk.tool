@@ -13,6 +13,7 @@ Imports:
     dplyr (>= 1.0.0),
     DT,
     golem,
+    ncdf4,
     purrr,
     readr,
     sf,

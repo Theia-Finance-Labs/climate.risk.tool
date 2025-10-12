@@ -74,15 +74,36 @@ Columns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_p
 
 Maps physical hazard files to metadata for UI display and filtering.
 
-### Hazard Raster Files
+### Hazard Data Files
 
-Location: `{base_dir}/hazards_world/{hazard_type}/`
+The tool supports two hazard data formats:
+
+#### GeoTIFF Files (.tif)
+Location: `{base_dir}/hazards/{hazard_type}/`
 
 Naming convention: `global_{scenario_code}_h{return_period}glob.tif`
 
 Examples:
 - `global_pc_h10glob.tif` - Current climate, 10-year return period
 - `global_rcp85_h100glob.tif` - RCP8.5, 100-year return period
+
+**Metadata:** Defined in `hazards_metadata.csv` (hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period)
+
+#### NetCDF Files (.nc)
+Location: `{base_dir}/hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc`
+
+Examples:
+- `hazards/Drought/CDD/ensemble/ensemble_return_period.nc`
+- `hazards/Compound/FWI/ensemble/ensemble_return_periods.nc`
+
+**Metadata:** Extracted from folder structure and NC file contents
+- `hazard_type`: From path (e.g., "Drought", "Compound")
+- `hazard_indicator`: From path (e.g., "CDD", "FWI")
+- `GWL` (Global Warming Level): From NC dimensions (e.g., "present", "1.5", "2", "3")
+- `return_period`: From NC dimensions (e.g., 5, 10, 25, 50, 100)
+- `ensemble`: Filtered to "mean" aggregation method
+
+**Georeferencing:** NC files store lat/lon as cell centers. Loader calculates resolution and extends extent by half-pixel to create proper raster edges.
 
 ## Key Functions
 
@@ -112,24 +133,37 @@ Examples:
 - Reads CSV mapping file ONCE
 - Returns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
 
-### Hazard Loading Workflow (3 Functions)
+### Hazard Loading Workflow
 
-**1. `read_hazards_mapping(mapping_path)`**
-- Reads `hazards_name_mapping.csv` ONCE
-- Returns mapping dataframe
+**1. `read_hazards_mapping(mapping_path)`** → tibble
+- Reads `hazards_metadata.csv` for TIF files
+- Returns mapping dataframe with columns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
 
-**2. `load_hazards_from_mapping(mapping_df, hazards_dir, aggregate_factor = 1L)`**
-- Takes mapping dataframe from step 1
-- Loads actual raster files
-- Validates all files exist
-- Returns: Named list of SpatRaster objects
+**2. `load_hazards(mapping_df, hazards_dir, aggregate_factor = 1L)`** → list(tif, nc)
+- **Unified loader** for both TIF and NetCDF files
+- Takes mapping dataframe for TIF files
+- Scans directory tree for NC files
+- Returns nested list: `list(tif = <list of SpatRaster>, nc = <list of SpatRaster>)`
+- **TIF**: Loads from `hazards_metadata.csv` using `load_hazards_from_mapping()`
+- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period) combination with ensemble=mean
 
-**3. `list_hazard_inventory_from_metadata(mapping_df)`**
-- Takes SAME mapping dataframe from step 1
-- Creates UI-ready inventory
+**3. `list_hazard_inventory_from_metadata(mapping_df)`** → tibble
+- Creates UI-ready inventory from TIF mapping
 - Returns: tibble with hazard_type, scenario_name, hazard_return_period, scenario_code, hazard_name
+- Currently only covers TIF files; NC inventory not yet exposed to UI
 
-**Key Point**: Read mapping ONCE, use in both functions 2 and 3.
+**Application Usage:**
+```r
+# In mod_control_server:
+mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
+hz <- load_hazards(mapping, file.path(base_dir, "hazards"))
+# Flatten for compute pipeline:
+hazards_flat <- c(hz$tif, hz$nc)
+```
+
+**Naming Convention:**
+- TIF: `{hazard_type}__{scenario_code}_h{return_period}glob` (e.g., `flood__pc_h10glob`)
+- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
 
 ### Geospatial Processing
 

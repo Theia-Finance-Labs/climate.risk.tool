@@ -1,7 +1,7 @@
 # Tests for function: extract_hazard_statistics
 #
 # Contract:
-# - extract_hazard_statistics(assets_df, hazards, precomputed_hazards, use_exactextractr)
+# - extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, use_exactextractr)
 # - For assets WITH coordinates: performs spatial extraction using raster data
 # - For assets WITHOUT coordinates but WITH municipality: looks up precomputed ADM2 data
 # - For assets WITHOUT coordinates/municipality but WITH province: looks up precomputed ADM1 data
@@ -20,8 +20,9 @@ testthat::test_that("extract_hazard_statistics returns long format with hazard s
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
-  out <- extract_hazard_statistics(assets, hazards, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(assets, hazards, inventory, precomputed, use_exactextractr = FALSE)
 
   # Should have required long format columns including matching_method
   required_cols <- c("asset", "hazard_name", "hazard_type", "hazard_mean", "hazard_median", "hazard_max", "matching_method")
@@ -47,6 +48,7 @@ testthat::test_that("extract_hazard_statistics handles mixed assets (coordinates
   precomputed <- read_precomputed_hazards(base_dir)
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
   
   # Create mixed dataset
   df <- assets[1:4, , drop = FALSE]
@@ -75,7 +77,7 @@ testthat::test_that("extract_hazard_statistics handles mixed assets (coordinates
   df$municipality[4] <- NA_character_
   df$province[4] <- NA_character_
   
-  out <- extract_hazard_statistics(df, hazards, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
   
   # Should have results for all 4 assets
   testthat::expect_equal(length(unique(out$asset)), 4)
@@ -102,6 +104,7 @@ testthat::test_that("extract_hazard_statistics raises error for unmatchable asse
   precomputed <- read_precomputed_hazards(base_dir)
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
   
   # Create asset with no location data
   df <- assets[1, , drop = FALSE]
@@ -112,7 +115,7 @@ testthat::test_that("extract_hazard_statistics raises error for unmatchable asse
   
   # Should raise error
   testthat::expect_error(
-    extract_hazard_statistics(df, hazards, precomputed, use_exactextractr = FALSE),
+    extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE),
     regexp = "Cannot determine hazard|no location"
   )
 })
@@ -128,6 +131,7 @@ testthat::test_that("PRIORITY 1: coordinates take priority over municipality/pro
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   # Create two assets:
   # - Asset 1: has BOTH coordinates AND municipality
@@ -146,7 +150,7 @@ testthat::test_that("PRIORITY 1: coordinates take priority over municipality/pro
   df$municipality[2] <- "Borba"
   df$province[2] <- "Amazonas"
 
-  out <- extract_hazard_statistics(df, hazards, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
 
   # Asset 1 should use spatial extraction (coordinates priority)
   # Asset 2 should use precomputed lookup (municipality)
@@ -174,6 +178,7 @@ testthat::test_that("PRIORITY 2: municipality takes priority over province", {
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   # Create two assets:
   # - Asset 1: has BOTH municipality AND province
@@ -192,7 +197,7 @@ testthat::test_that("PRIORITY 2: municipality takes priority over province", {
   df$municipality[2] <- NA_character_
   df$province[2] <- "Amazonas"
 
-  out <- extract_hazard_statistics(df, hazards, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
 
   # Asset 1 should use municipality (ADM2) - more specific
   # Asset 2 should use province (ADM1) - less specific
@@ -220,6 +225,7 @@ testthat::test_that("cascade priority works end-to-end with all levels", {
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   # Create 5 test assets demonstrating each priority level
   df <- assets[1:5, , drop = FALSE]
@@ -254,7 +260,7 @@ testthat::test_that("cascade priority works end-to-end with all levels", {
   df$municipality[5] <- "Borba"
   df$province[5] <- "Amazonas"
 
-  out <- extract_hazard_statistics(df, hazards, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
 
   # Verify all assets got hazard statistics
   testthat::expect_equal(length(unique(out$asset)), 5)
@@ -289,6 +295,7 @@ testthat::test_that("same municipality assets get identical precomputed values",
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed <- read_precomputed_hazards(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   # Create test data with 6 assets using different methods
   df <- assets[1:6, , drop = FALSE]
@@ -316,7 +323,7 @@ testthat::test_that("same municipality assets get identical precomputed values",
   df$municipality[6] <- NA_character_
   df$province[6] <- NA_character_
 
-  out <- extract_hazard_statistics(df, hazards, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
 
   # Test that assets with same municipality/province get same means
   for (hazard_name in unique(out$hazard_name)) {
@@ -354,6 +361,7 @@ testthat::test_that("municipality not in precomputed data raises error", {
   precomputed <- read_precomputed_hazards(base_dir)
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
   
   # Create asset with municipality not in precomputed data
   df <- assets[1, , drop = FALSE]
@@ -364,7 +372,7 @@ testthat::test_that("municipality not in precomputed data raises error", {
   
   # Should raise error (can't fall back if both are invalid)
   testthat::expect_error(
-    extract_hazard_statistics(df, hazards, precomputed, use_exactextractr = FALSE),
+    extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE),
     regexp = "Cannot determine|not found|NonExistent"
   )
 })

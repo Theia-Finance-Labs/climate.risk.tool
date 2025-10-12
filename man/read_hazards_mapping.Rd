@@ -11,11 +11,11 @@ read_hazards_mapping(mapping_path)
 }
 \value{
 Tibble with columns: hazard_file, hazard_type, scenario_code,
-scenario_name, hazard_return_period
+scenario_name, hazard_return_period, and optionally hazard_indicator
 }
 \description{
 Reads the hazards name mapping CSV file and validates that it
-contains all required columns.
+contains all required columns. The hazard_indicator column is optional.
 }
 \details{
 Read hazards name mapping from CSV

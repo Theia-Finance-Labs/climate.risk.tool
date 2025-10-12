@@ -37,6 +37,7 @@ list_hazard_inventory_from_metadata <- function(metadata) {
     ) |>
     dplyr::select(
       "hazard_type",
+      "hazard_indicator",
       "scenario_name",
       "hazard_return_period",
       "scenario_code",

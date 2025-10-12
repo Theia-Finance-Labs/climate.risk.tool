@@ -2,10 +2,10 @@
 #'
 #' @title Read hazards metadata from CSV file
 #' @description Reads the hazards name mapping CSV file and validates that it
-#'   contains all required columns.
+#'   contains all required columns. The hazard_indicator column is optional.
 #' @param mapping_path Character path to the CSV mapping file
 #' @return Tibble with columns: hazard_file, hazard_type, scenario_code,
-#'   scenario_name, hazard_return_period
+#'   scenario_name, hazard_return_period, and optionally hazard_indicator
 #' @examples
 #' \dontrun{
 #' mapping <- read_hazards_mapping("hazards_name_mapping.csv")

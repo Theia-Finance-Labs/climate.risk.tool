@@ -60,40 +60,13 @@ mod_control_server <- function(id, base_dir_reactive) {
       results = NULL
     )
 
-    # Read hazards mapping
-    hazards_mapping <- shiny::reactive({
+    # Load hazards and inventory (unified loader)
+    hazards_and_inventory <- shiny::reactive({
       base_dir <- base_dir_reactive()
       if (is.null(base_dir) || base_dir == "") {
         return(NULL)
       }
 
-      mapping_file <- file.path(base_dir, "hazards_metadata.csv")
-      if (!file.exists(mapping_file)) {
-        message("Hazards mapping file not found at: ", mapping_file)
-        return(NULL)
-      }
-      
-      mapping_df <- try(read_hazards_mapping(mapping_file), silent = TRUE)
-      if (inherits(mapping_df, "try-error")) {
-        message("Error reading hazards mapping: ", attr(mapping_df, "condition")$message)
-        return(NULL)
-      }
-      
-      return(mapping_df)
-    })
-    
-    # Load hazards rasters
-    get_hazards_at_factor <- shiny::reactive({
-      base_dir <- base_dir_reactive()
-      if (is.null(base_dir) || base_dir == "") {
-        return(NULL)
-      }
-
-      mapping_df <- hazards_mapping()
-      if (is.null(mapping_df)) {
-        return(NULL)
-      }
-      
       dir_hz <- file.path(base_dir, "hazards")
       if (!dir.exists(dir_hz)) {
         message("Hazards directory not found at: ", dir_hz)
@@ -103,37 +76,42 @@ mod_control_server <- function(id, base_dir_reactive) {
       # Use aggregation factor of 1 (no aggregation) in the app
       agg_factor <- 1L
       
-      rasters <- try(
-        load_hazards_from_mapping(
-          mapping_df = mapping_df,
+      result <- try(
+        load_hazards_and_inventory(
           hazards_dir = dir_hz,
           aggregate_factor = as.integer(agg_factor)
         ),
         silent = TRUE
       )
       
-      if (inherits(rasters, "try-error")) {
-        message("Error loading hazards: ", attr(rasters, "condition")$message)
+      if (inherits(result, "try-error") || !is.list(result)) {
+        message("Error loading hazards: ", if (inherits(result, "try-error")) attr(result, "condition")$message else "unknown")
+        return(NULL)
+      }
+
+      return(result)
+    })
+    
+    # Extract flattened hazards for compute
+    get_hazards_at_factor <- shiny::reactive({
+      result <- hazards_and_inventory()
+      if (is.null(result)) {
         return(NULL)
       }
       
-      return(rasters)
+      # Flatten into a single named list for the analysis pipeline
+      flat <- c(result$hazards$tif, result$hazards$nc)
+      return(flat)
     })
 
-    # Hazards inventory
+    # Extract inventory for UI
     hazards_inventory <- shiny::reactive({
-      mapping_df <- hazards_mapping()
-      if (is.null(mapping_df)) {
+      result <- hazards_and_inventory()
+      if (is.null(result)) {
         return(tibble::tibble())
       }
       
-      inv <- try(list_hazard_inventory_from_metadata(mapping_df), silent = TRUE)
-      if (inherits(inv, "try-error")) {
-        message("Error creating inventory: ", attr(inv, "condition")$message)
-        return(tibble::tibble())
-      }
-      
-      return(inv)
+      return(result$inventory)
     })
 
     # Hazards events module
