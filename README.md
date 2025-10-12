@@ -200,4 +200,4 @@ The codebase is organized into logical modules using a clear naming convention:
 - `tests/testthat/` - Unit and integration tests following TDD principles
 - `tests/tests_data/` - Test data for development and testing
 - `man/` - Auto-generated documentation (do not edit manually)
-- `WORKING_DOCUMENT.md` - Development notes and function contracts
+- `CONTEXT.md` - Development notes and function contracts

@@ -2,12 +2,12 @@
 #'
 #' @title Create hazard inventory from metadata tibble
 #' @description Creates a tibble inventory from hazard metadata, providing
-#'   columns needed for UI selection and filtering: hazard_type, scenario_name,
-#'   hazard_return_period, and hazard_name.
-#' @param metadata Data frame with columns: hazard_file, hazard_type, scenario_code,
-#'   scenario_name, hazard_return_period
-#' @return Tibble with columns: hazard_type, scenario_name, hazard_return_period,
-#'   scenario_code, hazard_name
+#'   columns needed for UI selection and filtering: hazard_type, hazard_indicator,
+#'   scenario_name, hazard_return_period, and hazard_name.
+#' @param metadata Data frame with columns: hazard_file, hazard_type, hazard_indicator,
+#'   scenario_code, scenario_name, hazard_return_period
+#' @return Tibble with columns: hazard_type, hazard_indicator, scenario_name,
+#'   hazard_return_period, scenario_code, hazard_name
 #' @examples
 #' \dontrun{
 #' result <- load_hazards_from_mapping("mapping.csv", "hazards/")
@@ -19,7 +19,7 @@ list_hazard_inventory_from_metadata <- function(metadata) {
     stop("metadata must be a tibble or data frame")
   }
   
-  required_cols <- c("hazard_file", "hazard_type", "scenario_code", 
+  required_cols <- c("hazard_file", "hazard_type", "hazard_indicator", "scenario_code", 
                      "scenario_name", "hazard_return_period")
   missing_cols <- setdiff(required_cols, names(metadata))
   if (length(missing_cols) > 0) {
@@ -37,6 +37,7 @@ list_hazard_inventory_from_metadata <- function(metadata) {
     ) |>
     dplyr::select(
       "hazard_type",
+      "hazard_indicator",
       "scenario_name",
       "hazard_return_period",
       "scenario_code",

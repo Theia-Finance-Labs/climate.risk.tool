@@ -9,6 +9,7 @@ compute_risk(
   companies,
   events,
   hazards,
+  hazards_inventory,
   precomputed_hazards,
   damage_factors,
   growth_rate = 0.02,
@@ -25,6 +26,8 @@ compute_risk(
 The \code{event_id} column will be auto-generated if missing.}
 
 \item{hazards}{Named list of SpatRaster objects (from load_hazards())}
+
+\item{hazards_inventory}{Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)}
 
 \item{precomputed_hazards}{Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())}
 

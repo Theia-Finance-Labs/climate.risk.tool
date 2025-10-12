@@ -2,8 +2,8 @@
 
 # Contract:
 # - join_damage_cost_factors(assets_with_hazards, damage_factors_df)
-# - Joins on hazard_type, rounded hazard_intensity, and asset_category
-# - Expects long format input with hazard_type, hazard_intensity columns
+# - Joins on hazard_indicator, rounded hazard_intensity, and asset_category
+# - Expects long format input with hazard_type, hazard_indicator, hazard_intensity columns
 # - Adds numeric columns damage_factor and cost_factor
 
 
@@ -23,6 +23,7 @@ testthat::test_that("join_damage_cost_factors adds numeric damage_factor and cos
     share_of_economic_activity = c(0.5, 0.5, 0.3, 0.3),
     hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
     hazard_type = c("flood", "flood", "flood", "flood"),
+    hazard_indicator = c("Flood Height", "Flood Height", "Flood Height", "Flood Height"),
     hazard_intensity = c(12.4, 2.1, 8.7, 1.8),
     stringsAsFactors = FALSE
   )

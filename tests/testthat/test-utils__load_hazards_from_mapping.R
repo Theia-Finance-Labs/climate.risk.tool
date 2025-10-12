@@ -97,6 +97,7 @@ test_that("load_hazards_from_mapping works with metadata workflow", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif"),
     hazard_type = c("flood", "flood"),
+    hazard_indicator = c("Flood Height", "Flood Height"),
     scenario_code = c("pc", "rcp85"),
     scenario_name = c("CurrentClimate", "RCP8.5"),
     hazard_return_period = c(10, 10)

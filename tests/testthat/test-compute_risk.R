@@ -24,6 +24,7 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
     companies = companies,
     events = events,
     hazards = hazards,
+    hazards_inventory = inventory,
     precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors,
     growth_rate = 0.02,
@@ -68,6 +69,7 @@ testthat::test_that("compute_risk processes single acute event", {
   hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   # Single acute event
   # Use h10 which has actual data, not h100 which is empty
@@ -84,6 +86,7 @@ testthat::test_that("compute_risk processes single acute event", {
     companies = companies,
     events = events,
     hazards = hazards,
+    hazards_inventory = inventory,
     precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors
   )
@@ -118,6 +121,7 @@ testthat::test_that("compute_risk processes chronic event", {
   hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
 
   # Single chronic event
   # Use h10 which has actual data, not h100 which is empty
@@ -134,6 +138,7 @@ testthat::test_that("compute_risk processes chronic event", {
     companies = companies,
     events = events,
     hazards = hazards,
+    hazards_inventory = inventory,
     precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors
   )
@@ -181,6 +186,7 @@ testthat::test_that("compute_risk validates required parameters", {
       companies = companies,
       events = events,
       hazards = NULL,
+      hazards_inventory = inventory,
       precomputed_hazards = precomputed_hazards,
       damage_factors = damage_factors
     ),
@@ -194,6 +200,7 @@ testthat::test_that("compute_risk validates required parameters", {
       companies = companies,
       events = events,
       hazards = hazards,
+      hazards_inventory = inventory,
       precomputed_hazards = NULL,
       damage_factors = damage_factors
     ),
@@ -207,8 +214,9 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
   mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
   hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
+  inventory <- list_hazard_inventory_from_metadata(mapping)
   
-  assets_long <- extract_hazard_statistics(assets, hazards, precomputed_hazards)
+  assets_long <- extract_hazard_statistics(assets, hazards, inventory, precomputed_hazards)
   damage_factors <- read_damage_cost_factors(base_dir)
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
 
@@ -229,6 +237,7 @@ testthat::test_that("compute_risk carries hazard_name through to events", {
       companies = companies,
       events = events,
       hazards = hazards,
+      hazards_inventory = inventory,
       precomputed_hazards = precomputed_hazards,
       damage_factors = damage_factors
     ),

@@ -135,6 +135,7 @@ app_server <- function(input, output, session) {
           companies = companies,
           events = ev_df,
           hazards = hazards,
+          hazards_inventory = control$hazards_inventory(),
           precomputed_hazards = precomputed_hazards,
           damage_factors = damage_factors,
           growth_rate = 0.02,

@@ -10,12 +10,12 @@ read_hazards_mapping(mapping_path)
 \item{mapping_path}{Character path to the CSV mapping file}
 }
 \value{
-Tibble with columns: hazard_file, hazard_type, scenario_code,
-scenario_name, hazard_return_period
+Tibble with columns: hazard_file, hazard_type, hazard_indicator,
+scenario_code, scenario_name, hazard_return_period
 }
 \description{
 Reads the hazards name mapping CSV file and validates that it
-contains all required columns.
+contains all required columns including hazard_indicator.
 }
 \details{
 Read hazards name mapping from CSV
