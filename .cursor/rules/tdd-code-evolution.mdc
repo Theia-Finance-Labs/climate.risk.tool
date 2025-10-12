@@ -59,7 +59,7 @@ For core business logic in [R/core_*.R](mdc:R/core_*.R) files:
 - Test boundary conditions and invalid inputs
 
 ## Documentation Updates
-- Update [WORKING_DOCUMENT.md](mdc:WORKING_DOCUMENT.md) when changing function contracts
+- Update [CONTEXT.md](mdc:CONTEXT.md) when changing function contracts
 - Update roxygen2 documentation when changing function signatures
 - Keep examples current and working
 - Document any breaking changes clearly
