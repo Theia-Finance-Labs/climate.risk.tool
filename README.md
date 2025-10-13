@@ -249,3 +249,35 @@ The pipeline seamlessly handles mixed TIF and NetCDF formats through several mec
 - `tests/tests_data/` - Test data for development and testing
 - `man/` - Auto-generated documentation (do not edit manually)
 - `CONTEXT.md` - Development notes and function contracts
+
+## Hazard Data Computation Methods
+
+The climate risk tool offers two complementary approaches for computing hazard statistics:
+
+### 1. Pre-computed Hazard Results (Applied for assets without lat/lon but regional information)
+
+To generate the file of pre-computed results, use the pre-computation notebook:
+
+**[`data-raw/notebooks/precompute_hazard_per_adm.ipynb`](data-raw/notebooks/precompute_hazard_per_adm.ipynb)**
+
+This Python notebook:
+- Processes hazard data (TIF and NetCDF) against administrative boundaries (ADM1/ADM2)
+- Pre-computes hazard statistics for each region
+- Generates `precomputed_adm_hazards.csv` with regional aggregates
+- Supports both current climate and future scenarios (RCP2.6, RCP8.5)
+- Handles ensemble statistics (mean, median, percentiles) for NetCDF data
+- Significantly speeds up analysis by avoiding repeated spatial computations
+
+### 2. Asset-to-Map Matching (Real-time Computation)
+
+**Asset Size Consideration:**
+- **Primary method**: Uses the actual asset size in square meters (m²) from asset data
+- **Fallback method**: Uses a default area value when asset size is unavailable
+- **Spatial computation**: Extracts hazard statistics using `exactextractr` for pixel-level accuracy
+- **Format support**: Works with both GeoTIFF and NetCDF hazard data
+
+**When to use each method:**
+- **Pre-computed**: Large-scale analyses, repeated runs, performance-critical applications
+- **Real-time matching**: Small datasets, maximum precision requirements, custom geometries
+
+The tool seamlessly handles both approaches, allowing mixed usage in the same analysis pipeline.

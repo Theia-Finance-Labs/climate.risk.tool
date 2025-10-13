@@ -403,12 +403,14 @@ testthat::test_that("extract_hazard_statistics dispatches to NC workflow for NC 
   # Create test asset with coordinates
   assets <- tibble::tibble(
     asset = "test_asset_1",
+    company = "test_company",
     latitude = -3.0,
     longitude = -60.0,
     municipality = NA_character_,
     province = NA_character_,
-    type = "office",
-    revenue = 1000000
+    asset_category = "office",
+    size_in_m2 = 1000,
+    share_of_economic_activity = 0.5
   )
   
   # Extract (should use NC workflow)
@@ -441,12 +443,14 @@ testthat::test_that("extract_hazard_statistics dispatches to TIF workflow for TI
   # Create test asset with coordinates
   assets <- tibble::tibble(
     asset = "test_asset_1",
+    company = "test_company",
     latitude = -3.0,
     longitude = -60.0,
     municipality = NA_character_,
     province = NA_character_,
-    type = "office",
-    revenue = 1000000
+    asset_category = "office",
+    size_in_m2 = 1000,
+    share_of_economic_activity = 0.5
   )
   
   # Extract (should use TIF workflow)
@@ -492,12 +496,14 @@ testthat::test_that("NC extraction populates all ensemble columns separately", {
     # Create test asset
     assets <- tibble::tibble(
       asset = "test_asset_1",
+      company = "test_company",
       latitude = -3.0,
       longitude = -60.0,
       municipality = NA_character_,
       province = NA_character_,
-      type = "office",
-      revenue = 1000000
+      asset_category = "office",
+      size_in_m2 = 1000,
+      share_of_economic_activity = 0.5
     )
     
     # Extract
@@ -547,12 +553,14 @@ testthat::test_that("NC extraction with multiple base events keeps them separate
       # Create test asset
       assets <- tibble::tibble(
         asset = "test_asset_1",
+        company = "test_company",
         latitude = -3.0,
         longitude = -60.0,
         municipality = NA_character_,
         province = NA_character_,
-        type = "office",
-        revenue = 1000000
+        asset_category = "office",
+        size_in_m2 = 1000,
+        share_of_economic_activity = 0.5
       )
       
       # Extract

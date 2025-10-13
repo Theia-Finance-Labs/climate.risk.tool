@@ -26,7 +26,7 @@ library(climate.risk.tool)
 # - damage_and_cost_factors.csv
 # - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
 # - hazards_name_mapping.csv (metadata for TIF hazards, optional for NC)
-base_dir <- system.file("tests_data", package = "climate.risk.tool")
+base_dir <- file.path("..","tests", "tests_data")
 ```
 
 ## Prepare inputs

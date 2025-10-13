@@ -25,3 +25,4 @@ $run_dev.*
 ^\.github$
 ^workspace$
 ^data-raw/notebooks$
+^tests/tests_data$

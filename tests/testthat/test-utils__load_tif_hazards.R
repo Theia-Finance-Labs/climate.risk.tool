@@ -1,6 +1,6 @@
-# Test: load_hazards_from_mapping
+# Test: load_tif_hazards
 
-test_that("load_hazards_from_mapping loads from mapping dataframe", {
+test_that("load_tif_hazards loads from mapping dataframe", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif"),
     hazard_type = c("flood", "flood"),
@@ -12,7 +12,7 @@ test_that("load_hazards_from_mapping loads from mapping dataframe", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
-  rasters <- load_hazards_from_mapping(
+  rasters <- load_tif_hazards(
     mapping_df = mapping_df,
     hazards_dir = hazards_dir,
     aggregate_factor = 16L  # Use pre-aggregated files
@@ -24,7 +24,7 @@ test_that("load_hazards_from_mapping loads from mapping dataframe", {
   expect_true(length(rasters) > 0)
 })
 
-test_that("load_hazards_from_mapping handles missing files gracefully", {
+test_that("load_tif_hazards handles missing files gracefully", {
   mapping_df <- tibble::tibble(
     hazard_file = c("nonexistent.tif"),
     hazard_type = c("flood"),
@@ -38,7 +38,7 @@ test_that("load_hazards_from_mapping handles missing files gracefully", {
   
   # Should return empty list with warning when files don't exist
   expect_warning(
-    result <- load_hazards_from_mapping(
+    result <- load_tif_hazards(
       mapping_df = mapping_df,
       hazards_dir = hazards_dir
     ),
@@ -50,7 +50,7 @@ test_that("load_hazards_from_mapping handles missing files gracefully", {
   expect_equal(length(result), 0)
 })
 
-test_that("load_hazards_from_mapping checks for duplicates on filter columns", {
+test_that("load_tif_hazards checks for duplicates on filter columns", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_pc_h100glob.tif"),
     hazard_type = c("flood", "flood"),
@@ -62,7 +62,7 @@ test_that("load_hazards_from_mapping checks for duplicates on filter columns", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
   
   expect_error(
-    load_hazards_from_mapping(
+    load_tif_hazards(
       mapping_df = mapping_df,
       hazards_dir = hazards_dir
     ),
@@ -70,7 +70,7 @@ test_that("load_hazards_from_mapping checks for duplicates on filter columns", {
   )
 })
 
-test_that("load_hazards_from_mapping loads rasters correctly", {
+test_that("load_tif_hazards loads rasters correctly", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
     hazard_type = c("flood", "flood", "flood"),
@@ -82,7 +82,7 @@ test_that("load_hazards_from_mapping loads rasters correctly", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
-  rasters <- load_hazards_from_mapping(
+  rasters <- load_tif_hazards(
     mapping_df = mapping_df,
     hazards_dir = hazards_dir,
     aggregate_factor = 16L  # Use pre-aggregated files
@@ -98,70 +98,8 @@ test_that("load_hazards_from_mapping loads rasters correctly", {
   }
 })
 
-test_that("load_hazards_from_mapping works with metadata workflow", {
-  mapping_df <- tibble::tibble(
-    hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif"),
-    hazard_type = c("flood", "flood"),
-    hazard_indicator = c("Flood Height", "Flood Height"),
-    scenario_code = c("pc", "rcp85"),
-    scenario_name = c("CurrentClimate", "RCP8.5"),
-    hazard_return_period = c(10, 10)
-  )
-  
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
-  
-  # Load rasters from mapping
-  rasters <- load_hazards_from_mapping(
-    mapping_df = mapping_df,
-    hazards_dir = hazards_dir,
-    aggregate_factor = 16L  # Use pre-aggregated files
-  )
-  
-  # Create inventory from same mapping
-  inventory <- list_hazard_inventory_from_metadata(mapping_df)
-  
-  # Both should have same number of entries
-  expect_equal(length(rasters), nrow(inventory))
-})
-
-test_that("read_hazards_mapping and list_hazard_inventory_from_metadata workflow", {
-  # Load full mapping from actual file
-  mapping_file <- file.path(get_test_data_dir(), "hazards_metadata.csv")
-
-  
-  # Read mapping once
-  mapping_df <- read_hazards_mapping(mapping_file)
-  
-  # Create inventory from mapping
-  inventory <- list_hazard_inventory_from_metadata(mapping_df)
-  
-  # Should be able to filter by hazard_type
-  flood_hazards <- inventory |>
-    dplyr::filter(.data$hazard_type == "flood")
-  expect_true(nrow(flood_hazards) > 0)
-  
-  # Should be able to filter by scenario_name
-  current_climate <- inventory |>
-    dplyr::filter(.data$scenario_name == "CurrentClimate")
-  expect_true(nrow(current_climate) > 0)
-  
-  # Should be able to filter by hazard_return_period
-  h10 <- inventory |>
-    dplyr::filter(.data$hazard_return_period == 10)
-  expect_true(nrow(h10) > 0)
-  
-  # Combined filtering should work
-  specific_hazard <- inventory |>
-    dplyr::filter(
-      .data$hazard_type == "flood",
-      .data$scenario_name == "CurrentClimate",
-      .data$hazard_return_period == 10
-    )
-  expect_equal(nrow(specific_hazard), 1)
-})
-
-test_that("load_hazards_from_mapping rasters are properly named", {
+test_that("load_tif_hazards rasters are properly named", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif"),
     hazard_type = c("flood", "flood"),
@@ -173,7 +111,7 @@ test_that("load_hazards_from_mapping rasters are properly named", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
-  rasters <- load_hazards_from_mapping(
+  rasters <- load_tif_hazards(
     mapping_df = mapping_df,
     hazards_dir = hazards_dir,
     aggregate_factor = 16L  # Use pre-aggregated files
@@ -189,7 +127,7 @@ test_that("load_hazards_from_mapping rasters are properly named", {
   }
 })
 
-test_that("load_hazards_from_mapping supports aggregation parameter", {
+test_that("load_tif_hazards supports aggregation parameter", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif"),
     hazard_type = c("flood"),
@@ -202,7 +140,7 @@ test_that("load_hazards_from_mapping supports aggregation parameter", {
 
   
   # Test with aggregate_factor = 1 (no aggregation, just pass the parameter)
-  rasters <- load_hazards_from_mapping(
+  rasters <- load_tif_hazards(
     mapping_df = mapping_df,
     hazards_dir = hazards_dir,
     aggregate_factor = 1L
@@ -216,7 +154,7 @@ test_that("load_hazards_from_mapping supports aggregation parameter", {
   expect_equal(mapping_df$hazard_return_period[1], 10)
 })
 
-test_that("load_hazards_from_mapping handles subdirectories", {
+test_that("load_tif_hazards handles subdirectories", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif"),
     hazard_type = c("flood"),
@@ -228,7 +166,7 @@ test_that("load_hazards_from_mapping handles subdirectories", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
-  rasters <- load_hazards_from_mapping(
+  rasters <- load_tif_hazards(
     mapping_df = mapping_df,
     hazards_dir = hazards_dir,
     aggregate_factor = 16L  # Use pre-aggregated files

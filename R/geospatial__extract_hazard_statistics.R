@@ -130,8 +130,11 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
           hazard_mean = .data$mean,
           hazard_median = .data$median,
           hazard_max = .data$max,
+          hazard_min = NA_real_,  # Not available in precomputed data
           hazard_p2_5 = .data$p2_5,
           hazard_p5 = .data$p5,
+          hazard_p10 = NA_real_,  # Not available in precomputed data
+          hazard_p90 = NA_real_,  # Not available in precomputed data
           hazard_p95 = .data$p95,
           hazard_p97_5 = .data$p97_5,
           matching_method = match_level
@@ -140,8 +143,8 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
           "asset", "company", "latitude", "longitude",
           "municipality", "province", "asset_category", "size_in_m2",
           "share_of_economic_activity", "hazard_name", "hazard_type",
-          "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
-          "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5", "matching_method"
+          "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max", "hazard_min",
+          "hazard_p2_5", "hazard_p5", "hazard_p10", "hazard_p90", "hazard_p95", "hazard_p97_5", "matching_method"
         )
       
       precomp_results_list[[i]] <- asset_hazard_data
@@ -282,11 +285,14 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory) {
       r_crs <- terra::crs(hazard_rast)
       if (is.na(r_crs) || r_crs == "") r_crs <- "EPSG:4326"
       
-      assets_transformed <- sf::st_transform(assets_sf, r_crs)
-      assets_vect <- terra::vect(assets_transformed)
+      # For NC files with pre-computed statistics, extract from centroids (points), not polygons
+      # This ensures we get exactly one value per asset
+      centroids_sf <- sf::st_set_geometry(assets_sf, assets_sf$centroid)
+      centroids_transformed <- sf::st_transform(centroids_sf, r_crs)
+      centroids_vect <- terra::vect(centroids_transformed)
       
       # Extract values (using centroids for NC since they have pre-computed stats)
-      extracted_vals <- terra::extract(hazard_rast, assets_vect, method = "simple", ID = FALSE)
+      extracted_vals <- terra::extract(hazard_rast, centroids_vect, method = "simple", ID = FALSE)
       
       # Assign to appropriate column
       if (ncol(extracted_vals) > 0) {
@@ -458,15 +464,22 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory) {
         hazard_type = hazard_type,
         hazard_indicator = hazard_indicator,
         hazard_intensity = .data$hazard_mean,
-        matching_method = "coordinates"
+        matching_method = "coordinates",
+        # Add missing columns for consistency with NC output
+        hazard_min = NA_real_,
+        hazard_p10 = NA_real_,
+        hazard_p90 = NA_real_
       ) |>
       dplyr::mutate(
         hazard_intensity = dplyr::coalesce(.data$hazard_intensity, 0),
         hazard_mean = dplyr::coalesce(.data$hazard_mean, 0),
         hazard_median = dplyr::coalesce(.data$hazard_median, 0),
         hazard_max = dplyr::coalesce(.data$hazard_max, 0),
+        hazard_min = dplyr::coalesce(.data$hazard_min, 0),
         hazard_p2_5 = dplyr::coalesce(.data$hazard_p2_5, 0),
         hazard_p5 = dplyr::coalesce(.data$hazard_p5, 0),
+        hazard_p10 = dplyr::coalesce(.data$hazard_p10, 0),
+        hazard_p90 = dplyr::coalesce(.data$hazard_p90, 0),
         hazard_p95 = dplyr::coalesce(.data$hazard_p95, 0),
         hazard_p97_5 = dplyr::coalesce(.data$hazard_p97_5, 0)
       ) |>
@@ -474,8 +487,8 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory) {
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "size_in_m2",
         "share_of_economic_activity", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max",
-        "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5", "matching_method"
+        "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max", "hazard_min",
+        "hazard_p2_5", "hazard_p5", "hazard_p10", "hazard_p90", "hazard_p95", "hazard_p97_5", "matching_method"
       )
     
     results_list[[i]] <- df_i

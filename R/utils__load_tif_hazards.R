@@ -14,14 +14,14 @@
 #' @param memfrac Numeric in (0,1]. Memory fraction hint passed to terra options during load (default: 0.3)
 #' @return Named list of SpatRaster objects
 #' @noRd
-load_hazards_from_mapping <- function(mapping_df,
+load_tif_hazards <- function(mapping_df,
                                        hazards_dir,
                                        aggregate_factor = 1L,
                                        cache_aggregated = TRUE,
                                        force_reaggregate = FALSE,
                                        memfrac = 0.3) {
 
-  message("[load_hazards_from_mapping] Loading hazards...")
+  message("[load_tif_hazards] Loading hazards...")
   
   
   mapping <- tibble::as_tibble(mapping_df)
@@ -98,7 +98,7 @@ load_hazards_from_mapping <- function(mapping_df,
   message("  ", nrow(mapping), " hazard files validated")
   
   # Load rasters
-  message("[load_hazards_from_mapping] Loading ", nrow(mapping), " rasters...")
+  message("[load_tif_hazards] Loading ", nrow(mapping), " rasters...")
   
   # Configure terra for efficient loading
   old_opts <- terra::terraOptions()
@@ -120,6 +120,15 @@ load_hazards_from_mapping <- function(mapping_df,
     
     # Load raster
     r <- terra::rast(tif_file)
+    
+    # Validate that raster is single-band
+    if (terra::nlyr(r) != 1) {
+      stop(
+        "Expected single-band TIF file '", basename(tif_file), 
+        "', but got ", terra::nlyr(r), " bands. ",
+        "Each TIF file should contain only one hazard scenario layer."
+      )
+    }
     
     # Handle aggregation if requested
     if (is.numeric(aggregate_factor) && aggregate_factor > 1L) {
@@ -185,7 +194,7 @@ load_hazards_from_mapping <- function(mapping_df,
     rasters[[i]] <- r
   }
   
-  message("[load_hazards_from_mapping] Successfully loaded ", length(rasters), " hazard rasters")
+  message("[load_tif_hazards] Successfully loaded ", length(rasters), " hazard rasters")
   
   return(rasters)
 }
