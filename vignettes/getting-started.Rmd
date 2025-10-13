@@ -84,7 +84,7 @@ events <- data.frame(
   hazard_type = c("flood", "CDD"),
   hazard_name = c(
     "flood__rcp85_h100glob",  # TIF flood hazard (no "global_" prefix)
-    "CDD__ensemble__GWL=unknown__RP=10"  # NC drought hazard (CDD indicator)
+    "Drought__SPI6__GWL=present__RP=25__ensemble=mean"  # NC drought hazard (CDD indicator)
   ),
   event_year = c(2030, 2040),  # Different years for different events
   chronic = c(FALSE, TRUE)     # Mix of acute and chronic events

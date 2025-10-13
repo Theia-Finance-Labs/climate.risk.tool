@@ -71,6 +71,18 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
     
     message("[extract_hazard_statistics] Processing administrative-based assets...")
     
+    # Build a mapping of required hazards from inventory
+    # The inventory has already been filtered by events in compute_risk()
+    required_hazards <- hazards_inventory |>
+      dplyr::distinct(
+        .data$hazard_name,
+        .data$hazard_type,
+        .data$scenario_code,
+        .data$hazard_return_period
+      )
+    
+    message("  Required hazards from inventory: ", nrow(required_hazards))
+    
     precomp_results_list <- vector("list", nrow(assets_without_coords))
     
     for (i in seq_len(nrow(assets_without_coords))) {
@@ -82,6 +94,7 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
       # Try municipality first (ADM2), then province (ADM1)
       matched_data <- NULL
       match_level <- NULL
+      matched_region <- NULL
       
       if (!is.na(municipality) && nzchar(as.character(municipality))) {
         matched_data <- precomputed_hazards |>
@@ -90,6 +103,7 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
             .data$adm_level == "ADM2"
           )
         match_level <- "municipality"
+        matched_region <- municipality
       }
       
       if (is.null(matched_data) || nrow(matched_data) == 0) {
@@ -100,6 +114,7 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
               .data$adm_level == "ADM1"
             )
           match_level <- "province"
+          matched_region <- province
         }
       }
       
@@ -108,6 +123,61 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
           "Cannot determine hazard statistics for asset ", i, " (", asset_name, "). ",
           "No match found in precomputed data for municipality='", municipality, 
           "' or province='", province, "'"
+        )
+      }
+      
+      # FILTER: Only keep hazards that match the required hazards from inventory
+      # Match by hazard_type, scenario_code, and hazard_return_period
+      matched_data <- matched_data |>
+        dplyr::inner_join(
+          required_hazards |> dplyr::select(
+            "hazard_type", "scenario_code", "hazard_return_period"
+          ),
+          by = c("hazard_type", "scenario_code", "hazard_return_period")
+        )
+      
+      # VALIDATE: Check that we found data for all required hazards
+      if (nrow(matched_data) == 0) {
+        # No matching hazards found for this region
+        required_list <- required_hazards |>
+          dplyr::mutate(
+            hazard_spec = paste0(.data$hazard_type, "__", 
+                                .data$scenario_code, "_h", 
+                                .data$hazard_return_period, "glob")
+          ) |>
+          dplyr::pull(.data$hazard_spec)
+        
+        stop(
+          "Required hazards from events selection are not available in precomputed data.\n",
+          "  Asset: ", asset_name, " (", match_level, ": ", matched_region, ")\n",
+          "  Required hazards: ", paste(required_list, collapse = ", "), "\n",
+          "  These hazards must exist in precomputed data for this region."
+        )
+      }
+      
+      # Check if we got all required hazards
+      found_combos <- matched_data |>
+        dplyr::distinct(.data$hazard_type, .data$scenario_code, .data$hazard_return_period)
+      
+      if (nrow(found_combos) < nrow(required_hazards)) {
+        # Some required hazards are missing
+        missing_hazards <- dplyr::anti_join(
+          required_hazards,
+          found_combos,
+          by = c("hazard_type", "scenario_code", "hazard_return_period")
+        ) |>
+          dplyr::mutate(
+            hazard_spec = paste0(.data$hazard_type, "__", 
+                                .data$scenario_code, "_h", 
+                                .data$hazard_return_period, "glob")
+          ) |>
+          dplyr::pull(.data$hazard_spec)
+        
+        stop(
+          "Some required hazards are missing from precomputed data.\n",
+          "  Asset: ", asset_name, " (", match_level, ": ", matched_region, ")\n",
+          "  Missing hazards: ", paste(missing_hazards, collapse = ", "), "\n",
+          "  These hazards must exist in precomputed data for this region."
         )
       }
       

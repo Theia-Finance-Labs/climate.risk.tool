@@ -17,7 +17,7 @@
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
 #' #'
 #' @return List containing final results:
-#'   - assets: Pivoted asset results with NPV by scenario (aggregated)
+#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
 #'   - companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 #'   - assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 #'   - companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -142,6 +142,26 @@ compute_risk <- function(assets,
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
+
+  # Step 2.4: Join hazard metadata (hazard_return_period) from inventory
+  # Get hazard_return_period from the inventory data
+  inventory_info <- filtered_inventory |>
+    dplyr::select("hazard_name", "hazard_return_period") |>
+    dplyr::distinct()
+  
+  assets_factors <- assets_factors |>
+    dplyr::left_join(inventory_info, by = "hazard_name")
+  
+  # Step 2.5: Join event information (event_year, chronic) from events
+  # Select only the columns we need from events to avoid duplication
+  # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
+  # Don't use distinct() here - we want one row per event even if they share the same hazard_name
+  # Use inner_join to only keep assets with hazards that are in the events
+  events_info <- events |>
+    dplyr::select("hazard_name", "event_year", "chronic")
+  
+  assets_factors <- assets_factors |>
+    dplyr::inner_join(events_info, by = "hazard_name", relationship = "many-to-many")
 
 
   # ============================================================================

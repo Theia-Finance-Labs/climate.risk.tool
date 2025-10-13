@@ -41,13 +41,19 @@ mod_results_assets_server <- function(id, results_reactive) {
         }
       }
 
-      # Reorder columns to show matching_method prominently
-      if ("matching_method" %in% names(assets)) {
-        col_order <- c(
-          "asset", "company", "matching_method",
-          setdiff(names(assets), c("asset", "company", "matching_method"))
-        )
+      # Reorder columns to show key columns prominently
+      priority_cols <- c("asset", "company", "matching_method", "hazard_return_period", "event_year", "chronic")
+      existing_priority <- intersect(priority_cols, names(assets))
+      other_cols <- setdiff(names(assets), existing_priority)
+      
+      if (length(existing_priority) > 0) {
+        col_order <- c(existing_priority, other_cols)
         assets <- assets[, col_order, drop = FALSE]
+      }
+      
+      # Format the chronic column as Yes/No for better readability
+      if ("chronic" %in% names(assets)) {
+        assets$chronic <- ifelse(assets$chronic, "Yes", "No")
       }
 
       DT::datatable(

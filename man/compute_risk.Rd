@@ -43,7 +43,7 @@ The \code{event_id} column is auto-generated internally if not provided.}
 \value{
 List containing final results:
 \itemize{
-\item assets: Pivoted asset results with NPV by scenario (aggregated)
+\item assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
 \item companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 \item assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 \item companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
