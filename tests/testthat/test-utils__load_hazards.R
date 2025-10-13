@@ -74,9 +74,6 @@ test_that("load_hazards_and_inventory NC rasters have proper extent (cell center
     aggregate_factor = 16L
   )
   
-  # Skip if no NC files
-  skip_if(length(result$hazards$nc) == 0, "No NC files in test data")
-  
   # Check first NC raster
   r_nc <- result$hazards$nc[[1]]
   
@@ -105,8 +102,6 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
     aggregate_factor = 16L
   )
   
-  # Skip if no NC files
-  skip_if(length(result$hazards$nc) == 0, "No NC files in test data")
   
   # Check naming convention
   nc_names <- names(result$hazards$nc)
@@ -142,8 +137,6 @@ test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly"
     aggregate_factor = 16L
   )
   
-  # Skip if no NC files
-  skip_if(length(result$hazards$nc) == 0, "No NC files in test data")
   
   # NC files should load ALL ensemble values (mean, median, p10, p90, etc.)
   # Not just ensemble=mean
@@ -173,8 +166,6 @@ test_that("load_hazards_and_inventory creates separate raster per GWL and return
     aggregate_factor = 16L
   )
   
-  # Skip if no NC files
-  skip_if(length(result$hazards$nc) == 0, "No NC files in test data")
   
   # Check that we have multiple rasters per file
   # Each NC file should generate multiple rasters (one per GWL × RP combination)
@@ -221,7 +212,6 @@ test_that("load_hazards_and_inventory works with NC files when no TIF files pres
   nc_files <- list.files(source_hazards_dir, pattern = "\\.nc$", 
                          full.names = TRUE, recursive = TRUE)
   
-  skip_if(length(nc_files) == 0, "No NC files in test data to copy")
   
   # Copy first NC file
   file.copy(nc_files[1], file.path(nc_dir, basename(nc_files[1])))

@@ -30,10 +30,9 @@ has_pkg <- function(pkg) {
 
 # Skip slow tests unless explicitly requested
 skip_slow_tests <- function() {
-  skip_on_ci <- Sys.getenv("CI") != ""
   skip_slow <- Sys.getenv("SKIP_SLOW_TESTS", "TRUE") == "TRUE"
 
-  if (skip_on_ci || skip_slow) {
+  if (skip_slow) {
     testthat::skip("Skipping slow test (set SKIP_SLOW_TESTS=FALSE to run)")
   }
 }

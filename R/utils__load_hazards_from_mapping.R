@@ -1,39 +1,26 @@
-#' Load hazard rasters from mapping metadata
+#' Load hazard rasters from mapping metadata (INTERNAL)
 #'
-#' @title Load hazard rasters with metadata from mapping dataframe
-#' @description Loads hazard rasters based on a mapping dataframe that defines
+#' @description Internal function used by load_hazards_and_inventory().
+#'   Loads hazard rasters based on a mapping dataframe that defines
 #'   hazard_file, hazard_type, scenario_code, scenario_name, and hazard_return_period.
 #'   Validates that all files exist and that there are no duplicates on the filtering
 #'   columns (hazard_type, scenario_name, hazard_return_period).
 #' @param mapping_df Data frame with columns: hazard_file, hazard_type, scenario_code,
-#'   scenario_name, hazard_return_period (use read_hazards_mapping() to load from CSV)
+#'   scenario_name, hazard_return_period
 #' @param hazards_dir Character path to the directory containing hazard files (will search subdirectories)
 #' @param aggregate_factor Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)
 #' @param cache_aggregated Logical. If TRUE and aggregate_factor > 1, save and reuse aggregated rasters (default: TRUE)
 #' @param force_reaggregate Logical. If TRUE, recompute aggregated rasters even if cached files exist (default: FALSE)
 #' @param memfrac Numeric in (0,1]. Memory fraction hint passed to terra options during load (default: 0.3)
 #' @return Named list of SpatRaster objects
-#' @examples
-#' \dontrun{
-#' # Read mapping once
-#' mapping <- read_hazards_mapping("hazards_name_mapping.csv")
-#' 
-#' # Use it to load rasters
-#' hazards <- load_hazards_from_mapping(
-#'   mapping_df = mapping,
-#'   hazards_dir = "hazards_world"
-#' )
-#' 
-#' # Use same mapping to create inventory
-#' inventory <- list_hazard_inventory_from_metadata(mapping)
-#' }
-#' @export
+#' @noRd
 load_hazards_from_mapping <- function(mapping_df,
                                        hazards_dir,
                                        aggregate_factor = 1L,
                                        cache_aggregated = TRUE,
                                        force_reaggregate = FALSE,
                                        memfrac = 0.3) {
+
   message("[load_hazards_from_mapping] Loading hazards...")
   
   

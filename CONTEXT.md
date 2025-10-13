@@ -101,9 +101,11 @@ Examples:
 - `hazard_indicator`: From path (e.g., "CDD", "FWI")
 - `GWL` (Global Warming Level): From NC dimensions (e.g., "present", "1.5", "2", "3")
 - `return_period`: From NC dimensions (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Filtered to "mean" aggregation method
+- `ensemble`: ALL variants loaded separately (mean, median, p10, p90, etc.)
 
 **Georeferencing:** NC files store lat/lon as cell centers. Loader calculates resolution and extends extent by half-pixel to create proper raster edges.
+
+**NC Ensemble Handling:** Each ensemble variant (mean, median, p10, p90) is loaded as a separate `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble={variant}`. This enables direct extraction of pre-computed statistics without spatial computation.
 
 ## Key Functions
 
@@ -129,36 +131,28 @@ Examples:
 **`read_precomputed_hazards(base_dir)`** → data.frame
 - Reads from `{base_dir}/precomputed_adm_hazards.csv`
 
-**`read_hazards_mapping(mapping_path)`** → tibble
-- Reads CSV mapping file ONCE
-- Returns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
 
 ### Hazard Loading Workflow
 
-**1. `read_hazards_mapping(mapping_path)`** → tibble
-- Reads `hazards_metadata.csv` for TIF files
-- Returns mapping dataframe with columns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
-
-**2. `load_hazards(mapping_df, hazards_dir, aggregate_factor = 1L)`** → list(tif, nc)
+**1. `load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)`** → list(hazards, inventory)
 - **Unified loader** for both TIF and NetCDF files
-- Takes mapping dataframe for TIF files
-- Scans directory tree for NC files
-- Returns nested list: `list(tif = <list of SpatRaster>, nc = <list of SpatRaster>)`
+- Scans for TIF mapping file (`hazards_metadata.csv`); if absent, skips TIF loading
+- Auto-discovers NC files by scanning directory tree
+- Returns: `list(hazards = list(tif = ..., nc = ...), inventory = tibble(...))`
 - **TIF**: Loads from `hazards_metadata.csv` using `load_hazards_from_mapping()`
-- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period) combination with ensemble=mean
-
-**3. `list_hazard_inventory_from_metadata(mapping_df)`** → tibble
-- Creates UI-ready inventory from TIF mapping
-- Returns: tibble with hazard_type, scenario_name, hazard_return_period, scenario_code, hazard_name
-- Currently only covers TIF files; NC inventory not yet exposed to UI
+- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period × ensemble) combination
+  - Each ensemble variant (mean, median, p10, p90) becomes a separate raster
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble={variant}`
+- **Inventory**: Combined metadata tibble with `source` column ("tif" or "nc")
 
 **Application Usage:**
 ```r
 # In mod_control_server:
-mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-hz <- load_hazards(mapping, file.path(base_dir, "hazards"))
-# Flatten for compute pipeline:
-hazards_flat <- c(hz$tif, hz$nc)
+hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+# Access hazards (flattened for compute pipeline):
+hazards_flat <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+# Access inventory (for UI dropdowns):
+inventory <- hazard_data$inventory
 ```
 
 **Naming Convention:**
@@ -172,11 +166,18 @@ hazards_flat <- c(hz$tif, hz$nc)
 - Uses `size_in_m2` for buffer sizing
 - Raises error if coordinates missing
 
-**`extract_hazard_statistics(assets_df, hazards, precomputed_hazards, use_exactextractr)`** → long format data.frame
-- Automatically separates coordinate-based vs administrative-based assets
-- Coordinates → spatial extraction via `create_asset_geometries()` + raster processing
-- No coordinates → lookup from precomputed data (ADM2 first, ADM1 fallback)
-- Returns long format with hazard statistics
+**`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, use_exactextractr)`** → long format data.frame
+- **Dual workflow dispatcher** based on `source` column in `hazards_inventory`:
+  - **TIF sources** → `extract_tif_statistics()`: Spatial computation (crop, mask, compute stats from pixel values)
+  - **NC sources** → `extract_nc_statistics()`: Direct extraction of pre-computed ensemble statistics
+- **Priority cascade** for asset location:
+  1. Coordinates → spatial extraction from rasters
+  2. No coordinates + municipality → precomputed ADM2 lookup
+  3. No coordinates + province → precomputed ADM1 lookup
+  4. None → Error
+- Returns long format with columns: `hazard_mean`, `hazard_median`, `hazard_p10`, `hazard_p90`, etc.
+- For NC: populates ensemble columns by extracting point values from each ensemble raster
+- For TIF: computes statistics from masked pixel values within asset buffer
 
 **`join_damage_cost_factors(assets_long_format, damage_factors_df)`** → data.frame
 - Joins on hazard_type, rounded hazard_intensity, asset_category
@@ -289,6 +290,17 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 - `shock__*.R` - Shock application logic
 - `utils__*.R` - Utility functions
 - `compute_risk.R` - Main orchestrator
+
+#### Key Utility Functions
+- **`filter_hazards_by_events(hazards, events)`** - Filters hazard rasters by event requirements
+  - For TIF hazards: exact name matching
+  - For NC hazards: automatically expands to ALL ensemble variants (mean, median, p10, p90, etc.)
+  - Ensures complete statistics extraction for NC files
+  - See: `R/utils__filter_hazards_by_events.R`
+- **`load_hazards_and_inventory(hazards_dir, aggregate_factor)`** - Loads all hazards (TIF + NC) with metadata inventory
+  - Returns: `list(hazards = list(tif = ..., nc = ...), inventory = tibble(...))`
+  - For NC: loads ALL ensemble variants as separate rasters
+  - See: `R/utils__load_hazards.R`
 
 ### Documentation
 - `man/` - Auto-generated documentation (DO NOT edit manually)

@@ -1,4 +1,3 @@
-^data-raw/notebooks/*
 ^.env$
 ^.env.example$
 ^tests/tests_data/hazards/.gitkeep$
@@ -16,8 +15,7 @@ dev_history.R
 $run_dev.*
 ^.here$
 ^LICENSE\.md$
-^workspace/*
-^\.venv/*
+^\.venv/
 ^.*\.pyc$
 ^__pycache__
 ^climate\.risk\.tool\.Rproj$
@@ -25,3 +23,5 @@ $run_dev.*
 ^Meta$
 ^codecov\.yml$
 ^\.github$
+^workspace$
+^data-raw/notebooks$

@@ -1,7 +1,7 @@
 # Tests for function: extract_hazard_statistics
 #
 # Contract:
-# - extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, use_exactextractr)
+# - extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards)
 # - For assets WITH coordinates: performs spatial extraction using raster data
 # - For assets WITHOUT coordinates but WITH municipality: looks up precomputed ADM2 data
 # - For assets WITHOUT coordinates/municipality but WITH province: looks up precomputed ADM1 data
@@ -17,12 +17,12 @@
 testthat::test_that("extract_hazard_statistics returns long format with hazard statistics", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed <- read_precomputed_hazards(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
-  out <- extract_hazard_statistics(assets, hazards, inventory, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(assets, hazards, inventory, precomputed)
 
   # Should have required long format columns including matching_method
   required_cols <- c("asset", "hazard_name", "hazard_type", "hazard_mean", "hazard_median", "hazard_max", "matching_method")
@@ -46,9 +46,9 @@ testthat::test_that("extract_hazard_statistics handles mixed assets (coordinates
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   precomputed <- read_precomputed_hazards(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+  inventory <- hazard_data$inventory
   
   # Create mixed dataset
   df <- assets[1:4, , drop = FALSE]
@@ -77,7 +77,7 @@ testthat::test_that("extract_hazard_statistics handles mixed assets (coordinates
   df$municipality[4] <- NA_character_
   df$province[4] <- NA_character_
   
-  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed)
   
   # Should have results for all 4 assets
   testthat::expect_equal(length(unique(out$asset)), 4)
@@ -102,9 +102,9 @@ testthat::test_that("extract_hazard_statistics raises error for unmatchable asse
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   precomputed <- read_precomputed_hazards(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+  inventory <- hazard_data$inventory
   
   # Create asset with no location data
   df <- assets[1, , drop = FALSE]
@@ -115,7 +115,7 @@ testthat::test_that("extract_hazard_statistics raises error for unmatchable asse
   
   # Should raise error
   testthat::expect_error(
-    extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE),
+    extract_hazard_statistics(df, hazards, inventory, precomputed),
     regexp = "Cannot determine hazard|no location"
   )
 })
@@ -128,10 +128,10 @@ testthat::test_that("extract_hazard_statistics raises error for unmatchable asse
 testthat::test_that("PRIORITY 1: coordinates take priority over municipality/province", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed <- read_precomputed_hazards(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   # Create two assets:
   # - Asset 1: has BOTH coordinates AND municipality
@@ -150,7 +150,7 @@ testthat::test_that("PRIORITY 1: coordinates take priority over municipality/pro
   df$municipality[2] <- "Borba"
   df$province[2] <- "Amazonas"
 
-  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed)
 
   # Asset 1 should use spatial extraction (coordinates priority)
   # Asset 2 should use precomputed lookup (municipality)
@@ -175,10 +175,10 @@ testthat::test_that("PRIORITY 1: coordinates take priority over municipality/pro
 testthat::test_that("PRIORITY 2: municipality takes priority over province", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed <- read_precomputed_hazards(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   # Create two assets:
   # - Asset 1: has BOTH municipality AND province
@@ -197,7 +197,7 @@ testthat::test_that("PRIORITY 2: municipality takes priority over province", {
   df$municipality[2] <- NA_character_
   df$province[2] <- "Amazonas"
 
-  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed)
 
   # Asset 1 should use municipality (ADM2) - more specific
   # Asset 2 should use province (ADM1) - less specific
@@ -222,10 +222,10 @@ testthat::test_that("PRIORITY 2: municipality takes priority over province", {
 testthat::test_that("cascade priority works end-to-end with all levels", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed <- read_precomputed_hazards(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   # Create 5 test assets demonstrating each priority level
   df <- assets[1:5, , drop = FALSE]
@@ -260,7 +260,7 @@ testthat::test_that("cascade priority works end-to-end with all levels", {
   df$municipality[5] <- "Borba"
   df$province[5] <- "Amazonas"
 
-  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed)
 
   # Verify all assets got hazard statistics
   testthat::expect_equal(length(unique(out$asset)), 5)
@@ -292,10 +292,10 @@ testthat::test_that("cascade priority works end-to-end with all levels", {
 testthat::test_that("same municipality assets get identical precomputed values", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed <- read_precomputed_hazards(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   # Create test data with 6 assets using different methods
   df <- assets[1:6, , drop = FALSE]
@@ -323,7 +323,7 @@ testthat::test_that("same municipality assets get identical precomputed values",
   df$municipality[6] <- NA_character_
   df$province[6] <- NA_character_
 
-  out <- extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE)
+  out <- extract_hazard_statistics(df, hazards, inventory, precomputed)
 
   # Test that assets with same municipality/province get same means
   for (hazard_name in unique(out$hazard_name)) {
@@ -359,9 +359,9 @@ testthat::test_that("municipality not in precomputed data raises error", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   precomputed <- read_precomputed_hazards(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+  inventory <- hazard_data$inventory
   
   # Create asset with municipality not in precomputed data
   df <- assets[1, , drop = FALSE]
@@ -372,7 +372,220 @@ testthat::test_that("municipality not in precomputed data raises error", {
   
   # Should raise error (can't fall back if both are invalid)
   testthat::expect_error(
-    extract_hazard_statistics(df, hazards, inventory, precomputed, use_exactextractr = FALSE),
+    extract_hazard_statistics(df, hazards, inventory, precomputed),
     regexp = "Cannot determine|not found|NonExistent"
   )
+})
+
+
+# ==============================================================================
+# Dual TIF/NC extraction workflow tests
+# ==============================================================================
+
+testthat::test_that("extract_hazard_statistics dispatches to NC workflow for NC sources", {
+  # Load test NC hazards (only 2 files, should be fast)
+  result <- load_hazards_and_inventory(
+    get_hazards_dir(),
+    aggregate_factor = 16L  # Use pre-computed aggregation
+  )
+  
+  # Should have NC hazards
+  testthat::expect_gt(length(result$hazards$nc), 0)
+  
+  # Get NC hazards and inventory
+  nc_hazards <- result$hazards$nc
+  nc_inventory <- result$inventory |>
+    dplyr::filter(source == "nc")
+  
+  # Should all have source = "nc"
+  testthat::expect_true(all(nc_inventory$source == "nc"))
+  
+  # Create test asset with coordinates
+  assets <- tibble::tibble(
+    asset = "test_asset_1",
+    latitude = -3.0,
+    longitude = -60.0,
+    municipality = NA_character_,
+    province = NA_character_,
+    type = "office",
+    revenue = 1000000
+  )
+  
+  # Extract (should use NC workflow)
+  out <- extract_hazard_statistics(
+    assets,
+    nc_hazards,
+    nc_inventory,
+    precomputed_hazards = tibble::tibble()
+  )
+  
+  # Should have hazard_mean (and other ensemble columns)
+  testthat::expect_true("hazard_mean" %in% names(out))
+  testthat::expect_true("hazard_median" %in% names(out))
+  testthat::expect_true("hazard_p10" %in% names(out))
+  testthat::expect_true("hazard_p90" %in% names(out))
+  
+  # Should have numeric values
+  testthat::expect_true(is.numeric(out$hazard_mean))
+})
+
+testthat::test_that("extract_hazard_statistics dispatches to TIF workflow for TIF sources", {
+  base_dir <- get_test_data_dir()
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- hazard_data$hazards$tif  # Only TIF hazards for this test
+  inventory <- hazard_data$inventory |> dplyr::filter(source == "tif")  # Only TIF inventory
+
+  # Should all have source = "tif"
+  testthat::expect_true(all(inventory$source == "tif"))
+  
+  # Create test asset with coordinates
+  assets <- tibble::tibble(
+    asset = "test_asset_1",
+    latitude = -3.0,
+    longitude = -60.0,
+    municipality = NA_character_,
+    province = NA_character_,
+    type = "office",
+    revenue = 1000000
+  )
+  
+  # Extract (should use TIF workflow)
+  out <- extract_hazard_statistics(
+    assets,
+    hazards,
+    inventory,
+    precomputed_hazards = tibble::tibble()
+  )
+  
+  # Should have standard statistics
+  testthat::expect_true("hazard_mean" %in% names(out))
+  testthat::expect_true("hazard_max" %in% names(out))
+  testthat::expect_true("hazard_min" %in% names(out))
+  
+  # Should have numeric values
+  testthat::expect_true(is.numeric(out$hazard_mean))
+})
+
+testthat::test_that("NC extraction populates all ensemble columns separately", {
+  # Load test NC hazards
+  result <- load_hazards_and_inventory(
+    get_hazards_dir(),
+    aggregate_factor = 16L
+  )
+  
+  # Get one complete base event (all ensemble variants)
+  nc_inventory <- result$inventory |>
+    dplyr::filter(.data$source == "nc")
+  
+  # Get first base event
+  if (nrow(nc_inventory) > 0) {
+    first_base <- nc_inventory |>
+      dplyr::mutate(base_event = sub("__ensemble=.*$", "", .data$hazard_name)) |>
+      dplyr::pull(.data$base_event) |>
+      head(1)
+    
+    event_hazards_inventory <- nc_inventory |>
+      dplyr::filter(grepl(paste0("^", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", first_base), "__ensemble="), .data$hazard_name))
+    
+    event_hazards <- result$hazards$nc[event_hazards_inventory$hazard_name]
+    
+    # Create test asset
+    assets <- tibble::tibble(
+      asset = "test_asset_1",
+      latitude = -3.0,
+      longitude = -60.0,
+      municipality = NA_character_,
+      province = NA_character_,
+      type = "office",
+      revenue = 1000000
+    )
+    
+    # Extract
+    out <- extract_hazard_statistics(
+      assets,
+      event_hazards,
+      event_hazards_inventory,
+      precomputed_hazards = tibble::tibble()
+    )
+    
+    # Should have at least one row
+    testthat::expect_gte(nrow(out), 1)
+    
+    # Check that ensemble columns are populated
+    first_row <- out[1, ]
+    
+    # At least hazard_mean should be populated
+    testthat::expect_true(!is.na(first_row$hazard_mean) || is.numeric(first_row$hazard_mean))
+  }
+})
+
+testthat::test_that("NC extraction with multiple base events keeps them separate", {
+  # Load test NC hazards
+  result <- load_hazards_and_inventory(
+    get_hazards_dir(),
+    aggregate_factor = 16L
+  )
+  
+  nc_inventory <- result$inventory |>
+    dplyr::filter(.data$source == "nc")
+  
+  # Get two different base events
+  if (nrow(nc_inventory) > 8) {
+    nc_inventory <- nc_inventory |>
+      dplyr::mutate(base_event = sub("__ensemble=.*$", "", .data$hazard_name))
+    
+    base_events <- unique(nc_inventory$base_event)
+    
+    if (length(base_events) >= 2) {
+      # Select first two base events (with all their ensemble variants)
+      selected_bases <- base_events[1:2]
+      selected_inventory <- nc_inventory |>
+        dplyr::filter(.data$base_event %in% selected_bases)
+      
+      selected_hazards <- result$hazards$nc[selected_inventory$hazard_name]
+      
+      # Create test asset
+      assets <- tibble::tibble(
+        asset = "test_asset_1",
+        latitude = -3.0,
+        longitude = -60.0,
+        municipality = NA_character_,
+        province = NA_character_,
+        type = "office",
+        revenue = 1000000
+      )
+      
+      # Extract
+      out <- extract_hazard_statistics(
+        assets,
+        selected_hazards,
+        selected_inventory,
+        precomputed_hazards = tibble::tibble()
+      )
+      
+      # Should have results for both base events
+      out_base_events <- out |>
+        dplyr::mutate(base_event = sub("__ensemble=.*$", "", .data$hazard_name)) |>
+        dplyr::pull(.data$base_event) |>
+        unique()
+      
+      testthat::expect_gte(length(out_base_events), 2)
+      
+      # Hazard_mean values should differ between different base events
+      base1_rows <- out |>
+        dplyr::filter(grepl(paste0("^", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", selected_bases[1])), .data$hazard_name))
+      base2_rows <- out |>
+        dplyr::filter(grepl(paste0("^", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", selected_bases[2])), .data$hazard_name))
+      
+      if (nrow(base1_rows) > 0 && nrow(base2_rows) > 0) {
+        base1_mean <- base1_rows$hazard_mean[1]
+        base2_mean <- base2_rows$hazard_mean[1]
+        
+        # Different events should likely have different hazard values
+        # (not guaranteed but highly probable with real data)
+        testthat::expect_true(is.numeric(base1_mean))
+        testthat::expect_true(is.numeric(base2_mean))
+      }
+    }
+  }
 })

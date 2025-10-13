@@ -22,8 +22,8 @@ compute_risk(
 
 \item{companies}{Data frame containing company information (from read_companies())}
 
-\item{events}{data.frame with columns \code{event_id}, \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{hazard_return_period}, \code{event_year} (or NA), \code{chronic}.
-The \code{event_id} column will be auto-generated if missing.}
+\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{hazard_return_period}, \code{event_year} (or NA), \code{chronic}.
+The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{hazards}{Named list of SpatRaster objects (from load_hazards())}
 

@@ -5,13 +5,12 @@
 #' @param hazards Named list of hazard rasters (from load_hazards) - used for spatial extraction
 #' @param hazards_inventory Data frame with hazard metadata (hazard_name, hazard_type, hazard_indicator, etc.)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
-#' @param use_exactextractr Logical. If TRUE and package is available, use exactextractr; otherwise use terra::extract.
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, hazard_mean, hazard_median, hazard_max, 
 #'   hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, use_exactextractr = FALSE) {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL) {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
   
   # Separate assets into coordinate-based and administrative-based
@@ -183,12 +182,6 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory) {
       base_event_id = sub("__ensemble=.*$", "", .data$hazard_name)
     )
   
-  # Debug: show all base_event_ids created
-  message("    DEBUG: All base_event_ids in inventory:")
-  for (i in seq_len(nrow(nc_inventory))) {
-    message("      ", nc_inventory$hazard_name[i], " -> ", nc_inventory$base_event_id[i])
-  }
-  
   base_events <- nc_inventory |>
     dplyr::distinct(.data$base_event_id, .data$hazard_type, .data$hazard_indicator,
                     .data$scenario_name, .data$hazard_return_period, .data$scenario_code)
@@ -223,10 +216,6 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory) {
     current_base_event_id <- base_event_id
     event_hazards <- nc_inventory |>
       dplyr::filter(.data$base_event_id == !!current_base_event_id)
-    
-    message("      Found ", nrow(event_hazards), " ensemble variants for this event")
-    message("      Base event ID: ", base_event_id)
-    message("      Matched hazards: ", paste(event_hazards$hazard_name, collapse=", "))
     
     # Map ensemble values to output column names
     # Match exactly what NC files provide

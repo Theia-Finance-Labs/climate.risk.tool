@@ -5,7 +5,7 @@
 [![Codecov test coverage](https://codecov.io/gh/Theia-Finance-Labs/climate.risk.tool/graph/badge.svg)](https://app.codecov.io/gh/Theia-Finance-Labs/climate.risk.tool)
 <!-- badges: end -->
 
-The goal of climate.risk.tool is to ...
+R package for climate risk assessment using geospatial hazard data and financial modeling. Supports both GeoTIFF (.tif) and NetCDF (.nc) hazard data formats with automated ensemble statistics extraction.
 
 ## Installation
 
@@ -29,29 +29,30 @@ library(climate.risk.tool)
 
 # Path to your input data directory. It must contain:
 # - user_input/: asset_information.csv, company.csv
-# - areas/municipality/ and areas/province/ with .geojson files
-# - hazards/[hazard_type]: .tif raster files
 # - damage_and_cost_factors.csv
+# - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
+# - hazards_name_mapping.csv (metadata for TIF hazards, optional for NC)
+# - hazards/[hazard_type]/ directory with .tif or .nc files
 base_dir <- "/path/to/your/data"
 
 # Load all required data
 assets <- read_assets(base_dir)
 companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-hazards <- load_hazards(file.path(base_dir, "hazards"))
-areas <- load_location_areas(
-  file.path(base_dir, "areas", "municipality"),
-  file.path(base_dir, "areas", "province")
-)
+
+# Load hazards with unified loader (supports both TIF and NetCDF formats)
+hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"))
+hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)  # Flatten for compute_risk
+hazards_inventory <- hazard_data$inventory
+
+precomputed_hazards <- read_precomputed_hazards(base_dir)
 damage_factors <- read_damage_cost_factors(base_dir)
 
-# Create test events
+# Create events (updated format)
 events <- data.frame(
-  event_id = "event_1",
   hazard_type = "flood",
-  scenario = "rcp85",
+  hazard_name = "flood__rcp85_h100glob", 
   event_year = 2030,
-  chronic = FALSE,
-  stringsAsFactors = FALSE
+  chronic = FALSE
 )
 
 # Run the complete climate risk analysis
@@ -60,7 +61,8 @@ results <- compute_risk(
   companies = companies,
   events = events,
   hazards = hazards,
-  areas = areas,
+  hazards_inventory = hazards_inventory,
+  precomputed_hazards = precomputed_hazards,
   damage_factors = damage_factors,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
@@ -175,10 +177,13 @@ The codebase is organized into logical modules using a clear naming convention:
 - **`geospatial__*.R`** - Geographic and hazard processing
   - Asset geolocation, hazard data loading and processing
   - Spatial operations, damage factor integration
+  - **New**: Dual extraction workflows for TIF vs NetCDF sources
 
 - **`utils__*.R`** - Utility functions and data I/O
   - Input data reading, hazard inventory management
   - Area loading, result gathering and formatting
+  - **New**: `filter_hazards_by_events()` for smart hazard filtering
+  - **New**: Enhanced `load_hazards_and_inventory()` supporting both TIF and NetCDF
 
 - **`mod_*.R`** - Shiny application modules
   - UI/Server pairs for interactive components
@@ -194,6 +199,49 @@ The codebase is organized into logical modules using a clear naming convention:
 
 - **`run_app.R`** - Application launcher
   - Entry point for starting the Shiny application
+
+#### Data Format Support
+
+The package supports two hazard data formats that can be used together in the same analysis:
+
+**GeoTIFF (.tif) Files** - Traditional raster format
+- Requires `hazards_name_mapping.csv` for metadata
+- Spatial extraction computes statistics from pixel values
+- Naming: `{hazard_type}__{scenario_code}_h{return_period}glob`
+
+**NetCDF (.nc) Files** - Modern scientific format with pre-computed statistics
+- Auto-discovers from directory structure and file dimensions
+- Direct extraction of pre-computed ensemble statistics (mean, median, p10, p90)
+- Naming: `{hazard_type}__{indicator}__GWL={level}__RP={period}__ensemble={variant}`
+- **No spatial computation needed** - statistics pre-computed in the NC file
+
+#### Mixed Format Pipeline Handling
+
+The pipeline seamlessly handles mixed TIF and NetCDF formats through several mechanisms:
+
+**1. Unified Loading (`load_hazards_and_inventory()`)**
+- Loads both formats in a single call
+- Returns combined list: `list(hazards = list(tif = ..., nc = ...), inventory = ...)`
+- Creates unified inventory with `source` column indicating data format
+- TIF files are optional (if no mapping file exists, only NC files are loaded)
+
+**2. Smart Event Filtering (`filter_hazards_by_events()`)**
+- Filters hazards by event requirements across both formats
+- **TIF hazards**: Exact name matching
+- **NC hazards**: Automatic ensemble expansion (1 event → 4 ensemble variants)
+- Returns single filtered list combining both formats
+
+**3. Dual Extraction Workflow (`extract_hazard_statistics()`)**
+- **Detects format mix** and chooses appropriate extraction method per hazard
+- **TIF sources**: Spatial computation using `exactextractr` for pixel statistics
+- **NC sources**: Direct extraction of pre-computed ensemble statistics
+- **Priority cascade**: Coordinates → Municipality (ADM2) → Province (ADM1) → Error
+- **Unified output**: Same column structure regardless of source format
+
+**4. Combined Results Processing**
+- All downstream functions work identically with mixed format results
+- Damage factor joining, shock application, and financial calculations are format-agnostic
+- Final results combine data from both formats seamlessly
 
 #### Other Key Directories
 

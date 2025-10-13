@@ -43,7 +43,7 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
     message("  Attempting to load TIF hazards...")
     mapping_df <- read_hazards_mapping(mapping_path)
     
-    tif_list <- load_hazards_from_mapping_internal(
+    tif_list <- load_hazards_from_mapping(
       mapping_df = mapping_df,
       hazards_dir = hazards_dir,
       aggregate_factor = as.integer(aggregate_factor)
@@ -97,13 +97,142 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
   ))
 }
 
-#' Internal TIF loader (previously load_hazards_from_mapping)
+#' Load NetCDF cube format with terra
+#'
+#' @description
+#' Loads multi-layer NetCDF files where terra can directly parse the structure.
+#' This is used for "cube" format files where each layer represents a combination
+#' of scenario and return period, with layer names like:
+#' "flood_depth_return_period=2_scenario=_1"
+#'
+#' @param file_path Character. Path to the NetCDF file
+#' @param terra_rast SpatRaster. Pre-loaded terra raster object
+#' @return List with `hazards` (named list of SpatRaster) and `inventory_rows` (list of tibbles)
 #' @noRd
-load_hazards_from_mapping_internal <- function(mapping_df, hazards_dir, aggregate_factor = 1L) {
-  return(load_hazards_from_mapping(
-    mapping_df = mapping_df,
-    hazards_dir = hazards_dir,
-    aggregate_factor = aggregate_factor
+load_nc_cube_with_terra <- function(file_path, terra_rast) {
+  # Parse folder structure for hazard_type and hazard_indicator
+  # Expected structure: .../hazards/{hazard_type}/{hazard_indicator?}/file.nc
+  # Or: .../hazards/{hazard_type}/file.nc
+  parts <- strsplit(normalizePath(file_path), .Platform$file.sep, fixed = TRUE)[[1]]
+  
+  # Find the "hazards" directory index
+  hazards_idx <- which(parts == "hazards")
+  
+  if (length(hazards_idx) > 0 && length(parts) > hazards_idx[length(hazards_idx)]) {
+    # Get parts after "hazards" directory
+    after_hazards <- parts[(hazards_idx[length(hazards_idx)] + 1):length(parts)]
+    
+    if (length(after_hazards) >= 2) {
+      # hazards/{hazard_type}/file.nc or hazards/{hazard_type}/{indicator}/file.nc
+      hazard_type <- after_hazards[1]
+      
+      if (length(after_hazards) == 2) {
+        # File is directly in hazard_type folder
+        # Extract indicator from filename
+        file_name <- after_hazards[2]
+        # Try to extract indicator from filename (e.g., "GIRI_flood_depth_cube.nc" -> "flood_depth")
+        indicator_match <- regmatches(file_name, regexpr("_([a-z_]+)_cube", file_name))
+        if (length(indicator_match) > 0) {
+          hazard_indicator <- sub("^_", "", sub("_cube$", "", indicator_match))
+        } else {
+          hazard_indicator <- sub("\\.nc$", "", file_name)
+        }
+      } else {
+        # File is in hazard_type/indicator folder
+        hazard_indicator <- after_hazards[2]
+      }
+    } else {
+      hazard_type <- "unknown"
+      hazard_indicator <- "indicator"
+    }
+  } else {
+    # Fallback to old logic if "hazards" not found
+    if (length(parts) >= 3) {
+      hazard_indicator <- parts[length(parts) - 1]
+      hazard_type <- parts[length(parts) - 2]
+    } else {
+      hazard_indicator <- "indicator"
+      hazard_type <- "unknown"
+    }
+  }
+  
+  # Try to read scenario dimension values from NetCDF metadata
+  scenario_mapping <- list()
+  nc <- try(ncdf4::nc_open(file_path), silent = TRUE)
+  if (!inherits(nc, "try-error")) {
+    # Check if scenario dimension exists
+    if ("scenario" %in% names(nc$dim)) {
+      scenario_vals <- nc$dim[["scenario"]]$vals
+      for (i in seq_along(scenario_vals)) {
+        scenario_mapping[[paste0("_", i)]] <- scenario_vals[i]
+      }
+    }
+    try(ncdf4::nc_close(nc), silent = TRUE)
+  }
+  
+  # Get layer names
+  layer_names <- names(terra_rast)
+  
+  # Parse layer names to extract metadata
+  # Expected format: "variable_return_period=X_scenario=_Y" or similar
+  results <- list()
+  inventory_rows <- list()
+  
+  for (i in seq_len(terra::nlyr(terra_rast))) {
+    layer_name <- layer_names[i]
+    layer_rast <- terra_rast[[i]]
+    
+    # Parse layer name for return_period and scenario
+    # Example: "flood_depth_return_period=2_scenario=_1"
+    rp_match <- regmatches(layer_name, regexpr("return_period=([0-9]+)", layer_name))
+    scenario_match <- regmatches(layer_name, regexpr("scenario=(_[0-9]+)", layer_name))
+    
+    if (length(rp_match) > 0) {
+      rp_str <- sub("return_period=", "", rp_match)
+      rp_numeric <- as.numeric(rp_str)
+    } else {
+      rp_str <- paste0("idx", i)
+      rp_numeric <- i
+    }
+    
+    if (length(scenario_match) > 0) {
+      scenario_idx <- sub("scenario=", "", scenario_match)
+      # Look up actual scenario name from mapping
+      if (scenario_idx %in% names(scenario_mapping)) {
+        scenario_str <- scenario_mapping[[scenario_idx]]
+      } else {
+        scenario_str <- paste0("scenario", scenario_idx)
+      }
+    } else {
+      scenario_str <- "unknown"
+    }
+    
+    # Compose hazard name
+    hz_name <- paste0(
+      hazard_type, "__", hazard_indicator,
+      "__GWL=", scenario_str,
+      "__RP=", rp_str,
+      "__ensemble=mean"
+    )
+    
+    results[[hz_name]] <- layer_rast
+    
+    # Build inventory row
+    inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
+      hazard_type = hazard_type,
+      hazard_indicator = hazard_indicator,
+      scenario_name = scenario_str,
+      hazard_return_period = rp_numeric,
+      scenario_code = scenario_str,
+      hazard_name = hz_name,
+      ensemble = "mean",
+      source = "nc"
+    )
+  }
+  
+  return(list(
+    hazards = results,
+    inventory_rows = inventory_rows
   ))
 }
 
@@ -169,6 +298,30 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
   inventory_rows <- list()
 
   for (f in nc_files) {
+    # Try to load with terra first to check if it's a cube format
+    terra_rast <- try(terra::rast(f), silent = TRUE)
+    
+    # Check if this is a "cube" format NetCDF by examining layer names
+    # Cube format has metadata in layer names like: "variable_return_period=X_scenario=_Y"
+    # Dimension format has generic names and uses NetCDF dimensions for metadata
+    is_cube_format <- FALSE
+    if (!inherits(terra_rast, "try-error") && terra::nlyr(terra_rast) > 1) {
+      layer_names <- names(terra_rast)
+      # Check if layer names contain metadata patterns
+      has_rp_in_name <- any(grepl("return_period=", layer_names))
+      has_scenario_in_name <- any(grepl("scenario=", layer_names))
+      is_cube_format <- has_rp_in_name || has_scenario_in_name
+    }
+    
+    if (is_cube_format) {
+      # This is a cube format - use terra to load it efficiently
+      message("  Loading multi-layer NetCDF with terra: ", basename(f))
+      
+      result <- load_nc_cube_with_terra(f, terra_rast)
+      results <- c(results, result$hazards)
+      inventory_rows <- c(inventory_rows, result$inventory_rows)
+      next
+    }
     # Path parsing: .../hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
     parts <- strsplit(normalizePath(f), .Platform$file.sep, fixed = TRUE)[[1]]
     # Find indices for segments
@@ -235,24 +388,50 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
     if (length(lon_dim) == 0) lon_dim <- "lon"
     if (length(lat_dim) == 0) lat_dim <- "lat"
 
-    lon_vals <- try(ncdf4::ncvar_get(nc, lon_dim[1]), silent = TRUE)
-    lat_vals <- try(ncdf4::ncvar_get(nc, lat_dim[1]), silent = TRUE)
+    # Get coordinate values from dimensions (not variables)
+    # Dimensions store their values in nc$dim[[name]]$vals
+    lon_vals <- if (lon_dim[1] %in% names(nc$dim)) {
+      nc$dim[[lon_dim[1]]]$vals
+    } else {
+      try(ncdf4::ncvar_get(nc, lon_dim[1]), silent = TRUE)
+    }
+    
+    lat_vals <- if (lat_dim[1] %in% names(nc$dim)) {
+      nc$dim[[lat_dim[1]]]$vals
+    } else {
+      try(ncdf4::ncvar_get(nc, lat_dim[1]), silent = TRUE)
+    }
 
-    # Other dims
+    # Other dims - check for scenario, ensemble, GWL, return_period
     ens_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("ensemble")), logical(1))]
-    gwl_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("gwl", "GWL")), logical(1))]
+    gwl_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("gwl", "GWL", "scenario")), logical(1))]
     # Heuristic: remaining non-spatial, non-ensemble, non-GWL dim is return period
     remaining <- setdiff(dim_names, c(lon_dim[1], lat_dim[1], ens_dim, gwl_dim))
     rp_dim <- if (length(remaining) > 0) remaining[[1]] else "return_period"
 
-    ens_vals <- try(ncdf4::ncvar_get(nc, ens_dim[1]), silent = TRUE)
-    gwl_vals <- try(ncdf4::ncvar_get(nc, gwl_dim[1]), silent = TRUE)
-    rp_vals <- try(ncdf4::ncvar_get(nc, rp_dim), silent = TRUE)
+    # Get dimension values from nc$dim structure
+    ens_vals <- if (length(ens_dim) > 0 && ens_dim[1] %in% names(nc$dim)) {
+      nc$dim[[ens_dim[1]]]$vals
+    } else {
+      try(ncdf4::ncvar_get(nc, ens_dim[1]), silent = TRUE)
+    }
+    
+    gwl_vals <- if (length(gwl_dim) > 0 && gwl_dim[1] %in% names(nc$dim)) {
+      nc$dim[[gwl_dim[1]]]$vals
+    } else {
+      try(ncdf4::ncvar_get(nc, gwl_dim[1]), silent = TRUE)
+    }
+    
+    rp_vals <- if (rp_dim %in% names(nc$dim)) {
+      nc$dim[[rp_dim]]$vals
+    } else {
+      try(ncdf4::ncvar_get(nc, rp_dim), silent = TRUE)
+    }
 
     # Determine ensemble values to iterate over
     # If ensemble dimension exists and has multiple values, load all of them
     # Otherwise, default to a single iteration
-    ensemble_values <- list(idx = 1L, label = "mean")  # Default single value
+    ensemble_values <- list(list(idx = 1L, label = "mean"))  # Default: list of one element
     
     if (!inherits(ens_vals, "try-error") && length(ens_vals) > 0) {
       # Convert to character for consistent handling
@@ -296,9 +475,9 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
             nm <- dim_names[k]
             if (nm == lon_dim[1] || nm == lat_dim[1]) {
               sc_list[[k]] <- list(start = 1L, count = -1L)
-            } else if (nm == ens_dim) {
+            } else if (length(ens_dim) > 0 && nm == ens_dim[1]) {
               sc_list[[k]] <- list(start = ens_idx, count = 1L)
-            } else if (nm == gwl_dim) {
+            } else if (length(gwl_dim) > 0 && nm == gwl_dim[1]) {
               sc_list[[k]] <- list(start = ig, count = 1L)
             } else if (nm == rp_dim) {
               sc_list[[k]] <- list(start = ir, count = 1L)

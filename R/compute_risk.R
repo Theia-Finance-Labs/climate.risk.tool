@@ -6,8 +6,8 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `event_id`, `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA), `chronic`.
-#'   The `event_id` column will be auto-generated if missing.
+#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA), `chronic`.
+#'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
@@ -115,56 +115,16 @@ compute_risk <- function(assets,
   # PHASE 1: UTILS - Input validation and data preparation
   # ============================================================================
 
+  # Auto-generate event_id if not provided (always regenerate for consistency)
+  events <- events |>
+    dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
+  
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
 
   # Filter hazards to only those referenced by events
-  # Note: For NC hazards, events reference the base event (without ensemble suffix)
-  # but we need to keep ALL ensemble variants for proper statistics extraction
-  if (tibble::is_tibble(events) || is.data.frame(events)) {
-    available_names <- names(hazards)
-    desired_names <- events |>
-      dplyr::distinct(.data$hazard_name) |>
-      dplyr::pull(.data$hazard_name) |>
-      as.character() |>
-      unique()
-    
-    # Exact matches (for TIF hazards)
-    exact_matches <- available_names[available_names %in% desired_names]
-    
-    # Pattern matches for NC hazards (base event name matches, different ensemble values)
-    # For each desired name, also match names that start with the desired name + "__ensemble="
-    # We ALWAYS expand to all ensemble variants to get complete statistics
-    pattern_matches <- character()
-    for (desired in desired_names) {
-      # If desired name contains __ensemble=, strip it to get base event
-      if (grepl("__ensemble=", desired)) {
-        # Remove ensemble suffix to get base event
-        base_event <- sub("__ensemble=.*$", "", desired)
-        # Match ALL ensemble variants for this base event
-        pattern <- paste0("^", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", base_event), "__ensemble=")
-        matches <- grep(pattern, available_names, value = TRUE)
-        pattern_matches <- c(pattern_matches, matches)
-      } else {
-        # Match all ensemble variants for this base event
-        pattern <- paste0("^", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", desired), "__ensemble=")
-        matches <- grep(pattern, available_names, value = TRUE)
-        pattern_matches <- c(pattern_matches, matches)
-      }
-    }
-    
-    # Combine exact and pattern matches
-    selected_names <- unique(c(exact_matches, pattern_matches))
-    hazards <- hazards[selected_names]
-    
-    message("[compute_risk] Filtered hazards: ", length(selected_names), " hazard layers selected from ", 
-            length(available_names), " available (", length(desired_names), " events requested)")
-  }
-  # Ensure event_id column exists
-  if (!"event_id" %in% names(events)) {
-    events <- events |>
-      dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
-  }
+  # Note: For NC hazards, this expands to ALL ensemble variants (mean, median, p10, p90, etc.)
+  hazards <- filter_hazards_by_events(hazards, events)
 
 
   # ============================================================================

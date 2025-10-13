@@ -2,11 +2,11 @@ testthat::test_that("compute_risk orchestrates new yearly trajectory functions",
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   # Define two events - one acute, one chronic
   # Use h10 which has actual data, not h100 which is empty
@@ -65,11 +65,11 @@ testthat::test_that("compute_risk processes single acute event", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   # Single acute event
   # Use h10 which has actual data, not h100 which is empty
@@ -117,11 +117,11 @@ testthat::test_that("compute_risk processes chronic event", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   # Single chronic event
   # Use h10 which has actual data, not h100 which is empty
@@ -165,11 +165,11 @@ testthat::test_that("compute_risk validates required parameters", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
   companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
 
   events <- data.frame(
     event_id = "test",
@@ -211,10 +211,10 @@ testthat::test_that("compute_risk validates required parameters", {
 testthat::test_that("compute_risk carries hazard_name through to events", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  mapping <- read_hazards_mapping(file.path(base_dir, "hazards_metadata.csv"))
-  hazards <- load_hazards_from_mapping(mapping, get_hazards_dir(), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
-  inventory <- list_hazard_inventory_from_metadata(mapping)
+  inventory <- hazard_data$inventory
   
   assets_long <- extract_hazard_statistics(assets, hazards, inventory, precomputed_hazards)
   damage_factors <- read_damage_cost_factors(base_dir)
