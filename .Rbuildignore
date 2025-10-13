@@ -1,4 +1,4 @@
-^data-raw/process_flood_maps_brazil.R$
+^data-raw/notebooks/*
 ^.env$
 ^.env.example$
 ^tests/tests_data/hazards/.gitkeep$

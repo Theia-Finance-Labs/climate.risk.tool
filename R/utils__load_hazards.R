@@ -31,7 +31,7 @@
 load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
   message("[load_hazards_and_inventory] Starting hazard loading and inventory...")
   
-  # Try to find and read TIF mapping file
+  # TIF files require a mapping file - if no mapping exists, skip TIF loading entirely
   parent_dir <- dirname(hazards_dir)
   mapping_path <- file.path(parent_dir, "hazards_metadata.csv")
   
@@ -40,6 +40,7 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
   
   if (file.exists(mapping_path)) {
     message("  Found TIF mapping at: ", mapping_path)
+    message("  Attempting to load TIF hazards...")
     mapping_df <- read_hazards_mapping(mapping_path)
     
     tif_list <- load_hazards_from_mapping_internal(
@@ -48,27 +49,35 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
       aggregate_factor = as.integer(aggregate_factor)
     )
     
-    # Build TIF inventory
-    tif_inventory <- mapping_df |>
-      dplyr::mutate(
-        hazard_name = paste0(
-          .data$hazard_type, "__",
-          .data$scenario_code, "_h",
-          .data$hazard_return_period, "glob"
-        ),
-        source = "tif"
-      ) |>
-      dplyr::select(
-        .data$hazard_type,
-        .data$hazard_indicator,
-        .data$scenario_name,
-        .data$hazard_return_period,
-        .data$scenario_code,
-        .data$hazard_name,
-        .data$source
-      )
+    # Build TIF inventory only if we actually loaded TIF files
+    if (length(tif_list) > 0) {
+      # Extract the successfully loaded hazard types from tif_list names
+      loaded_names <- names(tif_list)
+      
+      # Create inventory only for loaded files
+      tif_inventory <- mapping_df |>
+        dplyr::mutate(
+          hazard_name = paste0(
+            .data$hazard_type, "__",
+            .data$scenario_code, "_h",
+            .data$hazard_return_period, "glob"
+          ),
+          source = "tif"
+        ) |>
+        dplyr::filter(.data$hazard_name %in% loaded_names) |>
+        dplyr::select(
+          "hazard_type",
+          "hazard_indicator",
+          "scenario_name",
+          "hazard_return_period",
+          "scenario_code",
+          "hazard_name",
+          "source"
+        )
+    }
   } else {
-    message("  No TIF mapping file found (searched: ", mapping_path, ")")
+    message("  No TIF mapping file found at: ", mapping_path)
+    message("  Skipping TIF loading (mapping file required for TIF hazards)")
   }
   
   # Load NC files and build inventory
@@ -103,8 +112,18 @@ load_hazards_from_mapping_internal <- function(mapping_df, hazards_dir, aggregat
 #' @description
 #' Scans for .nc files in the hazards directory, extracts metadata from the folder
 #' structure (hazard_type, hazard_indicator) and from NetCDF dimensions (GWL,
-#' return_period, ensemble). For each combination of GWL and return_period where
-#' ensemble='mean', creates a separate SpatRaster.
+#' return_period, ensemble). For each combination of GWL, return_period, and
+#' ensemble value, creates a separate SpatRaster.
+#'
+#' **Multi-variable NetCDF files:** If a NetCDF file contains multiple variables
+#' (e.g., when not using ensemble dimension), the loader will automatically select 
+#' one based on a preference order: mean > median > value > data. If none of these 
+#' are found, it uses the first variable.
+#'
+#' **Ensemble dimension:** If the NC file has an ensemble dimension with values
+#' like ["mean", "median", "p10", "p90"], ALL ensemble values are loaded as separate
+#' rasters. This provides pre-computed statistics from the NC file without needing
+#' spatial computation during extraction.
 #'
 #' Returns both the loaded rasters and a metadata inventory tibble.
 #'
@@ -170,15 +189,39 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
     # Open NetCDF and discover structure
     nc <- ncdf4::nc_open(f)
 
-    # Identify main data variable: must be exactly one
+    # Identify main data variable
     var_names <- names(nc$var)
-    if (length(var_names) != 1) {
-      stop(
-        "[load_nc_hazards_with_metadata] Expected exactly one variable in NetCDF, found: ",
-        paste(var_names, collapse = ", ")
-      )
+    
+    if (length(var_names) == 0) {
+      warning("[load_nc_hazards_with_metadata] No variables found in NetCDF file: ", f, ". Skipping.")
+      try(ncdf4::nc_close(nc), silent = TRUE)
+      next
     }
-    main_var <- var_names[[1]]
+    
+    # If multiple variables, select one based on preference order
+    if (length(var_names) > 1) {
+      # Preference order: mean, median, value, data, or first available
+      preferred_vars <- c("mean", "median", "value", "data")
+      main_var <- NULL
+      
+      for (pref in preferred_vars) {
+        if (pref %in% var_names) {
+          main_var <- pref
+          message("  Multi-variable NetCDF detected, using '", main_var, "' from: ", 
+                  paste(var_names, collapse = ", "))
+          break
+        }
+      }
+      
+      # If no preferred variable found, use first one
+      if (is.null(main_var)) {
+        main_var <- var_names[[1]]
+        message("  Multi-variable NetCDF detected, using first variable '", main_var, "' from: ", 
+                paste(var_names, collapse = ", "))
+      }
+    } else {
+      main_var <- var_names[[1]]
+    }
 
     # Coordinate variables and values
     dim_names <- vapply(nc$var[[main_var]]$dim, function(d) d$name, character(1))
@@ -206,18 +249,25 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
     gwl_vals <- try(ncdf4::ncvar_get(nc, gwl_dim[1]), silent = TRUE)
     rp_vals <- try(ncdf4::ncvar_get(nc, rp_dim), silent = TRUE)
 
-    # Pick ensemble == 'mean'
-    ens_idx <- 1L
-    if (!inherits(ens_vals, "try-error")) {
-      if (is.character(ens_vals)) {
-        mi <- which(ens_vals == "mean")
-        if (length(mi) == 1) ens_idx <- as.integer(mi)
-      } else if (is.factor(ens_vals)) {
-        mi <- which(as.character(ens_vals) == "mean")
-        if (length(mi) == 1) ens_idx <- as.integer(mi)
+    # Determine ensemble values to iterate over
+    # If ensemble dimension exists and has multiple values, load all of them
+    # Otherwise, default to a single iteration
+    ensemble_values <- list(idx = 1L, label = "mean")  # Default single value
+    
+    if (!inherits(ens_vals, "try-error") && length(ens_vals) > 0) {
+      # Convert to character for consistent handling
+      if (is.factor(ens_vals)) {
+        ens_chars <- as.character(ens_vals)
+      } else if (is.character(ens_vals)) {
+        ens_chars <- ens_vals
       } else {
-        ens_idx <- 1L
+        ens_chars <- as.character(ens_vals)
       }
+      
+      # Create list of ensemble indices and labels
+      ensemble_values <- lapply(seq_along(ens_chars), function(i) {
+        list(idx = as.integer(i), label = ens_chars[i])
+      })
     }
 
     # Indices helpers for start/count
@@ -228,108 +278,116 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
       list(start = as.integer(pick), count = 1L, pos = pos)
     }
 
-    # Iterate over GWL and return_period values
+    # Iterate over GWL, return_period, and ensemble values
     n_gwl <- if (inherits(gwl_vals, "try-error")) 1L else length(gwl_vals)
     n_rp <- if (inherits(rp_vals, "try-error")) 1L else length(rp_vals)
 
     for (ig in seq_len(n_gwl)) {
       for (ir in seq_len(n_rp)) {
-        # Build start/count vectors aligned to var dim order
-        sc_list <- vector("list", length(dim_names))
-        for (k in seq_along(dim_names)) {
-          nm <- dim_names[k]
-          if (nm == lon_dim[1] || nm == lat_dim[1]) {
-            sc_list[[k]] <- list(start = 1L, count = -1L)
-          } else if (nm == ens_dim) {
-            sc_list[[k]] <- list(start = ens_idx, count = 1L)
-          } else if (nm == gwl_dim) {
-            sc_list[[k]] <- list(start = ig, count = 1L)
-          } else if (nm == rp_dim) {
-            sc_list[[k]] <- list(start = ir, count = 1L)
-          } else {
-            sc_list[[k]] <- list(start = 1L, count = -1L)
+        # Iterate over ALL ensemble values (mean, median, p10, p90, etc.)
+        for (ie in seq_along(ensemble_values)) {
+          ens_info <- ensemble_values[[ie]]
+          ens_idx <- ens_info$idx
+          ens_label <- ens_info$label
+          
+          # Build start/count vectors aligned to var dim order
+          sc_list <- vector("list", length(dim_names))
+          for (k in seq_along(dim_names)) {
+            nm <- dim_names[k]
+            if (nm == lon_dim[1] || nm == lat_dim[1]) {
+              sc_list[[k]] <- list(start = 1L, count = -1L)
+            } else if (nm == ens_dim) {
+              sc_list[[k]] <- list(start = ens_idx, count = 1L)
+            } else if (nm == gwl_dim) {
+              sc_list[[k]] <- list(start = ig, count = 1L)
+            } else if (nm == rp_dim) {
+              sc_list[[k]] <- list(start = ir, count = 1L)
+            } else {
+              sc_list[[k]] <- list(start = 1L, count = -1L)
+            }
           }
-        }
-        start <- vapply(sc_list, function(z) z$start, integer(1))
-        count <- vapply(sc_list, function(z) z$count, integer(1))
+          start <- vapply(sc_list, function(z) z$start, integer(1))
+          count <- vapply(sc_list, function(z) z$count, integer(1))
 
-        # Read the 2D slice
-        slice <- ncdf4::ncvar_get(nc, main_var, start = start, count = count)
+          # Read the 2D slice
+          slice <- ncdf4::ncvar_get(nc, main_var, start = start, count = count)
 
-        # Normalize lon/lat vectors
-        if (inherits(lon_vals, "try-error")) {
-          # Infer from slice ncol if needed (ideal path assumption)
-          lon_vals <- seq_len(dim(slice)[1])
-        }
-        if (inherits(lat_vals, "try-error")) {
-          lat_vals <- seq_len(dim(slice)[2])
-        }
-
-        # Calculate resolution and extent
-        # Coordinates in NC files are cell centers; we need to extend by half-pixel
-        n_lon <- length(lon_vals)
-        n_lat <- length(lat_vals)
-        
-        # Resolution: spacing between coordinate centers
-        res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
-        res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
-        
-        # Extent: expand by half-pixel on each side to convert centers to edges
-        xmin <- min(lon_vals) - res_lon / 2
-        xmax <- max(lon_vals) + res_lon / 2
-        ymin <- min(lat_vals) - res_lat / 2
-        ymax <- max(lat_vals) + res_lat / 2
-
-        # Ensure correct orientation: rows = lat (descending), cols = lon (ascending)
-        if (length(dim(slice)) == 2L) {
-          if (identical(dim(slice), c(length(lon_vals), length(lat_vals)))) {
-            mat <- t(slice)
-          } else if (identical(dim(slice), c(length(lat_vals), length(lon_vals)))) {
-            mat <- slice
-          } else {
-            mat <- t(slice)
+          # Normalize lon/lat vectors
+          if (inherits(lon_vals, "try-error")) {
+            # Infer from slice ncol if needed (ideal path assumption)
+            lon_vals <- seq_len(dim(slice)[1])
           }
-        } else {
-          mat <- as.matrix(slice)
+          if (inherits(lat_vals, "try-error")) {
+            lat_vals <- seq_len(dim(slice)[2])
+          }
+
+          # Calculate resolution and extent
+          # Coordinates in NC files are cell centers; we need to extend by half-pixel
+          n_lon <- length(lon_vals)
+          n_lat <- length(lat_vals)
+          
+          # Resolution: spacing between coordinate centers
+          res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
+          res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
+          
+          # Extent: expand by half-pixel on each side to convert centers to edges
+          xmin <- min(lon_vals) - res_lon / 2
+          xmax <- max(lon_vals) + res_lon / 2
+          ymin <- min(lat_vals) - res_lat / 2
+          ymax <- max(lat_vals) + res_lat / 2
+
+          # Ensure correct orientation: rows = lat (descending), cols = lon (ascending)
+          if (length(dim(slice)) == 2L) {
+            if (identical(dim(slice), c(length(lon_vals), length(lat_vals)))) {
+              mat <- t(slice)
+            } else if (identical(dim(slice), c(length(lat_vals), length(lon_vals)))) {
+              mat <- slice
+            } else {
+              mat <- t(slice)
+            }
+          } else {
+            mat <- as.matrix(slice)
+          }
+          # Flip rows so that first row is max(lat)
+          mat <- mat[rev(seq_len(nrow(mat))), , drop = FALSE]
+
+          r <- terra::rast(
+            ncols = n_lon,
+            nrows = n_lat,
+            xmin = xmin, xmax = xmax,
+            ymin = ymin, ymax = ymax,
+            crs = "EPSG:4326"
+          )
+          terra::values(r) <- as.vector(mat)
+
+          # Compose hazard name including ensemble/statistic
+          gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])
+          rp_label <- if (inherits(rp_vals, "try-error")) paste0("idx", ir) else as.character(rp_vals[ir])
+
+          hz_name <- paste0(
+            hazard_type, "__", hazard_indicator,
+            "__GWL=", gwl_label,
+            "__RP=", rp_label,
+            "__ensemble=", ens_label
+          )
+
+          results[[hz_name]] <- r
+          
+          # Build inventory row
+          rp_numeric <- suppressWarnings(as.numeric(rp_label))
+          if (is.na(rp_numeric)) rp_numeric <- ir
+          
+          inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
+            hazard_type = hazard_type,
+            hazard_indicator = hazard_indicator,
+            scenario_name = gwl_label,
+            hazard_return_period = rp_numeric,
+            scenario_code = gwl_label,
+            hazard_name = hz_name,
+            ensemble = ens_label,
+            source = "nc"
+          )
         }
-        # Flip rows so that first row is max(lat)
-        mat <- mat[rev(seq_len(nrow(mat))), , drop = FALSE]
-
-        r <- terra::rast(
-          ncols = n_lon,
-          nrows = n_lat,
-          xmin = xmin, xmax = xmax,
-          ymin = ymin, ymax = ymax,
-          crs = "EPSG:4326"
-        )
-        terra::values(r) <- as.vector(mat)
-
-        # Compose hazard name as agreed
-        gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])
-        rp_label <- if (inherits(rp_vals, "try-error")) paste0("idx", ir) else as.character(rp_vals[ir])
-
-        hz_name <- paste0(
-          hazard_type, "__", hazard_indicator,
-          "__GWL=", gwl_label,
-          "__RP=", rp_label,
-          "__ensemble=mean"
-        )
-
-        results[[hz_name]] <- r
-        
-        # Build inventory row
-        rp_numeric <- suppressWarnings(as.numeric(rp_label))
-        if (is.na(rp_numeric)) rp_numeric <- ir
-        
-        inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
-          hazard_type = hazard_type,
-          hazard_indicator = hazard_indicator,
-          scenario_name = gwl_label,
-          hazard_return_period = rp_numeric,
-          scenario_code = gwl_label,
-          hazard_name = hz_name,
-          source = "nc"
-        )
       }
     }
     

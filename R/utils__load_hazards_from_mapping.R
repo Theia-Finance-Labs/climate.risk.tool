@@ -64,11 +64,15 @@ load_hazards_from_mapping <- function(mapping_df,
                                full.names = TRUE, recursive = TRUE)
   
   if (length(all_tif_files) == 0) {
-    stop("No .tif files found in hazards directory: ", hazards_dir)
+    warning("No .tif files found in hazards directory: ", hazards_dir, 
+            ". Returning empty list (NC files may still be available).")
+    return(list())
   }
   
   mapping <- mapping |>
     dplyr::mutate(full_path = NA_character_)
+  
+  files_not_found <- character(0)
   
   for (i in seq_len(nrow(mapping))) {
     hazard_file <- mapping$hazard_file[i]
@@ -77,7 +81,8 @@ load_hazards_from_mapping <- function(mapping_df,
     matching_files <- all_tif_files[basename(all_tif_files) == hazard_file]
     
     if (length(matching_files) == 0) {
-      stop("Hazard file not found: ", hazard_file, " in directory: ", hazards_dir)
+      files_not_found <- c(files_not_found, hazard_file)
+      next
     }
     
     if (length(matching_files) > 1) {
@@ -87,7 +92,23 @@ load_hazards_from_mapping <- function(mapping_df,
     mapping$full_path[i] <- matching_files[1]
   }
   
-  message("  All ", nrow(mapping), " hazard files validated")
+  # Filter out rows where files weren't found
+  mapping <- mapping |>
+    dplyr::filter(!is.na(.data$full_path))
+  
+  if (length(files_not_found) > 0) {
+    warning("Some TIF files from mapping not found (", length(files_not_found), "): ", 
+            paste(head(files_not_found, 3), collapse = ", "),
+            if (length(files_not_found) > 3) "..." else "")
+  }
+  
+  if (nrow(mapping) == 0) {
+    warning("No TIF files from mapping found in hazards directory: ", hazards_dir,
+            ". Returning empty list (NC files may still be available).")
+    return(list())
+  }
+  
+  message("  ", nrow(mapping), " hazard files validated")
   
   # Load rasters
   message("[load_hazards_from_mapping] Loading ", nrow(mapping), " rasters...")

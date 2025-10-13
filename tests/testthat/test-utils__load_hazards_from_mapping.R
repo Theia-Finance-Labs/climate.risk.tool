@@ -24,7 +24,7 @@ test_that("load_hazards_from_mapping loads from mapping dataframe", {
   expect_true(length(rasters) > 0)
 })
 
-test_that("load_hazards_from_mapping validates all files exist", {
+test_that("load_hazards_from_mapping handles missing files gracefully", {
   mapping_df <- tibble::tibble(
     hazard_file = c("nonexistent.tif"),
     hazard_type = c("flood"),
@@ -36,13 +36,18 @@ test_that("load_hazards_from_mapping validates all files exist", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   
-  expect_error(
-    load_hazards_from_mapping(
+  # Should return empty list with warning when files don't exist
+  expect_warning(
+    result <- load_hazards_from_mapping(
       mapping_df = mapping_df,
       hazards_dir = hazards_dir
     ),
-    "not found|does not exist"
+    "not found|No TIF files"
   )
+  
+  # Should return empty list
+  expect_type(result, "list")
+  expect_equal(length(result), 0)
 })
 
 test_that("load_hazards_from_mapping checks for duplicates on filter columns", {

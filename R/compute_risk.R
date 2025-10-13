@@ -119,6 +119,8 @@ compute_risk <- function(assets,
   assets <- filter_assets_by_companies(assets, companies)
 
   # Filter hazards to only those referenced by events
+  # Note: For NC hazards, events reference the base event (without ensemble suffix)
+  # but we need to keep ALL ensemble variants for proper statistics extraction
   if (tibble::is_tibble(events) || is.data.frame(events)) {
     available_names <- names(hazards)
     desired_names <- events |>
@@ -126,8 +128,37 @@ compute_risk <- function(assets,
       dplyr::pull(.data$hazard_name) |>
       as.character() |>
       unique()
-    exact <- available_names[available_names %in% desired_names]
-    hazards <- hazards[exact]
+    
+    # Exact matches (for TIF hazards)
+    exact_matches <- available_names[available_names %in% desired_names]
+    
+    # Pattern matches for NC hazards (base event name matches, different ensemble values)
+    # For each desired name, also match names that start with the desired name + "__ensemble="
+    # We ALWAYS expand to all ensemble variants to get complete statistics
+    pattern_matches <- character()
+    for (desired in desired_names) {
+      # If desired name contains __ensemble=, strip it to get base event
+      if (grepl("__ensemble=", desired)) {
+        # Remove ensemble suffix to get base event
+        base_event <- sub("__ensemble=.*$", "", desired)
+        # Match ALL ensemble variants for this base event
+        pattern <- paste0("^", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", base_event), "__ensemble=")
+        matches <- grep(pattern, available_names, value = TRUE)
+        pattern_matches <- c(pattern_matches, matches)
+      } else {
+        # Match all ensemble variants for this base event
+        pattern <- paste0("^", gsub("([.|()\\^{}+$*?]|\\[|\\])", "\\\\\\1", desired), "__ensemble=")
+        matches <- grep(pattern, available_names, value = TRUE)
+        pattern_matches <- c(pattern_matches, matches)
+      }
+    }
+    
+    # Combine exact and pattern matches
+    selected_names <- unique(c(exact_matches, pattern_matches))
+    hazards <- hazards[selected_names]
+    
+    message("[compute_risk] Filtered hazards: ", length(selected_names), " hazard layers selected from ", 
+            length(available_names), " available (", length(desired_names), " events requested)")
   }
   # Ensure event_id column exists
   if (!"event_id" %in% names(events)) {
@@ -140,9 +171,14 @@ compute_risk <- function(assets,
   # PHASE 2: GEOSPATIAL - Extract hazard statistics (spatial or precomputed)
   # ============================================================================
 
+  # Filter inventory to match filtered hazards (prevent warnings about unfound hazards)
+  filtered_hazard_names <- names(hazards)
+  filtered_inventory <- hazards_inventory |>
+    dplyr::filter(.data$hazard_name %in% filtered_hazard_names)
+  
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/province only
-  assets_long <- extract_hazard_statistics(assets, hazards, hazards_inventory, precomputed_hazards)
+  assets_long <- extract_hazard_statistics(assets, hazards, filtered_inventory, precomputed_hazards)
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)

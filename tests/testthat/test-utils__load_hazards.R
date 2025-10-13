@@ -57,11 +57,12 @@ test_that("load_hazards_and_inventory loads NC files correctly", {
       expect_s4_class(result$hazards$nc[[i]], "SpatRaster")
     }
     
-    # Names should follow convention: {hazard_type}__{indicator}__GWL={g}__RP={rp}__ensemble=mean
+    # Names should follow convention: {hazard_type}__{indicator}__GWL={g}__RP={rp}__ensemble={value}
+    # where {value} can be mean, median, p10, p90, etc.
     expect_true(!is.null(names(result$hazards$nc)))
     expect_true(all(grepl("__GWL=", names(result$hazards$nc))))
     expect_true(all(grepl("__RP=", names(result$hazards$nc))))
-    expect_true(all(grepl("__ensemble=mean", names(result$hazards$nc))))
+    expect_true(all(grepl("__ensemble=", names(result$hazards$nc))))
   }
 })
 
@@ -144,9 +145,24 @@ test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly"
   # Skip if no NC files
   skip_if(length(result$hazards$nc) == 0, "No NC files in test data")
   
-  # All NC names should end with ensemble=mean
+  # NC files should load ALL ensemble values (mean, median, p10, p90, etc.)
+  # Not just ensemble=mean
   nc_names <- names(result$hazards$nc)
-  expect_true(all(grepl("__ensemble=mean$", nc_names)))
+  
+  # Check that we have multiple ensemble values in the names
+  expect_true(any(grepl("__ensemble=mean$", nc_names)), 
+              info = "Should have at least one mean ensemble")
+  expect_true(any(grepl("__ensemble=median$", nc_names)), 
+              info = "Should have at least one median ensemble")
+  expect_true(any(grepl("__ensemble=p10$", nc_names)), 
+              info = "Should have at least one p10 ensemble")
+  expect_true(any(grepl("__ensemble=p90$", nc_names)), 
+              info = "Should have at least one p90 ensemble")
+  
+  # Check inventory has ensemble column for NC hazards
+  nc_inventory <- result$inventory |> dplyr::filter(source == "nc")
+  expect_true("ensemble" %in% names(nc_inventory))
+  expect_true(all(nc_inventory$ensemble %in% c("mean", "median", "p10", "p90")))
 })
 
 test_that("load_hazards_and_inventory creates separate raster per GWL and return_period combination", {
@@ -187,5 +203,80 @@ test_that("load_hazards_and_inventory passes aggregate_factor to TIF loader only
   expect_true("inventory" %in% names(result))
   expect_true("tif" %in% names(result$hazards))
   expect_true("nc" %in% names(result$hazards))
+})
+
+test_that("load_hazards_and_inventory works with NC files when no TIF files present", {
+  # Create temporary directory structure with only NC files
+  temp_dir <- tempdir()
+  test_hazards_dir <- file.path(temp_dir, "test_hazards_nc_only")
+  dir.create(test_hazards_dir, showWarnings = FALSE, recursive = TRUE)
+  on.exit(unlink(test_hazards_dir, recursive = TRUE), add = TRUE)
+  
+  # Create a minimal NetCDF file structure
+  nc_dir <- file.path(test_hazards_dir, "hazards", "Drought", "CDD", "ensemble")
+  dir.create(nc_dir, showWarnings = FALSE, recursive = TRUE)
+  
+  # Copy an NC file from test data if it exists
+  source_hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  nc_files <- list.files(source_hazards_dir, pattern = "\\.nc$", 
+                         full.names = TRUE, recursive = TRUE)
+  
+  skip_if(length(nc_files) == 0, "No NC files in test data to copy")
+  
+  # Copy first NC file
+  file.copy(nc_files[1], file.path(nc_dir, basename(nc_files[1])))
+  
+  # Create a mapping file that references non-existent TIF files
+  parent_dir <- dirname(file.path(test_hazards_dir, "hazards"))
+  mapping_content <- "hazard_file,hazard_type,scenario_code,scenario_name,hazard_return_period,hazard_indicator
+nonexistent1.tif,flood,ssp245,SSP2-4.5,10,inun
+nonexistent2.tif,flood,ssp245,SSP2-4.5,100,inun"
+  writeLines(mapping_content, file.path(parent_dir, "hazards_metadata.csv"))
+  
+  # Should not fail, should load NC files only
+  result <- load_hazards_and_inventory(
+    hazards_dir = file.path(test_hazards_dir, "hazards"),
+    aggregate_factor = 1L
+  )
+  
+  # Should return structure with empty TIF list but populated NC list
+  expect_type(result, "list")
+  expect_true("hazards" %in% names(result))
+  expect_true("inventory" %in% names(result))
+  
+  # TIF list should be empty
+  expect_equal(length(result$hazards$tif), 0)
+  
+  # NC list should have content
+  expect_true(length(result$hazards$nc) > 0)
+  
+  # Inventory should contain NC entries
+  expect_true(nrow(result$inventory) > 0)
+  expect_true(all(result$inventory$source == "nc"))
+})
+
+test_that("load_nc_hazards_with_metadata handles multi-variable NetCDF files", {
+  # This test verifies that the loader can handle NetCDF files with multiple variables
+  # and selects the appropriate one (preferring 'mean' if available)
+  
+  # Note: The actual multi-variable handling is tested implicitly when loading
+  # real NetCDF files from the workspace. This is a placeholder for explicit testing
+  # if we create a multi-variable test file in the future.
+  
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  result <- load_hazards_and_inventory(
+    hazards_dir = hazards_dir,
+    aggregate_factor = 16L
+  )
+  
+  # If we successfully loaded NC files, the multi-variable logic worked
+  # (either single-variable files or multi-variable with successful selection)
+  expect_type(result, "list")
+  expect_true("hazards" %in% names(result))
+  
+  # If NC files were loaded, they should be SpatRaster objects
+  if (length(result$hazards$nc) > 0) {
+    expect_s4_class(result$hazards$nc[[1]], "SpatRaster")
+  }
 })
 

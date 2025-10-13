@@ -8,16 +8,15 @@ gather_and_pivot_results(companies_expected_loss)
 }
 \arguments{
 \item{companies_expected_loss}{tibble. Company data with NPV, PD, and expected_loss by scenario}
-
-\item{assets_discounted}{tibble. Asset data with discounted_net_profit by scenario}
 }
 \value{
-tibble with pivoted company data
+tibble with pivoted company data including NPV_change_pct and Expected_loss_change_pct
 }
 \description{
 Pivots long-format scenario data into wide format suitable for reporting.
 Creates separate tables for assets (with NPV columns) and companies
-(with NPV, PD, and Expected Loss columns) by scenario.
+(with NPV, PD, and Expected Loss columns) by scenario. Also calculates percentage
+changes from baseline to shock for NPV and Expected Loss.
 }
 \details{
 Gather and Pivot Results
@@ -27,11 +26,14 @@ Creates separate pivoted tables for assets and companies.
 }
 \examples{
 \dontrun{
-assets <- data.frame(company = "A", scenario = "baseline", discounted_net_profit = 1000)
 companies <- data.frame(
-  company = "A", scenario = "baseline", npv = 1000,
-  merton_pd = 0.1, expected_loss = 100
+  company = c("A", "A"),
+  scenario = c("baseline", "shock"),
+  npv = c(1000, 950),
+  merton_pd = c(0.1, 0.15),
+  expected_loss = c(100, 120)
 )
-result <- gather_and_pivot_results(assets, companies)
+result <- gather_and_pivot_results(companies)
+# Result includes NPV_change_pct = -5\% and Expected_loss_change_pct = 20\%
 }
 }

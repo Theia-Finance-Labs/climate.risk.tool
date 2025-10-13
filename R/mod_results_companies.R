@@ -34,9 +34,14 @@ mod_results_companies_server <- function(id, results_reactive) {
       # Format numeric columns for better display
       for (col in names(companies)) {
         if (is.numeric(companies[[col]])) {
-          if (grepl("pd", col, ignore.case = TRUE)) {
+          if (grepl("_pct$|_change_pct$", col, ignore.case = TRUE)) {
+            # Percentage change columns (already in percentage format)
+            companies[[col]] <- paste0(sprintf("%.2f", companies[[col]]), "%")
+          } else if (grepl("^pd_|_pd$", col, ignore.case = TRUE)) {
+            # Probability of default columns (need to multiply by 100)
             companies[[col]] <- paste0(sprintf("%.4f", companies[[col]] * 100), "%")
           } else if (grepl("npv|loss", col, ignore.case = TRUE)) {
+            # NPV and loss columns (currency format)
             companies[[col]] <- paste0("$", format(round(companies[[col]]), big.mark = ","))
           }
         }

@@ -205,8 +205,12 @@ hazards_flat <- c(hz$tif, hz$nc)
 **`compute_companies_financials(company_yearly, assets_yearly, discount_rate)`** → list(assets, companies)
 - Computes final NPV, PD (Merton), Expected Loss metrics
 
-**`gather_and_pivot_results(df_assets, df_companies)`** → list(assets_pivot, companies_pivot)
-- Transforms scenario data into wide format for reporting
+**`gather_and_pivot_results(df_companies)`** → companies_pivot
+- Transforms company scenario data into wide format for reporting
+- Adds percentage change columns:
+  - `NPV_change_pct`: Percentage change from baseline to shock NPV
+  - `Expected_loss_change_pct`: Percentage change from baseline to shock expected loss
+- Output columns: company, NPV_baseline, NPV_shock, NPV_change_pct, PD_baseline, PD_shock, Expected_loss_baseline, Expected_loss_shock, Expected_loss_change_pct
 
 ## Shiny Application
 
@@ -231,6 +235,10 @@ hazards_flat <- c(hz$tif, hz$nc)
 **`mod_results_assets`** - Asset-level results display
 
 **`mod_results_companies`** - Company-level results display
+- Displays pivoted company results with formatted columns:
+  - Percentage change columns: formatted as "X.XX%"
+  - PD columns: multiplied by 100 and formatted as "X.XXXX%"
+  - NPV and loss columns: formatted as currency "$X,XXX"
 
 **`mod_status`** - Processing status indicator
 
