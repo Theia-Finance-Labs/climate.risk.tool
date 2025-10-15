@@ -141,45 +141,63 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
       scenario_str <- "unknown"
     }
     
-    # Parse for GWL (may be empty in layer name but present in dimensions)
-    gwl_match <- regmatches(layer_name, regexpr("GWL=([^_]*)", layer_name))
-    if (length(gwl_match) > 0) {
-      gwl_str <- sub("GWL=", "", gwl_match)
-      if (gwl_str == "" || gwl_str == "_") {
-        # Empty GWL in name, try to get from dimension
-        # Extract trailing index if present
-        trailing_match <- regmatches(layer_name, regexpr("_([0-9]+)$", layer_name))
-        if (length(trailing_match) > 0 && length(gwl_mapping) > 0) {
-          trailing_idx <- sub("^_", "", trailing_match)
-          # This might be GWL index if no ensemble dimension
-          if (length(ensemble_mapping) == 0 && trailing_idx %in% names(gwl_mapping)) {
-            gwl_str <- gwl_mapping[[trailing_idx]]
-          } else {
-            gwl_str <- "present"
+    # Parse for GWL and ensemble based on file structure
+    gwl_str <- "present"  # Default
+    ensemble_str <- "mean"  # Default
+    
+    # Check if this is a GIRI-style file (explicit scenario indices) vs ensemble-style file (combination indices)
+    has_explicit_scenario <- grepl("scenario=_", layer_name)
+    has_gwl_in_name <- grepl("GWL=", layer_name)
+    
+    if (has_explicit_scenario && !has_gwl_in_name) {
+      # GIRI-style file: scenario index is explicit in layer name
+      # Example: "flood_depth_return_period=2_scenario=_1"
+      # Use the scenario_str that was already parsed above
+      gwl_str <- scenario_str
+      ensemble_str <- "mean"  # GIRI files don't have ensemble dimension
+    } else {
+      # Ensemble-style file: trailing number is combination index
+      # Example: "SPI6_ensemble=_GWL=_return_period=5_1"
+      trailing_match <- regmatches(layer_name, regexpr("_([0-9]+)$", layer_name))
+      if (length(trailing_match) > 0) {
+        trailing_idx <- sub("^_", "", trailing_match)
+        idx_numeric <- as.numeric(trailing_idx)
+        
+        if (!is.na(idx_numeric) && length(gwl_mapping) > 0 && length(ensemble_mapping) > 0) {
+          # The trailing number is a combination index representing both GWL and ensemble
+          # Calculate GWL and ensemble indices from the combination index
+          n_ensemble <- length(ensemble_mapping)
+          gwl_idx <- ((idx_numeric - 1) %/% n_ensemble) + 1
+          ensemble_idx <- ((idx_numeric - 1) %% n_ensemble) + 1
+          
+          # Look up actual values from mappings
+          if (as.character(gwl_idx) %in% names(gwl_mapping)) {
+            gwl_str <- gwl_mapping[[as.character(gwl_idx)]]
           }
-        } else {
-          gwl_str <- "present"
+          if (as.character(ensemble_idx) %in% names(ensemble_mapping)) {
+            ensemble_str <- ensemble_mapping[[as.character(ensemble_idx)]]
+          }
+        } else if (!is.na(idx_numeric) && length(gwl_mapping) > 0 && length(ensemble_mapping) == 0) {
+          # Only GWL dimension, no ensemble
+          if (as.character(idx_numeric) %in% names(gwl_mapping)) {
+            gwl_str <- gwl_mapping[[as.character(idx_numeric)]]
+          }
+        } else if (!is.na(idx_numeric) && length(ensemble_mapping) > 0 && length(gwl_mapping) == 0) {
+          # Only ensemble dimension, no GWL
+          if (as.character(idx_numeric) %in% names(ensemble_mapping)) {
+            ensemble_str <- ensemble_mapping[[as.character(idx_numeric)]]
+          }
         }
       }
-    } else {
-      gwl_str <- scenario_str
-    }
-    
-    # Parse for ensemble index (trailing number after all other metadata)
-    # Example: "SPI6_ensemble=_GWL=_return_period=5_1" -> ensemble index is "1"
-    ensemble_str <- "mean"  # Default
-    trailing_match <- regmatches(layer_name, regexpr("_([0-9]+)$", layer_name))
-    
-    if (length(trailing_match) > 0 && length(ensemble_mapping) > 0) {
-      trailing_idx <- sub("^_", "", trailing_match)
-      # Look up ensemble value from mapping
-      if (trailing_idx %in% names(ensemble_mapping)) {
-        ensemble_str <- ensemble_mapping[[trailing_idx]]
-      } else {
-        # Try 1-based indexing
-        idx_numeric <- as.numeric(trailing_idx)
-        if (!is.na(idx_numeric) && idx_numeric >= 1 && idx_numeric <= length(ensemble_mapping)) {
-          ensemble_str <- ensemble_mapping[[as.character(idx_numeric)]]
+      
+      # Fallback: try to parse GWL from layer name if combination parsing failed
+      if (gwl_str == "present") {
+        gwl_match <- regmatches(layer_name, regexpr("GWL=([^_]*)", layer_name))
+        if (length(gwl_match) > 0) {
+          gwl_str <- sub("GWL=", "", gwl_match)
+          if (gwl_str == "" || gwl_str == "_") {
+            gwl_str <- "present"
+          }
         }
       }
     }
