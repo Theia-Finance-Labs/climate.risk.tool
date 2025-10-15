@@ -28,40 +28,60 @@ apply_acute_revenue_shock <- function(
     yearly_trajectories,
     assets_factors,
     acute_events) {
-  # --- Build flood disruption map (asset, event_year -> total disruption days) ---
+  # --- Build disruption map (asset, event_year -> total disruption days) ---
 
-  # Keep only FLOOD rows from here. Additional hazards have to be integrated seperately
-  flood_events <- acute_events |>
-    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood")
+  # Initialize empty results
+  shocks_by_asset_year <- tibble::tibble(
+    asset = character(0), 
+    event_year = integer(0), 
+    business_disruption = numeric(0)
+  )
 
-  assets_flood <- assets_factors |>
-    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood")
+  # Process each event and check its hazard type
+  for (i in seq_len(nrow(acute_events))) {
+    event <- acute_events[i, ]
+    hazard_type <- event$hazard_type
+    event_year <- event$event_year
+    
+    if (hazard_type %in% c("FloodTIF", "Flood")) {
+      # Flood events: apply business disruption based on business_disruption factor
+      assets_flood <- assets_factors |>
+        dplyr::filter(.data$hazard_type %in% c("FloodTIF", "Flood")) |>
+        dplyr::filter(.data$hazard_name == event$hazard_name)
 
-  # Map by hazard_name, then sum per (asset, event_year)
-  if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
-    shock_map <- dplyr::inner_join(
-      assets_flood |>
-        dplyr::select("asset", "hazard_name", "business_disruption"),
-      flood_events |>
-        dplyr::select("hazard_name", "event_year"),
-      by = "hazard_name"
-    )
-
-    if (nrow(shock_map) > 0) {
-      shocks_by_asset_year <- shock_map |>
-        dplyr::group_by(.data$asset, .data$event_year) |>
-        dplyr::summarize(
-          business_disruption = sum(as.numeric(.data$business_disruption), na.rm = TRUE),
-          .groups = "drop"
-        )
-      # Cap summed disruption into [0, 365]
-      shocks_by_asset_year <- shocks_by_asset_year |>
-        dplyr::mutate(business_disruption = pmax(0, pmin(365, as.numeric(.data$business_disruption))))
+      # Map by hazard_name, then sum per (asset, event_year)
+      if (nrow(assets_flood) > 0) {
+        flood_shocks <- assets_flood |>
+          dplyr::select("asset", "business_disruption") |>
+          dplyr::mutate(
+            event_year = event_year,
+            business_disruption = as.numeric(.data$business_disruption)
+          )
+        
+        # Cap disruption into [0, 365]
+        flood_shocks <- flood_shocks |>
+          dplyr::mutate(business_disruption = pmax(0, pmin(365, .data$business_disruption)))
+        
+        shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
+      }
+    } else if (hazard_type == "drought") {
+      # Drought events: TODO - implement drought-specific logic
+      # For now, no disruption applied for drought events
     } else {
-      shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
+      # Other hazard types: TODO - implement as needed
+      # For now, no disruption applied for other hazard types
     }
-  } else {
-    shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), business_disruption = numeric(0))
+  }
+
+  # Sum disruptions per (asset, event_year) in case multiple events affect same asset-year
+  if (nrow(shocks_by_asset_year) > 0) {
+    shocks_by_asset_year <- shocks_by_asset_year |>
+      dplyr::group_by(.data$asset, .data$event_year) |>
+      dplyr::summarize(
+        business_disruption = sum(.data$business_disruption, na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(business_disruption = pmax(0, pmin(365, .data$business_disruption)))
   }
 
 
