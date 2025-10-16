@@ -202,12 +202,19 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
       }
     }
     
-    # Compose hazard name
+    # Compose hazard name with ensemble for internal raster storage
     hz_name <- paste0(
       hazard_type, "__", hazard_indicator,
       "__GWL=", gwl_str,
       "__RP=", rp_str,
       "__ensemble=", ensemble_str
+    )
+    
+    # Unified hazard name WITHOUT ensemble suffix for inventory
+    hazard_name <- paste0(
+      hazard_type, "__", hazard_indicator,
+      "__GWL=", gwl_str,
+      "__RP=", rp_str
     )
     
     results[[hz_name]] <- layer_rast
@@ -219,7 +226,7 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
       scenario_name = gwl_str,
       hazard_return_period = rp_numeric,
       scenario_code = gwl_str,
-      hazard_name = hz_name,
+      hazard_name = hazard_name,
       ensemble = ensemble_str,
       source = "nc"
     )
@@ -547,11 +554,19 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
           gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])
           rp_label <- if (inherits(rp_vals, "try-error")) paste0("idx", ir) else as.character(rp_vals[ir])
 
+          # Full hazard name with ensemble for internal raster storage
           hz_name <- paste0(
             hazard_type, "__", hazard_indicator,
             "__GWL=", gwl_label,
             "__RP=", rp_label,
             "__ensemble=", ens_label
+          )
+
+          # Unified hazard name WITHOUT ensemble suffix for inventory
+          hazard_name <- paste0(
+            hazard_type, "__", hazard_indicator,
+            "__GWL=", gwl_label,
+            "__RP=", rp_label
           )
 
           results[[hz_name]] <- r
@@ -566,7 +581,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
             scenario_name = gwl_label,
             hazard_return_period = rp_numeric,
             scenario_code = gwl_label,
-            hazard_name = hz_name,
+            hazard_name = hazard_name,
             ensemble = ens_label,
             source = "nc"
           )

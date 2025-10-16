@@ -104,13 +104,15 @@ app_server <- function(input, output, session) {
           return()
         }
 
-        # Reconcile events with currently loaded hazards (exact name match)
-        haz_names <- names(hazards)
+        # Reconcile events with currently loaded hazards using inventory
+        # For TIF: inventory.hazard_name matches event.hazard_name (new format)
+        # For NC: inventory.hazard_name matches event.hazard_name (base event without ensemble)
         if ("hazard_name" %in% names(ev_df)) {
-          keep <- ev_df$hazard_name %in% haz_names
+          inventory_hazard_names <- control$hazards_inventory()$hazard_name
+          keep <- ev_df$hazard_name %in% inventory_hazard_names
           if (any(!keep)) {
             missing <- unique(ev_df$hazard_name[!keep])
-            message("[app_server] Dropping events with missing hazards at current resolution: ", paste(missing, collapse = ", "))
+            message("[app_server] Dropping events with missing hazards: ", paste(missing, collapse = ", "))
           }
           ev_df <- ev_df[keep, , drop = FALSE]
         }
@@ -122,6 +124,7 @@ app_server <- function(input, output, session) {
           events = ev_df,
           hazards = hazards,
           hazards_inventory = control$hazards_inventory(),
+          raster_mapping = control$raster_mapping(),
           precomputed_hazards = precomputed_hazards,
           damage_factors = damage_factors,
           growth_rate = 0.02,

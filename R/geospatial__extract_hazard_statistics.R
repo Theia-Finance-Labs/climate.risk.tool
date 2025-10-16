@@ -7,12 +7,13 @@
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
 #' @param events Data frame with event specifications (used to filter which hazards to validate in precomputed data)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean")
+#' @param raster_mapping Tibble mapping unified hazard_name to internal raster keys (required for TIF extraction)
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, hazard_mean, hazard_median, hazard_max, 
 #'   hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, events = NULL, aggregation_method = "mean") {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, events = NULL, aggregation_method = "mean", raster_mapping = NULL) {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
   
   # Show breakdown of location data availability
@@ -77,7 +78,7 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
     if (has_tif_sources) {
       # TIF workflow: Compute statistics from spatial extraction
       all_results[[length(all_results) + 1]] <- extract_tif_statistics(
-        assets_with_coords, hazards, hazards_inventory, aggregation_method
+        assets_with_coords, hazards, hazards_inventory, aggregation_method, raster_mapping
       )
     }
     
@@ -124,13 +125,18 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory, aggrega
   message("    Using aggregation method (ensemble): ", aggregation_method)
   
   # Validate that the requested ensemble exists in the loaded hazards
-  # Check if any hazard name contains the requested ensemble
-  available_ensembles <- unique(sub(".*__ensemble=", "", hazards_inventory$hazard_name[hazards_inventory$source == "nc"]))
-  if (!aggregation_method %in% available_ensembles) {
-    stop(
-      "Requested aggregation_method '", aggregation_method, "' not found in NC hazards. ",
-      "Available ensembles: ", paste(available_ensembles, collapse = ", ")
-    )
+  # Use the ensemble column from inventory (NC hazards have this column)
+  nc_inventory_check <- hazards_inventory |>
+    dplyr::filter(.data$source == "nc")
+  
+  if (nrow(nc_inventory_check) > 0 && "ensemble" %in% names(nc_inventory_check)) {
+    available_ensembles <- unique(nc_inventory_check$ensemble)
+    if (!aggregation_method %in% available_ensembles) {
+      stop(
+        "Requested aggregation_method '", aggregation_method, "' not found in NC hazards. ",
+        "Available ensembles: ", paste(available_ensembles, collapse = ", ")
+      )
+    }
   }
   
   # Filter to NC hazards only
@@ -141,12 +147,11 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory, aggrega
     return(tibble::tibble())
   }
   
-  # Group NC hazards by base event (same hazard_type/indicator/scenario/RP, different ensemble)
-  # Parse hazard names to extract base event info
+  # For NC hazards, the hazard_name in inventory is already the base event (no ensemble suffix)
+  # Use hazard_name directly as base_event_id
   nc_inventory <- nc_inventory |>
     dplyr::mutate(
-      # Extract base event ID (everything before __ensemble=)
-      base_event_id = sub("__ensemble=.*$", "", .data$hazard_name)
+      base_event_id = .data$hazard_name
     )
   
   base_events <- nc_inventory |>
@@ -179,29 +184,32 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory, aggrega
     message("    Processing NC event ", i, "/", nrow(base_events), ": ", base_event_id)
     
     # Get the specific ensemble raster for this base event matching aggregation_method
-    # Use !! to force evaluation and ensure exact string matching
-    current_base_event_id <- base_event_id
-    target_hazard_name <- paste0(base_event_id, "__ensemble=", aggregation_method)
-    
+    # Filter by base_event_id (hazard_name without ensemble) AND ensemble column
     event_hazards <- nc_inventory |>
-      dplyr::filter(.data$hazard_name == !!target_hazard_name)
+      dplyr::filter(
+        .data$hazard_name == base_event_id,
+        .data$ensemble == aggregation_method
+      )
     
     if (nrow(event_hazards) == 0) {
-      message("      Warning: No hazard found for ", target_hazard_name, ", skipping")
+      message("      Warning: No hazard found for ", base_event_id, " with ensemble=", aggregation_method, ", skipping")
       next
     }
     
     # Extract from the chosen ensemble raster only
     haz_row <- event_hazards |> dplyr::slice(1)
-    haz_name <- haz_row$hazard_name
+    
+    # Construct the full hazard name WITH ensemble suffix to look up in hazards list
+    # (loaded NC hazards have ensemble suffix in their keys)
+    target_hazard_name <- paste0(base_event_id, "__ensemble=", aggregation_method)
     
     # Get the raster
-    if (!haz_name %in% names(hazards)) {
-      message("      Warning: Hazard '", haz_name, "' not found in hazards list, skipping")
+    if (!target_hazard_name %in% names(hazards)) {
+      message("      Warning: Hazard '", target_hazard_name, "' not found in hazards list, skipping")
       next
     }
     
-    hazard_rast <- hazards[[haz_name]]
+    hazard_rast <- hazards[[target_hazard_name]]
     
     message("      Extracting ensemble='", aggregation_method, "' as hazard_intensity")
     
@@ -283,7 +291,7 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory, aggrega
 
 #' Extract and compute statistics from TIF-sourced hazards
 #' @noRd
-extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
+extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean", raster_mapping = NULL) {
   message("  [extract_tif_statistics] Computing statistics from TIF spatial extraction...")
   message("    Using aggregation method: ", aggregation_method)
   
@@ -334,32 +342,50 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggreg
     assets_sf <- sf::st_as_sf(assets_sf, sf_column_name = "geometry")
   }
   
-  # Get TIF hazard names
-  tif_hazard_names <- tif_inventory$hazard_name
+  # Get TIF inventory and use raster_mapping to look up internal keys
+  n_tif <- nrow(tif_inventory)
   
-  results_list <- vector("list", length(tif_hazard_names))
+  results_list <- vector("list", n_tif)
   
-  message("    Found ", length(tif_hazard_names), " TIF hazards")
+  message("    Found ", n_tif, " TIF hazards")
   
-  for (i in seq_along(tif_hazard_names)) {
-    hazard_name <- tif_hazard_names[[i]]
+  for (i in seq_len(n_tif)) {
+    hazard_meta <- tif_inventory |> dplyr::slice(i)
     
-    if (!hazard_name %in% names(hazards)) {
-      message("      Warning: TIF hazard '", hazard_name, "' not found in hazards list, skipping")
+    # Look up internal raster key using raster_mapping
+    base_hazard_name <- hazard_meta$hazard_name
+    
+    if (is.null(raster_mapping)) {
+      message("      Warning: No raster_mapping provided, skipping TIF hazard ", i)
       next
     }
     
-    hazard_rast <- hazards[[hazard_name]]
-    
-    # Get metadata
-    hazard_meta <- tif_inventory |>
-      dplyr::filter(.data$hazard_name == hazard_name) |>
+    # Find the internal raster key for this hazard
+    raster_key_row <- raster_mapping |>
+      dplyr::filter(.data$source == "tif", .data$hazard_name == base_hazard_name) |>
       dplyr::slice(1)
     
+    if (nrow(raster_key_row) == 0) {
+      message("      Warning: No raster key found for '", base_hazard_name, "', skipping")
+      next
+    }
+    
+    raster_key <- raster_key_row$raster_key
+    
+    if (!raster_key %in% names(hazards)) {
+      message("      Warning: TIF hazard '", raster_key, "' not found in hazards list, skipping")
+      next
+    }
+    
+    hazard_rast <- hazards[[raster_key]]
+    
+    # Get metadata
     hazard_type <- hazard_meta$hazard_type
     hazard_indicator <- hazard_meta$hazard_indicator
+    # Add ensemble suffix for output
+    hazard_name_with_ensemble <- paste0(base_hazard_name, "__ensemble=", aggregation_method)
     
-    message("    Processing TIF hazard ", i, "/", length(tif_hazard_names), ": ", hazard_name)
+    message("    Processing TIF hazard ", i, "/", n_tif, ": ", raster_key)
     
     # Pre-allocate statistics tibble
     n_geoms <- nrow(assets_sf)
@@ -432,22 +458,13 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggreg
       }
     }
     
-    # Get scenario and return period info from inventory for unified naming
-    scenario_name <- hazard_meta$scenario_name
-    return_period <- hazard_meta$hazard_return_period
-    
     df_i <- dplyr::bind_cols(
       sf::st_drop_geometry(assets_sf),
       stats_df |> dplyr::select(-"ID")
     ) |>
       dplyr::mutate(
-        # Construct unified hazard_name with ensemble suffix
-        hazard_name = paste0(
-          hazard_type, "__", hazard_indicator,
-          "__GWL=", scenario_name,
-          "__RP=", return_period,
-          "__ensemble=", aggregation_method
-        ),
+        # Use hazard_name with ensemble suffix added
+        hazard_name = hazard_name_with_ensemble,
         hazard_type = hazard_type,
         hazard_indicator = hazard_indicator,
         # hazard_intensity already set by aggregation function
@@ -502,27 +519,15 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   # Build a mapping of required hazards from events (not all loaded hazards)
   # Only validate hazards that are actually selected in the events dataframe
   if (!is.null(events) && nrow(events) > 0) {
-    # Extract unique event hazard names
+    # Extract unique event hazard names (now without ensemble suffix)
     event_hazard_names <- events |>
       dplyr::distinct(.data$hazard_name) |>
       dplyr::pull(.data$hazard_name)
     
-    # Filter inventory to only include hazards that are in events
-    # For NC hazards, we need to match the base event name (without ensemble suffix)
+    # Filter inventory to only include hazards that match events
+    # Since inventory hazard_name now doesn't have ensemble suffix, it should match directly
     required_hazards <- hazards_inventory |>
-      dplyr::filter(
-        .data$hazard_name %in% event_hazard_names |
-        # Also match base event names (for NC hazards with ensemble variants)
-        sapply(.data$hazard_name, function(hz_name) {
-          # Remove ensemble suffix to get base event name
-          base_name <- sub("__ensemble=.*$", "", hz_name)
-          base_name %in% event_hazard_names || any(sapply(event_hazard_names, function(evt) {
-            # Check if event name matches base or if base matches event's base
-            evt_base <- sub("__ensemble=.*$", "", evt)
-            base_name == evt || base_name == evt_base
-          }))
-        })
-      ) |>
+      dplyr::filter(.data$hazard_name %in% event_hazard_names) |>
       dplyr::distinct(
         .data$hazard_type,
         .data$scenario_code,

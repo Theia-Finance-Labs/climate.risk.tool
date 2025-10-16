@@ -67,6 +67,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
             .data$hazard_return_period == return_period
           )
         if (nrow(matched) > 0) {
+          # Both TIF and NC have hazard_name column with ensemble suffix
           hazard_name_val <- matched$hazard_name[1]
         }
       }

@@ -113,6 +113,16 @@ mod_control_server <- function(id, base_dir_reactive) {
       
       return(result$inventory)
     })
+    
+    # Extract raster_mapping for analysis pipeline
+    raster_mapping <- shiny::reactive({
+      result <- hazards_and_inventory()
+      if (is.null(result) || is.null(result$raster_mapping)) {
+        return(tibble::tibble())
+      }
+      
+      return(result$raster_mapping)
+    })
 
     # Hazards events module
     hz_mod <- mod_hazards_events_server("hazards", hazards_inventory = hazards_inventory)
@@ -139,6 +149,7 @@ mod_control_server <- function(id, base_dir_reactive) {
         values$results
       }),
       hazards_inventory = hazards_inventory,
+      raster_mapping = raster_mapping,
       get_hazards_at_factor = get_hazards_at_factor,
       set_results = function(results) {
         values$results <- results

@@ -10,6 +10,7 @@
 #'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
+#' @param raster_mapping Tibble mapping unified hazard_name to internal raster keys (from load_hazards_and_inventory()$raster_mapping)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
@@ -90,6 +91,7 @@ compute_risk <- function(assets,
                          events,
                          hazards,
                          hazards_inventory,
+                         raster_mapping,
                          precomputed_hazards,
                          damage_factors,
                          growth_rate = 0.02,
@@ -135,23 +137,35 @@ compute_risk <- function(assets,
 
   # Filter hazards to only those referenced by events
   # Note: For NC hazards, this expands to ALL ensemble variants (mean, median, p10, p90, etc.)
-  hazards <- filter_hazards_by_events(hazards, events)
+  hazards <- filter_hazards_by_events(hazards, events, raster_mapping)
 
-
+browser()
   # ============================================================================
   # PHASE 2: GEOSPATIAL - Extract hazard statistics (spatial or precomputed)
   # ============================================================================
 
-  # Filter inventory to match filtered hazards (prevent warnings about unfound hazards)
-  filtered_hazard_names <- names(hazards)
-  filtered_inventory <- hazards_inventory |>
-    dplyr::filter(.data$hazard_name %in% filtered_hazard_names)
+  # Filter inventory to match EVENTS, not raster keys
+  # Inventory `hazard_name` is the base event (no ensemble suffix) for both TIF and NC
+  # This keeps all NC ensemble rows for selected base events
+  filtered_inventory <- {
+    if (is.data.frame(events) && nrow(events) > 0 && "hazard_name" %in% names(events)) {
+      wanted <- unique(as.character(events$hazard_name))
+      hazards_inventory |>
+        dplyr::filter(.data$hazard_name %in% wanted)
+    } else {
+      hazards_inventory
+    }
+  }
   
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/province only
   # Pass events so validation only checks for hazards that are actually selected
   # Pass aggregation_method to control how hazard values are extracted/aggregated
-  assets_long <- extract_hazard_statistics(assets, hazards, filtered_inventory, precomputed_hazards, events, aggregation_method)
+  assets_long <- extract_hazard_statistics(assets, hazards, filtered_inventory, precomputed_hazards, events, aggregation_method, raster_mapping)
+
+  # Normalize hazard names for joins (use base hazard name without ensemble suffix)
+  assets_long <- assets_long |>
+    dplyr::mutate(base_hazard_name = sub("__ensemble=.*$", "", .data$hazard_name))
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
@@ -163,7 +177,7 @@ compute_risk <- function(assets,
     dplyr::distinct()
   
   assets_factors <- assets_factors |>
-    dplyr::left_join(inventory_info, by = "hazard_name")
+    dplyr::left_join(inventory_info, by = c("base_hazard_name" = "hazard_name"))
   
   # Step 2.5: Join event information (event_year, chronic) from events
   # Select only the columns we need from events to avoid duplication
@@ -174,7 +188,7 @@ compute_risk <- function(assets,
     dplyr::select("hazard_name", "event_year", "chronic")
   
   assets_factors <- assets_factors |>
-    dplyr::inner_join(events_info, by = "hazard_name", relationship = "many-to-many")
+    dplyr::inner_join(events_info, by = c("base_hazard_name" = "hazard_name"), relationship = "many-to-many")
 
 
   # ============================================================================

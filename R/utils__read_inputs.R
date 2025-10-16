@@ -220,7 +220,7 @@ read_precomputed_hazards <- function(base_dir) {
   message("  ADM2 (municipality) records: ", sum(precomputed_df$adm_level == "ADM2"))
   
   # Transform data: construct proper hazard_name and create ensemble-specific rows
-  # Use unified naming for both TIF and NC: hazard_type__hazard_indicator__GWL=scenario__RP=return_period__ensemble=ENSEMBLE
+  # Unified naming WITHOUT ensemble suffix (base event format)
   
   # Define ensemble columns to melt
   ensemble_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
@@ -228,15 +228,14 @@ read_precomputed_hazards <- function(base_dir) {
   transformed_list <- list()
   
   for (ens_col in ensemble_cols) {
-    # Create rows for this ensemble (works for both TIF and NC)
+    # Create rows for this ensemble
     ensemble_data <- precomputed_df |>
       dplyr::mutate(
-        # Unified naming: hazard_type__hazard_indicator__GWL=scenario__RP=return_period__ensemble=ENSEMBLE
+        # Unified hazard_name WITHOUT ensemble suffix
         hazard_name = paste0(
           .data$hazard_type, "__", .data$hazard_indicator,
           "__GWL=", .data$scenario_name,
-          "__RP=", .data$hazard_return_period,
-          "__ensemble=", ens_col
+          "__RP=", .data$hazard_return_period
         ),
         ensemble = ens_col,
         hazard_value = .data[[ens_col]]
