@@ -9,6 +9,7 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
   ns <- shiny::NS(id)
   shiny::tagList(
     shiny::h4(title),
+    shiny::p("Select at least one hazard event to run the analysis:", class = "text-muted", style = "font-size: 0.9em; margin-bottom: 10px;"),
     shiny::uiOutput(ns("events_ui")),
     shiny::div(
       shiny::actionButton(ns("add_event"), label = "Add hazard", class = "btn-secondary"),

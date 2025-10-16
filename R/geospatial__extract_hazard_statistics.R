@@ -5,13 +5,24 @@
 #' @param hazards Named list of hazard rasters (from load_hazards) - used for spatial extraction
 #' @param hazards_inventory Data frame with hazard metadata (hazard_name, hazard_type, hazard_indicator, etc.)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
+#' @param events Data frame with event specifications (used to filter which hazards to validate in precomputed data)
+#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean")
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, hazard_mean, hazard_median, hazard_max, 
 #'   hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL) {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, events = NULL, aggregation_method = "mean") {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
+  
+  # Show breakdown of location data availability
+  n_with_both_coords <- sum(!is.na(assets_df$latitude) & !is.na(assets_df$longitude))
+  n_with_municipality <- sum(!is.na(assets_df$municipality) & nzchar(as.character(assets_df$municipality)))
+  n_with_province <- sum(!is.na(assets_df$province) & nzchar(as.character(assets_df$province)))
+  message("  Location data availability:")
+  message("    Assets with coordinates: ", n_with_both_coords)
+  message("    Assets with municipality: ", n_with_municipality)
+  message("    Assets with province: ", n_with_province)
   
   # Separate assets into coordinate-based and administrative-based
   assets_with_coords <- assets_df |>
@@ -20,8 +31,17 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   assets_without_coords <- assets_df |>
     dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude))
   
-  message("  Assets with coordinates (spatial extraction): ", nrow(assets_with_coords))
-  message("  Assets without coordinates (precomputed lookup): ", nrow(assets_without_coords))
+  message("  Routing strategy:")
+  message("    → Spatial extraction (coordinates): ", nrow(assets_with_coords))
+  if (nrow(assets_with_coords) > 0) {
+    sample_coords <- paste(head(assets_with_coords$asset, 3), collapse = ", ")
+    message("      Sample: ", sample_coords, if (nrow(assets_with_coords) > 3) ", ..." else "")
+  }
+  message("    → Precomputed lookup (municipality/province): ", nrow(assets_without_coords))
+  if (nrow(assets_without_coords) > 0) {
+    sample_admin <- paste(head(assets_without_coords$asset, 3), collapse = ", ")
+    message("      Sample: ", sample_admin, if (nrow(assets_without_coords) > 3) ", ..." else "")
+  }
   
   # Initialize results list
   all_results <- list()
@@ -50,14 +70,14 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
     if (has_nc_sources) {
       # NC workflow: Extract pre-computed statistics from ensemble rasters
       all_results[[length(all_results) + 1]] <- extract_nc_statistics(
-        assets_with_coords, hazards, hazards_inventory
+        assets_with_coords, hazards, hazards_inventory, aggregation_method
       )
     }
     
     if (has_tif_sources) {
       # TIF workflow: Compute statistics from spatial extraction
       all_results[[length(all_results) + 1]] <- extract_tif_statistics(
-        assets_with_coords, hazards, hazards_inventory
+        assets_with_coords, hazards, hazards_inventory, aggregation_method
       )
     }
     
@@ -65,162 +85,14 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   
   # ========= Process assets WITHOUT coordinates (precomputed lookup) =========
   if (nrow(assets_without_coords) > 0) {
-    if (is.null(precomputed_hazards)) {
-      stop("Assets without coordinates require precomputed_hazards data, but it was not provided")
-    }
-    
     message("[extract_hazard_statistics] Processing administrative-based assets...")
     
-    # Build a mapping of required hazards from inventory
-    # The inventory has already been filtered by events in compute_risk()
-    required_hazards <- hazards_inventory |>
-      dplyr::distinct(
-        .data$hazard_name,
-        .data$hazard_type,
-        .data$scenario_code,
-        .data$hazard_return_period
-      )
-    
-    message("  Required hazards from inventory: ", nrow(required_hazards))
-    
-    precomp_results_list <- vector("list", nrow(assets_without_coords))
-    
-    for (i in seq_len(nrow(assets_without_coords))) {
-      asset_row <- assets_without_coords |> dplyr::slice(i)
-      asset_name <- asset_row |> dplyr::pull(.data$asset)
-      municipality <- asset_row |> dplyr::pull(.data$municipality)
-      province <- asset_row |> dplyr::pull(.data$province)
-      
-      # Try municipality first (ADM2), then province (ADM1)
-      matched_data <- NULL
-      match_level <- NULL
-      matched_region <- NULL
-      
-      if (!is.na(municipality) && nzchar(as.character(municipality))) {
-        matched_data <- precomputed_hazards |>
-          dplyr::filter(
-            .data$region == municipality,
-            .data$adm_level == "ADM2"
-          )
-        match_level <- "municipality"
-        matched_region <- municipality
-      }
-      
-      if (is.null(matched_data) || nrow(matched_data) == 0) {
-        if (!is.na(province) && nzchar(as.character(province))) {
-          matched_data <- precomputed_hazards |>
-            dplyr::filter(
-              .data$region == province,
-              .data$adm_level == "ADM1"
-            )
-          match_level <- "province"
-          matched_region <- province
-        }
-      }
-      
-      if (is.null(matched_data) || nrow(matched_data) == 0) {
-        stop(
-          "Cannot determine hazard statistics for asset ", i, " (", asset_name, "). ",
-          "No match found in precomputed data for municipality='", municipality, 
-          "' or province='", province, "'"
-        )
-      }
-      
-      # FILTER: Only keep hazards that match the required hazards from inventory
-      # Match by hazard_type, scenario_code, and hazard_return_period
-      matched_data <- matched_data |>
-        dplyr::inner_join(
-          required_hazards |> dplyr::select(
-            "hazard_type", "scenario_code", "hazard_return_period"
-          ),
-          by = c("hazard_type", "scenario_code", "hazard_return_period")
-        )
-      
-      # VALIDATE: Check that we found data for all required hazards
-      if (nrow(matched_data) == 0) {
-        # No matching hazards found for this region
-        required_list <- required_hazards |>
-          dplyr::mutate(
-            hazard_spec = paste0(.data$hazard_type, "__", 
-                                .data$scenario_code, "_h", 
-                                .data$hazard_return_period, "glob")
-          ) |>
-          dplyr::pull(.data$hazard_spec)
-        
-        stop(
-          "Required hazards from events selection are not available in precomputed data.\n",
-          "  Asset: ", asset_name, " (", match_level, ": ", matched_region, ")\n",
-          "  Required hazards: ", paste(required_list, collapse = ", "), "\n",
-          "  These hazards must exist in precomputed data for this region."
-        )
-      }
-      
-      # Check if we got all required hazards
-      found_combos <- matched_data |>
-        dplyr::distinct(.data$hazard_type, .data$scenario_code, .data$hazard_return_period)
-      
-      if (nrow(found_combos) < nrow(required_hazards)) {
-        # Some required hazards are missing
-        missing_hazards <- dplyr::anti_join(
-          required_hazards,
-          found_combos,
-          by = c("hazard_type", "scenario_code", "hazard_return_period")
-        ) |>
-          dplyr::mutate(
-            hazard_spec = paste0(.data$hazard_type, "__", 
-                                .data$scenario_code, "_h", 
-                                .data$hazard_return_period, "glob")
-          ) |>
-          dplyr::pull(.data$hazard_spec)
-        
-        stop(
-          "Some required hazards are missing from precomputed data.\n",
-          "  Asset: ", asset_name, " (", match_level, ": ", matched_region, ")\n",
-          "  Missing hazards: ", paste(missing_hazards, collapse = ", "), "\n",
-          "  These hazards must exist in precomputed data for this region."
-        )
-      }
-      
-      # Transform precomputed data to match expected output format
-      asset_hazard_data <- matched_data |>
-        dplyr::mutate(
-          asset = asset_name,
-          company = asset_row |> dplyr::pull(.data$company),
-          latitude = NA_real_,
-          longitude = NA_real_,
-          municipality = asset_row |> dplyr::pull(.data$municipality),
-          province = asset_row |> dplyr::pull(.data$province),
-          asset_category = asset_row |> dplyr::pull(.data$asset_category),
-          size_in_m2 = asset_row |> dplyr::pull(.data$size_in_m2),
-          share_of_economic_activity = asset_row |> dplyr::pull(.data$share_of_economic_activity),
-          # Map precomputed columns to output format
-          hazard_name = paste0(.data$hazard_type, "__", .data$scenario_code, "_h", .data$hazard_return_period, "glob"),
-          hazard_indicator = .data$hazard_type,  # Default to hazard_type for precomputed data
-          hazard_intensity = .data$mean,
-          hazard_mean = .data$mean,
-          hazard_median = .data$median,
-          hazard_max = .data$max,
-          hazard_min = NA_real_,  # Not available in precomputed data
-          hazard_p2_5 = .data$p2_5,
-          hazard_p5 = .data$p5,
-          hazard_p10 = NA_real_,  # Not available in precomputed data
-          hazard_p90 = NA_real_,  # Not available in precomputed data
-          hazard_p95 = .data$p95,
-          hazard_p97_5 = .data$p97_5,
-          matching_method = match_level
-        ) |>
-        dplyr::select(
-          "asset", "company", "latitude", "longitude",
-          "municipality", "province", "asset_category", "size_in_m2",
-          "share_of_economic_activity", "hazard_name", "hazard_type",
-          "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max", "hazard_min",
-          "hazard_p2_5", "hazard_p5", "hazard_p10", "hazard_p90", "hazard_p95", "hazard_p97_5", "matching_method"
-        )
-      
-      precomp_results_list[[i]] <- asset_hazard_data
-    }
-    
-    all_results[[length(all_results) + 1]] <- do.call(rbind, precomp_results_list)
+    all_results[[length(all_results) + 1]] <- extract_precomputed_statistics(
+      assets_without_coords, 
+      precomputed_hazards, 
+      hazards_inventory,
+      events
+    )
   }
   
   # Combine all results
@@ -229,6 +101,17 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   }
   
   final_result <- do.call(rbind, all_results)
+  
+  # Summary of matching methods used
+  matching_summary <- final_result |>
+    dplyr::group_by(.data$matching_method) |>
+    dplyr::summarise(n_records = dplyr::n(), .groups = "drop")
+  
+  message("[extract_hazard_statistics] Matching method summary:")
+  for (i in seq_len(nrow(matching_summary))) {
+    message("  ", matching_summary$matching_method[i], ": ", matching_summary$n_records[i], " records")
+  }
+  
   message("[extract_hazard_statistics] Completed processing for ", nrow(assets_df), " assets")
   
   return(final_result)
@@ -236,8 +119,19 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
 
 #' Extract statistics from NC-sourced hazards (pre-computed ensemble values)
 #' @noRd
-extract_nc_statistics <- function(assets_df, hazards, hazards_inventory) {
+extract_nc_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
   message("  [extract_nc_statistics] Extracting pre-computed statistics from NC files...")
+  message("    Using aggregation method (ensemble): ", aggregation_method)
+  
+  # Validate that the requested ensemble exists in the loaded hazards
+  # Check if any hazard name contains the requested ensemble
+  available_ensembles <- unique(sub(".*__ensemble=", "", hazards_inventory$hazard_name[hazards_inventory$source == "nc"]))
+  if (!aggregation_method %in% available_ensembles) {
+    stop(
+      "Requested aggregation_method '", aggregation_method, "' not found in NC hazards. ",
+      "Available ensembles: ", paste(available_ensembles, collapse = ", ")
+    )
+  }
   
   # Filter to NC hazards only
   nc_inventory <- hazards_inventory |>
@@ -284,91 +178,64 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory) {
     
     message("    Processing NC event ", i, "/", nrow(base_events), ": ", base_event_id)
     
-    # Get all ensemble rasters for this base event
+    # Get the specific ensemble raster for this base event matching aggregation_method
     # Use !! to force evaluation and ensure exact string matching
     current_base_event_id <- base_event_id
+    target_hazard_name <- paste0(base_event_id, "__ensemble=", aggregation_method)
+    
     event_hazards <- nc_inventory |>
-      dplyr::filter(.data$base_event_id == !!current_base_event_id)
+      dplyr::filter(.data$hazard_name == !!target_hazard_name)
     
-    # Map ensemble values to output column names
-    # Match exactly what NC files provide
-    ensemble_mapping <- list(
-      mean = "hazard_mean",
-      median = "hazard_median",
-      max = "hazard_max",
-      min = "hazard_min",
-      p10 = "hazard_p10",
-      p90 = "hazard_p90",
-      "p2.5" = "hazard_p2_5",
-      "p97.5" = "hazard_p97_5",
-      p5 = "hazard_p5",
-      p95 = "hazard_p95"
-    )
+    if (nrow(event_hazards) == 0) {
+      message("      Warning: No hazard found for ", target_hazard_name, ", skipping")
+      next
+    }
     
-    # Initialize statistics data frame with all possible NC ensemble statistics
+    # Extract from the chosen ensemble raster only
+    haz_row <- event_hazards |> dplyr::slice(1)
+    haz_name <- haz_row$hazard_name
+    
+    # Get the raster
+    if (!haz_name %in% names(hazards)) {
+      message("      Warning: Hazard '", haz_name, "' not found in hazards list, skipping")
+      next
+    }
+    
+    hazard_rast <- hazards[[haz_name]]
+    
+    message("      Extracting ensemble='", aggregation_method, "' as hazard_intensity")
+    
+    # Extract values for all assets (point extraction at centroid)
+    r_crs <- terra::crs(hazard_rast)
+    if (is.na(r_crs) || r_crs == "") r_crs <- "EPSG:4326"
+    
+    # For NC files with pre-computed statistics, extract from centroids (points), not polygons
+    # This ensures we get exactly one value per asset
+    centroids_sf <- sf::st_set_geometry(assets_sf, assets_sf$centroid)
+    centroids_transformed <- sf::st_transform(centroids_sf, r_crs)
+    centroids_vect <- terra::vect(centroids_transformed)
+    
+    # Extract values (using centroids for NC since they have pre-computed stats)
+    extracted_vals <- terra::extract(hazard_rast, centroids_vect, method = "simple", ID = FALSE)
+    
+    # Create stats dataframe with the extracted value as hazard_intensity
+    # Set all other stats to the same value (since we only extracted one ensemble)
+    intensity_vals <- if (ncol(extracted_vals) > 0) as.numeric(extracted_vals[[1]]) else rep(NA_real_, nrow(assets_sf))
+    
     stats_df <- tibble::tibble(
       asset_id = seq_len(nrow(assets_sf)),
-      hazard_mean = NA_real_,
-      hazard_median = NA_real_,
-      hazard_max = NA_real_,
+      hazard_intensity = intensity_vals,
+      hazard_mean = intensity_vals,
+      hazard_median = intensity_vals,
+      hazard_max = intensity_vals,
       hazard_min = NA_real_,
-      hazard_p2_5 = NA_real_,
-      hazard_p5 = NA_real_,
+      hazard_p2_5 = intensity_vals,
+      hazard_p5 = intensity_vals,
       hazard_p10 = NA_real_,
       hazard_p90 = NA_real_,
-      hazard_p95 = NA_real_,
-      hazard_p97_5 = NA_real_
+      hazard_p95 = intensity_vals,
+      hazard_p97_5 = intensity_vals
     )
-    
-    # Extract from each ensemble raster
-    for (j in seq_len(nrow(event_hazards))) {
-      haz_row <- event_hazards |> dplyr::slice(j)
-      haz_name <- haz_row$hazard_name
-      ensemble_val <- haz_row$ensemble
-      
-      # Get the raster
-      if (!haz_name %in% names(hazards)) {
-        message("      Warning: Hazard '", haz_name, "' not found in hazards list, skipping")
-        next
-      }
-      
-      hazard_rast <- hazards[[haz_name]]
-      
-      # Determine which column to fill based on ensemble value
-      col_name <- NULL
-      for (ens_key in names(ensemble_mapping)) {
-        if (tolower(ensemble_val) == tolower(ens_key) || 
-            gsub("\\.", "_", tolower(ensemble_val)) == tolower(ens_key)) {
-          col_name <- ensemble_mapping[[ens_key]]
-          break
-        }
-      }
-      
-      if (is.null(col_name)) {
-        message("      Warning: Unknown ensemble value '", ensemble_val, "', skipping")
-        next
-      }
-      
-      message("      Extracting ensemble='", ensemble_val, "' -> ", col_name)
-      
-      # Extract values for all assets (point extraction at centroid)
-      r_crs <- terra::crs(hazard_rast)
-      if (is.na(r_crs) || r_crs == "") r_crs <- "EPSG:4326"
-      
-      # For NC files with pre-computed statistics, extract from centroids (points), not polygons
-      # This ensures we get exactly one value per asset
-      centroids_sf <- sf::st_set_geometry(assets_sf, assets_sf$centroid)
-      centroids_transformed <- sf::st_transform(centroids_sf, r_crs)
-      centroids_vect <- terra::vect(centroids_transformed)
-      
-      # Extract values (using centroids for NC since they have pre-computed stats)
-      extracted_vals <- terra::extract(hazard_rast, centroids_vect, method = "simple", ID = FALSE)
-      
-      # Assign to appropriate column
-      if (ncol(extracted_vals) > 0) {
-        stats_df[[col_name]] <- as.numeric(extracted_vals[[1]])
-      }
-    }
     
     # Combine with asset data
     event_result <- dplyr::bind_cols(
@@ -376,11 +243,11 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory) {
       stats_df |> dplyr::select(-"asset_id")
     ) |>
       dplyr::mutate(
-        # Use the mean ensemble as the canonical hazard_name for this event
-        hazard_name = paste0(base_event_id, "__ensemble=mean"),
+        # Use the chosen aggregation_method ensemble as the canonical hazard_name
+        hazard_name = paste0(base_event_id, "__ensemble=", aggregation_method),
         hazard_type = base_event$hazard_type,
         hazard_indicator = base_event$hazard_indicator,
-        hazard_intensity = .data$hazard_mean,
+        # hazard_intensity already set from extracted ensemble value
         matching_method = "coordinates"
       ) |>
       dplyr::mutate(
@@ -416,8 +283,34 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory) {
 
 #' Extract and compute statistics from TIF-sourced hazards
 #' @noRd
-extract_tif_statistics <- function(assets_df, hazards, hazards_inventory) {
+extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
   message("  [extract_tif_statistics] Computing statistics from TIF spatial extraction...")
+  message("    Using aggregation method: ", aggregation_method)
+  
+  # Define aggregation function mapping
+  aggregation_functions <- list(
+    "mean" = function(x) mean(x, na.rm = TRUE),
+    "median" = function(x) stats::median(x, na.rm = TRUE),
+    "max" = function(x) max(x, na.rm = TRUE),
+    "min" = function(x) min(x, na.rm = TRUE),
+    "p2_5" = function(x) as.numeric(stats::quantile(x, 0.025, na.rm = TRUE, type = 7)),
+    "p5" = function(x) as.numeric(stats::quantile(x, 0.05, na.rm = TRUE, type = 7)),
+    "p10" = function(x) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
+    "p90" = function(x) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
+    "p95" = function(x) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
+    "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7))
+  )
+  
+  # Validate aggregation method
+  if (!aggregation_method %in% names(aggregation_functions)) {
+    stop(
+      "Invalid aggregation_method '", aggregation_method, "' for TIF extraction. ",
+      "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
+    )
+  }
+  
+  # Get the aggregation function
+  agg_func <- aggregation_functions[[aggregation_method]]
   
   # Filter to TIF hazards only
   tif_inventory <- hazards_inventory |>
@@ -472,6 +365,7 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory) {
     n_geoms <- nrow(assets_sf)
     stats_df <- tibble::tibble(
       ID = seq_len(n_geoms),
+      hazard_intensity = NA_real_,
       hazard_mean = NA_real_,
       hazard_median = NA_real_,
       hazard_max = NA_real_,
@@ -510,30 +404,53 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory) {
           vals <- as.numeric(terra::values(r_mask, mat = FALSE, na.rm = TRUE))
           
           if (length(vals) > 0) {
+            # Compute all statistics (for completeness)
+            mean_val <- mean(vals, na.rm = TRUE)
+            median_val <- stats::median(vals, na.rm = TRUE)
+            max_val <- max(vals, na.rm = TRUE)
+            p2_5_val <- as.numeric(stats::quantile(vals, 0.025, na.rm = TRUE, type = 7))
+            p5_val <- as.numeric(stats::quantile(vals, 0.05, na.rm = TRUE, type = 7))
+            p95_val <- as.numeric(stats::quantile(vals, 0.95, na.rm = TRUE, type = 7))
+            p97_5_val <- as.numeric(stats::quantile(vals, 0.975, na.rm = TRUE, type = 7))
+            
+            # Use the chosen aggregation method for hazard_intensity
+            intensity_val <- agg_func(vals)
+            
             stats_df <- stats_df |>
               dplyr::mutate(
-                hazard_mean = dplyr::if_else(.data$ID == j, mean(vals, na.rm = TRUE), .data$hazard_mean),
-                hazard_median = dplyr::if_else(.data$ID == j, stats::median(vals, na.rm = TRUE), .data$hazard_median),
-                hazard_max = dplyr::if_else(.data$ID == j, max(vals, na.rm = TRUE), .data$hazard_max),
-                hazard_p2_5 = dplyr::if_else(.data$ID == j, as.numeric(stats::quantile(vals, 0.025, na.rm = TRUE, type = 7)), .data$hazard_p2_5),
-                hazard_p5 = dplyr::if_else(.data$ID == j, as.numeric(stats::quantile(vals, 0.05, na.rm = TRUE, type = 7)), .data$hazard_p5),
-                hazard_p95 = dplyr::if_else(.data$ID == j, as.numeric(stats::quantile(vals, 0.95, na.rm = TRUE, type = 7)), .data$hazard_p95),
-                hazard_p97_5 = dplyr::if_else(.data$ID == j, as.numeric(stats::quantile(vals, 0.975, na.rm = TRUE, type = 7)), .data$hazard_p97_5)
+                hazard_mean = dplyr::if_else(.data$ID == j, mean_val, .data$hazard_mean),
+                hazard_median = dplyr::if_else(.data$ID == j, median_val, .data$hazard_median),
+                hazard_max = dplyr::if_else(.data$ID == j, max_val, .data$hazard_max),
+                hazard_p2_5 = dplyr::if_else(.data$ID == j, p2_5_val, .data$hazard_p2_5),
+                hazard_p5 = dplyr::if_else(.data$ID == j, p5_val, .data$hazard_p5),
+                hazard_p95 = dplyr::if_else(.data$ID == j, p95_val, .data$hazard_p95),
+                hazard_p97_5 = dplyr::if_else(.data$ID == j, p97_5_val, .data$hazard_p97_5),
+                hazard_intensity = dplyr::if_else(.data$ID == j, intensity_val, .data$hazard_intensity)
               )
           }
         }
       }
     }
     
+    # Get scenario and return period info from inventory for unified naming
+    scenario_name <- hazard_meta$scenario_name
+    return_period <- hazard_meta$hazard_return_period
+    
     df_i <- dplyr::bind_cols(
       sf::st_drop_geometry(assets_sf),
       stats_df |> dplyr::select(-"ID")
     ) |>
       dplyr::mutate(
-        hazard_name = hazard_name,
+        # Construct unified hazard_name with ensemble suffix
+        hazard_name = paste0(
+          hazard_type, "__", hazard_indicator,
+          "__GWL=", scenario_name,
+          "__RP=", return_period,
+          "__ensemble=", aggregation_method
+        ),
         hazard_type = hazard_type,
         hazard_indicator = hazard_indicator,
-        hazard_intensity = .data$hazard_mean,
+        # hazard_intensity already set by aggregation function
         matching_method = "coordinates",
         # Add missing columns for consistency with NC output
         hazard_min = NA_real_,
@@ -572,4 +489,272 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory) {
   }
   
   return(do.call(rbind, results_list))
+}
+
+#' Extract statistics from precomputed administrative data (municipality/province lookup)
+#' @noRd
+extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, events = NULL) {
+  message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
+  
+  # Precomputed data should have correct hazard indicators already
+  message("    Using precomputed hazard indicators directly from data")
+  
+  # Build a mapping of required hazards from events (not all loaded hazards)
+  # Only validate hazards that are actually selected in the events dataframe
+  if (!is.null(events) && nrow(events) > 0) {
+    # Extract unique event hazard names
+    event_hazard_names <- events |>
+      dplyr::distinct(.data$hazard_name) |>
+      dplyr::pull(.data$hazard_name)
+    
+    # Filter inventory to only include hazards that are in events
+    # For NC hazards, we need to match the base event name (without ensemble suffix)
+    required_hazards <- hazards_inventory |>
+      dplyr::filter(
+        .data$hazard_name %in% event_hazard_names |
+        # Also match base event names (for NC hazards with ensemble variants)
+        sapply(.data$hazard_name, function(hz_name) {
+          # Remove ensemble suffix to get base event name
+          base_name <- sub("__ensemble=.*$", "", hz_name)
+          base_name %in% event_hazard_names || any(sapply(event_hazard_names, function(evt) {
+            # Check if event name matches base or if base matches event's base
+            evt_base <- sub("__ensemble=.*$", "", evt)
+            base_name == evt || base_name == evt_base
+          }))
+        })
+      ) |>
+      dplyr::distinct(
+        .data$hazard_type,
+        .data$scenario_code,
+        .data$hazard_return_period
+      )
+  } else {
+    # Fallback: use all hazards from inventory if events not provided
+    required_hazards <- hazards_inventory |>
+      dplyr::distinct(
+        .data$hazard_type,
+        .data$scenario_code,
+        .data$hazard_return_period
+      )
+  }
+  
+  message("    Required hazards from events: ", nrow(required_hazards))
+  
+  precomp_results_list <- list()
+  
+  for (i in seq_len(nrow(assets_df))) {
+    asset_row <- assets_df |> dplyr::slice(i)
+    asset_name <- asset_row |> dplyr::pull(.data$asset)
+    municipality <- asset_row |> dplyr::pull(.data$municipality)
+    province <- asset_row |> dplyr::pull(.data$province)
+    
+    # Normalize administrative region names using stringi (similar to unidecode)
+    municipality_normalized <- if (!is.na(municipality) && nzchar(as.character(municipality))) {
+      stringi::stri_trans_general(as.character(municipality), "Latin-ASCII")
+    } else {
+      municipality
+    }
+    
+    province_normalized <- if (!is.na(province) && nzchar(as.character(province))) {
+      stringi::stri_trans_general(as.character(province), "Latin-ASCII")
+    } else {
+      province
+    }
+    
+    # Try municipality first (ADM2), then province (ADM1)
+    matched_data <- NULL
+    match_level <- NULL
+    matched_region <- NULL
+    
+    if (!is.na(municipality_normalized) && nzchar(as.character(municipality_normalized))) {
+      matched_data <- precomputed_hazards |>
+        dplyr::filter(
+          .data$region == municipality_normalized,
+          .data$adm_level == "ADM2"
+        )
+      match_level <- "municipality"
+      matched_region <- municipality_normalized
+    }
+    
+    if (is.null(matched_data) || nrow(matched_data) == 0) {
+      if (!is.na(province_normalized) && nzchar(as.character(province_normalized))) {
+        matched_data <- precomputed_hazards |>
+          dplyr::filter(
+            .data$region == province_normalized,
+            .data$adm_level == "ADM1"
+          )
+        match_level <- "province"
+        matched_region <- province_normalized
+      }
+    }
+    
+    if (is.null(matched_data) || nrow(matched_data) == 0) {
+      stop(
+        "Cannot determine hazard statistics for asset ", i, " (", asset_name, "). ",
+        "No match found in precomputed data for municipality='", municipality_normalized, 
+        "' or province='", province_normalized, "'"
+      )
+    }
+    
+    # FILTER: Only keep hazards that match the required hazards from inventory
+    # Match by hazard_type, scenario_code, and hazard_return_period
+    # Convert scenario_code to character for both datasets to handle type mismatches
+    matched_data <- matched_data |>
+      dplyr::mutate(scenario_code = as.character(.data$scenario_code))
+    
+    required_hazards_char <- required_hazards |>
+      dplyr::mutate(scenario_code = as.character(.data$scenario_code)) |>
+      dplyr::select("hazard_type", "scenario_code", "hazard_return_period")
+    
+    matched_data <- matched_data |>
+      dplyr::inner_join(
+        required_hazards_char,
+        by = c("hazard_type", "scenario_code", "hazard_return_period")
+      )
+    
+    # VALIDATE: Check that we found data for all required hazards
+    # Only strict validation when events were explicitly provided
+    should_validate_strictly <- !is.null(events) && nrow(events) > 0
+    
+    if (nrow(matched_data) == 0 && should_validate_strictly) {
+      # No matching hazards found for this region
+      required_list <- required_hazards |>
+        dplyr::mutate(
+          hazard_spec = paste0(.data$hazard_type, " (scenario=", 
+                              .data$scenario_code, ", RP=", 
+                              .data$hazard_return_period, ")")
+        ) |>
+        dplyr::pull(.data$hazard_spec)
+      
+      # Get available hazards for this region
+      available_in_region <- precomputed_hazards |>
+        dplyr::filter(
+          .data$region == matched_region,
+          .data$adm_level == dplyr::if_else(match_level == "municipality", "ADM2", "ADM1")
+        ) |>
+        dplyr::distinct(.data$hazard_type, .data$scenario_code, .data$hazard_return_period) |>
+        dplyr::mutate(
+          hazard_spec = paste0(.data$hazard_type, " (scenario=", 
+                              .data$scenario_code, ", RP=", 
+                              .data$hazard_return_period, ")")
+        ) |>
+        dplyr::pull(.data$hazard_spec)
+      
+      stop(
+        "Required hazards from events selection are not available in precomputed data.\n",
+        "  Asset: ", asset_name, " (", match_level, ": ", matched_region, ")\n",
+        "  Required: ", paste(required_list, collapse = ", "), "\n",
+        "  Available: ", paste(head(available_in_region, 10), collapse = ", "), 
+        if (length(available_in_region) > 10) paste0(" (and ", length(available_in_region) - 10, " more)") else "", "\n",
+        "  Tip: Check that events match available hazard types, scenarios, and return periods."
+      )
+    }
+    
+    # Check if we got all required hazards
+    found_combos <- matched_data |>
+      dplyr::distinct(.data$hazard_type, .data$scenario_code, .data$hazard_return_period)
+    
+    if (nrow(found_combos) < nrow(required_hazards) && should_validate_strictly) {
+      # Some required hazards are missing
+      missing_hazards <- dplyr::anti_join(
+        required_hazards,
+        found_combos,
+        by = c("hazard_type", "scenario_code", "hazard_return_period")
+      ) |>
+        dplyr::mutate(
+          hazard_spec = paste0(.data$hazard_type, " (scenario=", 
+                              .data$scenario_code, ", RP=", 
+                              .data$hazard_return_period, ")")
+        ) |>
+        dplyr::pull(.data$hazard_spec)
+      
+      found_list <- found_combos |>
+        dplyr::mutate(
+          hazard_spec = paste0(.data$hazard_type, " (scenario=", 
+                              .data$scenario_code, ", RP=", 
+                              .data$hazard_return_period, ")")
+        ) |>
+        dplyr::pull(.data$hazard_spec)
+      
+      stop(
+        "Some required hazards are missing from precomputed data.\n",
+        "  Asset: ", asset_name, " (", match_level, ": ", matched_region, ")\n",
+        "  Missing: ", paste(missing_hazards, collapse = ", "), "\n",
+        "  Found: ", paste(found_list, collapse = ", "), "\n",
+        "  Tip: Check that events match available hazard types, scenarios, and return periods in precomputed data."
+      )
+    }
+    
+    # If matched_data is empty and we're not strictly validating, skip this asset
+    if (nrow(matched_data) == 0) {
+      message("    Warning: No matching hazards found for asset ", i, " (", asset_name, ") in precomputed data. Skipping.")
+      next
+    }
+    
+    # Transform precomputed data to match expected output format
+    # The precomputed data has already been melted at load time with proper hazard_name and ensemble columns
+    # We need to pivot the ensemble-specific rows back to wide format with hazard_mean, hazard_median, etc.
+    
+    # Pivot from long format (one row per ensemble) to wide format (one row with all ensemble stats)
+    # Group by the base event (removing ensemble suffix) and pivot
+    matched_wide <- matched_data |>
+      dplyr::mutate(
+        # Extract base event name (without ensemble suffix) for grouping
+        base_event = sub("__ensemble=.*$", "", .data$hazard_name)
+      ) |>
+      tidyr::pivot_wider(
+        id_cols = c("region", "adm_level", "scenario_code", "scenario_name", 
+                   "hazard_return_period", "hazard_type", "hazard_indicator", 
+                   "min", "max", "n_obs", "max_x", "max_y", "base_event"),
+        names_from = "ensemble",
+        values_from = "hazard_value",
+        names_prefix = "ens_"
+      ) |>
+      dplyr::mutate(
+        # Use the mean ensemble variant as the canonical hazard_name
+        hazard_name = paste0(.data$base_event, "__ensemble=mean")
+      )
+    
+    # Now construct the asset-level output with all ensemble statistics
+    asset_hazard_data <- matched_wide |>
+      dplyr::mutate(
+        asset = asset_name,
+        company = asset_row |> dplyr::pull(.data$company),
+        latitude = NA_real_,
+        longitude = NA_real_,
+        municipality = asset_row |> dplyr::pull(.data$municipality),
+        province = asset_row |> dplyr::pull(.data$province),
+        asset_category = asset_row |> dplyr::pull(.data$asset_category),
+        size_in_m2 = asset_row |> dplyr::pull(.data$size_in_m2),
+        share_of_economic_activity = asset_row |> dplyr::pull(.data$share_of_economic_activity),
+        # Use mean as canonical hazard_intensity
+        hazard_intensity = dplyr::coalesce(.data$ens_mean, 0),
+        hazard_mean = dplyr::coalesce(.data$ens_mean, 0),
+        hazard_median = dplyr::coalesce(.data$ens_median, 0),
+        hazard_max = dplyr::coalesce(.data$max, 0),
+        hazard_min = NA_real_,  # Not available in precomputed data
+        hazard_p2_5 = dplyr::coalesce(.data$ens_p2_5, 0),
+        hazard_p5 = dplyr::coalesce(.data$ens_p5, 0),
+        hazard_p10 = NA_real_,  # Not available in precomputed data
+        hazard_p90 = NA_real_,  # Not available in precomputed data
+        hazard_p95 = dplyr::coalesce(.data$ens_p95, 0),
+        hazard_p97_5 = dplyr::coalesce(.data$ens_p97_5, 0),
+        matching_method = match_level
+      ) |>
+      dplyr::select(
+        "asset", "company", "latitude", "longitude",
+        "municipality", "province", "asset_category", "size_in_m2",
+        "share_of_economic_activity", "hazard_name", "hazard_type",
+        "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max", "hazard_min",
+        "hazard_p2_5", "hazard_p5", "hazard_p10", "hazard_p90", "hazard_p95", "hazard_p97_5", "matching_method"
+      )
+    
+    precomp_results_list[[length(precomp_results_list) + 1]] <- asset_hazard_data
+  }
+  
+  if (length(precomp_results_list) == 0) {
+    return(tibble::tibble())
+  }
+  
+  return(do.call(rbind, precomp_results_list))
 }

@@ -198,7 +198,7 @@ read_precomputed_hazards <- function(base_dir) {
 
   # Ensure numeric columns are numeric
   numeric_cols <- c("hazard_return_period", "min", "max", "mean", "median", 
-                    "p2_5", "p5", "p95", "p97_5", "n_obs")
+                    "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y")
   
   precomputed_df <- precomputed_df |>
     dplyr::mutate(
@@ -219,7 +219,38 @@ read_precomputed_hazards <- function(base_dir) {
   message("  ADM1 (province) records: ", sum(precomputed_df$adm_level == "ADM1"))
   message("  ADM2 (municipality) records: ", sum(precomputed_df$adm_level == "ADM2"))
   
-  precomputed_df
+  # Transform data: construct proper hazard_name and create ensemble-specific rows
+  # Use unified naming for both TIF and NC: hazard_type__hazard_indicator__GWL=scenario__RP=return_period__ensemble=ENSEMBLE
+  
+  # Define ensemble columns to melt
+  ensemble_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
+  
+  transformed_list <- list()
+  
+  for (ens_col in ensemble_cols) {
+    # Create rows for this ensemble (works for both TIF and NC)
+    ensemble_data <- precomputed_df |>
+      dplyr::mutate(
+        # Unified naming: hazard_type__hazard_indicator__GWL=scenario__RP=return_period__ensemble=ENSEMBLE
+        hazard_name = paste0(
+          .data$hazard_type, "__", .data$hazard_indicator,
+          "__GWL=", .data$scenario_name,
+          "__RP=", .data$hazard_return_period,
+          "__ensemble=", ens_col
+        ),
+        ensemble = ens_col,
+        hazard_value = .data[[ens_col]]
+      )
+    
+    transformed_list[[ens_col]] <- ensemble_data
+  }
+  
+  # Combine all ensemble variants
+  precomputed_final <- dplyr::bind_rows(transformed_list)
+  
+  message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
+  
+  precomputed_final
 }
 
 #' Read hazards name mapping from CSV (INTERNAL)

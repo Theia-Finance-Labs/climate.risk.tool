@@ -60,7 +60,7 @@ apply_acute_profit_shock <- function(
         
         shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
       }
-    } else if (hazard_type == "drought") {
+    } else if (hazard_type == "Drought") {
       # Drought events: TODO - implement drought-specific logic
       # For now, no damage applied for drought events
     } else {

@@ -15,6 +15,11 @@
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
+#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
+#'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
+#'   For TIF files: uses terra::extract with the specified function.
+#'   For NC files: selects the corresponding ensemble layer.
+#'   For precomputed data: filters to the matching ensemble variant.
 #' #'
 #' @return List containing final results:
 #'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
@@ -89,7 +94,8 @@ compute_risk <- function(assets,
                          damage_factors,
                          growth_rate = 0.02,
                          net_profit_margin = 0.1,
-                         discount_rate = 0.05) {
+                         discount_rate = 0.05,
+                         aggregation_method = "mean") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -110,6 +116,11 @@ compute_risk <- function(assets,
     stop("damage_factors must be a non-empty data.frame (from read_damage_cost_factors())")
   }
 
+  # Validate aggregation_method
+  valid_aggregation_methods <- c("mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90")
+  if (!aggregation_method %in% valid_aggregation_methods) {
+    stop("aggregation_method must be one of: ", paste(valid_aggregation_methods, collapse = ", "))
+  }
 
   # ============================================================================
   # PHASE 1: UTILS - Input validation and data preparation
@@ -138,7 +149,9 @@ compute_risk <- function(assets,
   
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/province only
-  assets_long <- extract_hazard_statistics(assets, hazards, filtered_inventory, precomputed_hazards)
+  # Pass events so validation only checks for hazards that are actually selected
+  # Pass aggregation_method to control how hazard values are extracted/aggregated
+  assets_long <- extract_hazard_statistics(assets, hazards, filtered_inventory, precomputed_hazards, events, aggregation_method)
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
