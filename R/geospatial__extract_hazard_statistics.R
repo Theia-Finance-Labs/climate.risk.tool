@@ -7,24 +7,14 @@
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
 #' @param events Data frame with event specifications (used to filter which hazards to validate in precomputed data)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean")
-#' @param raster_mapping Tibble mapping unified hazard_name to internal raster keys (required for TIF extraction)
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, hazard_mean, hazard_median, hazard_max, 
 #'   hazard_p2_5, hazard_p5, hazard_p95, hazard_p97_5, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, events = NULL, aggregation_method = "mean", raster_mapping = NULL) {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, events = NULL, aggregation_method = "mean") {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
-  
-  # Show breakdown of location data availability
-  n_with_both_coords <- sum(!is.na(assets_df$latitude) & !is.na(assets_df$longitude))
-  n_with_municipality <- sum(!is.na(assets_df$municipality) & nzchar(as.character(assets_df$municipality)))
-  n_with_province <- sum(!is.na(assets_df$province) & nzchar(as.character(assets_df$province)))
-  message("  Location data availability:")
-  message("    Assets with coordinates: ", n_with_both_coords)
-  message("    Assets with municipality: ", n_with_municipality)
-  message("    Assets with province: ", n_with_province)
-  
+  browser()
   # Separate assets into coordinate-based and administrative-based
   assets_with_coords <- assets_df |>
     dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
@@ -32,17 +22,8 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   assets_without_coords <- assets_df |>
     dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude))
   
-  message("  Routing strategy:")
-  message("    → Spatial extraction (coordinates): ", nrow(assets_with_coords))
-  if (nrow(assets_with_coords) > 0) {
-    sample_coords <- paste(head(assets_with_coords$asset, 3), collapse = ", ")
-    message("      Sample: ", sample_coords, if (nrow(assets_with_coords) > 3) ", ..." else "")
-  }
-  message("    → Precomputed lookup (municipality/province): ", nrow(assets_without_coords))
-  if (nrow(assets_without_coords) > 0) {
-    sample_admin <- paste(head(assets_without_coords$asset, 3), collapse = ", ")
-    message("      Sample: ", sample_admin, if (nrow(assets_without_coords) > 3) ", ..." else "")
-  }
+  message("  Assets with coordinates (spatial extraction): ", nrow(assets_with_coords))
+  message("  Assets without coordinates (precomputed lookup): ", nrow(assets_without_coords))
   
   # Initialize results list
   all_results <- list()
@@ -78,7 +59,7 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
     if (has_tif_sources) {
       # TIF workflow: Compute statistics from spatial extraction
       all_results[[length(all_results) + 1]] <- extract_tif_statistics(
-        assets_with_coords, hazards, hazards_inventory, aggregation_method, raster_mapping
+        assets_with_coords, hazards, hazards_inventory, aggregation_method
       )
     }
     
@@ -102,17 +83,6 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   }
   
   final_result <- do.call(rbind, all_results)
-  
-  # Summary of matching methods used
-  matching_summary <- final_result |>
-    dplyr::group_by(.data$matching_method) |>
-    dplyr::summarise(n_records = dplyr::n(), .groups = "drop")
-  
-  message("[extract_hazard_statistics] Matching method summary:")
-  for (i in seq_len(nrow(matching_summary))) {
-    message("  ", matching_summary$matching_method[i], ": ", matching_summary$n_records[i], " records")
-  }
-  
   message("[extract_hazard_statistics] Completed processing for ", nrow(assets_df), " assets")
   
   return(final_result)
@@ -183,35 +153,23 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory, aggrega
     
     message("    Processing NC event ", i, "/", nrow(base_events), ": ", base_event_id)
     
-    # Get the specific ensemble raster for this base event matching aggregation_method
-    # Filter by base_event_id (hazard_name without ensemble) AND ensemble column
+    # Get the hazard raster for this base event (now only mean ensemble is loaded)
+    # Filter by base_event_id (hazard_name without ensemble suffix)
     event_hazards <- nc_inventory |>
       dplyr::filter(
         .data$hazard_name == base_event_id,
-        .data$ensemble == aggregation_method
+        .data$ensemble == "mean"  # Only mean ensemble is loaded
       )
     
-    if (nrow(event_hazards) == 0) {
-      message("      Warning: No hazard found for ", base_event_id, " with ensemble=", aggregation_method, ", skipping")
-      next
-    }
-    
-    # Extract from the chosen ensemble raster only
+    # Extract from the mean ensemble raster
     haz_row <- event_hazards |> dplyr::slice(1)
     
-    # Construct the full hazard name WITH ensemble suffix to look up in hazards list
-    # (loaded NC hazards have ensemble suffix in their keys)
-    target_hazard_name <- paste0(base_event_id, "__ensemble=", aggregation_method)
-    
-    # Get the raster
-    if (!target_hazard_name %in% names(hazards)) {
-      message("      Warning: Hazard '", target_hazard_name, "' not found in hazards list, skipping")
-      next
-    }
+    # Use the base hazard name directly (no ensemble suffix needed)
+    target_hazard_name <- base_event_id
     
     hazard_rast <- hazards[[target_hazard_name]]
     
-    message("      Extracting ensemble='", aggregation_method, "' as hazard_intensity")
+    message("      Extracting mean ensemble as hazard_intensity")
     
     # Extract values for all assets (point extraction at centroid)
     r_crs <- terra::crs(hazard_rast)
@@ -291,7 +249,7 @@ extract_nc_statistics <- function(assets_df, hazards, hazards_inventory, aggrega
 
 #' Extract and compute statistics from TIF-sourced hazards
 #' @noRd
-extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean", raster_mapping = NULL) {
+extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
   message("  [extract_tif_statistics] Computing statistics from TIF spatial extraction...")
   message("    Using aggregation method: ", aggregation_method)
   
@@ -342,7 +300,7 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggreg
     assets_sf <- sf::st_as_sf(assets_sf, sf_column_name = "geometry")
   }
   
-  # Get TIF inventory and use raster_mapping to look up internal keys
+  # Get TIF inventory
   n_tif <- nrow(tif_inventory)
   
   results_list <- vector("list", n_tif)
@@ -352,32 +310,8 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggreg
   for (i in seq_len(n_tif)) {
     hazard_meta <- tif_inventory |> dplyr::slice(i)
     
-    # Look up internal raster key using raster_mapping
     base_hazard_name <- hazard_meta$hazard_name
-    
-    if (is.null(raster_mapping)) {
-      message("      Warning: No raster_mapping provided, skipping TIF hazard ", i)
-      next
-    }
-    
-    # Find the internal raster key for this hazard
-    raster_key_row <- raster_mapping |>
-      dplyr::filter(.data$source == "tif", .data$hazard_name == base_hazard_name) |>
-      dplyr::slice(1)
-    
-    if (nrow(raster_key_row) == 0) {
-      message("      Warning: No raster key found for '", base_hazard_name, "', skipping")
-      next
-    }
-    
-    raster_key <- raster_key_row$raster_key
-    
-    if (!raster_key %in% names(hazards)) {
-      message("      Warning: TIF hazard '", raster_key, "' not found in hazards list, skipping")
-      next
-    }
-    
-    hazard_rast <- hazards[[raster_key]]
+    hazard_rast <- hazards[[base_hazard_name]]
     
     # Get metadata
     hazard_type <- hazard_meta$hazard_type
@@ -385,7 +319,7 @@ extract_tif_statistics <- function(assets_df, hazards, hazards_inventory, aggreg
     # Add ensemble suffix for output
     hazard_name_with_ensemble <- paste0(base_hazard_name, "__ensemble=", aggregation_method)
     
-    message("    Processing TIF hazard ", i, "/", n_tif, ": ", raster_key)
+    message("    Processing TIF hazard ", i, "/", n_tif, ": ", base_hazard_name)
     
     # Pre-allocate statistics tibble
     n_geoms <- nrow(assets_sf)
@@ -697,61 +631,30 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     }
     
     # Transform precomputed data to match expected output format
-    # The precomputed data has already been melted at load time with proper hazard_name and ensemble columns
-    # We need to pivot the ensemble-specific rows back to wide format with hazard_mean, hazard_median, etc.
+    # Since we only load mean ensemble now, we can simplify the logic
     
-    # Pivot from long format (one row per ensemble) to wide format (one row with all ensemble stats)
-    # Group by the base event (removing ensemble suffix) and pivot
-    matched_wide <- matched_data |>
-      dplyr::mutate(
-        # Extract base event name (without ensemble suffix) for grouping
-        base_event = sub("__ensemble=.*$", "", .data$hazard_name)
-      ) |>
-      tidyr::pivot_wider(
-        id_cols = c("region", "adm_level", "scenario_code", "scenario_name", 
-                   "hazard_return_period", "hazard_type", "hazard_indicator", 
-                   "min", "max", "n_obs", "max_x", "max_y", "base_event"),
-        names_from = "ensemble",
-        values_from = "hazard_value",
-        names_prefix = "ens_"
-      ) |>
-      dplyr::mutate(
-        # Use the mean ensemble variant as the canonical hazard_name
-        hazard_name = paste0(.data$base_event, "__ensemble=mean")
-      )
-    
+    # Use the base hazard name directly (no ensemble suffix needed)
+
     # Now construct the asset-level output with all ensemble statistics
-    asset_hazard_data <- matched_wide |>
+    asset_hazard_data <- matched_data |>
+    filter(ensemble == "mean") |>
       dplyr::mutate(
-        asset = asset_name,
-        company = asset_row |> dplyr::pull(.data$company),
-        latitude = NA_real_,
-        longitude = NA_real_,
-        municipality = asset_row |> dplyr::pull(.data$municipality),
-        province = asset_row |> dplyr::pull(.data$province),
-        asset_category = asset_row |> dplyr::pull(.data$asset_category),
-        size_in_m2 = asset_row |> dplyr::pull(.data$size_in_m2),
-        share_of_economic_activity = asset_row |> dplyr::pull(.data$share_of_economic_activity),
-        # Use mean as canonical hazard_intensity
-        hazard_intensity = dplyr::coalesce(.data$ens_mean, 0),
-        hazard_mean = dplyr::coalesce(.data$ens_mean, 0),
-        hazard_median = dplyr::coalesce(.data$ens_median, 0),
+        hazard_intensity = dplyr::coalesce(.data$mean, 0),
+        hazard_mean = dplyr::coalesce(.data$mean, 0),
+        hazard_median = dplyr::coalesce(.data$median, 0),
         hazard_max = dplyr::coalesce(.data$max, 0),
         hazard_min = NA_real_,  # Not available in precomputed data
-        hazard_p2_5 = dplyr::coalesce(.data$ens_p2_5, 0),
-        hazard_p5 = dplyr::coalesce(.data$ens_p5, 0),
+        hazard_p2_5 = dplyr::coalesce(.data$p2_5, 0),
+        hazard_p5 = dplyr::coalesce(.data$p5, 0),
         hazard_p10 = NA_real_,  # Not available in precomputed data
         hazard_p90 = NA_real_,  # Not available in precomputed data
-        hazard_p95 = dplyr::coalesce(.data$ens_p95, 0),
-        hazard_p97_5 = dplyr::coalesce(.data$ens_p97_5, 0),
-        matching_method = match_level
+        hazard_p95 = dplyr::coalesce(.data$p95, 0),
+        hazard_p97_5 = dplyr::coalesce(.data$p97_5, 0),
+        matching_method = matching_method
       ) |>
       dplyr::select(
-        "asset", "company", "latitude", "longitude",
-        "municipality", "province", "asset_category", "size_in_m2",
-        "share_of_economic_activity", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max", "hazard_min",
-        "hazard_p2_5", "hazard_p5", "hazard_p10", "hazard_p90", "hazard_p95", "hazard_p97_5", "matching_method"
+        "hazard_name", "hazard_type", "hazard_indicator", "hazard_intensity", "hazard_mean", "hazard_median", "hazard_max", "hazard_min",
+        "hazard_p2_5", "hazard_p5", "hazard_p95", "hazard_p97_5"
       )
     
     precomp_results_list[[length(precomp_results_list) + 1]] <- asset_hazard_data

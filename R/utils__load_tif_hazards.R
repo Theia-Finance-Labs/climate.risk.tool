@@ -107,11 +107,11 @@ load_tif_hazards <- function(mapping_df,
   
   # Create named list for rasters
   raster_names <- paste0(
-    mapping$hazard_type, "__",
-    mapping$scenario_code, "_h",
-    mapping$hazard_return_period, "glob"
+    mapping$hazard_type, "__", mapping$hazard_indicator,
+    "__GWL=", mapping$scenario_name,
+            "__RP=", mapping$hazard_return_period
   )
-  
+
   rasters <- stats::setNames(vector("list", nrow(mapping)), nm = raster_names)
   
   for (i in seq_len(nrow(mapping))) {

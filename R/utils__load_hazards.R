@@ -15,7 +15,6 @@
 #'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name, 
 #'     hazard_return_period, scenario_code, hazard_name (unified format without ensemble), 
 #'     ensemble (ensemble variant or NA for TIF), source ("tif" or "nc")
-#'   - `raster_mapping`: Tibble mapping unified hazard_name to internal raster keys
 #' @examples
 #' \dontrun{
 #' result <- load_hazards_and_inventory(
@@ -61,12 +60,7 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
       # TIF files don't have ensemble dimension, so ensemble is NA (will be determined at extraction)
       tif_inventory <- mapping_df |>
         dplyr::mutate(
-          # Check which files were successfully loaded
-          raster_key_check = paste0(
-            .data$hazard_type, "__",
-            .data$scenario_code, "_h",
-            .data$hazard_return_period, "glob"
-          ),
+
           # Unified format for inventory (WITHOUT ensemble suffix)
           hazard_name = paste0(
             .data$hazard_type, "__", .data$hazard_indicator,
@@ -76,7 +70,6 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
           ensemble = NA_character_,  # TIF has no pre-computed ensemble
           source = "tif"
         ) |>
-        dplyr::filter(.data$raster_key_check %in% loaded_names_old_format) |>
         dplyr::select(
           "hazard_type",
           "hazard_indicator",
@@ -101,43 +94,11 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
   # Combine inventories
   inventory <- dplyr::bind_rows(tif_inventory, nc_inventory)
   
-  # Create raster mapping: unified hazard_name -> internal raster key
-  # This is needed because TIF rasters are stored with old format keys
-  # but inventory uses unified format
-  raster_mapping <- tibble::tibble()
-  
-  if (nrow(tif_inventory) > 0) {
-    tif_mapping <- tif_inventory |>
-      dplyr::mutate(
-        # Internal raster key (old format)
-        raster_key = paste0(
-          .data$hazard_type, "__",
-          .data$scenario_code, "_h",
-          .data$hazard_return_period, "glob"
-        )
-      ) |>
-      dplyr::select("hazard_name", "raster_key", "source")
-    
-    raster_mapping <- dplyr::bind_rows(raster_mapping, tif_mapping)
-  }
-  
-  if (nrow(nc_inventory) > 0) {
-    # For NC, raster key includes ensemble suffix
-    nc_mapping <- nc_inventory |>
-      dplyr::mutate(
-        raster_key = paste0(.data$hazard_name, "__ensemble=", .data$ensemble)
-      ) |>
-      dplyr::select("hazard_name", "ensemble", "raster_key", "source")
-    
-    raster_mapping <- dplyr::bind_rows(raster_mapping, nc_mapping)
-  }
-  
   message("[load_hazards_and_inventory] Complete: ", 
           length(tif_list), " TIF + ", length(nc_list), " NC hazards loaded")
   
   return(list(
     hazards = list(tif = tif_list, nc = nc_list),
-    inventory = inventory,
-    raster_mapping = raster_mapping
+    inventory = inventory
   ))
 }

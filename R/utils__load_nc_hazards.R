@@ -143,7 +143,7 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
     
     # Parse for GWL and ensemble based on file structure
     gwl_str <- "present"  # Default
-    ensemble_str <- "mean"  # Default
+    ensemble_str <- "mean"  # Default - always use mean ensemble
     
     # Check if this is a GIRI-style file (explicit scenario indices) vs ensemble-style file (combination indices)
     has_explicit_scenario <- grepl("scenario=_", layer_name)
@@ -174,8 +174,14 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
           if (as.character(gwl_idx) %in% names(gwl_mapping)) {
             gwl_str <- gwl_mapping[[as.character(gwl_idx)]]
           }
+          # Only use ensemble if it's 'mean', otherwise skip this layer
           if (as.character(ensemble_idx) %in% names(ensemble_mapping)) {
-            ensemble_str <- ensemble_mapping[[as.character(ensemble_idx)]]
+            potential_ensemble <- ensemble_mapping[[as.character(ensemble_idx)]]
+            if (potential_ensemble != "mean") {
+              # Skip this layer - we only want mean ensemble
+              next
+            }
+            ensemble_str <- potential_ensemble
           }
         } else if (!is.na(idx_numeric) && length(gwl_mapping) > 0 && length(ensemble_mapping) == 0) {
           # Only GWL dimension, no ensemble
@@ -185,7 +191,12 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
         } else if (!is.na(idx_numeric) && length(ensemble_mapping) > 0 && length(gwl_mapping) == 0) {
           # Only ensemble dimension, no GWL
           if (as.character(idx_numeric) %in% names(ensemble_mapping)) {
-            ensemble_str <- ensemble_mapping[[as.character(idx_numeric)]]
+            potential_ensemble <- ensemble_mapping[[as.character(idx_numeric)]]
+            if (potential_ensemble != "mean") {
+              # Skip this layer - we only want mean ensemble
+              next
+            }
+            ensemble_str <- potential_ensemble
           }
         }
       }
@@ -202,14 +213,7 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
       }
     }
     
-    # Compose hazard name with ensemble for internal raster storage
-    hz_name <- paste0(
-      hazard_type, "__", hazard_indicator,
-      "__GWL=", gwl_str,
-      "__RP=", rp_str,
-      "__ensemble=", ensemble_str
-    )
-    
+
     # Unified hazard name WITHOUT ensemble suffix for inventory
     hazard_name <- paste0(
       hazard_type, "__", hazard_indicator,
@@ -217,7 +221,7 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
       "__RP=", rp_str
     )
     
-    results[[hz_name]] <- layer_rast
+    results[[hazard_name]] <- layer_rast
     
     # Build inventory row
     inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
@@ -252,9 +256,9 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
 #' are found, it uses the first variable.
 #'
 #' **Ensemble dimension:** If the NC file has an ensemble dimension with values
-#' like ["mean", "median", "p10", "p90"], ALL ensemble values are loaded as separate
-#' rasters. This provides pre-computed statistics from the NC file without needing
-#' spatial computation during extraction.
+#' like ["mean", "median", "p10", "p90"], only the 'mean' ensemble is loaded by default.
+#' This avoids iteration over all ensemble values and provides a single representative
+#' raster per hazard scenario.
 #'
 #' Returns both the loaded rasters and a metadata inventory tibble.
 #'
@@ -431,9 +435,8 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
     }
 
     # Determine ensemble values to iterate over
-    # If ensemble dimension exists and has multiple values, load all of them
-    # Otherwise, default to a single iteration
-    ensemble_values <- list(list(idx = 1L, label = "mean"))  # Default: list of one element
+    # Only load 'mean' ensemble by default to avoid iteration over all ensemble values
+    ensemble_values <- list(list(idx = 1L, label = "mean"))  # Default: only mean ensemble
     
     if (!inherits(ens_vals, "try-error") && length(ens_vals) > 0) {
       # Convert to character for consistent handling
@@ -445,10 +448,15 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
         ens_chars <- as.character(ens_vals)
       }
       
-      # Create list of ensemble indices and labels
-      ensemble_values <- lapply(seq_along(ens_chars), function(i) {
-        list(idx = as.integer(i), label = ens_chars[i])
-      })
+      # Find the 'mean' ensemble index if it exists
+      mean_idx <- which(ens_chars == "mean")
+      if (length(mean_idx) > 0) {
+        # Use only the mean ensemble
+        ensemble_values <- list(list(idx = as.integer(mean_idx[1]), label = "mean"))
+      } else {
+        # If no 'mean' ensemble found, use the first one but label it as 'mean'
+        ensemble_values <- list(list(idx = 1L, label = "mean"))
+      }
     }
 
     # Indices helpers for start/count
@@ -554,13 +562,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
           gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])
           rp_label <- if (inherits(rp_vals, "try-error")) paste0("idx", ir) else as.character(rp_vals[ir])
 
-          # Full hazard name with ensemble for internal raster storage
-          hz_name <- paste0(
-            hazard_type, "__", hazard_indicator,
-            "__GWL=", gwl_label,
-            "__RP=", rp_label,
-            "__ensemble=", ens_label
-          )
+       
 
           # Unified hazard name WITHOUT ensemble suffix for inventory
           hazard_name <- paste0(
@@ -569,7 +571,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
             "__RP=", rp_label
           )
 
-          results[[hz_name]] <- r
+          results[[hazard_name]] <- r
           
           # Build inventory row
           rp_numeric <- suppressWarnings(as.numeric(rp_label))

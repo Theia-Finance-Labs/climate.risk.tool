@@ -124,7 +124,6 @@ app_server <- function(input, output, session) {
           events = ev_df,
           hazards = hazards,
           hazards_inventory = control$hazards_inventory(),
-          raster_mapping = control$raster_mapping(),
           precomputed_hazards = precomputed_hazards,
           damage_factors = damage_factors,
           growth_rate = 0.02,
