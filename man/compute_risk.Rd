@@ -14,7 +14,8 @@ compute_risk(
   damage_factors,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
-  discount_rate = 0.05
+  discount_rate = 0.05,
+  aggregation_method = "mean"
 )
 }
 \arguments{
@@ -37,7 +38,13 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{net_profit_margin}{Numeric. Net profit margin assumption (default: 0.1)}
 
-\item{discount_rate}{Numeric. Discount rate for NPV calculation (default: 0.05)
+\item{discount_rate}{Numeric. Discount rate for NPV calculation (default: 0.05)}
+
+\item{aggregation_method}{Character. Statistical aggregation method for hazard extraction (default: "mean").
+Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
+For TIF files: uses terra::extract with the specified function.
+For NC files: selects the corresponding ensemble layer.
+For precomputed data: filters to the matching ensemble variant.
 #'}
 }
 \value{

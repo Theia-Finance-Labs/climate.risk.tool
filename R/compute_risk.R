@@ -149,30 +149,31 @@ compute_risk <- function(assets,
   
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/province only
-  assets_long <- extract_hazard_statistics(assets, hazards, filtered_inventory, precomputed_hazards, aggregation_method)
+
+  assets_long <- extract_hazard_statistics(
+    assets_df=assets,
+     hazards=hazards, 
+     hazards_inventory=filtered_inventory,
+     precomputed_hazards= precomputed_hazards, 
+     aggregation_method=aggregation_method)
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
-
-  # Step 2.4: Join hazard metadata (hazard_return_period) from inventory
-  # Get hazard_return_period from the inventory data
-  inventory_info <- filtered_inventory |>
-    dplyr::select("hazard_name", "hazard_return_period") |>
-    dplyr::distinct()
-  
-  assets_factors <- assets_factors |>
-    dplyr::left_join(inventory_info, by = "hazard_name")
   
   # Step 2.5: Join event information (event_year, chronic) from events
   # Select only the columns we need from events to avoid duplication
   # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
   # Don't use distinct() here - we want one row per event even if they share the same hazard_name
   # Use inner_join to only keep assets with hazards that are in the events
-  events_info <- events |>
-    dplyr::select("hazard_name", "event_year", "chronic")
+  events <- events |>
+    dplyr::mutate(
+      hazard_name = paste0(.data$hazard_name, "__ensemble=", aggregation_method)
+    )
   
   assets_factors <- assets_factors |>
-    dplyr::inner_join(events_info, by = "hazard_name", relationship = "many-to-many")
+    dplyr::inner_join(
+      events |> dplyr::select("hazard_name", "event_year", "chronic")
+      , by = "hazard_name", relationship = "many-to-many")
 
 
   # ============================================================================
