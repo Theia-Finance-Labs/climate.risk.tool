@@ -17,7 +17,7 @@ filter_assets_by_companies <- function(assets, companies) {
   asset_companies <- assets |>
     dplyr::distinct(.data$company) |>
     dplyr::pull(.data$company)
-  
+
   company_names <- companies |>
     dplyr::distinct(.data$company) |>
     dplyr::pull(.data$company)

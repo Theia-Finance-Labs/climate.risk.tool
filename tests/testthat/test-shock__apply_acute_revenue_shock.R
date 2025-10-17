@@ -67,6 +67,6 @@ testthat::test_that("apply_acute_revenue_shock processes events in order by even
   # Both events affect the same asset-year (A1, 2030)
   # Total disruption should be: 20 + 10 = 30 days
   # Revenue reduction: 1200 * (1 - 30/365) = 1200 * (1 - 0.082) = 1200 * 0.918 = 1101.6
-  expected_revenue_2030 <- 1200 * (1 - 30/365)
+  expected_revenue_2030 <- 1200 * (1 - 30 / 365)
   testthat::expect_equal(result$revenue[result$asset == "A1" & result$year == 2030], expected_revenue_2030, tolerance = 0.1)
 })

@@ -33,10 +33,11 @@
 #' }
 #' @export
 compute_companies_financials <- function(
-    companies,
-    company_yearly_trajectories,
-    assets_discounted_yearly,
-    discount_rate = 0.05) {
+  companies,
+  company_yearly_trajectories,
+  assets_discounted_yearly,
+  discount_rate = 0.05
+) {
   # Step 1: Compute company NPV from yearly trajectories
   companies_npv <- compute_company_npv(company_yearly_trajectories)
   companies_with_financial_data <- dplyr::left_join(companies, companies_npv, by = "company")

@@ -24,9 +24,10 @@
 #' }
 #' @export
 discount_yearly_profits <- function(
-    yearly_scenarios_df,
-    discount_rate = 0.05,
-    base_year = NULL) {
+  yearly_scenarios_df,
+  discount_rate = 0.05,
+  base_year = NULL
+) {
   # Make a copy to avoid modifying the input
   result <- yearly_scenarios_df
 

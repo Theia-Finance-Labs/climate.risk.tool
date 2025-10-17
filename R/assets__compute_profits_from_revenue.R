@@ -34,8 +34,9 @@
 #' }
 #' @export
 compute_profits_from_revenue <- function(
-    yearly_revenue_df,
-    net_profit_margin = 0.1) {
+  yearly_revenue_df,
+  net_profit_margin = 0.1
+) {
   # Make a copy to avoid modifying the input
   result <- yearly_revenue_df
 

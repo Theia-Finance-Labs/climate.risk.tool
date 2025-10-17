@@ -89,6 +89,6 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
   # event_a should be processed first, then event_z
   # Both events affect the same asset-year (A1, 2030)
   # Total damage should be: (0.3 * 150) + (0.5 * 200) = 45 + 100 = 145
-  expected_profit_2030 <- 120 - 145  # -25
+  expected_profit_2030 <- 120 - 145 # -25
   testthat::expect_equal(result$profit[result$asset == "A1" & result$year == 2030], expected_profit_2030)
 })

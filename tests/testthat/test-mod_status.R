@@ -3,7 +3,7 @@
 testthat::test_that("mod_status_ui creates expected elements", {
   ui <- mod_status_ui("test")
   html <- htmltools::renderTags(ui)$html
-  
+
   # Check that the UI contains expected elements
   testthat::expect_true(grepl("test-status_badge", html))
   testthat::expect_true(grepl("test-status_message", html))
@@ -24,7 +24,7 @@ testthat::test_that("mod_status_server displays events with event_id", {
     chronic = c(FALSE, FALSE),
     stringsAsFactors = FALSE
   )
-  
+
   shiny::testServer(mod_status_server, args = list(
     id = "test",
     status_reactive = shiny::reactive("Ready"),
@@ -32,7 +32,7 @@ testthat::test_that("mod_status_server displays events with event_id", {
   ), {
     # Get the output
     events_output <- output$events_table
-    
+
     # The output should exist
     testthat::expect_true(!is.null(events_output))
   })
@@ -72,7 +72,7 @@ testthat::test_that("mod_status_server displays correct status badges", {
     badge_output <- output$status_badge
     testthat::expect_true(!is.null(badge_output))
   })
-  
+
   shiny::testServer(mod_status_server, args = list(
     id = "test",
     status_reactive = shiny::reactive("Analysis complete"),

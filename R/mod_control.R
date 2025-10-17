@@ -72,10 +72,10 @@ mod_control_server <- function(id, base_dir_reactive) {
         message("Hazards directory not found at: ", dir_hz)
         return(NULL)
       }
-      
+
       # Use aggregation factor of 1 (no aggregation) in the app
       agg_factor <- 1L
-      
+
       result <- try(
         load_hazards_and_inventory(
           hazards_dir = dir_hz,
@@ -83,23 +83,22 @@ mod_control_server <- function(id, base_dir_reactive) {
         ),
         silent = TRUE
       )
-      
-      if (inherits(result, "try-error") || !is.list(result)) {
 
+      if (inherits(result, "try-error") || !is.list(result)) {
         message("Error loading hazards: ", if (inherits(result, "try-error")) attr(result, "condition")$message else "unknown")
         return(NULL)
       }
 
       return(result)
     })
-    
+
     # Extract flattened hazards for compute
     get_hazards_at_factor <- shiny::reactive({
       result <- hazards_and_inventory()
       if (is.null(result)) {
         return(NULL)
       }
-      
+
       # Flatten into a single named list for the analysis pipeline
       flat <- c(result$hazards$tif, result$hazards$nc)
       return(flat)
@@ -111,10 +110,10 @@ mod_control_server <- function(id, base_dir_reactive) {
       if (is.null(result)) {
         return(tibble::tibble())
       }
-      
+
       return(result$inventory)
     })
-    
+
 
     # Hazards events module
     hz_mod <- mod_hazards_events_server("hazards", hazards_inventory = hazards_inventory)
@@ -141,7 +140,6 @@ mod_control_server <- function(id, base_dir_reactive) {
         values$results
       }),
       hazards_inventory = hazards_inventory,
-
       get_hazards_at_factor = get_hazards_at_factor,
       set_results = function(results) {
         values$results <- results

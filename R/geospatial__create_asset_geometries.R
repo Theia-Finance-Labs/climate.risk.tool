@@ -2,7 +2,7 @@
 #'
 #' @title Create asset geometries from latitude/longitude coordinates
 #' @description Creates point-based geometries with buffers for assets that have coordinate information.
-#'   This is a simplified version that only handles coordinate-based geolocation. Assets without 
+#'   This is a simplified version that only handles coordinate-based geolocation. Assets without
 #'   coordinates should use precomputed administrative hazard data instead.
 #' @param assets_df Data frame with asset information including latitude and longitude columns
 #' @param default_buffer_size_m Numeric. Default buffer size in meters for point geometries when size_in_m2 is not available (default: 1111)
@@ -89,4 +89,3 @@ create_asset_geometries <- function(assets_df, default_buffer_size_m = 1111, out
 
   return(assets_df)
 }
-

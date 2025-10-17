@@ -1,5 +1,4 @@
 testthat::test_that("hazards inventory is available at startup", {
-
   base_dir <- get_test_data_dir()
 
   # Set environment variable for testing
@@ -20,7 +19,6 @@ testthat::test_that("hazards inventory is available at startup", {
 })
 
 testthat::test_that("control module exposes hazards inventory and aggregation_factor", {
-
   base_dir <- get_test_data_dir()
 
   # Set environment variable for testing

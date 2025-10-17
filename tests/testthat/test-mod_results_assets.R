@@ -3,7 +3,7 @@
 testthat::test_that("mod_results_assets_ui creates expected elements", {
   ui <- mod_results_assets_ui("test")
   html <- htmltools::renderTags(ui)$html
-  
+
   # Check that the UI contains expected elements
   testthat::expect_true(grepl("test-assets_table", html))
   testthat::expect_true(grepl("Asset Exposures", html))
@@ -24,18 +24,18 @@ testthat::test_that("mod_results_assets_server displays event information column
     cost_factor = 1000,
     stringsAsFactors = FALSE
   )
-  
+
   test_results <- list(
     assets_factors = test_assets_factors
   )
-  
+
   shiny::testServer(mod_results_assets_server, args = list(
     id = "test",
     results_reactive = shiny::reactive(test_results)
   ), {
     # Get the output
     assets_output <- output$assets_table
-    
+
     # The output should exist
     testthat::expect_true(!is.null(assets_output))
   })
@@ -53,18 +53,18 @@ testthat::test_that("mod_results_assets_server formats chronic column as Yes/No"
     hazard_type = c("flood", "temperature"),
     stringsAsFactors = FALSE
   )
-  
+
   test_results <- list(
     assets_factors = test_assets_factors
   )
-  
+
   shiny::testServer(mod_results_assets_server, args = list(
     id = "test",
     results_reactive = shiny::reactive(test_results)
   ), {
     # Get the output
     assets_output <- output$assets_table
-    
+
     # The output should exist
     testthat::expect_true(!is.null(assets_output))
   })
@@ -77,7 +77,7 @@ testthat::test_that("mod_results_assets_server handles NULL results gracefully",
   ), {
     # Should not error with NULL results
     assets_output <- output$assets_table
-    testthat::expect_true(TRUE)  # If we get here, no error occurred
+    testthat::expect_true(TRUE) # If we get here, no error occurred
   })
 })
 
@@ -97,18 +97,18 @@ testthat::test_that("mod_results_assets_server displays event_id column when pre
     cost_factor = 1000,
     stringsAsFactors = FALSE
   )
-  
+
   test_results <- list(
     assets_factors = test_assets_factors
   )
-  
+
   shiny::testServer(mod_results_assets_server, args = list(
     id = "test",
     results_reactive = shiny::reactive(test_results)
   ), {
     # Get the output
     assets_output <- output$assets_table
-    
+
     # The output should exist
     testthat::expect_true(!is.null(assets_output))
   })
@@ -119,14 +119,14 @@ testthat::test_that("mod_results_assets_server handles results without assets_fa
     companies = data.frame(company = "TestCo")
     # No assets_factors data
   )
-  
+
   shiny::testServer(mod_results_assets_server, args = list(
     id = "test",
     results_reactive = shiny::reactive(test_results)
   ), {
     # Should not error when assets_factors data is missing
     assets_output <- output$assets_table
-    testthat::expect_true(TRUE)  # If we get here, no error occurred
+    testthat::expect_true(TRUE) # If we get here, no error occurred
   })
 })
 
@@ -145,24 +145,23 @@ testthat::test_that("mod_results_assets_server orders columns correctly", {
     chronic = FALSE,
     stringsAsFactors = FALSE
   )
-  
+
   test_results <- list(
     assets_factors = test_assets_factors
   )
-  
+
   shiny::testServer(mod_results_assets_server, args = list(
     id = "test",
     results_reactive = shiny::reactive(test_results)
   ), {
     # Get the output
     assets_output <- output$assets_table
-    
+
     # The output should exist
     testthat::expect_true(!is.null(assets_output))
-    
+
     # Priority columns should be first in the data
     # Note: we can't directly test DT output, but we can verify the function runs without error
     testthat::expect_true(TRUE)
   })
 })
-

@@ -26,8 +26,9 @@
 #' }
 #' @export
 concatenate_baseline_and_shock <- function(
-    yearly_baseline_df,
-    yearly_shocked_df) {
+  yearly_baseline_df,
+  yearly_shocked_df
+) {
   # Prepare baseline scenario data
   baseline_scenario <- yearly_baseline_df |>
     dplyr::select("asset", "company", "year", "revenue", "profit") |>

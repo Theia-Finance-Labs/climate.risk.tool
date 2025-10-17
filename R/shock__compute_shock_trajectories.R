@@ -38,11 +38,12 @@
 #' }
 #' @export
 compute_shock_trajectories <- function(
-    yearly_baseline_profits,
-    assets_with_factors,
-    events,
-    net_profit_margin = 0.1,
-    start_year = 2025) {
+  yearly_baseline_profits,
+  assets_with_factors,
+  events,
+  net_profit_margin = 0.1,
+  start_year = 2025
+) {
   # Filter assets_with_factors to only the hazards referenced in events
   relevant_hazards <- events |>
     dplyr::distinct(.data$hazard_name) |>

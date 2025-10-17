@@ -20,7 +20,6 @@
 #' }
 #' @export
 compute_company_npv <- function(company_yearly_data) {
-
   # Aggregate discounted net profits by company and scenario
   # Sum across years for each company-scenario combination
   company_npv_data <- company_yearly_data |>

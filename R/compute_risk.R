@@ -131,7 +131,7 @@ compute_risk <- function(assets,
     events <- events |>
       dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
   }
-  
+
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
 
@@ -148,20 +148,21 @@ compute_risk <- function(assets,
   filtered_hazard_names <- names(hazards)
   filtered_inventory <- hazards_inventory |>
     dplyr::filter(.data$hazard_name %in% filtered_hazard_names)
-  
+
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/province only
 
   assets_long <- extract_hazard_statistics(
-    assets_df=assets,
-     hazards=hazards, 
-     hazards_inventory=filtered_inventory,
-     precomputed_hazards= precomputed_hazards, 
-     aggregation_method=aggregation_method)
+    assets_df = assets,
+    hazards = hazards,
+    hazards_inventory = filtered_inventory,
+    precomputed_hazards = precomputed_hazards,
+    aggregation_method = aggregation_method
+  )
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
-  
+
   # Step 2.5: Join event information (event_year, chronic) from events
   # Select only the columns we need from events to avoid duplication
   # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
@@ -171,11 +172,12 @@ compute_risk <- function(assets,
     dplyr::mutate(
       hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
     )
-  
+
   assets_factors <- assets_factors |>
     dplyr::inner_join(
-      events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic")
-      , by = "hazard_name", relationship = "many-to-many")
+      events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic"),
+      by = "hazard_name", relationship = "many-to-many"
+    )
 
 
   # ============================================================================

@@ -1,5 +1,4 @@
 testthat::test_that("server loads inputs and runs analysis from base_dir and uploaded company file", {
-
   # Use real test data directory
   base_dir <- get_test_data_dir()
   company_file_path <- file.path(base_dir, "user_input", "company.csv")
@@ -38,7 +37,6 @@ testthat::test_that("server loads inputs and runs analysis from base_dir and upl
 
 
 testthat::test_that("server handles missing company file gracefully", {
-
   # Use real test data directory
   base_dir <- get_test_data_dir()
 
@@ -62,7 +60,6 @@ testthat::test_that("server handles missing company file gracefully", {
 
 
 testthat::test_that("server requires hazard selection before running analysis", {
-
   # Use real test data directory
   base_dir <- get_test_data_dir()
   company_file_path <- file.path(base_dir, "user_input", "company.csv")
@@ -93,5 +90,3 @@ testthat::test_that("server requires hazard selection before running analysis", 
     golem_opts = list(base_dir = base_dir)
   )
 })
-
-

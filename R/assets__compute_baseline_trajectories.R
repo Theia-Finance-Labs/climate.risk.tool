@@ -23,12 +23,13 @@
 #' }
 #' @export
 compute_baseline_trajectories <- function(
-    baseline_assets, # data.frame with columns: asset, company, share_of_economic_activity
-    companies, # data.frame with columns: company, revenues
-    growth_rate = 0.02,
-    net_profit_margin = 0.1,
-    start_year = 2025,
-    end_year = 2050) {
+  baseline_assets, # data.frame with columns: asset, company, share_of_economic_activity
+  companies, # data.frame with columns: company, revenues
+  growth_rate = 0.02,
+  net_profit_margin = 0.1,
+  start_year = 2025,
+  end_year = 2050
+) {
   # Step 1: Compute yearly revenue trajectories
   yearly_revenue <- compute_yearly_baseline_revenue(
     baseline_assets, companies, growth_rate, start_year, end_year

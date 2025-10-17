@@ -25,22 +25,23 @@
 #' }
 #' @export
 apply_acute_profit_shock <- function(
-    yearly_trajectories,
-    assets_factors,
-    acute_events) {
+  yearly_trajectories,
+  assets_factors,
+  acute_events
+) {
   # --- APPLY ACUTE DAMAGE TO PROFITS BY EVENT ---
 
   # Initialize empty results
   shocks_by_asset_year <- tibble::tibble(
-    asset = character(0), 
-    event_year = integer(0), 
+    asset = character(0),
+    event_year = integer(0),
     acute_damage = numeric(0)
   )
 
   # Sort events by event_id to ensure consistent processing order
   acute_events <- acute_events |>
     dplyr::arrange(.data$event_id)
-  
+
   # Process each event and check its hazard type
   for (i in seq_len(nrow(acute_events))) {
     event <- acute_events[i, ]
@@ -61,7 +62,7 @@ apply_acute_profit_shock <- function(
         flood_shocks <- assets_flood |>
           dplyr::select("asset", "acute_damage") |>
           dplyr::mutate(event_year = event_year)
-        
+
         shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
       }
     } else if (hazard_type == "Drought") {

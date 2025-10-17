@@ -25,28 +25,29 @@
 #' }
 #' @export
 apply_acute_revenue_shock <- function(
-    yearly_trajectories,
-    assets_factors,
-    acute_events) {
+  yearly_trajectories,
+  assets_factors,
+  acute_events
+) {
   # --- Build disruption map (asset, event_year -> total disruption days) ---
 
   # Initialize empty results
   shocks_by_asset_year <- tibble::tibble(
-    asset = character(0), 
-    event_year = integer(0), 
+    asset = character(0),
+    event_year = integer(0),
     business_disruption = numeric(0)
   )
 
   # Sort events by event_id to ensure consistent processing order
   acute_events <- acute_events |>
     dplyr::arrange(.data$event_id)
-  
+
   # Process each event and check its hazard type
   for (i in seq_len(nrow(acute_events))) {
     event <- acute_events[i, ]
     hazard_type <- event$hazard_type
     event_year <- event$event_year
-    
+
     if (hazard_type %in% c("FloodTIF", "Flood")) {
       # Flood events: apply business disruption based on business_disruption factor
       assets_flood <- assets_factors |>
@@ -61,11 +62,11 @@ apply_acute_revenue_shock <- function(
             event_year = event_year,
             business_disruption = as.numeric(.data$business_disruption)
           )
-        
+
         # Cap disruption into [0, 365]
         flood_shocks <- flood_shocks |>
           dplyr::mutate(business_disruption = pmax(0, pmin(365, .data$business_disruption)))
-        
+
         shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
       }
     } else if (hazard_type == "Drought") {

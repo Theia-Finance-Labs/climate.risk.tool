@@ -85,8 +85,8 @@ test_that("load_hazards_and_inventory NC rasters have proper extent (cell center
 
   # Extent should be reasonable (not 0,5,0,168 like raw GDAL read)
   ext <- terra::ext(r_nc)
-  expect_true(ext[1] < ext[2])  # xmin < xmax
-  expect_true(ext[3] < ext[4])  # ymin < ymax
+  expect_true(ext[1] < ext[2]) # xmin < xmax
+  expect_true(ext[3] < ext[4]) # ymin < ymax
 
   # Resolution should be calculated (not default 1.0)
   res <- terra::res(r_nc)
@@ -134,13 +134,17 @@ test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly"
 
   # Check that we have mean ensemble values in the names
   expect_true(any(grepl("__ensemble=mean$", nc_names)),
-              info = "Should have at least one mean ensemble")
+    info = "Should have at least one mean ensemble"
+  )
   expect_false(any(grepl("__ensemble=median$", nc_names)),
-               info = "Should not have median ensemble (not loaded)")
+    info = "Should not have median ensemble (not loaded)"
+  )
   expect_false(any(grepl("__ensemble=p10$", nc_names)),
-               info = "Should not have p10 ensemble (not loaded)")
+    info = "Should not have p10 ensemble (not loaded)"
+  )
   expect_false(any(grepl("__ensemble=p90$", nc_names)),
-               info = "Should not have p90 ensemble (not loaded)")
+    info = "Should not have p90 ensemble (not loaded)"
+  )
 
   # Check inventory has ensemble column for NC hazards
   nc_inventory <- result$inventory |> dplyr::filter(source == "nc")
@@ -163,11 +167,11 @@ test_that("load_hazards_and_inventory creates separate raster per GWL and return
 
   # Count unique GWL values (test data has 1 GWL)
   gwl_values <- unique(sub(".*__GWL=([^_]+)__.*", "\\1", nc_names))
-  expect_true(length(gwl_values) >= 1)  # Should have at least one GWL value
+  expect_true(length(gwl_values) >= 1) # Should have at least one GWL value
 
   # Count unique RP values
   rp_values <- unique(sub(".*__RP=([^_]+)__.*", "\\1", nc_names))
-  expect_true(length(rp_values) > 1)  # Should have multiple return periods
+  expect_true(length(rp_values) > 1) # Should have multiple return periods
 })
 
 test_that("load_hazards_and_inventory passes aggregate_factor to TIF loader only", {
@@ -199,8 +203,10 @@ test_that("load_hazards_and_inventory works with NC files when no TIF files pres
 
   # Copy an NC file from test data if it exists
   source_hazards_dir <- file.path(get_test_data_dir(), "hazards")
-  nc_files <- list.files(source_hazards_dir, pattern = "\\.nc$",
-                         full.names = TRUE, recursive = TRUE)
+  nc_files <- list.files(source_hazards_dir,
+    pattern = "\\.nc$",
+    full.names = TRUE, recursive = TRUE
+  )
 
 
   # Copy first NC file
@@ -259,4 +265,3 @@ test_that("load_nc_hazards_with_metadata handles multi-variable NetCDF files", {
     expect_s4_class(result$hazards$nc[[1]], "SpatRaster")
   }
 })
-
