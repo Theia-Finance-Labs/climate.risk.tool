@@ -250,6 +250,11 @@ read_precomputed_hazards <- function(base_dir) {
   # Combine all ensemble variants
   precomputed_final <- dplyr::bind_rows(transformed_list)
 
+  precomputed_final <- precomputed_final |>
+  dplyr::mutate(
+    region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII")
+  )
+
   message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
 
   precomputed_final
