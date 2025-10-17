@@ -43,8 +43,8 @@ The \code{event_id} column is auto-generated internally if not provided.}
 \item{aggregation_method}{Character. Statistical aggregation method for hazard extraction (default: "mean").
 Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
 For TIF files: uses terra::extract with the specified function.
-For NC files: selects the corresponding ensemble layer.
-For precomputed data: filters to the matching ensemble variant.
+For NC files: uses the mean ensemble layer by default.
+For precomputed data: uses the mean ensemble variant.
 #'}
 }
 \value{

@@ -61,60 +61,93 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   return(final_result)
 }
 
-#' Extract statistics from spatial hazards (unified for NC and TIF sources)
+#' Extract statistics from spatial hazards (unified for NC, TIF, and CSV sources)
 #' @noRd
 extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
-  message("  [extract_spatial_statistics] Extracting hazard statistics from rasters...")
+  message("  [extract_spatial_statistics] Extracting hazard statistics...")
   message("    Using aggregation method: ", aggregation_method)
 
-  # Define aggregation function mapping (used for TIF sources)
-  aggregation_functions <- list(
-    "mean" = function(x) mean(x, na.rm = TRUE),
-    "median" = function(x) stats::median(x, na.rm = TRUE),
-    "max" = function(x) max(x, na.rm = TRUE),
-    "min" = function(x) min(x, na.rm = TRUE),
-    "p2_5" = function(x) as.numeric(stats::quantile(x, 0.025, na.rm = TRUE, type = 7)),
-    "p5" = function(x) as.numeric(stats::quantile(x, 0.05, na.rm = TRUE, type = 7)),
-    "p10" = function(x) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
-    "p90" = function(x) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
-    "p95" = function(x) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
-    "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7))
-  )
-  # Validate aggregation method for TIF sources
-  if (!aggregation_method %in% names(aggregation_functions)) {
-    stop(
-      "Invalid aggregation_method '", aggregation_method, "' for TIF extraction. ",
-      "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
+  # Separate CSV hazards from raster hazards (TIF/NC)
+  csv_inventory <- hazards_inventory |>
+    dplyr::filter(.data$source == "csv")
+
+  raster_inventory <- hazards_inventory |>
+    dplyr::filter(.data$source %in% c("tif", "nc"))
+
+  all_results <- list()
+
+  # ========= Process CSV hazards (closest-point assignment) =========
+  if (nrow(csv_inventory) > 0) {
+    message("  [extract_spatial_statistics] Processing CSV hazards with closest-point assignment...")
+
+    # Extract CSV hazards from the hazards list
+    csv_hazard_names <- csv_inventory$hazard_name
+    hazards_csv <- hazards[csv_hazard_names]
+    hazards_csv <- hazards_csv[!sapply(hazards_csv, is.null)]
+
+    if (length(hazards_csv) > 0) {
+      csv_results <- extract_csv_statistics(
+        assets_df,
+        hazards_csv,
+        csv_inventory,
+        aggregation_method
+      )
+      all_results[[length(all_results) + 1]] <- csv_results
+    }
+  }
+
+  # ========= Process raster hazards (TIF/NC with polygon extraction) =========
+  if (nrow(raster_inventory) > 0) {
+    message("  [extract_spatial_statistics] Processing raster hazards (TIF/NC) with polygon extraction...")
+
+    # Define aggregation function mapping (used for TIF sources)
+    aggregation_functions <- list(
+      "mean" = function(x) mean(x, na.rm = TRUE),
+      "median" = function(x) stats::median(x, na.rm = TRUE),
+      "max" = function(x) max(x, na.rm = TRUE),
+      "min" = function(x) min(x, na.rm = TRUE),
+      "p2_5" = function(x) as.numeric(stats::quantile(x, 0.025, na.rm = TRUE, type = 7)),
+      "p5" = function(x) as.numeric(stats::quantile(x, 0.05, na.rm = TRUE, type = 7)),
+      "p10" = function(x) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
+      "p90" = function(x) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
+      "p95" = function(x) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
+      "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7))
     )
-  }
+    # Validate aggregation method for TIF sources
+    if (!aggregation_method %in% names(aggregation_functions)) {
+      stop(
+        "Invalid aggregation_method '", aggregation_method, "' for TIF extraction. ",
+        "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
+      )
+    }
 
-  # Get the aggregation function for TIF
-  agg_func <- if (aggregation_method %in% names(aggregation_functions)) {
-    aggregation_functions[[aggregation_method]]
-  } else {
-    stop("Invalid aggregation method: ", aggregation_method)
-  }
+    # Get the aggregation function for TIF
+    agg_func <- if (aggregation_method %in% names(aggregation_functions)) {
+      aggregation_functions[[aggregation_method]]
+    } else {
+      stop("Invalid aggregation method: ", aggregation_method)
+    }
 
-  # Create geometries for assets (shared by both NC and TIF)
-  assets_sf <- create_asset_geometries(
-    assets_df,
-    default_buffer_size_m = 1111,
-    output_crs = 4326
-  )
+    # Create geometries for assets (shared by both NC and TIF)
+    assets_sf <- create_asset_geometries(
+      assets_df,
+      default_buffer_size_m = 1111,
+      output_crs = 4326
+    )
 
-  # Convert to sf
-  if (!inherits(assets_sf$geometry, "sfc")) {
-    assets_sf <- sf::st_as_sf(assets_sf)
-  } else {
-    assets_sf <- sf::st_as_sf(assets_sf, sf_column_name = "geometry")
-  }
+    # Convert to sf
+    if (!inherits(assets_sf$geometry, "sfc")) {
+      assets_sf <- sf::st_as_sf(assets_sf)
+    } else {
+      assets_sf <- sf::st_as_sf(assets_sf, sf_column_name = "geometry")
+    }
 
-  # Combine both inventories for unified processing
-  combined_inventory <- hazards_inventory |>
-    dplyr::mutate(base_event_id = .data$hazard_name)
+    # Process raster inventory
+    combined_inventory <- raster_inventory |>
+      dplyr::mutate(base_event_id = .data$hazard_name)
 
-  n_hazards <- nrow(combined_inventory)
-  results_list <- vector("list", n_hazards)
+    n_hazards <- nrow(combined_inventory)
+    results_list <- vector("list", n_hazards)
 
   for (i in seq_len(n_hazards)) {
     hazard_meta <- combined_inventory |> dplyr::slice(i)
@@ -213,14 +246,21 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     results_list[[i]] <- df_i
   }
 
-  # Filter out NULL entries
-  results_list <- results_list[!sapply(results_list, is.null)]
+    # Filter out NULL entries for raster results
+    results_list <- results_list[!sapply(results_list, is.null)]
 
-  if (length(results_list) == 0) {
+    if (length(results_list) > 0) {
+      raster_results <- do.call(rbind, results_list)
+      all_results[[length(all_results) + 1]] <- raster_results
+    }
+  }
+
+  # Combine CSV and raster results
+  if (length(all_results) == 0) {
     return(tibble::tibble())
   }
 
-  return(do.call(rbind, results_list))
+  return(do.call(rbind, all_results))
 }
 
 #' Extract statistics from precomputed administrative data (municipality/province lookup)
@@ -354,4 +394,94 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   }
 
   return(do.call(rbind, precomp_results_list))
+}
+
+#' Extract statistics from CSV hazards using closest-point assignment
+#' @noRd
+extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, aggregation_method = "mean") {
+  message("  [extract_csv_statistics] Extracting hazard statistics from CSV point data...")
+  message("    Using closest-point assignment (aggregation_method parameter kept for consistency)")
+
+  # Filter inventory to only CSV sources
+  csv_inventory <- hazards_inventory |>
+    dplyr::filter(.data$source == "csv")
+
+  n_hazards <- nrow(csv_inventory)
+  results_list <- vector("list", n_hazards)
+
+  for (i in seq_len(n_hazards)) {
+    hazard_meta <- csv_inventory |> dplyr::slice(i)
+
+    base_hazard_name <- hazard_meta$hazard_name
+    hazard_csv_data <- hazards_csv[[base_hazard_name]]
+
+    if (is.null(hazard_csv_data)) {
+      warning("CSV hazard data not found for: ", base_hazard_name)
+      next
+    }
+
+    # Get metadata
+    hazard_type <- hazard_meta$hazard_type
+    hazard_indicator <- hazard_meta$hazard_indicator
+    hazard_return_period <- hazard_meta$hazard_return_period
+    hazard_scenario_code <- hazard_meta$scenario_code
+    hazard_scenario_name <- hazard_meta$scenario_name
+
+    # Add extraction_method suffix for output consistency
+    hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
+
+    message("    Processing CSV hazard ", i, "/", n_hazards, ": ", base_hazard_name)
+
+    n_assets <- nrow(assets_df)
+    asset_intensities <- numeric(n_assets)
+
+    # For each asset, find closest CSV point
+    for (j in seq_len(n_assets)) {
+      asset_lat <- assets_df$latitude[j]
+      asset_lon <- assets_df$longitude[j]
+
+      # Calculate Euclidean distance to all CSV points
+      distances <- sqrt(
+        (hazard_csv_data$lat - asset_lat)^2 +
+        (hazard_csv_data$lon - asset_lon)^2
+      )
+
+      # Find minimum distance
+      min_idx <- which.min(distances)
+
+      # Extract hazard intensity from closest point
+      asset_intensities[j] <- hazard_csv_data$hazard_intensity[min_idx]
+    }
+
+    # Combine with asset data
+    df_i <- assets_df |>
+      dplyr::mutate(
+        hazard_intensity = asset_intensities,
+        hazard_name = hazard_name_with_ensemble,
+        hazard_type = hazard_type,
+        scenario_code = hazard_scenario_code,
+        scenario_name = hazard_scenario_name,
+        hazard_indicator = hazard_indicator,
+        hazard_return_period = hazard_return_period,
+        source = "csv",
+        matching_method = "coordinates"
+      ) |>
+      dplyr::select(
+        "asset", "company", "latitude", "longitude",
+        "municipality", "province", "asset_category", "size_in_m2",
+        "share_of_economic_activity", "hazard_name", "hazard_type",
+        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+      )
+
+    results_list[[i]] <- df_i
+  }
+
+  # Filter out NULL entries
+  results_list <- results_list[!sapply(results_list, is.null)]
+
+  if (length(results_list) == 0) {
+    return(tibble::tibble())
+  }
+
+  return(do.call(rbind, results_list))
 }

@@ -100,7 +100,7 @@ mod_control_server <- function(id, base_dir_reactive) {
       }
 
       # Flatten into a single named list for the analysis pipeline
-      flat <- c(result$hazards$tif, result$hazards$nc)
+      flat <- c(result$hazards$tif, result$hazards$nc, result$hazards$csv)
       return(flat)
     })
 
