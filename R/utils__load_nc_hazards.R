@@ -218,7 +218,8 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
     hazard_name <- paste0(
       hazard_type, "__", hazard_indicator,
       "__GWL=", gwl_str,
-      "__RP=", rp_str
+      "__RP=", rp_str,
+      "__ensemble=", ensemble_str
     )
     
     results[[hazard_name]] <- layer_rast
@@ -564,11 +565,13 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
 
        
 
-          # Unified hazard name WITHOUT ensemble suffix for inventory
+          # Unified hazard name WITH ensemble suffix for NC files
+          # NC files always use mean ensemble during load
           hazard_name <- paste0(
             hazard_type, "__", hazard_indicator,
             "__GWL=", gwl_label,
-            "__RP=", rp_label
+            "__RP=", rp_label,
+            "__ensemble=", ens_label
           )
 
           results[[hazard_name]] <- r

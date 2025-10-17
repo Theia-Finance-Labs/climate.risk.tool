@@ -223,11 +223,11 @@ read_precomputed_hazards <- function(base_dir) {
   # Unified naming WITHOUT ensemble suffix (base event format)
   
   # Define ensemble columns to melt
-  ensemble_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
+  summary_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
   
   transformed_list <- list()
   
-  for (ens_col in ensemble_cols) {
+  for (summ_col in summary_cols) {
     # Create rows for this ensemble
     ensemble_data <- precomputed_df |>
       dplyr::mutate(
@@ -235,13 +235,14 @@ read_precomputed_hazards <- function(base_dir) {
         hazard_name = paste0(
           .data$hazard_type, "__", .data$hazard_indicator,
           "__GWL=", .data$scenario_name,
-          "__RP=", .data$hazard_return_period
+          "__RP=", .data$hazard_return_period,
+          ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
         ),
-        ensemble = ens_col,
-        hazard_value = .data[[ens_col]]
+        aggregation_method = summ_col,
+        hazard_value = .data[[summ_col]]
       )
     
-    transformed_list[[ens_col]] <- ensemble_data
+    transformed_list[[summ_col]] <- ensemble_data
   }
   
   # Combine all ensemble variants

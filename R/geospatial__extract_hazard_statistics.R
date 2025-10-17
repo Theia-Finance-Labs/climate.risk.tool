@@ -81,24 +81,8 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     "p95" = function(x) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
     "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7))
   )
-  
-  # Separate NC and TIF hazards
-  nc_inventory <- hazards_inventory |> dplyr::filter(.data$source == "nc")
-  tif_inventory <- hazards_inventory |> dplyr::filter(.data$source == "tif")
-  
-  # Validate aggregation method for NC sources
-  if (nrow(nc_inventory) > 0 && "ensemble" %in% names(nc_inventory)) {
-    available_ensembles <- unique(nc_inventory$ensemble)
-    if (!aggregation_method %in% available_ensembles) {
-      stop(
-        "Requested aggregation_method '", aggregation_method, "' not found in NC hazards. ",
-        "Available ensembles: ", paste(available_ensembles, collapse = ", ")
-      )
-    }
-  }
-  
   # Validate aggregation method for TIF sources
-  if (nrow(tif_inventory) > 0 && !aggregation_method %in% names(aggregation_functions)) {
+  if (!aggregation_method %in% names(aggregation_functions)) {
     stop(
       "Invalid aggregation_method '", aggregation_method, "' for TIF extraction. ",
       "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
@@ -127,15 +111,11 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
   }
   
   # Combine both inventories for unified processing
-  combined_inventory <- dplyr::bind_rows(
-    nc_inventory |> dplyr::mutate(base_event_id = .data$hazard_name),
-    tif_inventory |> dplyr::mutate(base_event_id = .data$hazard_name)
-  )
+  combined_inventory <- hazards_inventory |> 
+    dplyr::mutate(base_event_id = .data$hazard_name)
   
   n_hazards <- nrow(combined_inventory)
   results_list <- vector("list", n_hazards)
-  
-  message("    Found ", nrow(nc_inventory), " NC hazards and ", nrow(tif_inventory), " TIF hazards (total: ", n_hazards, ")")
   
   for (i in seq_len(n_hazards)) {
     hazard_meta <- combined_inventory |> dplyr::slice(i)
@@ -150,80 +130,57 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     hazard_return_period <- hazard_meta$hazard_return_period
     hazard_scenario_code <- hazard_meta$scenario_code
     hazard_scenario_name <- hazard_meta$scenario_name
-    # Add ensemble suffix for output
-    hazard_name_with_ensemble <- paste0(base_hazard_name, "__ensemble=", aggregation_method)
+    # Add extraction_method suffix for output
+    hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
     
     message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
     
     # Get raster CRS
     r_crs <- terra::crs(hazard_rast)
-    if (is.na(r_crs) || r_crs == "") r_crs <- "EPSG:4326"
+    if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
     
-    # Different extraction methods for NC vs TIF, but both produce only hazard_intensity
-    if (hazard_source == "nc") {
-      # NC: Point extraction from centroids (pre-computed statistics in raster)
-      message("      Using point extraction (centroids) for NC source")
+    # Unified extraction method: polygon extraction with masking and aggregation for both NC and TIF
+    message("      Using polygon extraction (crop/mask) for ", toupper(hazard_source), " source")
+    
+    n_geoms <- nrow(assets_sf)
+    stats_df <- tibble::tibble(
+      ID = seq_len(n_geoms),
+      hazard_intensity = NA_real_
+    )
+    
+    # Process each geometry
+    for (j in seq_len(n_geoms)) {
+      if (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms) {
+        message("      Asset ", j, "/", n_geoms, " (", round(100 * j / n_geoms), "%)")
+      }
       
-      centroids_sf <- sf::st_set_geometry(assets_sf, assets_sf$centroid)
-      centroids_transformed <- sf::st_transform(centroids_sf, r_crs)
-      centroids_vect <- terra::vect(centroids_transformed)
+      geom_j <- assets_sf |> dplyr::slice(j)
+      geom_j_transformed <- sf::st_transform(geom_j, r_crs)
+      geom_vect <- terra::vect(geom_j_transformed)
       
-      # Extract values (using centroids for NC since they have pre-computed stats)
-      extracted_vals <- terra::extract(hazard_rast, centroids_vect, method = "simple", ID = FALSE)
-      
-      # The extracted value represents the chosen aggregation method (ensemble statistic)
-      intensity_vals <- if (ncol(extracted_vals) > 0) as.numeric(extracted_vals[[1]]) else rep(NA_real_, nrow(assets_sf))
-      
-      # Store only hazard_intensity
-      stats_df <- tibble::tibble(
-        ID = seq_len(nrow(assets_sf)),
-        hazard_intensity = intensity_vals
+      r_crop <- tryCatch(
+        suppressWarnings(terra::crop(hazard_rast, geom_vect)),
+        error = function(e) NULL
       )
       
-    } else {
-      # TIF: Polygon extraction with statistics computation
-      message("      Using polygon extraction (crop/mask) for TIF source")
-      
-      n_geoms <- nrow(assets_sf)
-      stats_df <- tibble::tibble(
-        ID = seq_len(n_geoms),
-        hazard_intensity = NA_real_
-      )
-      
-      # Process each geometry
-      for (j in seq_len(n_geoms)) {
-        if (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms) {
-          message("      Asset ", j, "/", n_geoms, " (", round(100 * j / n_geoms), "%)")
-        }
-        
-        geom_j <- assets_sf |> dplyr::slice(j)
-        geom_j_transformed <- sf::st_transform(geom_j, r_crs)
-        geom_vect <- terra::vect(geom_j_transformed)
-        
-        r_crop <- tryCatch(
-          suppressWarnings(terra::crop(hazard_rast, geom_vect)),
+      if (!is.null(r_crop) && terra::ncell(r_crop) > 0) {
+        r_mask <- tryCatch(
+          suppressWarnings(terra::mask(r_crop, geom_vect)),
           error = function(e) NULL
         )
         
-        if (!is.null(r_crop) && terra::ncell(r_crop) > 0) {
-          r_mask <- tryCatch(
-            suppressWarnings(terra::mask(r_crop, geom_vect)),
-            error = function(e) NULL
-          )
+        if (!is.null(r_mask) && terra::ncell(r_mask) > 0) {
+          vals <- as.numeric(terra::values(r_mask, mat = FALSE, na.rm = TRUE))
           
-          if (!is.null(r_mask) && terra::ncell(r_mask) > 0) {
-            vals <- as.numeric(terra::values(r_mask, mat = FALSE, na.rm = TRUE))
+          if (length(vals) > 0) {
+            # Apply the chosen aggregation method
+            intensity_val <- agg_func(vals)
             
-            if (length(vals) > 0) {
-              # Apply ONLY the chosen aggregation method
-              intensity_val <- agg_func(vals)
-              
-              # Update only hazard_intensity
-              stats_df <- stats_df |>
-                dplyr::mutate(
-                  hazard_intensity = dplyr::if_else(.data$ID == j, intensity_val, .data$hazard_intensity)
-                )
-            }
+            # Update hazard_intensity
+            stats_df <- stats_df |>
+              dplyr::mutate(
+                hazard_intensity = dplyr::if_else(.data$ID == j, intensity_val, .data$hazard_intensity)
+              )
           }
         }
       }
@@ -364,11 +321,11 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     # Transform precomputed data to match expected output format
     # Filter by the chosen aggregation method (ensemble)
     asset_hazard_data <- matched_data |>
-      dplyr::filter(.data$ensemble == aggregation_method) |>
+      dplyr::filter(.data$aggregation_method == aggregation_method) |>
       dplyr::mutate(
         # Extract the value from the column matching the aggregation method
         hazard_intensity = hazard_value,
-        hazard_name = paste0(.data$hazard_name, "__ensemble=", aggregation_method),
+        hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
         # Add asset information to each hazard row
         asset = asset_row$asset,

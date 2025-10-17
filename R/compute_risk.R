@@ -167,7 +167,7 @@ compute_risk <- function(assets,
   # Use inner_join to only keep assets with hazards that are in the events
   events <- events |>
     dplyr::mutate(
-      hazard_name = paste0(.data$hazard_name, "__ensemble=", aggregation_method)
+      hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
     )
   
   assets_factors <- assets_factors |>
