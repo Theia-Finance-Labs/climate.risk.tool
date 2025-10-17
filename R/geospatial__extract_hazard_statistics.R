@@ -315,7 +315,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     # If matched_data is empty and we're not strictly validating, skip this asset
     if (nrow(matched_data) == 0) {
       stop("No data found for asset ", i, " (", asset_name, "). No match found in precomputed data for municipality='", municipality_normalized, 
-           "' or province='", province_normalized, "' for hazard_type='", hazard_type, "', scenario_code='", scenario_code, "', hazard_return_period='", hazard_return_period, "'")
+           "' or province='", province_normalized, "' for the required hazards.")
     }
 
     # Transform precomputed data to match expected output format

@@ -37,6 +37,10 @@ apply_acute_profit_shock <- function(
     acute_damage = numeric(0)
   )
 
+  # Sort events by event_id to ensure consistent processing order
+  acute_events <- acute_events |>
+    dplyr::arrange(.data$event_id)
+  
   # Process each event and check its hazard type
   for (i in seq_len(nrow(acute_events))) {
     event <- acute_events[i, ]

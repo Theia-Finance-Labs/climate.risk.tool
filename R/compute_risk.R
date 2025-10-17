@@ -126,9 +126,11 @@ compute_risk <- function(assets,
   # PHASE 1: UTILS - Input validation and data preparation
   # ============================================================================
 
-  # Auto-generate event_id if not provided (always regenerate for consistency)
-  events <- events |>
-    dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
+  # Auto-generate event_id if not provided (only if column doesn't exist)
+  if (!"event_id" %in% names(events)) {
+    events <- events |>
+      dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
+  }
   
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
@@ -172,7 +174,7 @@ compute_risk <- function(assets,
   
   assets_factors <- assets_factors |>
     dplyr::inner_join(
-      events |> dplyr::select("hazard_name", "event_year", "chronic")
+      events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic")
       , by = "hazard_name", relationship = "many-to-many")
 
 

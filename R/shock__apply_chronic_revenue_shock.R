@@ -28,6 +28,10 @@ apply_chronic_revenue_shock <- function(
     yearly_trajectories,
     assets_factors,
     chronic_events) {
+  # Sort events by event_id to ensure consistent processing order
+  chronic_events <- chronic_events |>
+    dplyr::arrange(.data$event_id)
+  
   # PLACEHOLDER IMPLEMENTATION:
   # For now, just pass through revenue values unchanged
   # This maintains the expected output structure while preserving the interface

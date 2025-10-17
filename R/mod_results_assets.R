@@ -42,7 +42,7 @@ mod_results_assets_server <- function(id, results_reactive) {
       }
 
       # Reorder columns to show key columns prominently
-      priority_cols <- c("asset", "company", "matching_method", "hazard_return_period", "event_year", "chronic")
+      priority_cols <- c("asset", "company", "event_id", "matching_method", "hazard_return_period", "event_year", "chronic")
       existing_priority <- intersect(priority_cols, names(assets))
       other_cols <- setdiff(names(assets), existing_priority)
       
