@@ -12,11 +12,12 @@ load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
 \item{aggregate_factor}{Integer >= 1. Aggregation factor for TIF rasters (default: 1)}
 }
 \value{
-A list with two elements:
+A list with three elements:
 \itemize{
-\item \code{hazards}: Nested list with \code{tif} and \code{nc} keys, each containing named SpatRaster objects
-\item \code{inventory}: Tibble with columns: hazard_type, scenario_name, hazard_return_period,
-scenario_code, hazard_name, source (either "tif" or "nc")
+\item \code{hazards}: Nested list with \code{tif}, \code{nc}, and \code{csv} keys
+\item \code{inventory}: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
+hazard_return_period, scenario_code, hazard_name (unified format),
+ensemble (ensemble variant or NA for TIF), source ("tif", "nc", or "csv")
 }
 }
 \description{
@@ -25,12 +26,14 @@ Self-contained loader that:
 \item Auto-discovers \code{hazards_metadata.csv} for TIF files (if present)
 \item Loads TIF rasters from mapping
 \item Scans directory tree for NetCDF files and loads them
-\item Generates a unified inventory combining TIF and NC metadata
+\item Scans directory tree for CSV files and loads them
+\item Validates no mixed file types (tif/nc/csv) in same leaf folder
+\item Generates a unified inventory combining TIF, NC, and CSV metadata
 \item Returns both hazards and inventory
 }
 }
 \details{
-Load hazards (TIF + NC) and build complete inventory
+Load hazards (TIF + NC + CSV) and build complete inventory
 }
 \examples{
 \dontrun{
@@ -40,7 +43,7 @@ result <- load_hazards_and_inventory(
 )
 
 # Access hazards (flattened for compute)
-all_hazards <- c(result$hazards$tif, result$hazards$nc)
+all_hazards <- c(result$hazards$tif, result$hazards$nc, result$hazards$csv)
 
 # Access inventory (for UI dropdowns)
 inventory <- result$inventory

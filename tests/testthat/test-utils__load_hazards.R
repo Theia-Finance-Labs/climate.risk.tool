@@ -265,3 +265,120 @@ test_that("load_nc_hazards_with_metadata handles multi-variable NetCDF files", {
     expect_s4_class(result$hazards$nc[[1]], "SpatRaster")
   }
 })
+
+test_that("load_hazards_and_inventory detects mixed types in same folder", {
+  # Create temp directory with mixed file types in same folder
+  temp_dir <- tempdir()
+  test_hazards_dir <- file.path(temp_dir, "test_hazards_mixed")
+  mixed_dir <- file.path(test_hazards_dir, "hazards", "MixedType", "indicator", "ensemble")
+  dir.create(mixed_dir, showWarnings = FALSE, recursive = TRUE)
+  on.exit(unlink(test_hazards_dir, recursive = TRUE), add = TRUE)
+
+  # Create both NC and CSV files in the same folder
+  # Copy NC file from test data if available
+  source_hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  nc_files <- list.files(source_hazards_dir,
+    pattern = "\\.nc$",
+    full.names = TRUE, recursive = TRUE
+  )
+
+  if (length(nc_files) > 0) {
+    file.copy(nc_files[1], file.path(mixed_dir, "test.nc"))
+  } else {
+    # Create a dummy NC file
+    file.create(file.path(mixed_dir, "test.nc"))
+  }
+
+  # Create a CSV file in the same folder
+  test_csv <- data.frame(
+    ensemble = "mean",
+    GWL = "present",
+    return_period = 5,
+    lat = -32.5,
+    lon = -53.5,
+    hazard_indicator = "indicator",
+    hazard_intensity = 10.5
+  )
+  write.csv(test_csv, file.path(mixed_dir, "test.csv"), row.names = FALSE)
+
+  # Should raise an error about mixed types
+  expect_error(
+    load_hazards_and_inventory(
+      hazards_dir = file.path(test_hazards_dir, "hazards"),
+      aggregate_factor = 1L
+    ),
+    "Mixed hazard types detected"
+  )
+})
+
+test_that("load_hazards_and_inventory allows different types in different folders", {
+  # Create temp directory with different types in different folders
+  temp_dir <- tempdir()
+  test_hazards_dir <- file.path(temp_dir, "test_hazards_separate")
+  nc_dir <- file.path(test_hazards_dir, "hazards", "NCType", "indicator1", "ensemble")
+  csv_dir <- file.path(test_hazards_dir, "hazards", "CSVType", "indicator2", "ensemble")
+  dir.create(nc_dir, showWarnings = FALSE, recursive = TRUE)
+  dir.create(csv_dir, showWarnings = FALSE, recursive = TRUE)
+  on.exit(unlink(test_hazards_dir, recursive = TRUE), add = TRUE)
+
+  # Create NC file in one folder
+  source_hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  nc_files <- list.files(source_hazards_dir,
+    pattern = "\\.nc$",
+    full.names = TRUE, recursive = TRUE
+  )
+
+  if (length(nc_files) > 0) {
+    file.copy(nc_files[1], file.path(nc_dir, "test.nc"))
+  } else {
+    file.create(file.path(nc_dir, "test.nc"))
+  }
+
+  # Create CSV file in another folder
+  test_csv <- data.frame(
+    ensemble = "mean",
+    GWL = "present",
+    return_period = 5,
+    lat = -32.5,
+    lon = -53.5,
+    hazard_indicator = "indicator2",
+    hazard_intensity = 10.5
+  )
+  write.csv(test_csv, file.path(csv_dir, "test.csv"), row.names = FALSE)
+
+  # Should NOT raise an error (different folders)
+  expect_no_error(
+    load_hazards_and_inventory(
+      hazards_dir = file.path(test_hazards_dir, "hazards"),
+      aggregate_factor = 1L
+    )
+  )
+})
+
+test_that("load_hazards_and_inventory loads CSV hazards", {
+  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+
+  result <- load_hazards_and_inventory(
+    hazards_dir = hazards_dir,
+    aggregate_factor = 16L
+  )
+
+  # Should have csv key in hazards
+  expect_true("csv" %in% names(result$hazards))
+
+  # CSV hazards should be a list
+  expect_type(result$hazards$csv, "list")
+
+  # If CSV files exist in test data, check they're loaded correctly
+  if (length(result$hazards$csv) > 0) {
+    # Each CSV hazard should be a data frame
+    for (i in seq_along(result$hazards$csv)) {
+      expect_s3_class(result$hazards$csv[[i]], "data.frame")
+    }
+
+    # Inventory should have CSV entries
+    csv_inventory <- result$inventory |> dplyr::filter(source == "csv")
+    expect_true(nrow(csv_inventory) > 0)
+    expect_true(all(csv_inventory$source == "csv"))
+  }
+})

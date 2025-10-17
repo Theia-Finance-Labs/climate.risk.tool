@@ -16,12 +16,11 @@ Named list of filtered SpatRaster objects
 }
 \description{
 Filters a list of hazard rasters to only those referenced by events.
-For NC hazards with ensemble dimensions, automatically expands to include ALL
-ensemble variants (mean, median, p10, p90, etc.) to enable complete statistics
-extraction.
+For NC hazards, only the 'mean' ensemble is loaded by default, so filtering
+matches the base hazard name without ensemble suffix.
 }
 \details{
-Filter hazards by events with NC ensemble expansion
+Filter hazards by events with NC ensemble handling
 
 The function handles two types of hazard filtering:
 
@@ -30,37 +29,35 @@ The function handles two types of hazard filtering:
 \item If event specifies "flood__rcp85_h10glob", returns exactly that raster
 }
 
-\strong{NC hazards}: Ensemble expansion
+\strong{NC hazards}: Base name matching
 \itemize{
-\item If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns ALL variants:
+\item If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the mean ensemble:
 \itemize{
-\item Drought__CDD__GWL=present__RP=5__ensemble=mean
-\item Drought__CDD__GWL=present__RP=5__ensemble=median
-\item Drought__CDD__GWL=present__RP=5__ensemble=p10
-\item Drought__CDD__GWL=present__RP=5__ensemble=p90
+\item Drought__CDD__GWL=present__RP=5 (loaded as mean ensemble by default)
 }
-\item If event already specifies "__ensemble=mean", still expands to ALL variants
+\item If event already specifies "__ensemble=mean", strips the ensemble suffix and matches base name
 }
 
-This expansion ensures that the extraction function can populate all statistic
-columns (hazard_mean, hazard_median, hazard_p10, hazard_p90, etc.) from the
-pre-computed NC ensemble layers.
+This simplified approach avoids loading multiple ensemble variants and focuses on
+the mean ensemble as the representative value for each hazard scenario.
 }
 \examples{
 \dontrun{
-# Load hazards (gets 800 NC hazards with ensemble variants)
+# Load hazards (gets NC hazards with mean ensemble only)
 result <- load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
 hazards <- c(result$hazards$tif, result$hazards$nc)
 
 # Define events (base event names without ensemble suffix)
 events <- data.frame(
-  hazard_name = c("Drought__CDD__GWL=present__RP=5",
-                  "Compound__FWI__GWL=2__RP=10"),
+  hazard_name = c(
+    "Drought__CDD__GWL=present__RP=5",
+    "Compound__FWI__GWL=2__RP=10"
+  ),
   event_year = c(2030, 2040),
   chronic = c(FALSE, FALSE)
 )
 
-# Filter: expands 2 events -> 8 hazard rasters (2 × 4 ensemble variants)
+# Filter: matches 2 events -> 2 hazard rasters (mean ensemble only)
 filtered_hazards <- filter_hazards_by_events(hazards, events)
 }
 }

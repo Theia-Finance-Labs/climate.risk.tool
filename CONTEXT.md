@@ -76,7 +76,7 @@ Maps physical hazard files to metadata for UI display and filtering.
 
 ### Hazard Data Files
 
-The tool supports two hazard data formats:
+The tool supports three hazard data formats:
 
 #### GeoTIFF Files (.tif)
 Location: `{base_dir}/hazards/{hazard_type}/`
@@ -88,6 +88,8 @@ Examples:
 - `global_rcp85_h100glob.tif` - RCP8.5, 100-year return period
 
 **Metadata:** Defined in `hazards_metadata.csv` (hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period)
+
+**Extraction:** Polygon-based (crop/mask with aggregation function)
 
 #### NetCDF Files (.nc)
 Location: `{base_dir}/hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc`
@@ -101,11 +103,36 @@ Examples:
 - `hazard_indicator`: From path (e.g., "CDD", "FWI")
 - `GWL` (Global Warming Level): From NC dimensions (e.g., "present", "1.5", "2", "3")
 - `return_period`: From NC dimensions (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: ALL variants loaded separately (mean, median, p10, p90, etc.)
+- `ensemble`: Only 'mean' ensemble loaded by default
 
 **Georeferencing:** NC files store lat/lon as cell centers. Loader calculates resolution and extends extent by half-pixel to create proper raster edges.
 
-**NC Ensemble Handling:** Each ensemble variant (mean, median, p10, p90) is loaded as a separate `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble={variant}`. This enables direct extraction of pre-computed statistics without spatial computation.
+**Extraction:** Polygon-based (crop/mask with aggregation function)
+
+**NC Ensemble Handling:** Only 'mean' ensemble is loaded as a `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble=mean`. This provides representative values without loading all ensemble variants.
+
+#### CSV Files (.csv)
+Location: `{base_dir}/hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.csv`
+
+Examples:
+- `hazards/Compound/HI/ensemble/ensemble_return_period.csv`
+
+**Required columns:** `ensemble`, `GWL`, `return_period`, `lat`, `lon`, `hazard_indicator`, `hazard_intensity`
+
+**Data structure:** Point-based format where each row represents a geolocated point with hazard values
+
+**Metadata:** Extracted from folder structure and CSV columns
+- `hazard_type`: From path (e.g., "Compound")
+- `hazard_indicator`: From path (e.g., "HI")
+- `GWL`: From CSV column (e.g., "present", "1.5", "2")
+- `return_period`: From CSV column (e.g., 5, 10, 25, 50, 100)
+- `ensemble`: Only 'mean' ensemble loaded by default
+
+**Extraction:** Closest-point assignment (Euclidean distance in lat/lon coordinates)
+
+**CSV Naming Convention:** `{hazard_type}__{hazard_indicator}__GWL={gwl}__RP={rp}__ensemble=mean`
+
+**Mixed Type Validation:** Each leaf directory (e.g., `hazards/Compound/HI/ensemble/`) must contain only ONE file type (.tif, .nc, or .csv). Mixed types in the same folder will raise an error.
 
 ## Key Functions
 
@@ -135,22 +162,27 @@ Examples:
 ### Hazard Loading Workflow
 
 **1. `load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)`** → list(hazards, inventory)
-- **Unified loader** for both TIF and NetCDF files
+- **Unified loader** for TIF, NetCDF, and CSV files
+- Validates no mixed file types (.tif/.nc/.csv) in same leaf directory
 - Scans for TIF mapping file (`hazards_metadata.csv`); if absent, skips TIF loading
 - Auto-discovers NC files by scanning directory tree
-- Returns: `list(hazards = list(tif = ..., nc = ...), inventory = tibble(...))`
-- **TIF**: Loads from `hazards_metadata.csv` using `load_hazards_from_mapping()`
-- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period × ensemble) combination
-  - Each ensemble variant (mean, median, p10, p90) becomes a separate raster
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble={variant}`
-- **Inventory**: Combined metadata tibble with `source` column ("tif" or "nc")
+- Auto-discovers CSV files by scanning directory tree
+- Returns: `list(hazards = list(tif = ..., nc = ..., csv = ...), inventory = tibble(...))`
+- **TIF**: Loads from `hazards_metadata.csv` as SpatRaster objects
+- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period) combination
+  - Only 'mean' ensemble loaded by default
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean`
+- **CSV**: Auto-discovers files, reads point data as data frames
+  - Only 'mean' ensemble loaded by default
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean`
+- **Inventory**: Combined metadata tibble with `source` column ("tif", "nc", or "csv")
 
 **Application Usage:**
 ```r
 # In mod_control_server:
 hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
 # Access hazards (flattened for compute pipeline):
-hazards_flat <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+hazards_flat <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
 # Access inventory (for UI dropdowns):
 inventory <- hazard_data$inventory
 ```
@@ -158,6 +190,7 @@ inventory <- hazard_data$inventory
 **Naming Convention:**
 - TIF: `{hazard_type}__{scenario_code}_h{return_period}glob` (e.g., `flood__pc_h10glob`)
 - NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
+- CSV: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Compound__HI__GWL=present__RP=5__ensemble=mean`)
 
 ### Geospatial Processing
 
@@ -168,26 +201,31 @@ inventory <- hazard_data$inventory
 
 **`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, events)`** → long format data.frame
 - **Main orchestrator** that dispatches to specialized extraction functions:
-  - **Coordinate-based assets** → `extract_tif_statistics()` or `extract_nc_statistics()` for spatial extraction
+  - **Coordinate-based assets** → `extract_spatial_statistics()` for spatial extraction (TIF/NC/CSV)
   - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup
 - **Priority cascade** for asset location:
-  1. Coordinates → spatial extraction from rasters (TIF or NC)
+  1. Coordinates → spatial extraction (polygon-based for TIF/NC, closest-point for CSV)
   2. No coordinates + municipality → precomputed ADM2 lookup
   3. No coordinates + province → precomputed ADM1 lookup
   4. None → Error
-- Returns long format with columns: `hazard_mean`, `hazard_median`, `hazard_p10`, `hazard_p90`, `matching_method`, etc.
+- Returns long format with columns: `hazard_intensity`, `matching_method`, etc.
 - Includes diagnostic logging to show asset routing and matching method summary
 
-**`extract_tif_statistics(assets_df, hazards, hazards_inventory)`** → long format data.frame (internal)
-- Spatial computation for TIF rasters: crop, mask, compute statistics from pixel values
+**`extract_spatial_statistics(assets_df, hazards, hazards_inventory, aggregation_method)`** → long format data.frame (internal)
+- Routes to appropriate extraction method based on hazard source:
+  - **CSV hazards** → `extract_csv_statistics()` for closest-point assignment
+  - **TIF/NC hazards** → Polygon-based extraction (crop, mask, aggregate)
 - Used for assets WITH coordinates
 - Returns `matching_method = "coordinates"`
+- Adds `__extraction_method={aggregation_method}` suffix to hazard names
 
-**`extract_nc_statistics(assets_df, hazards, hazards_inventory)`** → long format data.frame (internal)
-- Direct extraction of pre-computed ensemble statistics from NC rasters
-- Used for assets WITH coordinates
-- Populates all ensemble columns (mean, median, p10, p90, etc.) separately
+**`extract_csv_statistics(assets_df, hazards_csv, hazards_inventory, aggregation_method)`** → long format data.frame (internal)
+- Closest-point assignment for CSV point data
+- For each asset, calculates Euclidean distance to all CSV points: `sqrt((lat_asset - lat_csv)^2 + (lon_asset - lon_csv)^2)`
+- Assigns hazard_intensity from nearest point
+- Used for assets WITH coordinates and CSV hazards
 - Returns `matching_method = "coordinates"`
+- Adds `__extraction_method={aggregation_method}` suffix for consistency (though method doesn't affect closest-point selection)
 
 **`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
 - Lookup from precomputed administrative hazard data
