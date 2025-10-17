@@ -10,22 +10,8 @@ get_hazards_dir <- function() {
   get_test_data_dir("hazards")
 }
 
-
-
 trySuppressWarnings <- function(expr) {
   suppressWarnings(try(expr, silent = TRUE))
-}
-
-list_hazard_files <- function() {
-  sort(Sys.glob(file.path(get_hazards_dir(), "*.tif")))
-}
-
-hazard_factor_path <- function() {
-  get_test_data_dir("damage_and_cost_factors.csv")
-}
-
-has_pkg <- function(pkg) {
-  requireNamespace(pkg, quietly = TRUE)
 }
 
 # Skip slow tests unless explicitly requested
@@ -53,15 +39,6 @@ timed_test <- function(test_name, test_code, max_seconds = 60) {
   result
 }
 
-# Helper to build baseline and shock datasets for scenario tests
-create_baseline_and_shock <- function() {
-  td <- get_test_data_dir()
-  assets <- read_assets(td)
-  companies <- read_companies(file.path(td, "user_input", "company.csv"))
-  shocked <- assets
-  shocked$share_of_economic_activity <- pmax(0, shocked$share_of_economic_activity * 0.9)
-  list(baseline = assets, shocked = shocked, companies = companies)
-}
 
 # Helper to create yearly scenario data for testing
 create_yearly_scenarios <- function() {
@@ -96,18 +73,5 @@ create_discounted_assets <- function() {
     company = c("C1", "C1", "C1", "C1"),
     scenario = c("baseline", "shock", "baseline", "shock"),
     discounted_net_profit = c(100, 95, 80, 76)
-  )
-}
-
-# Helper to load test data for compute_risk tests
-get_test_compute_risk_data <- function() {
-  base_dir <- get_test_data_dir()
-  list(
-    base_dir = base_dir,
-    assets = read_assets(base_dir),
-    companies = read_companies(file.path(base_dir, "user_input", "company.csv")),
-    hazards = load_hazards(file.path(base_dir, "hazards")),
-    precomputed_hazards = read_precomputed_hazards(base_dir),
-    damage_factors = read_damage_cost_factors(base_dir)
   )
 }

@@ -12,8 +12,8 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
 
   assets_factors <- data.frame(
     asset = c("A1", "A2"),
-    hazard_type = c("flood", "flood"),
-    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
+    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=100"),
     damage_factor = c(0.5, 0.4),
     cost_factor = c(200, 200),
     asset_category = c("Industrial", "Commercial")
@@ -24,8 +24,8 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
 
   acute_events <- data.frame(
     event_id = "e1",
-    hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h100glob_brazil",
+    hazard_type = "FloodTIF",
+    hazard_name = "FloodTIF__Flood Height__GWL=RCP8.5__RP=100",
     event_year = 2030L,
     chronic = FALSE,
     stringsAsFactors = FALSE
@@ -53,4 +53,42 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
   # For year 2025 (non-event year), profit should be unchanged
   testthat::expect_equal(result$profit[result$asset == "A1" & result$year == 2025], 100)
   testthat::expect_equal(result$profit[result$asset == "A2" & result$year == 2025], 80)
+})
+
+testthat::test_that("apply_acute_profit_shock processes events in order by event_id", {
+  yearly_trajectories <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200),
+    profit = c(100, 120)
+  )
+
+  assets_factors <- data.frame(
+    asset = c("A1", "A1"),
+    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=50"),
+    damage_factor = c(0.5, 0.3),
+    cost_factor = c(200, 150),
+    asset_category = c("Industrial", "Industrial")
+  )
+
+  # Test with events in non-alphabetical order by event_id
+  acute_events <- data.frame(
+    event_id = c("event_z", "event_a"),
+    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=50"),
+    event_year = c(2030L, 2030L),
+    chronic = c(FALSE, FALSE),
+    stringsAsFactors = FALSE
+  )
+
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+
+  # Should process events in alphabetical order by event_id
+  # event_a should be processed first, then event_z
+  # Both events affect the same asset-year (A1, 2030)
+  # Total damage should be: (0.3 * 150) + (0.5 * 200) = 45 + 100 = 145
+  expected_profit_2030 <- 120 - 145  # -25
+  testthat::expect_equal(result$profit[result$asset == "A1" & result$year == 2030], expected_profit_2030)
 })

@@ -54,10 +54,8 @@ testthat::test_that("geolocated assets extract from TIF files", {
   testthat::expect_true(all(out$matching_method == "coordinates"))
   
   # Verify: hazard statistics are numeric and >= 0
-  testthat::expect_true(is.numeric(out$hazard_mean))
-  testthat::expect_true(is.numeric(out$hazard_max))
-  testthat::expect_true(all(out$hazard_mean >= 0))
-  testthat::expect_true(all(out$hazard_max >= 0))
+  testthat::expect_true(is.numeric(out$hazard_intensity))
+  testthat::expect_true(all(out$hazard_intensity >= 0))
   
   # Should have results for both assets
   testthat::expect_equal(length(unique(out$asset)), 2)
@@ -109,15 +107,9 @@ testthat::test_that("geolocated assets extract from NC files", {
   # Verify: all matching_method = "coordinates"
   testthat::expect_true(all(out$matching_method == "coordinates"))
   
-  # Verify: ensemble columns populated (mean, median, p10, p90)
-  testthat::expect_true("hazard_mean" %in% names(out))
-  testthat::expect_true("hazard_median" %in% names(out))
-  testthat::expect_true("hazard_p10" %in% names(out))
-  testthat::expect_true("hazard_p90" %in% names(out))
-  
-  # Verify: ensemble values are numeric
-  testthat::expect_true(is.numeric(out$hazard_mean))
-  testthat::expect_true(is.numeric(out$hazard_median))
+  # Verify: hazard_intensity column exists and is numeric
+  testthat::expect_true("hazard_intensity" %in% names(out))
+  testthat::expect_true(is.numeric(out$hazard_intensity))
   
   # Should have results for both assets
   testthat::expect_equal(length(unique(out$asset)), 2)
@@ -136,7 +128,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
   events <- tibble::tibble(
     hazard_name = c(
-      "flood__pc_h10glob",  # TIF hazard
+      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",  # TIF hazard
       "Drought__SPI6__GWL=present__RP=10__ensemble=mean"  # NC hazard (expands to all ensembles)
     ),
     event_year = 2030,
@@ -162,8 +154,8 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
     share_of_economic_activity = 0.5
   )
   
-  # Extract (pass events for precomputed validation)
-  out <- extract_hazard_statistics(assets, hazards, inventory, precomputed, events)
+  # Extract (pass precomputed for administrative lookup)
+  out <- extract_hazard_statistics(assets, hazards, inventory, precomputed)
   
   # Verify all 3 assets got results
   testthat::expect_equal(length(unique(out$asset)), 3)
@@ -178,8 +170,8 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   testthat::expect_equal(asset3_method, "province")
   
   # Verify all get valid hazard statistics
-  testthat::expect_true(all(is.numeric(out$hazard_mean)))
-  testthat::expect_true(all(!is.na(out$hazard_mean)))
+  testthat::expect_true(all(is.numeric(out$hazard_intensity)))
+  testthat::expect_true(all(!is.na(out$hazard_intensity)))
 })
 
 
@@ -232,8 +224,8 @@ testthat::test_that("error when hazard/scenario/return period not in precomputed
     
     # Should error with message about missing hazards
     testthat::expect_error(
-      extract_hazard_statistics(assets, hazards, inventory, precomputed, events),
-      regexp = "Required hazards.*not available|missing"
+      extract_hazard_statistics(assets, hazards, inventory, precomputed),
+      regexp = "No data found.*No match found.*required hazards"
     )
   } else {
     # If all hazards are available, skip this test
@@ -253,7 +245,7 @@ testthat::test_that("error when municipality/province not in precomputed data", 
   
   # Define events with just 1 hazard for focused testing
   events <- tibble::tibble(
-    hazard_name = "flood__pc_h10glob",
+    hazard_name = "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
     event_year = 2030,
     chronic = FALSE
   )

@@ -179,7 +179,7 @@ testthat::test_that("read_precomputed_hazards can lookup specific region hazards
   
   # Should have flood data
   flood_data <- amazonas_data |>
-    dplyr::filter(.data$hazard_type == "flood")
+    dplyr::filter(.data$hazard_type == "FloodTIF")
   testthat::expect_gt(nrow(flood_data), 0)
   
   # Mean should be a valid number

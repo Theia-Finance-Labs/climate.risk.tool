@@ -81,6 +81,39 @@ testthat::test_that("mod_results_assets_server handles NULL results gracefully",
   })
 })
 
+testthat::test_that("mod_results_assets_server displays event_id column when present", {
+  # Create test results with event_id column
+  test_assets_factors <- data.frame(
+    asset = "A1",
+    company = "TestCo",
+    event_id = "ev1",
+    matching_method = "coordinates",
+    hazard_return_period = 10,
+    event_year = 2030,
+    chronic = FALSE,
+    hazard_type = "flood",
+    hazard_intensity = 1.5,
+    damage_factor = 0.1,
+    cost_factor = 1000,
+    stringsAsFactors = FALSE
+  )
+  
+  test_results <- list(
+    assets_factors = test_assets_factors
+  )
+  
+  shiny::testServer(mod_results_assets_server, args = list(
+    id = "test",
+    results_reactive = shiny::reactive(test_results)
+  ), {
+    # Get the output
+    assets_output <- output$assets_table
+    
+    # The output should exist
+    testthat::expect_true(!is.null(assets_output))
+  })
+})
+
 testthat::test_that("mod_results_assets_server handles results without assets_factors data", {
   test_results <- list(
     companies = data.frame(company = "TestCo")

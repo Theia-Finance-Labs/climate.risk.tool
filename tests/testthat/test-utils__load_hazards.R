@@ -58,7 +58,7 @@ test_that("load_hazards_and_inventory loads NC files correctly", {
     }
 
     # Names should follow convention: {hazard_type}__{indicator}__GWL={g}__RP={rp}__ensemble={value}
-    # where {value} can be mean, median, p10, p90, etc.
+    # where {value} is currently only "mean" (other ensemble variants not loaded)
     expect_true(!is.null(names(result$hazards$nc)))
     expect_true(all(grepl("__GWL=", names(result$hazards$nc))))
     expect_true(all(grepl("__RP=", names(result$hazards$nc))))
@@ -129,24 +129,23 @@ test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly"
   )
 
 
-  # NC files should load ALL ensemble values (mean, median, p10, p90, etc.)
-  # Not just ensemble=mean
+  # NC files should load only mean ensemble (current implementation behavior)
   nc_names <- names(result$hazards$nc)
 
-  # Check that we have multiple ensemble values in the names
+  # Check that we have mean ensemble values in the names
   expect_true(any(grepl("__ensemble=mean$", nc_names)),
               info = "Should have at least one mean ensemble")
-  expect_true(any(grepl("__ensemble=median$", nc_names)),
-              info = "Should have at least one median ensemble")
-  expect_true(any(grepl("__ensemble=p10$", nc_names)),
-              info = "Should have at least one p10 ensemble")
-  expect_true(any(grepl("__ensemble=p90$", nc_names)),
-              info = "Should have at least one p90 ensemble")
+  expect_false(any(grepl("__ensemble=median$", nc_names)),
+               info = "Should not have median ensemble (not loaded)")
+  expect_false(any(grepl("__ensemble=p10$", nc_names)),
+               info = "Should not have p10 ensemble (not loaded)")
+  expect_false(any(grepl("__ensemble=p90$", nc_names)),
+               info = "Should not have p90 ensemble (not loaded)")
 
   # Check inventory has ensemble column for NC hazards
   nc_inventory <- result$inventory |> dplyr::filter(source == "nc")
   expect_true("ensemble" %in% names(nc_inventory))
-  expect_true(all(nc_inventory$ensemble %in% c("mean", "median", "p10", "p90")))
+  expect_true(all(nc_inventory$ensemble %in% c("mean")))
 })
 
 test_that("load_hazards_and_inventory creates separate raster per GWL and return_period combination", {
