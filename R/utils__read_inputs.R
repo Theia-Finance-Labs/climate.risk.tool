@@ -40,7 +40,7 @@ read_assets <- function(base_dir) {
 
   # Convert numeric columns for assets
   numeric_asset_cols <- c("share_of_economic_activity", "latitude", "longitude", "size_in_m2", "size_in_hectare")
-  
+
   assets_raw <- assets_raw |>
     dplyr::mutate(
       # For latitude, longitude - suppress coercion warnings (can have empty values)
@@ -62,7 +62,7 @@ read_assets <- function(base_dir) {
 
   # Handle character columns that can have empty values (municipality, province)
   char_cols_with_empty <- c("municipality", "province")
-  
+
   assets_raw <- assets_raw |>
     dplyr::mutate(
       dplyr::across(
@@ -107,7 +107,7 @@ read_companies <- function(file_path) {
 
   # Convert numeric columns for companies
   numeric_company_cols <- c("revenues", "debt", "volatility", "net_profit_margin", "loan_size", "lgd", "term")
-  
+
   companies_raw <- companies_raw |>
     dplyr::mutate(
       dplyr::across(
@@ -165,12 +165,12 @@ read_damage_cost_factors <- function(base_dir) {
 #' Read precomputed administrative hazard statistics from CSV file
 #'
 #' @title Read precomputed hazard statistics for provinces and municipalities
-#' @description Reads precomputed hazard statistics from CSV file containing hazard data 
-#'   aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard 
+#' @description Reads precomputed hazard statistics from CSV file containing hazard data
+#'   aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard
 #'   values for assets without coordinates but with province or municipality information.
 #' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
-#' @return tibble with precomputed hazard statistics including columns: region, adm_level, 
-#'   scenario_code, scenario_name, hazard_return_period, hazard_type, min, max, mean, median, 
+#' @return tibble with precomputed hazard statistics including columns: region, adm_level,
+#'   scenario_code, scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
 #'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
 #' @examples
 #' \dontrun{
@@ -197,9 +197,11 @@ read_precomputed_hazards <- function(base_dir) {
     tibble::as_tibble()
 
   # Ensure numeric columns are numeric
-  numeric_cols <- c("hazard_return_period", "min", "max", "mean", "median", 
-                    "p2_5", "p5", "p95", "p97_5", "n_obs")
-  
+  numeric_cols <- c(
+    "hazard_return_period", "min", "max", "mean", "median",
+    "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y"
+  )
+
   precomputed_df <- precomputed_df |>
     dplyr::mutate(
       dplyr::across(
@@ -218,8 +220,39 @@ read_precomputed_hazards <- function(base_dir) {
   message("[read_precomputed_hazards] Loaded ", nrow(precomputed_df), " precomputed hazard records")
   message("  ADM1 (province) records: ", sum(precomputed_df$adm_level == "ADM1"))
   message("  ADM2 (municipality) records: ", sum(precomputed_df$adm_level == "ADM2"))
-  
-  precomputed_df
+
+  # Transform data: construct proper hazard_name and create ensemble-specific rows
+  # Unified naming WITHOUT ensemble suffix (base event format)
+
+  # Define ensemble columns to melt
+  summary_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
+
+  transformed_list <- list()
+
+  for (summ_col in summary_cols) {
+    # Create rows for this ensemble
+    ensemble_data <- precomputed_df |>
+      dplyr::mutate(
+        # Unified hazard_name WITHOUT ensemble suffix
+        hazard_name = paste0(
+          .data$hazard_type, "__", .data$hazard_indicator,
+          "__GWL=", .data$scenario_name,
+          "__RP=", .data$hazard_return_period,
+          ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+        ),
+        aggregation_method = summ_col,
+        hazard_value = .data[[summ_col]]
+      )
+
+    transformed_list[[summ_col]] <- ensemble_data
+  }
+
+  # Combine all ensemble variants
+  precomputed_final <- dplyr::bind_rows(transformed_list)
+
+  message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
+
+  precomputed_final
 }
 
 #' Read hazards name mapping from CSV (INTERNAL)
@@ -232,22 +265,22 @@ read_precomputed_hazards <- function(base_dir) {
 #'   scenario_code, scenario_name, hazard_return_period
 #' @noRd
 read_hazards_mapping <- function(mapping_path) {
-
   if (!file.exists(mapping_path)) {
     stop("Mapping file not found: ", mapping_path)
   }
-  
+
   mapping <- utils::read.csv(mapping_path, stringsAsFactors = FALSE, strip.white = TRUE)
   mapping <- tibble::as_tibble(mapping)
-  
+
   # Validate required columns
-  required_cols <- c("hazard_file", "hazard_type", "hazard_indicator", "scenario_code", 
-                     "scenario_name", "hazard_return_period")
+  required_cols <- c(
+    "hazard_file", "hazard_type", "hazard_indicator", "scenario_code",
+    "scenario_name", "hazard_return_period"
+  )
   missing_cols <- setdiff(required_cols, names(mapping))
   if (length(missing_cols) > 0) {
     stop("Mapping file missing required columns: ", paste(missing_cols, collapse = ", "))
   }
-  
+
   return(mapping)
 }
-

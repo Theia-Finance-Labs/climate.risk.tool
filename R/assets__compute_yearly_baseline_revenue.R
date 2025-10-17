@@ -25,11 +25,12 @@
 #' }
 #' @export
 compute_yearly_baseline_revenue <- function(
-    baseline_assets,
-    companies,
-    growth_rate = 0.02,
-    start_year = 2025,
-    end_year = 2050) {
+  baseline_assets,
+  companies,
+  growth_rate = 0.02,
+  start_year = 2025,
+  end_year = 2050
+) {
   # Join assets with company data
   assets_with_companies <- dplyr::left_join(baseline_assets, companies, by = "company")
 

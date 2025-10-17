@@ -76,11 +76,11 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
             Message = "No events configured - will use default event"
           )
         } else {
-          
-          # Exclude event_id column and rename for better display
+          # Include event_id as first column and rename for better display
           events |>
-            dplyr::select(-"event_id") |>
+            dplyr::select("event_id", dplyr::everything()) |>
             dplyr::rename(
+              "Event ID" = .data$event_id,
               "Hazard Type" = .data$hazard_type,
               "Hazard Name" = .data$hazard_name,
               "Scenario" = .data$scenario_name,

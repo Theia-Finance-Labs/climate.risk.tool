@@ -77,5 +77,3 @@ testthat::test_that("compute_company_npv maintains scenario consistency", {
   out_sorted <- out[order(out$company, out$scenario), ]
   testthat::expect_equal(out, out_sorted)
 })
-
-

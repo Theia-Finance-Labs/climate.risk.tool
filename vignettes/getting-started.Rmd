@@ -26,7 +26,7 @@ library(climate.risk.tool)
 # - damage_and_cost_factors.csv
 # - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
 # - hazards_name_mapping.csv (metadata for TIF hazards, optional for NC)
-base_dir <- file.path("..","tests", "tests_data")
+base_dir <- file.path("..", "tests", "tests_data")
 ```
 
 ## Prepare inputs
@@ -40,7 +40,7 @@ companies <- read_companies(file.path(base_dir, "user_input", "company_small.csv
 
 # Load hazards with unified loader (supports both TIF and NetCDF formats)
 hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"))
-hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)  # Flatten for compute_risk
+hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc) # Flatten for compute_risk
 hazards_inventory <- hazard_data$inventory
 
 # Load precomputed hazard statistics for administrative regions
@@ -59,7 +59,7 @@ inventory <- hazard_data$inventory
 # Show summary of available hazard types
 cat("Available Hazard Types:\n")
 print(inventory |> dplyr::group_by(hazard_type, source) |>
-      dplyr::summarise(count = dplyr::n(), .groups = "drop"))
+  dplyr::summarise(count = dplyr::n(), .groups = "drop"))
 
 # Show detailed inventory for user selection
 cat("\nDetailed Hazard Inventory (first 10 rows):\n")
@@ -83,11 +83,11 @@ Define the climate scenarios you want to analyze. You can mix different hazard t
 events <- data.frame(
   hazard_type = c("flood", "CDD"),
   hazard_name = c(
-    "flood__rcp85_h100glob",  # TIF flood hazard (no "global_" prefix)
-    "Drought__SPI6__GWL=present__RP=25__ensemble=mean"  # NC drought hazard (CDD indicator)
+    "flood__rcp85_h100glob", # TIF flood hazard (no "global_" prefix)
+    "Drought__SPI6__GWL=present__RP=25__ensemble=mean" # NC drought hazard (CDD indicator)
   ),
-  event_year = c(2030, 2040),  # Different years for different events
-  chronic = c(FALSE, TRUE)     # Mix of acute and chronic events
+  event_year = c(2030, 2040), # Different years for different events
+  chronic = c(FALSE, TRUE) # Mix of acute and chronic events
 )
 ```
 

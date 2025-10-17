@@ -18,6 +18,7 @@ Imports:
     readr,
     sf,
     shiny,
+    stringi,
     terra,
     tibble,
     tidyr,

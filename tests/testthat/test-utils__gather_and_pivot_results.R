@@ -34,11 +34,11 @@ testthat::test_that("gather_and_pivot_results returns pivoted assets and compani
   testthat::expect_equal(comps$NPV_shock, 171)
   testthat::expect_equal(comps$PD_baseline, 0.05)
   testthat::expect_equal(comps$PD_shock, 0.08)
-  
+
   # Check percentage change columns exist
   testthat::expect_true("NPV_change_pct" %in% names(comps))
   testthat::expect_true("Expected_loss_change_pct" %in% names(comps))
-  
+
   # Check percentage change calculations
   # NPV change: (171 - 180) / 180 * 100 = -5%
   testthat::expect_equal(comps$NPV_change_pct, -5, tolerance = 0.01)
@@ -57,7 +57,7 @@ testthat::test_that("gather_and_pivot_results handles edge cases for percentage 
   )
 
   comps <- gather_and_pivot_results(companies_el)
-  
+
   # When baseline is 0, percentage change should be NA or Inf
   testthat::expect_true(is.na(comps$NPV_change_pct) || is.infinite(comps$NPV_change_pct))
   testthat::expect_true(is.na(comps$Expected_loss_change_pct) || is.infinite(comps$Expected_loss_change_pct))
@@ -74,7 +74,7 @@ testthat::test_that("gather_and_pivot_results handles negative baseline values",
   )
 
   comps <- gather_and_pivot_results(companies_el)
-  
+
   # NPV change: (-150 - (-100)) / (-100) * 100 = -50 / -100 * 100 = 50%
   testthat::expect_equal(comps$NPV_change_pct, 50, tolerance = 0.01)
   # Expected loss change: (20 - 15) / 15 * 100 = 33.33%

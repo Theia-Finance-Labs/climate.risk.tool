@@ -100,31 +100,19 @@ app_server <- function(input, output, session) {
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)
         if (inherits(ev_df, "try-error") || !(tibble::is_tibble(ev_df) || is.data.frame(ev_df)) || nrow(ev_df) == 0) {
-          # Provide a default using first hazard from loaded hazards
-          haz_names <- names(hazards)
-          if (length(haz_names) == 0) stop("No hazard names available")
-          
-          # Parse first hazard name to get type
-          parts <- strsplit(haz_names[1], "__", fixed = TRUE)[[1]]
-          default_ht <- if (length(parts) >= 1) parts[[1]] else "unknown"
-          default_hn <- haz_names[1]
-          
-          ev_df <- tibble::tibble(
-            event_id = "ev1",
-            hazard_type = default_ht,
-            hazard_name = default_hn,
-            event_year = 2030L,
-            chronic = FALSE
-          )
+          values$status <- "Error: Please select at least one hazard event before running the analysis. Use the 'Add hazard' button to configure hazard events."
+          return()
         }
 
-        # Reconcile events with currently loaded hazards (exact name match)
-        haz_names <- names(hazards)
+        # Reconcile events with currently loaded hazards using inventory
+        # For TIF: inventory.hazard_name matches event.hazard_name (new format)
+        # For NC: inventory.hazard_name matches event.hazard_name (base event without ensemble)
         if ("hazard_name" %in% names(ev_df)) {
-          keep <- ev_df$hazard_name %in% haz_names
+          inventory_hazard_names <- control$hazards_inventory()$hazard_name
+          keep <- ev_df$hazard_name %in% inventory_hazard_names
           if (any(!keep)) {
             missing <- unique(ev_df$hazard_name[!keep])
-            message("[app_server] Dropping events with missing hazards at current resolution: ", paste(missing, collapse = ", "))
+            message("[app_server] Dropping events with missing hazards: ", paste(missing, collapse = ", "))
           }
           ev_df <- ev_df[keep, , drop = FALSE]
         }
@@ -140,7 +128,8 @@ app_server <- function(input, output, session) {
           damage_factors = damage_factors,
           growth_rate = 0.02,
           net_profit_margin = 0.1,
-          discount_rate = 0.05
+          discount_rate = 0.05,
+          aggregation_method = "mean" # Default aggregation method
         )
 
         values$results <- results

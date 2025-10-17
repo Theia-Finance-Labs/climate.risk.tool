@@ -51,7 +51,7 @@ gather_and_pivot_results <- function(companies_expected_loss) {
 
     # Join baseline and shock data
     companies_pivoted <- dplyr::full_join(companies_baseline_vals, companies_shock_vals, by = "company")
-    
+
     # Calculate percentage changes
     companies_pivoted <- companies_pivoted |>
       dplyr::mutate(

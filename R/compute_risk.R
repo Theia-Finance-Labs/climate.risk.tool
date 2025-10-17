@@ -15,6 +15,11 @@
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
+#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
+#'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
+#'   For TIF files: uses terra::extract with the specified function.
+#'   For NC files: uses the mean ensemble layer by default.
+#'   For precomputed data: uses the mean ensemble variant.
 #' #'
 #' @return List containing final results:
 #'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
@@ -89,7 +94,8 @@ compute_risk <- function(assets,
                          damage_factors,
                          growth_rate = 0.02,
                          net_profit_margin = 0.1,
-                         discount_rate = 0.05) {
+                         discount_rate = 0.05,
+                         aggregation_method = "mean") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -110,20 +116,27 @@ compute_risk <- function(assets,
     stop("damage_factors must be a non-empty data.frame (from read_damage_cost_factors())")
   }
 
+  # Validate aggregation_method
+  valid_aggregation_methods <- c("mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90")
+  if (!aggregation_method %in% valid_aggregation_methods) {
+    stop("aggregation_method must be one of: ", paste(valid_aggregation_methods, collapse = ", "))
+  }
 
   # ============================================================================
   # PHASE 1: UTILS - Input validation and data preparation
   # ============================================================================
 
-  # Auto-generate event_id if not provided (always regenerate for consistency)
-  events <- events |>
-    dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
-  
+  # Auto-generate event_id if not provided (only if column doesn't exist)
+  if (!"event_id" %in% names(events)) {
+    events <- events |>
+      dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
+  }
+
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
 
   # Filter hazards to only those referenced by events
-  # Note: For NC hazards, this expands to ALL ensemble variants (mean, median, p10, p90, etc.)
+  # Note: For NC hazards, only the mean ensemble is loaded by default
   hazards <- filter_hazards_by_events(hazards, events)
 
 
@@ -135,33 +148,36 @@ compute_risk <- function(assets,
   filtered_hazard_names <- names(hazards)
   filtered_inventory <- hazards_inventory |>
     dplyr::filter(.data$hazard_name %in% filtered_hazard_names)
-  
+
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/province only
-  assets_long <- extract_hazard_statistics(assets, hazards, filtered_inventory, precomputed_hazards)
+
+  assets_long <- extract_hazard_statistics(
+    assets_df = assets,
+    hazards = hazards,
+    hazards_inventory = filtered_inventory,
+    precomputed_hazards = precomputed_hazards,
+    aggregation_method = aggregation_method
+  )
 
   # Step 2.3: Join damage cost factors
   assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
 
-  # Step 2.4: Join hazard metadata (hazard_return_period) from inventory
-  # Get hazard_return_period from the inventory data
-  inventory_info <- filtered_inventory |>
-    dplyr::select("hazard_name", "hazard_return_period") |>
-    dplyr::distinct()
-  
-  assets_factors <- assets_factors |>
-    dplyr::left_join(inventory_info, by = "hazard_name")
-  
   # Step 2.5: Join event information (event_year, chronic) from events
   # Select only the columns we need from events to avoid duplication
   # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
   # Don't use distinct() here - we want one row per event even if they share the same hazard_name
   # Use inner_join to only keep assets with hazards that are in the events
-  events_info <- events |>
-    dplyr::select("hazard_name", "event_year", "chronic")
-  
+  events <- events |>
+    dplyr::mutate(
+      hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
+    )
+
   assets_factors <- assets_factors |>
-    dplyr::inner_join(events_info, by = "hazard_name", relationship = "many-to-many")
+    dplyr::inner_join(
+      events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic"),
+      by = "hazard_name", relationship = "many-to-many"
+    )
 
 
   # ============================================================================

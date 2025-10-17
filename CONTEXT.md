@@ -166,18 +166,36 @@ inventory <- hazard_data$inventory
 - Uses `size_in_m2` for buffer sizing
 - Raises error if coordinates missing
 
-**`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, use_exactextractr)`** → long format data.frame
-- **Dual workflow dispatcher** based on `source` column in `hazards_inventory`:
-  - **TIF sources** → `extract_tif_statistics()`: Spatial computation (crop, mask, compute stats from pixel values)
-  - **NC sources** → `extract_nc_statistics()`: Direct extraction of pre-computed ensemble statistics
+**`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, events)`** → long format data.frame
+- **Main orchestrator** that dispatches to specialized extraction functions:
+  - **Coordinate-based assets** → `extract_tif_statistics()` or `extract_nc_statistics()` for spatial extraction
+  - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup
 - **Priority cascade** for asset location:
-  1. Coordinates → spatial extraction from rasters
+  1. Coordinates → spatial extraction from rasters (TIF or NC)
   2. No coordinates + municipality → precomputed ADM2 lookup
   3. No coordinates + province → precomputed ADM1 lookup
   4. None → Error
-- Returns long format with columns: `hazard_mean`, `hazard_median`, `hazard_p10`, `hazard_p90`, etc.
-- For NC: populates ensemble columns by extracting point values from each ensemble raster
-- For TIF: computes statistics from masked pixel values within asset buffer
+- Returns long format with columns: `hazard_mean`, `hazard_median`, `hazard_p10`, `hazard_p90`, `matching_method`, etc.
+- Includes diagnostic logging to show asset routing and matching method summary
+
+**`extract_tif_statistics(assets_df, hazards, hazards_inventory)`** → long format data.frame (internal)
+- Spatial computation for TIF rasters: crop, mask, compute statistics from pixel values
+- Used for assets WITH coordinates
+- Returns `matching_method = "coordinates"`
+
+**`extract_nc_statistics(assets_df, hazards, hazards_inventory)`** → long format data.frame (internal)
+- Direct extraction of pre-computed ensemble statistics from NC rasters
+- Used for assets WITH coordinates
+- Populates all ensemble columns (mean, median, p10, p90, etc.) separately
+- Returns `matching_method = "coordinates"`
+
+**`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
+- Lookup from precomputed administrative hazard data
+- Used for assets WITHOUT coordinates
+- Priority: municipality (ADM2) > province (ADM1)
+- Validates required hazards from events against available precomputed data
+- Returns `matching_method = "municipality"` or `"province"`
+- Raises detailed errors if region or hazard combo not found
 
 **`join_damage_cost_factors(assets_long_format, damage_factors_df)`** → data.frame
 - Joins on hazard_type, rounded hazard_intensity, asset_category
@@ -430,3 +448,9 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 - Data type verification
 - Referential integrity (asset → company, hazard → damage factors)
 
+## Recent Changes
+
+### Bug Fixes
+- **Fixed NC hazard scenario extraction**: Corrected parsing logic in `load_nc_cube_with_terra()` to properly handle both GIRI-style files (explicit scenario indices like `scenario=_1`) and ensemble-style files (combination indices). Files now correctly extract all scenarios instead of defaulting to "present" only.
+- **Fixed hazard selection validation**: Added proper validation to require at least one hazard event selection before running analysis. Previously, the app would run with a default hazard when none were selected, which could lead to unexpected results. Now shows clear error message: "Please select at least one hazard event before running the analysis. Use the 'Add hazard' button to configure hazard events."
+- Fixed encoding issues in Brazilian flood map processing

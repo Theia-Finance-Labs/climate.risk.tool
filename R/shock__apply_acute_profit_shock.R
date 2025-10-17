@@ -25,54 +25,63 @@
 #' }
 #' @export
 apply_acute_profit_shock <- function(
-    yearly_trajectories,
-    assets_factors,
-    acute_events) {
-  # --- APPLY FLOOD ACUTE DAMAGE TO PROFITS ---
+  yearly_trajectories,
+  assets_factors,
+  acute_events
+) {
+  # --- APPLY ACUTE DAMAGE TO PROFITS BY EVENT ---
 
+  # Initialize empty results
+  shocks_by_asset_year <- tibble::tibble(
+    asset = character(0),
+    event_year = integer(0),
+    acute_damage = numeric(0)
+  )
 
-  assets_factors <- assets_factors |>
-    dplyr::mutate(
-      acute_damage = dplyr::case_when(
-        tolower(as.character(.data$hazard_type)) == "flood" ~
-          as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor),
-        TRUE ~ NA_real_
-      )
-    )
+  # Sort events by event_id to ensure consistent processing order
+  acute_events <- acute_events |>
+    dplyr::arrange(.data$event_id)
 
-  # Select only floods from events
-  flood_events <- acute_events |>
-    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood") |>
-    dplyr::filter(!is.na(.data$event_year))
+  # Process each event and check its hazard type
+  for (i in seq_len(nrow(acute_events))) {
+    event <- acute_events[i, ]
+    hazard_type <- event$hazard_type
+    event_year <- event$event_year
 
-  # Select only floods from assets_factors
-  assets_flood <- assets_factors |>
-    dplyr::filter(tolower(as.character(.data$hazard_type)) == "flood")
-
-  # Merge by hazard_name to attach event_year to each asset-hazard
-  # -> (asset, hazard_name, event_year, acute_damage)
-  if (nrow(assets_flood) > 0 && nrow(flood_events) > 0) {
-    shock_map <- dplyr::inner_join(
-      assets_flood |>
-        dplyr::select("asset", "hazard_name", "acute_damage"),
-      flood_events |>
-        dplyr::select("hazard_name", "event_year"),
-      by = "hazard_name"
-    )
-
-    # Sum acute_damage per (asset, event_year) in case multiple hazards per asset-year
-    if (nrow(shock_map) > 0) {
-      shocks_by_asset_year <- shock_map |>
-        dplyr::group_by(asset, event_year) |>
-        dplyr::summarize(
-          acute_damage = sum(as.numeric(.data$acute_damage), na.rm = TRUE),
-          .groups = "drop"
+    if (hazard_type %in% c("FloodTIF", "Flood")) {
+      # Flood events: calculate acute damage as damage_factor * cost_factor
+      assets_flood <- assets_factors |>
+        dplyr::filter(.data$hazard_type %in% c("FloodTIF", "Flood")) |>
+        dplyr::filter(.data$hazard_name == event$hazard_name) |>
+        dplyr::mutate(
+          acute_damage = as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor)
         )
+
+      # Create shock data for this event
+      if (nrow(assets_flood) > 0) {
+        flood_shocks <- assets_flood |>
+          dplyr::select("asset", "acute_damage") |>
+          dplyr::mutate(event_year = event_year)
+
+        shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
+      }
+    } else if (hazard_type == "Drought") {
+      # Drought events: TODO - implement drought-specific logic
+      # For now, no damage applied for drought events
     } else {
-      shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
+      # Other hazard types: TODO - implement as needed
+      # For now, no damage applied for other hazard types
     }
-  } else {
-    shocks_by_asset_year <- tibble::tibble(asset = character(0), event_year = integer(0), acute_damage = numeric(0))
+  }
+
+  # Sum acute_damage per (asset, event_year) in case multiple events affect same asset-year
+  if (nrow(shocks_by_asset_year) > 0) {
+    shocks_by_asset_year <- shocks_by_asset_year |>
+      dplyr::group_by(.data$asset, .data$event_year) |>
+      dplyr::summarize(
+        acute_damage = sum(.data$acute_damage, na.rm = TRUE),
+        .groups = "drop"
+      )
   }
 
   # Start from trajectories
