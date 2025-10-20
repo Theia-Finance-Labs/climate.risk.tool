@@ -1,18 +1,3 @@
-# Tests for function: extract_hazard_statistics
-#
-# Contract:
-# - extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, events)
-# - For assets WITH coordinates: performs spatial extraction using raster data (TIF or NC)
-# - For assets WITHOUT coordinates but WITH municipality: looks up precomputed ADM2 data
-# - For assets WITHOUT coordinates/municipality but WITH province: looks up precomputed ADM1 data
-# - Returns long format with hazard statistics for all assets
-# - Priority cascade: coordinates > municipality > province
-# - Raises error if an asset cannot be matched or if required hazards are missing
-
-# ==============================================================================
-# Test 1: TIF extraction with geolocated assets
-# ==============================================================================
-
 testthat::test_that("geolocated assets extract from TIF files", {
   # Load all hazards
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
@@ -62,9 +47,6 @@ testthat::test_that("geolocated assets extract from TIF files", {
 })
 
 
-# ==============================================================================
-# Test 2: NC extraction with geolocated assets
-# ==============================================================================
 
 testthat::test_that("geolocated assets extract from NC files", {
   # Load all hazards
@@ -115,10 +97,6 @@ testthat::test_that("geolocated assets extract from NC files", {
   testthat::expect_equal(length(unique(out$asset)), 2)
 })
 
-
-# ==============================================================================
-# Test 3: Priority cascade (coordinates > municipality > province)
-# ==============================================================================
 
 testthat::test_that("mixed assets use priority: coordinates > municipality > province", {
   base_dir <- get_test_data_dir()
@@ -175,17 +153,14 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
 })
 
 
-# ==============================================================================
-# Test 4: Error when hazard/scenario/return period not in precomputed
-# ==============================================================================
-
-testthat::test_that("error when hazard/scenario/return period not in precomputed data", {
+testthat::test_that("extract_hazard_statistics errors for missing precomputed hazard, scenario or region", {
   base_dir <- get_test_data_dir()
   precomputed <- read_precomputed_hazards(base_dir)
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
 
+  # --- CASE 1: missing hazard/scenario/return period in precomputed data ---
   # Create asset with only province (forces precomputed lookup)
-  assets <- tibble::tibble(
+  asset_missing_hazard <- tibble::tibble(
     asset = "test_asset",
     company = "company_a",
     latitude = NA_real_,
@@ -208,7 +183,9 @@ testthat::test_that("error when hazard/scenario/return period not in precomputed
       by = c("hazard_type", "scenario_code", "hazard_return_period")
     )
 
+  ran_case1 <- FALSE
   if (nrow(missing_hazard) > 0) {
+    ran_case1 <- TRUE
     # Create events with this missing hazard
     events <- tibble::tibble(
       hazard_name = missing_hazard$hazard_name[1],
@@ -223,41 +200,14 @@ testthat::test_that("error when hazard/scenario/return period not in precomputed
       dplyr::filter(.data$hazard_name %in% names(hazards))
 
     # Should error with message about missing hazards
-    testthat::expect_error(
-      extract_hazard_statistics(assets, hazards, inventory, precomputed),
+    expect_case1 <- testthat::expect_error(
+      extract_hazard_statistics(asset_missing_hazard, hazards, inventory, precomputed),
       regexp = "No data found.*No match found.*required hazards"
     )
-  } else {
-    # If all hazards are available, skip this test
-    testthat::skip("No missing hazard combinations available for testing")
   }
-})
 
-
-# ==============================================================================
-# Test 5: Error when region not in precomputed
-# ==============================================================================
-
-testthat::test_that("error when municipality/province not in precomputed data", {
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-
-  # Define events with just 1 hazard for focused testing
-  events <- tibble::tibble(
-    hazard_name = "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-    event_year = 2030,
-    chronic = FALSE
-  )
-
-  # Filter to just the selected hazard
-  all_hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
-  hazards <- filter_hazards_by_events(all_hazards, events)
-  inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name %in% names(hazards))
-
-  # Create asset with non-existent municipality AND province
-  assets <- tibble::tibble(
+  # --- CASE 2: missing municipality and province in precomputed data ---
+  asset_noregion <- tibble::tibble(
     asset = "test_asset_noregion",
     company = "company_a",
     latitude = NA_real_,
@@ -268,10 +218,25 @@ testthat::test_that("error when municipality/province not in precomputed data", 
     size_in_m2 = 1000,
     share_of_economic_activity = 0.5
   )
+  events2 <- tibble::tibble(
+    hazard_name = "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+    event_year = 2030,
+    chronic = FALSE
+  )
+  all_hazards2 <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+  hazards2 <- filter_hazards_by_events(all_hazards2, events2)
+  inventory2 <- hazard_data$inventory |>
+    dplyr::filter(.data$hazard_name %in% names(hazards2))
 
-  # Should error mentioning the missing regions
-  testthat::expect_error(
-    extract_hazard_statistics(assets, hazards, inventory, precomputed),
+  expect_case2 <- testthat::expect_error(
+    extract_hazard_statistics(asset_noregion, hazards2, inventory2, precomputed),
     regexp = "Cannot determine|not found|NonExistent"
   )
+
+  # If case 1 is not runnable (all hazards present), skip that part
+  if (!ran_case1) {
+    testthat::skip("No missing hazard combinations available for testing (case 1)")
+  }
+
+  # final assertions are via the expect_error checks above for both cases
 })

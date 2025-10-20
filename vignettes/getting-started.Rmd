@@ -40,7 +40,7 @@ companies <- read_companies(file.path(base_dir, "user_input", "company_small.csv
 
 # Load hazards with unified loader (supports both TIF and NetCDF formats)
 hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"))
-hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc) # Flatten for compute_risk
+hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv) # Flatten for compute_risk
 hazards_inventory <- hazard_data$inventory
 
 # Load precomputed hazard statistics for administrative regions
