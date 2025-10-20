@@ -1,34 +1,66 @@
-#' Join damage and cost factors based on hazard indicator, intensity and asset category (internal function)
+#' Join damage and cost factors based on hazard type, indicator, intensity and asset category (internal function)
 #'
 #' @param assets_with_hazards Data frame in long format with asset and hazard information
-#'   including hazard_type, hazard_indicator, hazard_intensity columns (from extract_hazard_statistics)
+#'   including hazard_type, hazard_indicator, hazard_intensity, scenario_name columns
+#'   (from extract_hazard_statistics joined with events)
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
-#' @return Data frame with original columns plus damage_factor and cost_factor columns
+#' @return Data frame with original columns plus damage_factor, cost_factor, and business_disruption columns
 #' @noRd
 join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
-  assets_tmp <- assets_with_hazards |>
+  # Separate assets by hazard type
+  flood_assets <- assets_with_hazards |>
+    dplyr::filter(.data$hazard_type == "FloodTIF")
+  compound_assets <- assets_with_hazards |>
+    dplyr::filter(.data$hazard_type == "Compound")
+
+  # Process each hazard type with its specific logic
+  flood_merged <- if (nrow(flood_assets) > 0) {
+    join_flood_damage_factors(flood_assets, damage_factors_df)
+  } else {
+    NULL
+  }
+
+  compound_merged <- if (nrow(compound_assets) > 0) {
+    join_compound_damage_factors(compound_assets, damage_factors_df)
+  } else {
+    NULL
+  }
+
+  # Combine results
+  merged <- dplyr::bind_rows(flood_merged, compound_merged)
+
+  return(merged)
+}
+
+#' Join FloodTIF damage factors using intensity-based matching (internal function)
+#'
+#' @param flood_assets Data frame with FloodTIF hazard assets
+#' @param damage_factors_df Data frame with damage and cost factors lookup table
+#' @return Data frame with damage_factor, cost_factor, and business_disruption columns
+#' @noRd
+join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
+  # Add intensity key
+  assets_tmp <- flood_assets |>
     dplyr::mutate(.__intensity_key__. = as.integer(round(as.numeric(.data$hazard_intensity))))
 
   factors_tmp <- damage_factors_df |>
+    dplyr::filter(.data$hazard_type == "FloodTIF") |>
     dplyr::mutate(.__intensity_key__. = as.integer(round(as.numeric(.data$hazard_intensity))))
 
-  # Compute max available intensity key per (hazard_indicator, asset_category)
+  # Compute max available intensity key per (hazard_type, hazard_indicator, asset_category)
   max_key_by_group <- factors_tmp |>
-    dplyr::group_by(.data$hazard_indicator, .data$asset_category) |>
+    dplyr::group_by(.data$hazard_type, .data$hazard_indicator, .data$asset_category) |>
     dplyr::summarize(
       .__max_intensity_key__. = max(.data$.__intensity_key__., na.rm = TRUE),
       .groups = "drop"
     )
 
-  # Attach group max to assets and cap effective key to the group's max
+  # Join and cap effective intensity key
   assets_tmp <- dplyr::left_join(
     assets_tmp,
     max_key_by_group,
-    by = c("hazard_indicator", "asset_category")
-  )
-
-  # Effective key with capping
-  assets_tmp <- assets_tmp |>
+    by = c("hazard_type", "hazard_indicator", "asset_category")
+  ) |>
     dplyr::mutate(
       .__effective_intensity_key__. = dplyr::if_else(
         !is.na(.data$.__max_intensity_key__.) &
@@ -38,32 +70,55 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
       )
     )
 
-  factors_key_cols <- c(
-    "hazard_indicator", "asset_category", ".__intensity_key__.",
-    "damage_factor", "cost_factor", "business_disruption"
-  )
+  # Join on hazard_type, hazard_indicator, asset_category, effective_intensity_key
   factors_key <- factors_tmp |>
-    dplyr::select(dplyr::all_of(factors_key_cols))
+    dplyr::select("hazard_type", "hazard_indicator", "asset_category", ".__intensity_key__.",
+                  "damage_factor", "cost_factor", "business_disruption")
 
-  merged <- dplyr::left_join(
+  flood_merged <- dplyr::left_join(
     assets_tmp,
     factors_key,
     by = dplyr::join_by(
+      "hazard_type",
       "hazard_indicator",
       "asset_category",
       ".__effective_intensity_key__." == ".__intensity_key__."
     )
-  )
-
-  merged <- merged |>
+  ) |>
     dplyr::mutate(
       damage_factor = dplyr::coalesce(as.numeric(.data$damage_factor), NA_real_),
       cost_factor = dplyr::coalesce(as.numeric(.data$cost_factor), NA_real_),
       business_disruption = dplyr::coalesce(as.numeric(.data$business_disruption), NA_real_)
     ) |>
-    dplyr::select(
-      -dplyr::starts_with(".__")
+    dplyr::select(-dplyr::starts_with(".__"))
+
+  return(flood_merged)
+}
+
+#' Join Compound (heat) damage factors using province and GWL matching (internal function)
+#'
+#' @param compound_assets Data frame with Compound hazard assets
+#' @param damage_factors_df Data frame with damage and cost factors lookup table
+#' @return Data frame with damage_factor column (cost_factor and business_disruption are NA)
+#' @noRd
+join_compound_damage_factors <- function(compound_assets, damage_factors_df) {
+  # Filter factors for Compound type
+  # gwl column in damage_factors_df matches scenario_name from events (column names are lowercased by read function)
+  compound_factors <- damage_factors_df |>
+    dplyr::filter(.data$hazard_type == "Compound") |>
+    dplyr::select("hazard_type", "province", "gwl", "damage_factor")
+
+  # Join on hazard_type, province, and scenario_name = gwl
+  # scenario_name is already available in compound_assets from events join
+  compound_merged <- dplyr::left_join(
+    compound_assets,
+    compound_factors,
+    by = c("hazard_type", "province", "scenario_name" = "gwl")
+  ) |>
+    dplyr::mutate(
+      cost_factor = NA_real_,
+      business_disruption = NA_real_
     )
 
-  return(merged)
+  return(compound_merged)
 }

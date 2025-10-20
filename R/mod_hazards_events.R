@@ -70,6 +70,13 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           # Both TIF and NC have hazard_name column with ensemble suffix
           hazard_name_val <- matched$hazard_name[1]
         }
+      } else if (inherits(inv, "try-error")) {
+        # Log error information to console
+        log_module_error(
+          error = attr(inv, "condition"),
+          module_name = "mod_hazards_events_server",
+          function_name = "add_hazard_event"
+        )
       }
 
       if (is.na(hazard_name_val)) {

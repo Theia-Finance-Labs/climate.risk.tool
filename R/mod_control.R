@@ -85,6 +85,12 @@ mod_control_server <- function(id, base_dir_reactive) {
       )
 
       if (inherits(result, "try-error") || !is.list(result)) {
+        log_module_error(
+          error = if (inherits(result, "try-error")) attr(result, "condition") else simpleError("Unknown error"),
+          module_name = "mod_control_server",
+          function_name = "hazards_and_inventory reactive"
+        )
+        
         message("Error loading hazards: ", if (inherits(result, "try-error")) attr(result, "condition")$message else "unknown")
         return(NULL)
       }

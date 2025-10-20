@@ -283,51 +283,39 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     municipality <- asset_row |> dplyr::pull(.data$municipality)
     province <- asset_row |> dplyr::pull(.data$province)
 
-    # Normalize administrative region names using stringi (similar to unidecode)
-    municipality_normalized <- if (!is.na(municipality) && nzchar(as.character(municipality))) {
-      stringi::stri_trans_general(as.character(municipality), "Latin-ASCII")
-    } else {
-      municipality
-    }
-
-    province_normalized <- if (!is.na(province) && nzchar(as.character(province))) {
-      stringi::stri_trans_general(as.character(province), "Latin-ASCII")
-    } else {
-      province
-    }
-
     # Try municipality first (ADM2), then province (ADM1)
+    # Note: Names are already normalized in read_assets() and read_precomputed_hazards()
     matched_data <- NULL
     match_level <- NULL
     matched_region <- NULL
 
-    if (!is.na(municipality_normalized) && nzchar(as.character(municipality_normalized))) {
+    if (!is.na(municipality) && nzchar(as.character(municipality))) {
       matched_data <- precomputed_hazards |>
         dplyr::filter(
-          .data$region == municipality_normalized,
+          .data$region == municipality,
           .data$adm_level == "ADM2"
         )
       match_level <- "municipality"
-      matched_region <- municipality_normalized
+      matched_region <- municipality
     }
 
     if (is.null(matched_data) || nrow(matched_data) == 0) {
-      if (!is.na(province_normalized) && nzchar(as.character(province_normalized))) {
+      if (!is.na(province) && nzchar(as.character(province))) {
         matched_data <- precomputed_hazards |>
           dplyr::filter(
-            .data$region == province_normalized,
+            .data$region == province,
             .data$adm_level == "ADM1"
           )
         match_level <- "province"
-        matched_region <- province_normalized
+        matched_region <- province
       }
     }
 
     if (is.null(matched_data) || nrow(matched_data) == 0) {
       stop(
         "Cannot determine hazard statistics for asset ", i, " (", asset_name, "). ",
-        "No match found in precomputed data for municipality='", municipality_normalized,
-        "' or province='", province_normalized, "'"
+        "No match found in precomputed data for municipality='", municipality,
+        "' or province='", province, "'"
       )
     }
 
@@ -354,8 +342,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     # If matched_data is empty and we're not strictly validating, skip this asset
     if (nrow(matched_data) == 0) {
       stop(
-        "No data found for asset ", i, " (", asset_name, "). No match found in precomputed data for municipality='", municipality_normalized,
-        "' or province='", province_normalized, "' for the required hazards."
+        "No data found for asset ", i, " (", asset_name, "). No match found in precomputed data for municipality='", municipality,
+        "' or province='", province, "' for the required hazards."
       )
     }
 

@@ -76,8 +76,153 @@ read_assets <- function(base_dir) {
       )
     )
 
-  message("[read_assets] Loaded ", nrow(assets_raw), " assets")
-  assets_raw
+  # Normalize municipality and province names (remove accents, convert to ASCII)
+  assets_raw <- assets_raw |>
+    dplyr::mutate(
+      municipality = dplyr::if_else(
+        !is.na(.data$municipality) & nzchar(as.character(.data$municipality)),
+        stringi::stri_trans_general(as.character(.data$municipality), "Latin-ASCII"),
+        NA_character_
+      ),
+      province = dplyr::if_else(
+        !is.na(.data$province) & nzchar(as.character(.data$province)),
+        stringi::stri_trans_general(as.character(.data$province), "Latin-ASCII"),
+        NA_character_
+      )
+    )
+
+  # Assign province to assets that don't have one
+  assets_with_province <- assign_province_to_assets(assets_raw, base_dir)
+
+  message("[read_assets] Loaded ", nrow(assets_with_province), " assets")
+  assets_with_province
+}
+
+#' Assign province to assets based on coordinates or municipality (internal function)
+#'
+#' @param assets_df Data frame with asset information
+#' @param base_dir Base directory containing areas subdirectory
+#' @return Data frame with province assigned to all assets
+#' @noRd
+assign_province_to_assets <- function(assets_df, base_dir) {
+  # Ensure province column is character (not logical if all NA)
+  if ("province" %in% names(assets_df)) {
+    assets_df$province <- as.character(assets_df$province)
+  }
+  
+  # Load province boundaries
+  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+  municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+
+  if (!file.exists(province_path)) {
+    message("[assign_province_to_assets] Province boundaries not found, skipping province assignment")
+    return(assets_df)
+  }
+
+  # Read province boundaries and normalize names
+  provinces_sf <- sf::st_read(province_path, quiet = TRUE) |>
+    dplyr::mutate(
+      province_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
+    )
+
+  # Identify assets without province
+  assets_without_province <- assets_df |>
+    dplyr::filter(is.na(.data$province))
+
+  assets_with_province_already <- assets_df |>
+    dplyr::filter(!is.na(.data$province))
+
+  if (nrow(assets_without_province) == 0) {
+    message("[assign_province_to_assets] All assets already have province assigned")
+    return(assets_df)
+  }
+
+  message("[assign_province_to_assets] Assigning province to ", nrow(assets_without_province), " assets")
+
+  # Strategy 1: Assets with lat/lon - spatial join to province
+  assets_with_coords <- assets_without_province |>
+    dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
+
+  if (nrow(assets_with_coords) > 0) {
+    message("  Assigning province via coordinates for ", nrow(assets_with_coords), " assets")
+
+    # Convert to sf object
+    assets_coords_sf <- sf::st_as_sf(
+      assets_with_coords,
+      coords = c("longitude", "latitude"),
+      crs = 4326
+    )
+
+    # Spatial join with provinces
+    assets_coords_joined <- sf::st_join(assets_coords_sf, provinces_sf, join = sf::st_within)
+
+    # Extract coordinates back and assign province
+    coords_matrix <- sf::st_coordinates(assets_coords_joined)
+    assets_with_coords <- assets_with_coords |>
+      dplyr::mutate(
+        province = assets_coords_joined$province_name
+      )
+  }
+
+  # Strategy 2: Assets with municipality but no coordinates - join via municipality
+  assets_with_municipality <- assets_without_province |>
+    dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
+    dplyr::filter(!is.na(.data$municipality))
+
+  if (nrow(assets_with_municipality) > 0 && file.exists(municipality_path)) {
+    message("  Assigning province via municipality for ", nrow(assets_with_municipality), " assets")
+
+    # Read municipality boundaries and normalize names
+    municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE) |>
+      dplyr::mutate(
+        municipality_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
+      )
+
+    # Build municipality -> province lookup using municipality barycenter (point-on-surface) within province
+    # This avoids polygon-polygon topological quirks and ensures the point lies within the intended province
+    # Ensure both layers share CRS
+    if (!sf::st_is_longlat(municipalities_sf)) {
+      municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
+    }
+    if (!sf::st_is_longlat(provinces_sf)) {
+      provinces_sf <- sf::st_transform(provinces_sf, 4326)
+    }
+
+    muni_points <- sf::st_point_on_surface(municipalities_sf)
+    muni_points_joined <- sf::st_join(muni_points, provinces_sf, join = sf::st_within)
+
+    municipality_lookup <- muni_points_joined |>
+      sf::st_drop_geometry() |>
+      dplyr::select("municipality_name", "province_name")
+
+    assets_with_municipality <- assets_with_municipality |>
+      dplyr::left_join(
+        municipality_lookup,
+        by = c("municipality" = "municipality_name")
+      ) |>
+      dplyr::mutate(
+        province = dplyr::coalesce(.data$province_name, .data$province)
+      ) |>
+      dplyr::select(-dplyr::any_of(c("province_name", "adm1_name")))
+  }
+
+  # Combine all assets back together
+  result <- dplyr::bind_rows(
+    assets_with_province_already,
+    if (exists("assets_with_coords") && nrow(assets_with_coords) > 0) assets_with_coords else NULL,
+    if (exists("assets_with_municipality") && nrow(assets_with_municipality) > 0) assets_with_municipality else NULL,
+    # Assets that still don't have province (no coords, no municipality)
+    assets_without_province |>
+      dplyr::filter(
+        (is.na(.data$latitude) | is.na(.data$longitude)) &
+        is.na(.data$municipality)
+      )
+  )
+
+  n_assigned <- sum(!is.na(result$province)) - sum(!is.na(assets_df$province))
+  message("[assign_province_to_assets] Assigned province to ", n_assigned, " additional assets")
+
+  return(result)
 }
 
 #' Read company data from CSV file
@@ -156,7 +301,15 @@ read_damage_cost_factors <- function(base_dir) {
       hazard_intensity = as.numeric(.data$hazard_intensity)
     ) |>
     # Convert column names to snake_case for consistency
-    dplyr::rename_with(to_snake_case)
+    dplyr::rename_with(to_snake_case) |>
+    # Normalize province names (remove accents, convert to ASCII)
+    dplyr::mutate(
+      province = dplyr::if_else(
+        !is.na(.data$province) & .data$province != "-" & nzchar(as.character(.data$province)),
+        stringi::stri_trans_general(as.character(.data$province), "Latin-ASCII"),
+        .data$province
+      )
+    )
 
   message("[read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
   factors_df

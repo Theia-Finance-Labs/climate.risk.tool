@@ -160,10 +160,7 @@ compute_risk <- function(assets,
     aggregation_method = aggregation_method
   )
 
-  # Step 2.3: Join damage cost factors
-  assets_factors <- join_damage_cost_factors(assets_long, damage_factors)
-
-  # Step 2.5: Join event information (event_year, chronic) from events
+  # Step 2.3: Join event information (event_year, chronic, scenario_name) from events
   # Select only the columns we need from events to avoid duplication
   # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
   # Don't use distinct() here - we want one row per event even if they share the same hazard_name
@@ -173,11 +170,14 @@ compute_risk <- function(assets,
       hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
     )
 
-  assets_factors <- assets_factors |>
+  assets_with_events <- assets_long |>
     dplyr::inner_join(
       events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic"),
       by = "hazard_name", relationship = "many-to-many"
     )
+
+  # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards)
+  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors)
 
 
   # ============================================================================

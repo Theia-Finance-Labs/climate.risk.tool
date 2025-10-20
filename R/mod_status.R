@@ -72,6 +72,15 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
       {
         events <- try(events_reactive(), silent = TRUE)
         if (inherits(events, "try-error") || is.null(events) || nrow(events) == 0) {
+          # Log error information to console
+          if (inherits(events, "try-error")) {
+            log_module_error(
+              error = attr(events, "condition"),
+              module_name = "mod_status_server",
+              function_name = "events_table renderTable"
+            )
+          }
+          
           tibble::tibble(
             Message = "No events configured - will use default event"
           )
