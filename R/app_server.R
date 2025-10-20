@@ -140,6 +140,7 @@ app_server <- function(input, output, session) {
         updateTabsetPanel(session, "main_tabs", selected = "assets")
       },
       error = function(e) {
+        log_error_to_console(e, "Main app analysis")
         values$status <- paste0("Error during analysis: ", conditionMessage(e))
       }
     )

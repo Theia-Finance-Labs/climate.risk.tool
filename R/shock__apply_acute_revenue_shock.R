@@ -1,26 +1,29 @@
-#' Apply Acute Shock to Yearly Revenue Trajectories (Placeholder)
+#' Apply Acute Revenue Shock
 #'
-#' @title Apply Acute Revenue Shock (Placeholder)
-#' @description Placeholder function that passes through baseline revenue as shocked revenue.
-#'   This is a temporary implementation that maintains the expected output structure
-#'   while the actual shock calculation logic is being developed. NOTE: This function
-#'   only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
+#' @title Apply Acute Revenue Shock
+#' @description Applies revenue shocks from acute climate events in event_id order.
+#'   Supports FloodTIF (business disruption) and Compound/heat (labor productivity loss via Cobb-Douglas).
+#'   Multiple shocks in the same year are applied sequentially by event_id.
+#'   NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue
-#' @param assets_factors tibble with hazard data and damage factors (currently unused)
-#' @param acute_events tibble with acute event information (currently unused)
-#' @return tibble with columns: asset, company, year, revenue
+#' @param assets_factors tibble with hazard data and damage factors including event_id, hazard_type
+#' @param acute_events tibble with acute event information including event_id, hazard_type, event_year
+#' @return tibble with columns: asset, company, year, revenue (with shocks applied)
 #' @examples
 #' \dontrun{
 #' yearly_trajectories <- data.frame(
 #'   asset = c("A1", "A1"),
 #'   company = c("C1", "C1"),
 #'   year = c(2025, 2030),
-#'   revenue = c(1000, 1200),
-#'   profit = c(100, 120)
+#'   revenue = c(1000, 1200)
 #' )
-#' assets_factors <- data.frame(asset = "A1", hazard_type = "flood", damage_factor = 0.1)
-#' acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030, chronic = FALSE)
-#' # Apply revenue shock (returns only revenue, not profit)
+#' assets_factors <- data.frame(
+#'   asset = "A1", hazard_type = "FloodTIF", event_id = "event_1",
+#'   damage_factor = 0.1, business_disruption = 10
+#' )
+#' acute_events <- data.frame(
+#'   event_id = "event_1", hazard_type = "FloodTIF", event_year = 2030, chronic = FALSE
+#' )
 #' result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 #' }
 #' @export
@@ -29,87 +32,148 @@ apply_acute_revenue_shock <- function(
   assets_factors,
   acute_events
 ) {
-  # --- Build disruption map (asset, event_year -> total disruption days) ---
 
-  # Initialize empty results
-  shocks_by_asset_year <- tibble::tibble(
-    asset = character(0),
-    event_year = integer(0),
-    business_disruption = numeric(0)
-  )
-
-  # Sort events by event_id to ensure consistent processing order
+  # Sort events by event_id to apply shocks in order
   acute_events <- acute_events |>
     dplyr::arrange(.data$event_id)
 
-  # Process each event and check its hazard type
-  for (i in seq_len(nrow(acute_events))) {
-    event <- acute_events[i, ]
-    hazard_type <- event$hazard_type
-    event_year <- event$event_year
-
-    if (hazard_type %in% c("FloodTIF", "Flood")) {
-      # Flood events: apply business disruption based on business_disruption factor
-      assets_flood <- assets_factors |>
-        dplyr::filter(.data$hazard_type %in% c("FloodTIF", "Flood")) |>
-        dplyr::filter(.data$hazard_name == event$hazard_name)
-
-      # Map by hazard_name, then sum per (asset, event_year)
-      if (nrow(assets_flood) > 0) {
-        flood_shocks <- assets_flood |>
-          dplyr::select("asset", "business_disruption") |>
-          dplyr::mutate(
-            event_year = event_year,
-            business_disruption = as.numeric(.data$business_disruption)
-          )
-
-        # Cap disruption into [0, 365]
-        flood_shocks <- flood_shocks |>
-          dplyr::mutate(business_disruption = pmax(0, pmin(365, .data$business_disruption)))
-
-        shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
-      }
-    } else if (hazard_type == "Drought") {
-      # Drought events: TODO - implement drought-specific logic
-      # For now, no disruption applied for drought events
-    } else {
-      # Other hazard types: TODO - implement as needed
-      # For now, no disruption applied for other hazard types
-    }
-  }
-
-  # Sum disruptions per (asset, event_year) in case multiple events affect same asset-year
-  if (nrow(shocks_by_asset_year) > 0) {
-    shocks_by_asset_year <- shocks_by_asset_year |>
-      dplyr::group_by(.data$asset, .data$event_year) |>
-      dplyr::summarize(
-        business_disruption = sum(.data$business_disruption, na.rm = TRUE),
-        .groups = "drop"
-      ) |>
-      dplyr::mutate(business_disruption = pmax(0, pmin(365, .data$business_disruption)))
-  }
-
-
-  # Start with the baseline trajectories
+  # Start with baseline revenue
   result <- yearly_trajectories
 
-  if (nrow(shocks_by_asset_year) > 0) {
-    disruption_data <- shocks_by_asset_year |>
-      dplyr::rename(year = .data$event_year, disruption_days = .data$business_disruption)
-    result <- dplyr::left_join(result, disruption_data, by = c("asset", "year"))
+  # Loop through events in event_id order
+  for (i in seq_len(nrow(acute_events))) {
+    event <- acute_events[i, ]
+    hazard_type <- as.character(event$hazard_type)
 
-    # Apply formula only where disruption is present
-    result <- result |>
-      dplyr::mutate(
-        revenue = dplyr::if_else(
-          is.na(.data$disruption_days),
-          .data$revenue,
-          as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
-        )
-      ) |>
-      dplyr::select(-"disruption_days")
+    if (hazard_type == "FloodTIF") {
+      result <- apply_flood_shock(result, event, assets_factors)
+    } else if (hazard_type == "Compound") {
+      result <- apply_compound_shock(result, event, assets_factors)
+    }
+    # Other hazard types: no action (extend later as needed)
   }
 
+  return(result)
+}
+
+#' Apply FloodTIF shock to revenue trajectories (internal function)
+#'
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue
+#' @param event Single event row with event_id, event_year, hazard_type
+#' @param assets_factors tibble with hazard data and damage factors
+#' @return tibble with revenue adjusted for FloodTIF business disruption
+#' @noRd
+apply_flood_shock <- function(yearly_trajectories, event, assets_factors) {
+  # Filter FloodTIF assets for this specific event (by event_id)
+  flood_assets <- assets_factors |>
+    dplyr::filter(
+      .data$hazard_type == "FloodTIF",
+      .data$event_id == event$event_id
+    )
+
+  if (nrow(flood_assets) == 0) {
+    return(yearly_trajectories)
+  }
+
+  # Build (asset, year, disruption_days) mapping
+  # Sum business_disruption if multiple hazard_names per event
+  disruption_map <- flood_assets |>
+    dplyr::group_by(.data$asset) |>
+    dplyr::summarize(
+      business_disruption = sum(as.numeric(.data$business_disruption), na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(
+      year = event$event_year,
+      disruption_days = pmax(0, pmin(365, .data$business_disruption))
+    )
+
+  # Join and apply: revenue * (1 - disruption_days/365)
+  result <- dplyr::left_join(yearly_trajectories, disruption_map, by = c("asset", "year")) |>
+    dplyr::mutate(
+      revenue = dplyr::if_else(
+        is.na(.data$disruption_days),
+        .data$revenue,
+        as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
+      )
+    ) |>
+    dplyr::select(-"disruption_days", -"business_disruption")
+
+  return(result)
+}
+
+#' Apply Compound (heat) shock to revenue trajectories using Cobb-Douglas (internal function)
+#'
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue
+#' @param event Single event row with event_id, event_year, hazard_type
+#' @param assets_factors tibble with hazard data and damage factors
+#' @return tibble with revenue adjusted for Compound labor productivity loss
+#' @noRd
+apply_compound_shock <- function(yearly_trajectories, event, assets_factors) {
+
+  # Cobb-Douglas parameters (hardcoded from CD_inputs.csv)
+  cd_params <- list(
+    L0 = 339.2285,
+    K0 = 87025023,
+    E0 = 43.99034,
+    lnA = 2.398,
+    B1 = 0.602,  # elasticity on ln(K)
+    B2 = 0.455,  # elasticity on ln(L)
+    B3 = 0.147   # elasticity on ln(E)
+  )
+
+  # Calculate baseline output Y_base
+  Y_base <- exp(cd_params$lnA +
+                cd_params$B1 * log(cd_params$K0) +
+                cd_params$B2 * log(cd_params$L0) +
+                cd_params$B3 * log(cd_params$E0))
+
+
+  # Filter Compound assets for this specific event (by event_id)
+  compound_assets <- assets_factors |>
+    dplyr::filter(
+      .data$hazard_type == "Compound",
+      .data$event_id == event$event_id
+    )
+
+  if (nrow(compound_assets) == 0) {
+    return(yearly_trajectories)
+  }
+
+  # Calculate weighted LP loss per asset
+  compound_effects <- compound_assets |>
+    dplyr::mutate(
+      # hazard_intensity = days with extreme heat
+      # damage_factor = raw labor productivity loss (negative value from damage_and_cost_factors.csv)
+      weighted_lp_loss = (as.numeric(.data$hazard_intensity) / 365) * as.numeric(.data$damage_factor)
+    ) |>
+    dplyr::group_by(.data$asset) |>
+    dplyr::summarize(weighted_lp_loss = sum(.data$weighted_lp_loss, na.rm = TRUE), .groups = "drop") |>
+    dplyr::mutate(
+      year = event$event_year,
+      # Adjust labor input: L_adj = L0 * (1 + weighted_lp_loss)
+      # Note: weighted_lp_loss is negative, so this reduces L
+      L_adjusted = cd_params$L0 * (1 + .data$weighted_lp_loss),
+      # Calculate shocked output
+      Y_shock = exp(cd_params$lnA +
+                    cd_params$B1 * log(cd_params$K0) +
+                    cd_params$B2 * log(.data$L_adjusted) +
+                    cd_params$B3 * log(cd_params$E0)),
+      # Calculate relative change
+      change = ((.data$Y_shock / Y_base) - 1)
+    ) |>
+    dplyr::select("asset", "year", "change")
+
+  # Join and apply: revenue * (1 + change)
+  result <- dplyr::left_join(yearly_trajectories, compound_effects, by = c("asset", "year")) |>
+    dplyr::mutate(
+      revenue = dplyr::if_else(
+        is.na(.data$change),
+        .data$revenue,
+        as.numeric(.data$revenue) * (1 + as.numeric(.data$change))
+      )
+    ) |>
+    dplyr::select(-"change")
 
   return(result)
 }

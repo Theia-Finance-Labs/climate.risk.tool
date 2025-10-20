@@ -474,6 +474,28 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 
 ## Error Handling
 
+### Console Error Logging
+The app includes clean, minimal console error logging to help with debugging:
+
+- **Main App Errors**: Simple error logging in `app_server.R` with error message and location
+- **Module Errors**: Module-specific error logging in control, status, and hazards events modules
+- **Utility Functions**: `log_error_to_console()`, `log_module_error()`, `log_reactive_error()` for consistent error reporting
+
+**Error Log Format**:
+```
+=== ERROR ===
+Message: [error details]
+Context: [module/function context]
+Location: [exact line where error occurred]
+=============
+```
+
+**Benefits**:
+- Errors appear in both UI and console
+- Shows exact line where error occurred
+- Minimal, focused output
+- Module and function identification
+
 ### Informative Errors
 - Asset with no location data (no coords, municipality, or province)
 - Missing hazard files referenced in mapping

@@ -2,28 +2,28 @@
 % Please edit documentation in R/shock__apply_acute_revenue_shock.R
 \name{apply_acute_revenue_shock}
 \alias{apply_acute_revenue_shock}
-\title{Apply Acute Revenue Shock (Placeholder)}
+\title{Apply Acute Revenue Shock}
 \usage{
 apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 }
 \arguments{
 \item{yearly_trajectories}{tibble with columns: asset, company, year, revenue}
 
-\item{assets_factors}{tibble with hazard data and damage factors (currently unused)}
+\item{assets_factors}{tibble with hazard data and damage factors including event_id, hazard_type}
 
-\item{acute_events}{tibble with acute event information (currently unused)}
+\item{acute_events}{tibble with acute event information including event_id, hazard_type, event_year}
 }
 \value{
-tibble with columns: asset, company, year, revenue
+tibble with columns: asset, company, year, revenue (with shocks applied)
 }
 \description{
-Placeholder function that passes through baseline revenue as shocked revenue.
-This is a temporary implementation that maintains the expected output structure
-while the actual shock calculation logic is being developed. NOTE: This function
-only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
+Applies revenue shocks from acute climate events in event_id order.
+Supports FloodTIF (business disruption) and Compound/heat (labor productivity loss via Cobb-Douglas).
+Multiple shocks in the same year are applied sequentially by event_id.
+NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 }
 \details{
-Apply Acute Shock to Yearly Revenue Trajectories (Placeholder)
+Apply Acute Revenue Shock
 }
 \examples{
 \dontrun{
@@ -31,12 +31,15 @@ yearly_trajectories <- data.frame(
   asset = c("A1", "A1"),
   company = c("C1", "C1"),
   year = c(2025, 2030),
-  revenue = c(1000, 1200),
-  profit = c(100, 120)
+  revenue = c(1000, 1200)
 )
-assets_factors <- data.frame(asset = "A1", hazard_type = "flood", damage_factor = 0.1)
-acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030, chronic = FALSE)
-# Apply revenue shock (returns only revenue, not profit)
+assets_factors <- data.frame(
+  asset = "A1", hazard_type = "FloodTIF", event_id = "event_1",
+  damage_factor = 0.1, business_disruption = 10
+)
+acute_events <- data.frame(
+  event_id = "event_1", hazard_type = "FloodTIF", event_year = 2030, chronic = FALSE
+)
 result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 }
 }
