@@ -29,6 +29,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
       "Compound__HI__GWL=3__RP=10__ensemble=mean"
     ),
     scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3"),
+    scenario_code = c("pc", "pc", "present", "3"),
     hazard_return_period = c(10, 10, 10, 10),
     event_year = c(2030L, NA_integer_, 2030L, 2035L),
     chronic = c(FALSE, TRUE, FALSE, FALSE),
@@ -78,6 +79,19 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   # Hazards coverage: Flood present
   testthat::expect_true(any(grepl("FloodTIF", res$assets_factors$hazard_name)))
   testthat::expect_true(any(grepl("Compound", res$assets_factors$hazard_name)))
+
+  # Coverage by matching method: each matching_method should include both FloodTIF and Compound
+  mm_cov <- res$assets_factors |>
+    dplyr::group_by(.data$matching_method) |>
+    dplyr::summarise(
+      has_flood = any(grepl("FloodTIF", .data$hazard_name)),
+      has_compound = any(grepl("Compound", .data$hazard_name)),
+      .groups = "drop"
+    )
+  if (nrow(mm_cov) > 0) {
+    testthat::expect_true(all(mm_cov$has_flood))
+    testthat::expect_true(all(mm_cov$has_compound))
+  }
 
   # Acute behavior: after 2030, shock revenue should not exceed baseline on average
   a_y <- res$assets_yearly
