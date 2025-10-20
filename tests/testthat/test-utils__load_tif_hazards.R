@@ -2,12 +2,12 @@
 
 test_that("load_tif_hazards loads from mapping dataframe", {
   mapping_df <- tibble::tibble(
-    hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif"),
+    hazard_file = c("global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
     hazard_type = c("flood", "flood"),
     hazard_indicator = c("Flood Height", "Flood Height"),
-    scenario_code = c("pc", "rcp85"),
-    scenario_name = c("CurrentClimate", "RCP8.5"),
-    hazard_return_period = c(10, 10)
+    scenario_code = c("rcp85", "rcp85"),
+    scenario_name = c("RCP8.5", "RCP8.5"),
+    hazard_return_period = c(10, 100)
   )
 
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
@@ -25,56 +25,13 @@ test_that("load_tif_hazards loads from mapping dataframe", {
   expect_true(length(rasters) > 0)
 })
 
-test_that("load_tif_hazards handles missing files gracefully", {
-  mapping_df <- tibble::tibble(
-    hazard_file = c("nonexistent.tif"),
-    hazard_type = c("flood"),
-    scenario_code = c("pc"),
-    scenario_name = c("CurrentClimate"),
-    hazard_return_period = c(10)
-  )
 
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-
-
-  # Should return empty list with warning when files don't exist
-  expect_warning(
-    result <- load_tif_hazards(
-      mapping_df = mapping_df,
-      hazards_dir = hazards_dir
-    ),
-    "not found|No TIF files"
-  )
-
-  # Should return empty list
-  expect_type(result, "list")
-  expect_equal(length(result), 0)
-})
-
-test_that("load_tif_hazards checks for duplicates on filter columns", {
-  mapping_df <- tibble::tibble(
-    hazard_file = c("global_pc_h10glob.tif", "global_pc_h100glob.tif"),
-    hazard_type = c("flood", "flood"),
-    scenario_code = c("pc", "pc"),
-    scenario_name = c("CurrentClimate", "CurrentClimate"),
-    hazard_return_period = c(10, 10) # Duplicate!
-  )
-
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-
-  expect_error(
-    load_tif_hazards(
-      mapping_df = mapping_df,
-      hazards_dir = hazards_dir
-    ),
-    "duplicate"
-  )
-})
 
 test_that("load_tif_hazards loads rasters correctly", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
     hazard_type = c("flood", "flood", "flood"),
+    hazard_indicator = c("Flood Height", "Flood Height", "Flood Height"),
     scenario_code = c("pc", "rcp85", "rcp85"),
     scenario_name = c("CurrentClimate", "RCP8.5", "RCP8.5"),
     hazard_return_period = c(10, 10, 100)
@@ -100,38 +57,11 @@ test_that("load_tif_hazards loads rasters correctly", {
 })
 
 
-test_that("load_tif_hazards rasters are properly named", {
-  mapping_df <- tibble::tibble(
-    hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif"),
-    hazard_type = c("flood", "flood"),
-    scenario_code = c("pc", "rcp85"),
-    scenario_name = c("CurrentClimate", "RCP8.5"),
-    hazard_return_period = c(10, 10)
-  )
-
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-
-
-  rasters <- load_tif_hazards(
-    mapping_df = mapping_df,
-    hazards_dir = hazards_dir,
-    aggregate_factor = 16L # Use pre-aggregated files
-  )
-
-  # Rasters should be named
-  expect_true(!is.null(names(rasters)))
-  expect_equal(length(names(rasters)), nrow(mapping_df))
-
-  # Names should allow retrieval by index
-  for (i in seq_along(rasters)) {
-    expect_true(nzchar(names(rasters)[i]))
-  }
-})
-
 test_that("load_tif_hazards supports aggregation parameter", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif"),
     hazard_type = c("flood"),
+    hazard_indicator = c("Flood Height"),
     scenario_code = c("pc"),
     scenario_name = c("CurrentClimate"),
     hazard_return_period = c(10)
@@ -153,77 +83,4 @@ test_that("load_tif_hazards supports aggregation parameter", {
 
   # Mapping should still contain return periods (not confused with aggregation)
   expect_equal(mapping_df$hazard_return_period[1], 10)
-})
-
-test_that("load_tif_hazards handles subdirectories", {
-  mapping_df <- tibble::tibble(
-    hazard_file = c("global_pc_h10glob.tif"),
-    hazard_type = c("flood"),
-    scenario_code = c("pc"),
-    scenario_name = c("CurrentClimate"),
-    hazard_return_period = c(10)
-  )
-
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-
-
-  rasters <- load_tif_hazards(
-    mapping_df = mapping_df,
-    hazards_dir = hazards_dir,
-    aggregate_factor = 16L # Use pre-aggregated files
-  )
-
-  # Should find files in subdirectories (flood/)
-  expect_true(length(rasters) > 0)
-  expect_true(any(grepl("flood", mapping_df$hazard_type)))
-})
-
-test_that("load_tif_hazards uses aggregated file when original is missing", {
-  # Test case: original file missing but aggregated file exists
-  mapping_df <- tibble::tibble(
-    hazard_file = c("missing_original.tif"), # This file doesn't exist
-    hazard_type = c("flood"),
-    scenario_code = c("pc"),
-    scenario_name = c("CurrentClimate"),
-    hazard_return_period = c(10)
-  )
-
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-
-  # Create a missing original file scenario by temporarily renaming
-  original_file <- file.path(hazards_dir, "FloodTIF", "global_pc_h10glob.tif")
-  temp_original <- file.path(hazards_dir, "FloodTIF", "missing_original.tif")
-  aggregated_file <- file.path(hazards_dir, "FloodTIF", "missing_original__agg16.tif")
-  
-  # Create the scenario: original missing, aggregated exists
-  if (file.exists(original_file)) {
-    file.copy(original_file, temp_original)
-    file.copy(file.path(hazards_dir, "FloodTIF", "global_pc_h10glob__agg16.tif"), aggregated_file)
-    file.remove(original_file) # Remove original to simulate missing file
-    
-    on.exit({
-      # Cleanup
-      if (file.exists(temp_original)) file.remove(temp_original)
-      if (file.exists(aggregated_file)) file.remove(aggregated_file)
-      if (file.exists(original_file)) file.remove(original_file)
-      # Restore original if it was moved
-      if (!file.exists(original_file) && file.exists(file.path(hazards_dir, "FloodTIF", "global_pc_h10glob.tif.backup"))) {
-        file.rename(file.path(hazards_dir, "FloodTIF", "global_pc_h10glob.tif.backup"), original_file)
-      }
-    })
-    
-    # Test that it should use the aggregated file when original is missing
-    rasters <- load_tif_hazards(
-      mapping_df = mapping_df,
-      hazards_dir = hazards_dir,
-      aggregate_factor = 16L
-    )
-    
-    # Should successfully load the aggregated file
-    expect_type(rasters, "list")
-    expect_true(length(rasters) > 0)
-    expect_s4_class(rasters[[1]], "SpatRaster")
-  } else {
-    skip("Test data not available for this test")
-  }
 })

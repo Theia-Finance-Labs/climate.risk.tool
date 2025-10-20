@@ -4,7 +4,7 @@ testthat::test_that("geolocated assets extract from TIF files", {
 
   # Define events with just 1 TIF hazard for focused testing (using new unified format)
   events <- tibble::tibble(
-    hazard_name = "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10__ensemble=mean",
+    hazard_name = "FloodTIF__Flood Height__GWL=RCP8.5__RP=10",
     event_year = 2030,
     chronic = FALSE
   )
@@ -106,7 +106,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
   events <- tibble::tibble(
     hazard_name = c(
-      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10", # TIF hazard
+      "FloodTIF__Flood Height__GWL=RCP8.5__RP=10", # TIF hazard
       "Drought__SPI6__GWL=present__RP=10__ensemble=mean" # NC hazard (expands to all ensembles)
     ),
     event_year = 2030,
@@ -125,7 +125,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
     company = rep("company_a", 3),
     latitude = c(-3.0, NA_real_, NA_real_),
     longitude = c(-60.0, NA_real_, NA_real_),
-    municipality = c("Borba", "Borba", NA_character_),
+    municipality = c("Barcelos", "Barcelos", NA_character_),
     province = c("Amazonas", "Amazonas", "Amazonas"),
     asset_category = "office",
     size_in_m2 = 1000,

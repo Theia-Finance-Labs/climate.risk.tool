@@ -15,7 +15,7 @@ tibble with all original columns plus 'merton_pd' column
 \description{
 Computes probability of default using Merton model approach.
 Uses company NPV as proxy for asset value, along with debt and volatility.
-Returns PD values in the range \link{0, 1}.
+Returns PD values in the range 0 to 1.
 }
 \details{
 Compute Company Probability of Default using Merton Model

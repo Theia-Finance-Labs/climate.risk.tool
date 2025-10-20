@@ -256,7 +256,7 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
 #' are found, it uses the first variable.
 #'
 #' **Ensemble dimension:** If the NC file has an ensemble dimension with values
-#' like ["mean", "median", "p10", "p90"], only the 'mean' ensemble is loaded by default.
+#' like mean, median, p10, p90, only the 'mean' ensemble is loaded by default.
 #' This avoids iteration over all ensemble values and provides a single representative
 #' raster per hazard scenario.
 #'
