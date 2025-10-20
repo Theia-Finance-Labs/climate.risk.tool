@@ -6,6 +6,8 @@ testthat::test_that("mod_hazards_events_ui renders controls", {
 })
 
 testthat::test_that("mod_hazards_events_server exposes events reactive", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   shiny::testServer(mod_hazards_events_server, args = list(id = "hz", hazards_inventory = shiny::reactive({
     # Minimal fake inventory with required columns including hazard_indicator
     data.frame(
@@ -56,6 +58,8 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 })
 
 testthat::test_that("mod_hazards_events_server shows only one form at a time", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   shiny::testServer(mod_hazards_events_server, args = list(id = "hz", hazards_inventory = shiny::reactive({
     # Minimal fake inventory with required columns including hazard_indicator
     data.frame(

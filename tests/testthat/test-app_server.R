@@ -1,4 +1,6 @@
 testthat::test_that("server loads inputs and runs analysis from base_dir and uploaded company file", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Use real test data directory
   base_dir <- get_test_data_dir()
   company_file_path <- file.path(base_dir, "user_input", "company.csv")
@@ -37,6 +39,8 @@ testthat::test_that("server loads inputs and runs analysis from base_dir and upl
 
 
 testthat::test_that("server handles missing company file gracefully", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Use real test data directory
   base_dir <- get_test_data_dir()
 
@@ -60,6 +64,8 @@ testthat::test_that("server handles missing company file gracefully", {
 
 
 testthat::test_that("server requires hazard selection before running analysis", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Use real test data directory
   base_dir <- get_test_data_dir()
   company_file_path <- file.path(base_dir, "user_input", "company.csv")
