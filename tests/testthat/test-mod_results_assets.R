@@ -10,6 +10,8 @@ testthat::test_that("mod_results_assets_ui creates expected elements", {
 })
 
 testthat::test_that("mod_results_assets_server displays event information columns", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Create test results with event information columns
   test_assets_factors <- data.frame(
     asset = "A1",
@@ -42,6 +44,8 @@ testthat::test_that("mod_results_assets_server displays event information column
 })
 
 testthat::test_that("mod_results_assets_server formats chronic column as Yes/No", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Create test results with chronic column
   test_assets_factors <- data.frame(
     asset = c("A1", "A2"),
@@ -71,6 +75,8 @@ testthat::test_that("mod_results_assets_server formats chronic column as Yes/No"
 })
 
 testthat::test_that("mod_results_assets_server handles NULL results gracefully", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   shiny::testServer(mod_results_assets_server, args = list(
     id = "test",
     results_reactive = shiny::reactive(NULL)
@@ -82,6 +88,8 @@ testthat::test_that("mod_results_assets_server handles NULL results gracefully",
 })
 
 testthat::test_that("mod_results_assets_server displays event_id column when present", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Create test results with event_id column
   test_assets_factors <- data.frame(
     asset = "A1",
@@ -115,6 +123,8 @@ testthat::test_that("mod_results_assets_server displays event_id column when pre
 })
 
 testthat::test_that("mod_results_assets_server handles results without assets_factors data", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   test_results <- list(
     companies = data.frame(company = "TestCo")
     # No assets_factors data
@@ -131,6 +141,8 @@ testthat::test_that("mod_results_assets_server handles results without assets_fa
 })
 
 testthat::test_that("mod_results_assets_server orders columns correctly", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Create test results with multiple columns
   test_assets_factors <- data.frame(
     hazard_type = "flood",

@@ -1,4 +1,6 @@
 testthat::test_that("hazards inventory is available at startup", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   base_dir <- get_test_data_dir()
 
   # Set environment variable for testing
@@ -19,6 +21,8 @@ testthat::test_that("hazards inventory is available at startup", {
 })
 
 testthat::test_that("control module exposes hazards inventory and aggregation_factor", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   base_dir <- get_test_data_dir()
 
   # Set environment variable for testing

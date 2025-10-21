@@ -169,7 +169,6 @@ compute_risk <- function(assets,
     dplyr::mutate(
       hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
     )
-
   assets_with_events <- assets_long |>
     dplyr::inner_join(
       events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic"),

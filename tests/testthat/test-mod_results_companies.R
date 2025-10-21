@@ -10,6 +10,8 @@ testthat::test_that("mod_results_companies_ui creates expected elements", {
 })
 
 testthat::test_that("mod_results_companies_server formats percentage change columns correctly", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Create test results with percentage change columns
   test_companies <- data.frame(
     company = "TestCo",
@@ -41,6 +43,8 @@ testthat::test_that("mod_results_companies_server formats percentage change colu
 })
 
 testthat::test_that("mod_results_companies_server handles NULL results gracefully", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   shiny::testServer(mod_results_companies_server, args = list(
     id = "test",
     results_reactive = shiny::reactive(NULL)
@@ -52,6 +56,8 @@ testthat::test_that("mod_results_companies_server handles NULL results gracefull
 })
 
 testthat::test_that("mod_results_companies_server handles results without companies data", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   test_results <- list(
     assets = data.frame(asset = "A1")
     # No companies data

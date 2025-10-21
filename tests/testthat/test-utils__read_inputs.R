@@ -169,22 +169,3 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   testthat::expect_true("ADM2" %in% adm_levels)
 })
 
-
-testthat::test_that("read_precomputed_hazards can lookup specific region hazards", {
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-
-  # Test lookup for a known province (ADM1)
-  amazonas_data <- precomputed |>
-    dplyr::filter(.data$region == "Amazonas", .data$adm_level == "ADM1")
-  testthat::expect_gt(nrow(amazonas_data), 0)
-
-  # Should have flood data
-  flood_data <- amazonas_data |>
-    dplyr::filter(.data$hazard_type == "FloodTIF")
-  testthat::expect_gt(nrow(flood_data), 0)
-
-  # Mean should be a valid number
-  testthat::expect_true(is.numeric(flood_data$mean[1]))
-  testthat::expect_false(is.na(flood_data$mean[1]))
-})

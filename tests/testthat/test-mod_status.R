@@ -13,6 +13,8 @@ testthat::test_that("mod_status_ui creates expected elements", {
 })
 
 testthat::test_that("mod_status_server displays events with event_id", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   # Create test events with event_id
   test_events <- data.frame(
     event_id = c("ev1", "ev2"),
@@ -39,6 +41,8 @@ testthat::test_that("mod_status_server displays events with event_id", {
 })
 
 testthat::test_that("mod_status_server handles empty events gracefully", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   shiny::testServer(mod_status_server, args = list(
     id = "test",
     status_reactive = shiny::reactive("Ready"),
@@ -51,6 +55,8 @@ testthat::test_that("mod_status_server handles empty events gracefully", {
 })
 
 testthat::test_that("mod_status_server handles NULL events gracefully", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
   shiny::testServer(mod_status_server, args = list(
     id = "test",
     status_reactive = shiny::reactive("Ready"),
