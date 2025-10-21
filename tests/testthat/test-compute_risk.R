@@ -18,13 +18,12 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     assets_mixed$province[1] <- "Amazonas"
   }
 
-  # Events: FloodTIF (acute + chronic) and Compound (acute); omit event_id so it is auto-generated
+  # Events: FloodTIF (acute + chronic) and Compound (acute)
   events <- data.frame(
     hazard_type = c("FloodTIF", "FloodTIF", "Compound", "Compound"),
     hazard_name = c(
       "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
       "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-      # Compound CSV hazards use indicator 'HI' (Heat Index) in our data
       "Compound__HI__GWL=present__RP=10__ensemble=mean",
       "Compound__HI__GWL=3__RP=10__ensemble=mean"
     ),
