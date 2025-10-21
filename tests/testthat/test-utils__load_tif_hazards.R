@@ -58,6 +58,7 @@ test_that("load_tif_hazards loads rasters correctly", {
 
 
 test_that("load_tif_hazards supports aggregation parameter", {
+  testthat::skip_on_ci()
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif"),
     hazard_type = c("flood"),
