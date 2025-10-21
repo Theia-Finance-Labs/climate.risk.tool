@@ -1,8 +1,6 @@
-2
 # climate.risk.tool
 
 <!-- badges: start -->
-[![Codecov test coverage](https://codecov.io/gh/Theia-Finance-Labs/climate.risk.tool/graph/badge.svg)](https://app.codecov.io/gh/Theia-Finance-Labs/climate.risk.tool)
 <!-- badges: end -->
 
 R package for climate risk assessment using geospatial hazard data and financial modeling. Supports both GeoTIFF (.tif) and NetCDF (.nc) hazard data formats with automated ensemble statistics extraction.
