@@ -12,8 +12,8 @@
 #'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean") {
-  message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean", verbose = FALSE) {
+  if (verbose) message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
 
   # Separate assets into coordinate-based and administrative-based
   assets_with_coords <- assets_df |>
@@ -22,31 +22,34 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   assets_without_coords <- assets_df |>
     dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude))
 
-  message("  Assets with coordinates (spatial extraction): ", nrow(assets_with_coords))
-  message("  Assets without coordinates (precomputed lookup): ", nrow(assets_without_coords))
+  if (verbose) {
+    message("  Assets with coordinates (spatial extraction): ", nrow(assets_with_coords))
+    message("  Assets without coordinates (precomputed lookup): ", nrow(assets_without_coords))
+  }
 
   # Initialize results list
   all_results <- list()
 
   # ========= Process assets WITH coordinates (spatial extraction) =========
   if (nrow(assets_with_coords) > 0) {
-    message("[extract_hazard_statistics] Processing coordinate-based assets...")
+    if (verbose) message("[extract_hazard_statistics] Processing coordinate-based assets...")
 
     # Unified extraction workflow handles both NC and TIF sources
     all_results[[length(all_results) + 1]] <- extract_spatial_statistics(
-      assets_with_coords, hazards, hazards_inventory, aggregation_method
+      assets_with_coords, hazards, hazards_inventory, aggregation_method, verbose
     )
   }
 
   # ========= Process assets WITHOUT coordinates (precomputed lookup) =========
   if (nrow(assets_without_coords) > 0) {
-    message("[extract_hazard_statistics] Processing administrative-based assets...")
+    if (verbose) message("[extract_hazard_statistics] Processing administrative-based assets...")
 
     all_results[[length(all_results) + 1]] <- extract_precomputed_statistics(
       assets_without_coords,
       precomputed_hazards,
       hazards_inventory,
-      aggregation_method
+      aggregation_method,
+      verbose
     )
   }
 
@@ -56,16 +59,18 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   }
 
   final_result <- do.call(rbind, all_results)
-  message("[extract_hazard_statistics] Completed processing for ", nrow(assets_df), " assets")
+  if (verbose) message("[extract_hazard_statistics] Completed processing for ", nrow(assets_df), " assets")
 
   return(final_result)
 }
 
 #' Extract statistics from spatial hazards (unified for NC, TIF, and CSV sources)
 #' @noRd
-extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
-  message("  [extract_spatial_statistics] Extracting hazard statistics...")
-  message("    Using aggregation method: ", aggregation_method)
+extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean", verbose = FALSE) {
+  if (verbose) {
+    message("  [extract_spatial_statistics] Extracting hazard statistics...")
+    message("    Using aggregation method: ", aggregation_method)
+  }
 
   # Separate CSV hazards from raster hazards (TIF/NC)
   csv_inventory <- hazards_inventory |>
@@ -78,7 +83,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
   # ========= Process CSV hazards (closest-point assignment) =========
   if (nrow(csv_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing CSV hazards with closest-point assignment...")
+    if (verbose) message("  [extract_spatial_statistics] Processing CSV hazards with closest-point assignment...")
 
     # Extract CSV hazards from the hazards list
     csv_hazard_names <- csv_inventory$hazard_name
@@ -90,7 +95,8 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         assets_df,
         hazards_csv,
         csv_inventory,
-        aggregation_method
+        aggregation_method,
+        verbose
       )
       all_results[[length(all_results) + 1]] <- csv_results
     }
@@ -98,7 +104,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
   # ========= Process raster hazards (TIF/NC with polygon extraction) =========
   if (nrow(raster_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing raster hazards (TIF/NC) with polygon extraction...")
+    if (verbose) message("  [extract_spatial_statistics] Processing raster hazards (TIF/NC) with polygon extraction...")
 
     # Define aggregation function mapping (used for TIF sources)
     aggregation_functions <- list(
@@ -160,19 +166,18 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     hazard_type <- hazard_meta$hazard_type
     hazard_indicator <- hazard_meta$hazard_indicator
     hazard_return_period <- hazard_meta$hazard_return_period
-    hazard_scenario_code <- hazard_meta$scenario_code
     hazard_scenario_name <- hazard_meta$scenario_name
     # Add extraction_method suffix for output
     hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
 
-    message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
+    if (verbose) message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
 
     # Get raster CRS
     r_crs <- terra::crs(hazard_rast)
     if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
     # Unified extraction method: polygon extraction with masking and aggregation for both NC and TIF
-    message("      Using polygon extraction (crop/mask) for ", toupper(hazard_source), " source")
+    if (verbose) message("      Using polygon extraction (crop/mask) for ", toupper(hazard_source), " source")
 
     n_geoms <- nrow(assets_sf)
     stats_df <- tibble::tibble(
@@ -182,7 +187,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
     # Process each geometry
     for (j in seq_len(n_geoms)) {
-      if (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms) {
+      if (verbose && (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms)) {
         message("      Asset ", j, "/", n_geoms, " (", round(100 * j / n_geoms), "%)")
       }
 
@@ -227,7 +232,6 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         # Use hazard_name with ensemble suffix added
         hazard_name = hazard_name_with_ensemble,
         hazard_type = hazard_type,
-        scenario_code = hazard_scenario_code,
         scenario_name = hazard_scenario_name,
         hazard_indicator = hazard_indicator,
         hazard_return_period = hazard_return_period,
@@ -240,7 +244,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "size_in_m2",
         "share_of_economic_activity", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
     results_list[[i]] <- df_i
@@ -265,12 +269,12 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
 #' Extract statistics from precomputed administrative data (municipality/province lookup)
 #' @noRd
-extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean") {
-  message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
-  message("    Using aggregation method: ", aggregation_method)
-
-  # Precomputed data should have correct hazard indicators already
-  message("    Using precomputed hazard indicators directly from data")
+extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean", verbose = FALSE) {
+  if (verbose) {
+    message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
+    message("    Using aggregation method: ", aggregation_method)
+    message("    Using precomputed hazard indicators directly from data")
+  }
 
   required_hazards <- hazards_inventory
 
@@ -320,24 +324,19 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     }
 
     # FILTER: Only keep hazards that match the required hazards from inventory
-    # Match by hazard_type, scenario_code, and hazard_return_period
-    # Convert scenario_code to character for both datasets to handle type mismatches
-    matched_data <- matched_data |>
-      dplyr::mutate(scenario_code = as.character(.data$scenario_code))
-
+    # Match by hazard_type, scenario_name, and hazard_return_period
     required_hazards_char <- required_hazards |>
-      dplyr::mutate(scenario_code = as.character(.data$scenario_code)) |>
-      dplyr::select("hazard_type", "hazard_indicator", "scenario_name", "scenario_code", "hazard_return_period", "source")
+      dplyr::select("hazard_type", "hazard_indicator", "scenario_name", "hazard_return_period", "source")
 
     matched_data <- matched_data |>
       dplyr::inner_join(
         required_hazards_char,
-        by = c("hazard_type", "hazard_indicator", "scenario_name", "scenario_code", "hazard_return_period")
+        by = c("hazard_type", "hazard_indicator", "scenario_name", "hazard_return_period")
       )
 
     # Check if we got all required hazards
     found_combos <- matched_data |>
-      dplyr::distinct(.data$hazard_type, .data$hazard_indicator, .data$scenario_name, .data$scenario_code, .data$hazard_return_period)
+      dplyr::distinct(.data$hazard_type, .data$hazard_indicator, .data$scenario_name, .data$hazard_return_period)
 
     # If matched_data is empty and we're not strictly validating, skip this asset
     if (nrow(matched_data) == 0) {
@@ -371,7 +370,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "size_in_m2",
         "share_of_economic_activity", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
     precomp_results_list[[length(precomp_results_list) + 1]] <- asset_hazard_data
@@ -386,9 +385,11 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
 
 #' Extract statistics from CSV hazards using closest-point assignment
 #' @noRd
-extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, aggregation_method = "mean") {
-  message("  [extract_csv_statistics] Extracting hazard statistics from CSV point data...")
-  message("    Using closest-point assignment (aggregation_method parameter kept for consistency)")
+extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, aggregation_method = "mean", verbose = FALSE) {
+  if (verbose) {
+    message("  [extract_csv_statistics] Extracting hazard statistics from CSV point data...")
+    message("    Using closest-point assignment (aggregation_method parameter kept for consistency)")
+  }
 
   # Filter inventory to only CSV sources
   csv_inventory <- hazards_inventory |>
@@ -412,13 +413,12 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
     hazard_type <- hazard_meta$hazard_type
     hazard_indicator <- hazard_meta$hazard_indicator
     hazard_return_period <- hazard_meta$hazard_return_period
-    hazard_scenario_code <- hazard_meta$scenario_code
     hazard_scenario_name <- hazard_meta$scenario_name
 
     # Add extraction_method suffix for output consistency
     hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
 
-    message("    Processing CSV hazard ", i, "/", n_hazards, ": ", base_hazard_name)
+    if (verbose) message("    Processing CSV hazard ", i, "/", n_hazards, ": ", base_hazard_name)
 
     n_assets <- nrow(assets_df)
     asset_intensities <- numeric(n_assets)
@@ -447,7 +447,6 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
         hazard_intensity = asset_intensities,
         hazard_name = hazard_name_with_ensemble,
         hazard_type = hazard_type,
-        scenario_code = hazard_scenario_code,
         scenario_name = hazard_scenario_name,
         hazard_indicator = hazard_indicator,
         hazard_return_period = hazard_return_period,
@@ -458,7 +457,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "size_in_m2",
         "share_of_economic_activity", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
     results_list[[i]] <- df_i

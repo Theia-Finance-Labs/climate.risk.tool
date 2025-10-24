@@ -2,10 +2,10 @@
 #'
 #' @description Internal function used by load_hazards_and_inventory().
 #'   Loads hazard rasters based on a mapping dataframe that defines
-#'   hazard_file, hazard_type, scenario_code, scenario_name, and hazard_return_period.
+#'   hazard_file, hazard_type, scenario_name, and hazard_return_period.
 #'   Validates that all files exist and that there are no duplicates on the filtering
 #'   columns (hazard_type, scenario_name, hazard_return_period).
-#' @param mapping_df Data frame with columns: hazard_file, hazard_type, scenario_code,
+#' @param mapping_df Data frame with columns: hazard_file, hazard_type,
 #'   scenario_name, hazard_return_period
 #' @param hazards_dir Character path to the directory containing hazard files (will search subdirectories)
 #' @param aggregate_factor Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)
@@ -20,11 +20,8 @@ load_tif_hazards <- function(mapping_df,
                              cache_aggregated = TRUE,
                              force_reaggregate = FALSE,
                              memfrac = 0.3) {
-  message("[load_tif_hazards] Loading hazards...")
-
 
   mapping <- tibble::as_tibble(mapping_df)
-  message("  Found ", nrow(mapping), " hazard entries in mapping")
 
   # Check for duplicates on filter columns
   filter_cols <- c("hazard_type", "scenario_name", "hazard_return_period")
@@ -45,7 +42,6 @@ load_tif_hazards <- function(mapping_df,
   }
 
   # Find full paths for all hazard files
-  message("  Validating hazard files exist...")
   all_tif_files <- list.files(hazards_dir,
     pattern = "\\.tif$",
     full.names = TRUE, recursive = TRUE
@@ -116,10 +112,7 @@ load_tif_hazards <- function(mapping_df,
     return(list())
   }
 
-  message("  ", nrow(mapping), " hazard files validated")
-
   # Load rasters
-  message("[load_tif_hazards] Loading ", nrow(mapping), " rasters...")
 
   # Configure terra for efficient loading
   old_opts <- terra::terraOptions()
@@ -137,7 +130,6 @@ load_tif_hazards <- function(mapping_df,
 
   for (i in seq_len(nrow(mapping))) {
     tif_file <- mapping$full_path[i]
-    message("  Loading [", i, "/", nrow(mapping), "]: ", basename(tif_file))
 
     # Load raster
     r <- terra::rast(tif_file)
@@ -160,8 +152,6 @@ load_tif_hazards <- function(mapping_df,
 
       if (!is_already_target_aggregated) {
         orig_dims <- dim(r)
-        message("    Original dimensions: ", paste(orig_dims, collapse = "x"))
-        message("    Aggregating by factor ", aggregate_factor, "...")
 
         # Determine original filename for cache naming
         if (grepl("__agg\\d+\\.tif$", base_filename)) {
@@ -177,7 +167,6 @@ load_tif_hazards <- function(mapping_df,
         cache_file <- file.path(dirname(tif_file), cache_filename)
 
         if (isTRUE(cache_aggregated) && file.exists(cache_file) && !isTRUE(force_reaggregate)) {
-          message("    Using cached aggregated raster: ", cache_filename)
           r <- terra::rast(cache_file)
         } else {
           # Perform aggregation
@@ -199,14 +188,7 @@ load_tif_hazards <- function(mapping_df,
 
           if (!inherits(r_agg, "try-error")) {
             new_dims <- dim(r_agg)
-            reduction <- prod(orig_dims) / prod(new_dims)
-            message(
-              "    New dimensions: ", paste(new_dims, collapse = "x"), " (",
-              format(reduction, big.mark = ","), "x smaller)"
-            )
             r <- if (isTRUE(cache_aggregated)) terra::rast(cache_file) else r_agg
-          } else {
-            message("    Aggregation failed, using original raster")
           }
         }
       }
@@ -214,8 +196,6 @@ load_tif_hazards <- function(mapping_df,
 
     rasters[[i]] <- r
   }
-
-  message("[load_tif_hazards] Successfully loaded ", length(rasters), " hazard rasters")
 
   return(rasters)
 }

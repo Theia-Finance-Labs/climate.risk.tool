@@ -16,7 +16,7 @@ A list with three elements:
 \itemize{
 \item \code{hazards}: Nested list with \code{tif}, \code{nc}, and \code{csv} keys
 \item \code{inventory}: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
-hazard_return_period, scenario_code, hazard_name (unified format),
+hazard_return_period, hazard_name (unified format),
 ensemble (ensemble variant or NA for TIF), source ("tif", "nc", or "csv")
 }
 }

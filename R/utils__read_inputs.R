@@ -23,7 +23,6 @@ to_snake_case <- function(names) {
 #' }
 #' @export
 read_assets <- function(base_dir) {
-  message("[read_assets] Reading asset data from: ", base_dir)
 
   # Define file path
   assets_path <- file.path(base_dir, "user_input", "asset_information.csv")
@@ -94,7 +93,6 @@ read_assets <- function(base_dir) {
   # Assign province to assets that don't have one
   assets_with_province <- assign_province_to_assets(assets_raw, base_dir)
 
-  message("[read_assets] Loaded ", nrow(assets_with_province), " assets")
   assets_with_province
 }
 
@@ -115,7 +113,6 @@ assign_province_to_assets <- function(assets_df, base_dir) {
   municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
 
   if (!file.exists(province_path)) {
-    message("[assign_province_to_assets] Province boundaries not found, skipping province assignment")
     return(assets_df)
   }
 
@@ -133,19 +130,14 @@ assign_province_to_assets <- function(assets_df, base_dir) {
     dplyr::filter(!is.na(.data$province))
 
   if (nrow(assets_without_province) == 0) {
-    message("[assign_province_to_assets] All assets already have province assigned")
     return(assets_df)
   }
-
-  message("[assign_province_to_assets] Assigning province to ", nrow(assets_without_province), " assets")
 
   # Strategy 1: Assets with lat/lon - spatial join to province
   assets_with_coords <- assets_without_province |>
     dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
 
   if (nrow(assets_with_coords) > 0) {
-    message("  Assigning province via coordinates for ", nrow(assets_with_coords), " assets")
-
     # Convert to sf object
     assets_coords_sf <- sf::st_as_sf(
       assets_with_coords,
@@ -170,8 +162,6 @@ assign_province_to_assets <- function(assets_df, base_dir) {
     dplyr::filter(!is.na(.data$municipality))
 
   if (nrow(assets_with_municipality) > 0 && file.exists(municipality_path)) {
-    message("  Assigning province via municipality for ", nrow(assets_with_municipality), " assets")
-
     # Read municipality boundaries and normalize names
     municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE) |>
       dplyr::mutate(
@@ -220,7 +210,6 @@ assign_province_to_assets <- function(assets_df, base_dir) {
   )
 
   n_assigned <- sum(!is.na(result$province)) - sum(!is.na(assets_df$province))
-  message("[assign_province_to_assets] Assigned province to ", n_assigned, " additional assets")
 
   return(result)
 }
@@ -238,7 +227,6 @@ assign_province_to_assets <- function(assets_df, base_dir) {
 #' }
 #' @export
 read_companies <- function(file_path) {
-  message("[read_companies] Reading company data from: ", file_path)
 
   # Check if file exists
   if (!file.exists(file_path)) {
@@ -261,7 +249,6 @@ read_companies <- function(file_path) {
       )
     )
 
-  message("[read_companies] Loaded ", nrow(companies_raw), " companies")
   companies_raw
 }
 
@@ -279,7 +266,6 @@ read_companies <- function(file_path) {
 #' }
 #' @export
 read_damage_cost_factors <- function(base_dir) {
-  message("[read_damage_cost_factors] Reading damage and cost factors from: ", base_dir)
 
   # Define file path
   factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
@@ -311,7 +297,6 @@ read_damage_cost_factors <- function(base_dir) {
       )
     )
 
-  message("[read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
   factors_df
 }
 
@@ -323,7 +308,7 @@ read_damage_cost_factors <- function(base_dir) {
 #'   values for assets without coordinates but with province or municipality information.
 #' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
-#'   scenario_code, scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
+#'   scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
 #'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
 #' @examples
 #' \dontrun{
@@ -335,7 +320,6 @@ read_damage_cost_factors <- function(base_dir) {
 #' }
 #' @export
 read_precomputed_hazards <- function(base_dir) {
-  message("[read_precomputed_hazards] Reading precomputed hazard statistics from: ", base_dir)
 
   # Define file path
   precomputed_path <- file.path(base_dir, "precomputed_adm_hazards.csv")
@@ -369,10 +353,6 @@ read_precomputed_hazards <- function(base_dir) {
   if (length(invalid_levels) > 0) {
     warning("Found unexpected adm_level values: ", paste(invalid_levels, collapse = ", "))
   }
-
-  message("[read_precomputed_hazards] Loaded ", nrow(precomputed_df), " precomputed hazard records")
-  message("  ADM1 (province) records: ", sum(precomputed_df$adm_level == "ADM1"))
-  message("  ADM2 (municipality) records: ", sum(precomputed_df$adm_level == "ADM2"))
 
   # Transform data: construct proper hazard_name and create ensemble-specific rows
   # Unified naming WITHOUT ensemble suffix (base event format)
@@ -408,8 +388,6 @@ read_precomputed_hazards <- function(base_dir) {
     region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII")
   )
 
-  message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
-
   precomputed_final
 }
 
@@ -420,7 +398,7 @@ read_precomputed_hazards <- function(base_dir) {
 #'   contains all required columns including hazard_indicator.
 #' @param mapping_path Character path to the CSV mapping file
 #' @return Tibble with columns: hazard_file, hazard_type, hazard_indicator,
-#'   scenario_code, scenario_name, hazard_return_period
+#'   scenario_name, hazard_return_period
 #' @noRd
 read_hazards_mapping <- function(mapping_path) {
   if (!file.exists(mapping_path)) {
@@ -432,7 +410,7 @@ read_hazards_mapping <- function(mapping_path) {
 
   # Validate required columns
   required_cols <- c(
-    "hazard_file", "hazard_type", "hazard_indicator", "scenario_code",
+    "hazard_file", "hazard_type", "hazard_indicator",
     "scenario_name", "hazard_return_period"
   )
   missing_cols <- setdiff(required_cols, names(mapping))

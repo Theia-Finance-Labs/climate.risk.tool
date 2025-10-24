@@ -83,11 +83,5 @@ filter_hazards_by_events <- function(hazards, events) {
   selected_names <- unique(c(exact_matches, pattern_matches))
   filtered_hazards <- hazards[selected_names]
 
-  message(
-    "[filter_hazards_by_events] Filtered hazards: ", length(selected_names),
-    " hazard layers selected from ", length(available_names),
-    " available (", length(desired_names), " events requested)"
-  )
-
   return(filtered_hazards)
 }

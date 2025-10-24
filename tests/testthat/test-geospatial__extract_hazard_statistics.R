@@ -175,12 +175,12 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
   # Find a hazard combo in inventory NOT in precomputed for Amazonas
   precomputed_combos <- precomputed |>
     dplyr::filter(.data$region == "Amazonas", .data$adm_level == "ADM1") |>
-    dplyr::distinct(.data$hazard_type, .data$scenario_code, .data$hazard_return_period)
+    dplyr::distinct(.data$hazard_type, .data$scenario_name, .data$hazard_return_period)
 
   missing_hazard <- hazard_data$inventory |>
     dplyr::anti_join(
       precomputed_combos,
-      by = c("hazard_type", "scenario_code", "hazard_return_period")
+      by = c("hazard_type", "scenario_name", "hazard_return_period")
     )
 
   ran_case1 <- FALSE
@@ -233,10 +233,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     regexp = "Cannot determine|not found|NonExistent"
   )
 
-  # If case 1 is not runnable (all hazards present), skip that part
-  if (!ran_case1) {
-    testthat::skip("No missing hazard combinations available for testing (case 1)")
-  }
+  
 
   # final assertions are via the expect_error checks above for both cases
 })

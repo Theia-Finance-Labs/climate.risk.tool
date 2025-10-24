@@ -126,7 +126,7 @@ testthat::test_that("read_damage_cost_factors handles missing file gracefully", 
 # Contract:
 # - read_precomputed_hazards(base_dir) -> data.frame
 # - Reads precomputed_adm_hazards.csv from base_dir/
-# - Returns data frame with columns: region, adm_level, scenario_code, scenario_name,
+# - Returns data frame with columns: region, adm_level, scenario_name,
 #   hazard_return_period, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
 # - adm_level values: "ADM1" (province), "ADM2" (municipality)
 # - Used to look up hazard statistics for assets matched by municipality or province name
@@ -142,7 +142,7 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
 
   # Should have required columns
   required_cols <- c(
-    "region", "adm_level", "scenario_code", "scenario_name",
+    "region", "adm_level", "scenario_name",
     "hazard_return_period", "hazard_type", "min", "max", "mean",
     "median", "p2_5", "p5", "p95", "p97_5"
   )

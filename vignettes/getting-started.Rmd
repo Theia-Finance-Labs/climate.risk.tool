@@ -90,7 +90,6 @@ Define the climate scenarios you want to analyze. You can mix different hazard t
       "Compound__HI__GWL=3__RP=10__ensemble=mean"
     ),
     scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3"),
-    scenario_code = c("pc", "pc", "present", "3"),
     hazard_return_period = c(10, 10, 10, 10),
     event_year = c(2030L, NA_integer_, 2030L, 2035L),
     chronic = c(FALSE, TRUE, FALSE, FALSE),

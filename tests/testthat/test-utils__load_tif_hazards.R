@@ -5,7 +5,6 @@ test_that("load_tif_hazards loads from mapping dataframe", {
     hazard_file = c("global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
     hazard_type = c("flood", "flood"),
     hazard_indicator = c("Flood Height", "Flood Height"),
-    scenario_code = c("rcp85", "rcp85"),
     scenario_name = c("RCP8.5", "RCP8.5"),
     hazard_return_period = c(10, 100)
   )
@@ -32,7 +31,6 @@ test_that("load_tif_hazards loads rasters correctly", {
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
     hazard_type = c("flood", "flood", "flood"),
     hazard_indicator = c("Flood Height", "Flood Height", "Flood Height"),
-    scenario_code = c("pc", "rcp85", "rcp85"),
     scenario_name = c("CurrentClimate", "RCP8.5", "RCP8.5"),
     hazard_return_period = c(10, 10, 100)
   )
@@ -63,7 +61,6 @@ test_that("load_tif_hazards supports aggregation parameter", {
     hazard_file = c("global_pc_h10glob.tif"),
     hazard_type = c("flood"),
     hazard_indicator = c("Flood Height"),
-    scenario_code = c("pc"),
     scenario_name = c("CurrentClimate"),
     hazard_return_period = c(10)
   )

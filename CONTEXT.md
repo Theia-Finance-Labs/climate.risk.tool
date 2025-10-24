@@ -65,12 +65,12 @@ Columns: company_id, company_name, equity, debt, other financial data
 Columns: hazard_type, hazard_intensity (rounded), asset_category, damage_share, cost_factor
 
 #### 4. `precomputed_adm_hazards.csv`
-Columns: region, adm_level (ADM1/ADM2), hazard_type, scenario_code, scenario_name, hazard_return, min, max, mean, median, p2_5, p5, p95, p97_5
+Columns: region, adm_level (ADM1/ADM2), hazard_type, scenario_name, hazard_return, min, max, mean, median, p2_5, p5, p95, p97_5
 
 Pre-aggregated hazard statistics for administrative regions. Eliminates need for GeoJSON boundary files.
 
 #### 5. `hazards_name_mapping.csv`
-Columns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
+Columns: hazard_file, hazard_type, scenario_name, hazard_return_period
 
 Maps physical hazard files to metadata for UI display and filtering.
 
@@ -81,13 +81,13 @@ The tool supports three hazard data formats:
 #### GeoTIFF Files (.tif)
 Location: `{base_dir}/hazards/{hazard_type}/`
 
-Naming convention: `global_{scenario_code}_h{return_period}glob.tif`
+Naming convention: `global_{scenario_name}_h{return_period}glob.tif`
 
 Examples:
 - `global_pc_h10glob.tif` - Current climate, 10-year return period
 - `global_rcp85_h100glob.tif` - RCP8.5, 100-year return period
 
-**Metadata:** Defined in `hazards_metadata.csv` (hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period)
+**Metadata:** Defined in `hazards_metadata.csv` (hazard_file, hazard_type, scenario_name, hazard_return_period)
 
 **Extraction:** Polygon-based (crop/mask with aggregation function)
 
@@ -188,7 +188,7 @@ inventory <- hazard_data$inventory
 ```
 
 **Naming Convention:**
-- TIF: `{hazard_type}__{scenario_code}_h{return_period}glob` (e.g., `flood__pc_h10glob`)
+- TIF: `{hazard_type}__{scenario_name}_h{return_period}glob` (e.g., `flood__pc_h10glob`)
 - NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
 - CSV: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Compound__HI__GWL=present__RP=5__ensemble=mean`)
 

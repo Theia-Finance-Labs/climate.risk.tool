@@ -15,7 +15,8 @@ compute_risk(
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05,
-  aggregation_method = "mean"
+  aggregation_method = "mean",
+  verbose = FALSE
 )
 }
 \arguments{
@@ -44,7 +45,10 @@ The \code{event_id} column is auto-generated internally if not provided.}
 Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
 For TIF files: uses terra::extract with the specified function.
 For NC files: uses the mean ensemble layer by default.
-For precomputed data: uses the mean ensemble variant.
+For precomputed data: uses the mean ensemble variant.}
+
+\item{verbose}{Logical. Whether to show detailed progress messages (default: FALSE).
+When FALSE, only essential error messages are shown. When TRUE, shows step-by-step progress.
 #'}
 }
 \value{

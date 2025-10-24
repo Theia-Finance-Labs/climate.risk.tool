@@ -20,6 +20,8 @@
 #'   For TIF files: uses terra::extract with the specified function.
 #'   For NC files: uses the mean ensemble layer by default.
 #'   For precomputed data: uses the mean ensemble variant.
+#' @param verbose Logical. Whether to show detailed progress messages (default: FALSE).
+#'   When FALSE, only essential error messages are shown. When TRUE, shows step-by-step progress.
 #' #'
 #' @return List containing final results:
 #'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
@@ -95,7 +97,8 @@ compute_risk <- function(assets,
                          growth_rate = 0.02,
                          net_profit_margin = 0.1,
                          discount_rate = 0.05,
-                         aggregation_method = "mean") {
+                         aggregation_method = "mean",
+                         verbose = FALSE) {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -126,6 +129,8 @@ compute_risk <- function(assets,
   # PHASE 1: UTILS - Input validation and data preparation
   # ============================================================================
 
+  if (verbose) message("Step 1: Preparing data and filtering inputs...")
+
   # Auto-generate event_id if not provided (only if column doesn't exist)
   if (!"event_id" %in% names(events)) {
     events <- events |>
@@ -144,6 +149,8 @@ compute_risk <- function(assets,
   # PHASE 2: GEOSPATIAL - Extract hazard statistics (spatial or precomputed)
   # ============================================================================
 
+  if (verbose) message("Step 2: Extracting hazard statistics...")
+
   # Filter inventory to match filtered hazards (prevent warnings about unfound hazards)
   filtered_hazard_names <- names(hazards)
   filtered_inventory <- hazards_inventory |>
@@ -157,7 +164,8 @@ compute_risk <- function(assets,
     hazards = hazards,
     hazards_inventory = filtered_inventory,
     precomputed_hazards = precomputed_hazards,
-    aggregation_method = aggregation_method
+    aggregation_method = aggregation_method,
+    verbose = verbose
   )
 
   # Step 2.3: Join event information (event_year, chronic, scenario_name) from events
@@ -183,6 +191,8 @@ compute_risk <- function(assets,
   # PHASE 3: SHOCK - Compute baseline and shocked yearly trajectories
   # ============================================================================
 
+  if (verbose) message("Step 3: Computing baseline and shock trajectories...")
+
   # Step 3.1: Compute baseline yearly trajectories
   yearly_baseline <- compute_baseline_trajectories(
     baseline_assets = assets,
@@ -206,6 +216,8 @@ compute_risk <- function(assets,
   # PHASE 4: FINANCIAL_ASSETS - Asset-level financial computations
   # ============================================================================
 
+  if (verbose) message("Step 4: Computing asset-level financials...")
+
   # Apply discounting to yearly scenarios
   assets_discounted_yearly <- discount_yearly_profits(yearly_scenarios, discount_rate)
 
@@ -213,6 +225,8 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 5: FINANCIALS_COMPANY - Company-level aggregation and risk metrics
   # ============================================================================
+
+  if (verbose) message("Step 5: Computing company-level financials and risk metrics...")
 
   # Compute company-level yearly trajectories for detailed analysis
   company_yearly_trajectories <- aggregate_assets_to_company(assets_discounted_yearly)
@@ -224,6 +238,8 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 6: UTILS - Final result formatting and output
   # ============================================================================
+
+  if (verbose) message("Step 6: Finalizing results...")
 
   # Final results include both aggregated and yearly trajectory data
   final_results <- list(

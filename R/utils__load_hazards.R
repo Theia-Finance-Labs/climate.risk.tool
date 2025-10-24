@@ -15,7 +15,7 @@
 #' @return A list with three elements:
 #'   - `hazards`: Nested list with `tif`, `nc`, and `csv` keys
 #'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
-#'     hazard_return_period, scenario_code, hazard_name (unified format),
+#'     hazard_return_period, hazard_name (unified format),
 #'     ensemble (ensemble variant or NA for TIF), source ("tif", "nc", or "csv")
 #' @examples
 #' \dontrun{
@@ -32,7 +32,6 @@
 #' }
 #' @export
 load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
-  message("[load_hazards_and_inventory] Starting hazard loading and inventory...")
 
   # Validate no mixed file types in same folder (at leaf directory level)
   validate_no_mixed_hazard_types(hazards_dir)
@@ -45,8 +44,6 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
   tif_inventory <- tibble::tibble()
 
   if (file.exists(mapping_path)) {
-    message("  Found TIF mapping at: ", mapping_path)
-    message("  Attempting to load TIF hazards...")
     mapping_df <- read_hazards_mapping(mapping_path)
 
     tif_list <- load_tif_hazards(
@@ -79,15 +76,13 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
           "hazard_indicator",
           "scenario_name",
           "hazard_return_period",
-          "scenario_code",
           "hazard_name",
           "ensemble",
           "source"
         )
     }
   } else {
-    message("  No TIF mapping file found at: ", mapping_path)
-    message("  Skipping TIF loading (mapping file required for TIF hazards)")
+    # No TIF mapping file found, skip TIF loading
   }
 
   # Load NC files and build inventory
@@ -102,11 +97,6 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
 
   # Combine inventories
   inventory <- dplyr::bind_rows(tif_inventory, nc_inventory, csv_inventory)
-
-  message(
-    "[load_hazards_and_inventory] Complete: ",
-    length(tif_list), " TIF + ", length(nc_list), " NC + ", length(csv_list), " CSV hazards loaded"
-  )
 
   return(list(
     hazards = list(tif = tif_list, nc = nc_list, csv = csv_list),

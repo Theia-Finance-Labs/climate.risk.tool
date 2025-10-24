@@ -229,7 +229,6 @@ load_nc_cube_with_terra <- function(file_path, terra_rast) {
       hazard_indicator = hazard_indicator,
       scenario_name = gwl_str,
       hazard_return_period = rp_numeric,
-      scenario_code = gwl_str,
       hazard_name = hazard_name,
       ensemble = ensemble_str,
       source = "nc"
@@ -321,8 +320,6 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
 
     if (is_cube_format) {
       # This is a cube format - use terra to load it efficiently
-      message("  Loading multi-layer NetCDF with terra: ", basename(f))
-
       result <- load_nc_cube_with_terra(f, terra_rast)
       results <- c(results, result$hazards)
       inventory_rows <- c(inventory_rows, result$inventory_rows)
@@ -366,10 +363,6 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
       for (pref in preferred_vars) {
         if (pref %in% var_names) {
           main_var <- pref
-          message(
-            "  Multi-variable NetCDF detected, using '", main_var, "' from: ",
-            paste(var_names, collapse = ", ")
-          )
           break
         }
       }
@@ -377,10 +370,6 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
       # If no preferred variable found, use first one
       if (is.null(main_var)) {
         main_var <- var_names[[1]]
-        message(
-          "  Multi-variable NetCDF detected, using first variable '", main_var, "' from: ",
-          paste(var_names, collapse = ", ")
-        )
       }
     } else {
       main_var <- var_names[[1]]
@@ -591,7 +580,6 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
             hazard_indicator = hazard_indicator,
             scenario_name = gwl_label,
             hazard_return_period = rp_numeric,
-            scenario_code = gwl_label,
             hazard_name = hazard_name,
             ensemble = ens_label,
             source = "nc"

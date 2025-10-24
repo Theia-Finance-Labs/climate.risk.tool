@@ -38,7 +38,6 @@ test_that("extract_csv_statistics finds closest point correctly", {
     hazard_indicator = "HI",
     scenario_name = "present",
     hazard_return_period = 5,
-    scenario_code = "present",
     hazard_name = "TestHazard__HI__GWL=present__RP=5__ensemble=mean",
     ensemble = "mean",
     source = "csv"
@@ -102,7 +101,6 @@ test_that("extract_csv_statistics handles multiple assets", {
     hazard_indicator = "HI",
     scenario_name = "present",
     hazard_return_period = 10,
-    scenario_code = "present",
     hazard_name = "TestHazard__HI__GWL=present__RP=10__ensemble=mean",
     ensemble = "mean",
     source = "csv"
@@ -155,7 +153,6 @@ test_that("extract_csv_statistics adds extraction_method suffix", {
     hazard_indicator = "HI",
     scenario_name = "present",
     hazard_return_period = 5,
-    scenario_code = "present",
     hazard_name = "TestHazard__HI__GWL=present__RP=5__ensemble=mean",
     ensemble = "mean",
     source = "csv"

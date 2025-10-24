@@ -205,7 +205,7 @@ The package supports two hazard data formats that can be used together in the sa
 **GeoTIFF (.tif) Files** - Traditional raster format
 - Requires `hazards_name_mapping.csv` for metadata
 - Spatial extraction computes statistics from pixel values
-- Naming: `{hazard_type}__{scenario_code}_h{return_period}glob`
+- Naming: `{hazard_type}__{scenario_name}_h{return_period}glob`
 
 **NetCDF (.nc) Files** - Modern scientific format with pre-computed statistics
 - Auto-discovers from directory structure and file dimensions

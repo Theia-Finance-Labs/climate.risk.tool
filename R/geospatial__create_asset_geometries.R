@@ -18,7 +18,6 @@
 #' }
 #' @export
 create_asset_geometries <- function(assets_df, default_buffer_size_m = 1111, output_crs = 4326) {
-  message("[create_asset_geometries] Creating geometries for ", nrow(assets_df), " assets...")
 
   # Use CRS 3857 (Web Mercator) for buffering - it uses meters as units
   # This ensures buffer distances are in actual meters, not degrees
@@ -84,8 +83,6 @@ create_asset_geometries <- function(assets_df, default_buffer_size_m = 1111, out
       geometry = geometry_sfc,
       centroid = centroid_sfc
     )
-
-  message("[create_asset_geometries] Created geometries for ", n_assets, " assets")
 
   return(assets_df)
 }

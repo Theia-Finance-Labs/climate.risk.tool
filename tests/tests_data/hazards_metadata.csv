@@ -1,4 +1,4 @@
-hazard_file, hazard_type, hazard_indicator, scenario_code, scenario_name, hazard_return_period
-global_pc_h10glob.tif,FloodTIF,Flood Height,pc,CurrentClimate,10
-global_rcp85_h10glob.tif,FloodTIF,Flood Height,rcp85,RCP8.5,10
-global_rcp85_h100glob.tif,FloodTIF,Flood Height,rcp85,RCP8.5,100
+hazard_file, hazard_type, hazard_indicator, scenario_name, hazard_return_period
+global_pc_h10glob.tif,FloodTIF,Flood Height,CurrentClimate,10
+global_rcp85_h10glob.tif,FloodTIF,Flood Height,RCP8.5,10
+global_rcp85_h100glob.tif,FloodTIF,Flood Height,RCP8.5,100

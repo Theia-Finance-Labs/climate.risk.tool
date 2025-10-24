@@ -70,8 +70,6 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
       model_type <- "ensemble"
     }
 
-    message("  Loading CSV hazard file: ", basename(f))
-    
     # Read CSV file
     csv_data <- tryCatch(
       utils::read.csv(f, stringsAsFactors = FALSE),
@@ -106,7 +104,6 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
       dplyr::filter(.data$ensemble == "mean")
     
     if (nrow(csv_data_mean) == 0) {
-      message("    No 'mean' ensemble found in CSV file, skipping: ", basename(f))
       next
     }
     
@@ -149,7 +146,6 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
         hazard_indicator = hazard_indicator,
         scenario_name = as.character(gwl_val),
         hazard_return_period = rp_numeric,
-        scenario_code = as.character(gwl_val),
         hazard_name = hazard_name,
         ensemble = as.character(ens_val),
         source = "csv"
@@ -163,8 +159,6 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
   } else {
     tibble::tibble()
   }
-
-  message("[load_csv_hazards_with_metadata] Loaded ", length(results), " CSV hazard datasets")
 
   return(list(
     hazards = results,

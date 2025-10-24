@@ -16,7 +16,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
       hazard_indicator = c("Flood Height", "Flood Height"),
       scenario_name = c("RCP8.5", "RCP8.5"),
       hazard_return_period = c(100, 10),
-      scenario_code = c("rcp85", "rcp85"),
+      scenario_name = c("rcp85", "rcp85"),
       hazard_name = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       stringsAsFactors = FALSE
     )
@@ -68,7 +68,7 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
       hazard_indicator = c("Flood Height", "Flood Height"),
       scenario_name = c("RCP8.5", "RCP8.5"),
       hazard_return_period = c(100, 10),
-      scenario_code = c("rcp85", "rcp85"),
+      scenario_name = c("rcp85", "rcp85"),
       hazard_name = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       stringsAsFactors = FALSE
     )
