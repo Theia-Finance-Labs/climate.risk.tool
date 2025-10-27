@@ -75,29 +75,77 @@ apply_flood_shock <- function(yearly_trajectories, event, assets_factors) {
     return(yearly_trajectories)
   }
 
-  # Build (asset, year, disruption_days) mapping
-  # Sum business_disruption if multiple hazard_names per event
-  disruption_map <- flood_assets |>
-    dplyr::group_by(.data$asset) |>
-    dplyr::summarize(
-      business_disruption = sum(as.numeric(.data$business_disruption), na.rm = TRUE),
-      .groups = "drop"
-    ) |>
-    dplyr::mutate(
-      year = event$event_year,
-      disruption_days = pmax(0, pmin(365, .data$business_disruption))
-    )
+  # Separate agriculture from non-agriculture assets
+  agriculture_assets <- flood_assets |>
+    dplyr::filter(.data$asset_category == "agriculture")
+  
+  non_agriculture_assets <- flood_assets |>
+    dplyr::filter(.data$asset_category != "agriculture")
 
-  # Join and apply: revenue * (1 - disruption_days/365)
-  result <- dplyr::left_join(yearly_trajectories, disruption_map, by = c("asset", "year")) |>
-    dplyr::mutate(
-      revenue = dplyr::if_else(
-        is.na(.data$disruption_days),
-        .data$revenue,
-        as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
+  # Process non-agriculture assets (commercial building, industrial building)
+  # Only business disruption applies
+  result <- yearly_trajectories
+  
+  if (nrow(non_agriculture_assets) > 0) {
+    disruption_map <- non_agriculture_assets |>
+      dplyr::group_by(.data$asset) |>
+      dplyr::summarize(
+        business_disruption = sum(as.numeric(.data$business_disruption), na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(
+        year = event$event_year,
+        disruption_days = pmax(0, pmin(365, .data$business_disruption))
       )
-    ) |>
-    dplyr::select(-"disruption_days", -"business_disruption")
+
+    # Join and apply: revenue * (1 - disruption_days/365)
+    result <- dplyr::left_join(result, disruption_map, by = c("asset", "year")) |>
+      dplyr::mutate(
+        revenue = dplyr::if_else(
+          is.na(.data$disruption_days),
+          .data$revenue,
+          as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
+        )
+      ) |>
+      dplyr::select(-dplyr::any_of(c("disruption_days", "business_disruption")))
+  }
+
+  # Process agriculture assets
+  # Apply damage factor THEN business disruption
+  if (nrow(agriculture_assets) > 0) {
+    agriculture_map <- agriculture_assets |>
+      dplyr::group_by(.data$asset) |>
+      dplyr::summarize(
+        damage_factor = sum(as.numeric(.data$damage_factor), na.rm = TRUE),
+        business_disruption = sum(as.numeric(.data$business_disruption), na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(
+        year = event$event_year,
+        disruption_days = pmax(0, pmin(365, .data$business_disruption))
+      )
+
+    # Join and apply: 
+    # Step 1: Apply damage factor: revenue * (1 - damage_factor)
+    # Step 2: Apply business disruption: revenue * (1 - disruption_days/365)
+    # Step 3: Ensure revenue >= 0
+    result <- dplyr::left_join(result, agriculture_map, by = c("asset", "year")) |>
+      dplyr::mutate(
+        revenue = dplyr::if_else(
+          is.na(.data$damage_factor),
+          .data$revenue,
+          {
+            # Step 1: Apply damage factor
+            rev_after_damage <- as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor))
+            # Step 2: Apply business disruption
+            rev_after_disruption <- rev_after_damage * (1 - as.numeric(.data$disruption_days) / 365)
+            # Step 3: Ensure non-negative
+            pmax(0, rev_after_disruption)
+          }
+        )
+      ) |>
+      dplyr::select(-dplyr::any_of(c("damage_factor", "disruption_days", "business_disruption")))
+  }
 
   return(result)
 }

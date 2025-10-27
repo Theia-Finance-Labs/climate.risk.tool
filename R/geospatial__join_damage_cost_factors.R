@@ -47,50 +47,118 @@ join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
     dplyr::filter(.data$hazard_type == "FloodTIF") |>
     dplyr::mutate(.__intensity_key__. = as.integer(round(as.numeric(.data$hazard_intensity))))
 
-  # Compute max available intensity key per (hazard_type, hazard_indicator, asset_category)
-  max_key_by_group <- factors_tmp |>
-    dplyr::group_by(.data$hazard_type, .data$hazard_indicator, .data$asset_category) |>
-    dplyr::summarize(
-      .__max_intensity_key__. = max(.data$.__intensity_key__., na.rm = TRUE),
-      .groups = "drop"
-    )
+  # Separate agriculture assets (need asset_subtype matching) from others
+  assets_agriculture <- assets_tmp |>
+    dplyr::filter(.data$asset_category == "agriculture")
+  
+  assets_non_agriculture <- assets_tmp |>
+    dplyr::filter(.data$asset_category != "agriculture")
 
-  # Join and cap effective intensity key
-  assets_tmp <- dplyr::left_join(
-    assets_tmp,
-    max_key_by_group,
-    by = c("hazard_type", "hazard_indicator", "asset_category")
-  ) |>
-    dplyr::mutate(
-      .__effective_intensity_key__. = dplyr::if_else(
-        !is.na(.data$.__max_intensity_key__.) &
-          .data$.__intensity_key__. > .data$.__max_intensity_key__.,
-        .data$.__max_intensity_key__.,
-        .data$.__intensity_key__.
+  # Process non-agriculture assets (commercial building, industrial building)
+  flood_merged_non_ag <- NULL
+  if (nrow(assets_non_agriculture) > 0) {
+    # Compute max available intensity key per (hazard_type, hazard_indicator, asset_category)
+    max_key_by_group <- factors_tmp |>
+      dplyr::filter(.data$asset_category != "agriculture") |>
+      dplyr::group_by(.data$hazard_type, .data$hazard_indicator, .data$asset_category) |>
+      dplyr::summarize(
+        .__max_intensity_key__. = max(.data$.__intensity_key__., na.rm = TRUE),
+        .groups = "drop"
       )
-    )
 
-  # Join on hazard_type, hazard_indicator, asset_category, effective_intensity_key
-  factors_key <- factors_tmp |>
-    dplyr::select("hazard_type", "hazard_indicator", "asset_category", ".__intensity_key__.",
-                  "damage_factor", "cost_factor", "business_disruption")
-
-  flood_merged <- dplyr::left_join(
-    assets_tmp,
-    factors_key,
-    by = dplyr::join_by(
-      "hazard_type",
-      "hazard_indicator",
-      "asset_category",
-      ".__effective_intensity_key__." == ".__intensity_key__."
-    )
-  ) |>
-    dplyr::mutate(
-      damage_factor = dplyr::coalesce(as.numeric(.data$damage_factor), NA_real_),
-      cost_factor = dplyr::coalesce(as.numeric(.data$cost_factor), NA_real_),
-      business_disruption = dplyr::coalesce(as.numeric(.data$business_disruption), NA_real_)
+    # Join and cap effective intensity key
+    assets_non_agriculture <- dplyr::left_join(
+      assets_non_agriculture,
+      max_key_by_group,
+      by = c("hazard_type", "hazard_indicator", "asset_category")
     ) |>
-    dplyr::select(-dplyr::starts_with(".__"))
+      dplyr::mutate(
+        .__effective_intensity_key__. = dplyr::if_else(
+          !is.na(.data$.__max_intensity_key__.) &
+            .data$.__intensity_key__. > .data$.__max_intensity_key__.,
+          .data$.__max_intensity_key__.,
+          .data$.__intensity_key__.
+        )
+      )
+
+    # Join on hazard_type, hazard_indicator, asset_category, effective_intensity_key
+    factors_key_non_ag <- factors_tmp |>
+      dplyr::filter(.data$asset_category != "agriculture") |>
+      dplyr::select("hazard_type", "hazard_indicator", "asset_category", ".__intensity_key__.",
+                    "damage_factor", "cost_factor", "business_disruption")
+
+    flood_merged_non_ag <- dplyr::left_join(
+      assets_non_agriculture,
+      factors_key_non_ag,
+      by = dplyr::join_by(
+        "hazard_type",
+        "hazard_indicator",
+        "asset_category",
+        ".__effective_intensity_key__." == ".__intensity_key__."
+      )
+    ) |>
+      dplyr::mutate(
+        damage_factor = dplyr::coalesce(as.numeric(.data$damage_factor), NA_real_),
+        cost_factor = dplyr::coalesce(as.numeric(.data$cost_factor), NA_real_),
+        business_disruption = dplyr::coalesce(as.numeric(.data$business_disruption), NA_real_)
+      ) |>
+      dplyr::select(-dplyr::starts_with(".__"))
+  }
+
+  # Process agriculture assets (need asset_subtype matching)
+  flood_merged_ag <- NULL
+  if (nrow(assets_agriculture) > 0) {
+    # Compute max available intensity key per (hazard_type, hazard_indicator, asset_category, asset_subtype)
+    max_key_by_group_ag <- factors_tmp |>
+      dplyr::filter(.data$asset_category == "agriculture") |>
+      dplyr::group_by(.data$hazard_type, .data$hazard_indicator, .data$asset_category, .data$asset_subtype) |>
+      dplyr::summarize(
+        .__max_intensity_key__. = max(.data$.__intensity_key__., na.rm = TRUE),
+        .groups = "drop"
+      )
+
+    # Join and cap effective intensity key
+    assets_agriculture <- dplyr::left_join(
+      assets_agriculture,
+      max_key_by_group_ag,
+      by = c("hazard_type", "hazard_indicator", "asset_category", "asset_subtype")
+    ) |>
+      dplyr::mutate(
+        .__effective_intensity_key__. = dplyr::if_else(
+          !is.na(.data$.__max_intensity_key__.) &
+            .data$.__intensity_key__. > .data$.__max_intensity_key__.,
+          .data$.__max_intensity_key__.,
+          .data$.__intensity_key__.
+        )
+      )
+
+    # Join on hazard_type, hazard_indicator, asset_category, asset_subtype, effective_intensity_key
+    factors_key_ag <- factors_tmp |>
+      dplyr::filter(.data$asset_category == "agriculture") |>
+      dplyr::select("hazard_type", "hazard_indicator", "asset_category", "asset_subtype", ".__intensity_key__.",
+                    "damage_factor", "cost_factor", "business_disruption")
+
+    flood_merged_ag <- dplyr::left_join(
+      assets_agriculture,
+      factors_key_ag,
+      by = dplyr::join_by(
+        "hazard_type",
+        "hazard_indicator",
+        "asset_category",
+        "asset_subtype",
+        ".__effective_intensity_key__." == ".__intensity_key__."
+      )
+    ) |>
+      dplyr::mutate(
+        damage_factor = dplyr::coalesce(as.numeric(.data$damage_factor), NA_real_),
+        cost_factor = dplyr::coalesce(as.numeric(.data$cost_factor), NA_real_),
+        business_disruption = dplyr::coalesce(as.numeric(.data$business_disruption), NA_real_)
+      ) |>
+      dplyr::select(-dplyr::starts_with(".__"))
+  }
+
+  # Combine agriculture and non-agriculture results
+  flood_merged <- dplyr::bind_rows(flood_merged_non_ag, flood_merged_ag)
 
   return(flood_merged)
 }

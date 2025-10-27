@@ -97,14 +97,13 @@ testthat::test_that("read_damage_cost_factors parses key columns with correct ty
 
   # Required columns (should be snake_case after processing)
   req_factor_cols <- c(
-    "hazard_intensity", "hazard_unit", "asset_category",
+    "hazard_intensity", "asset_category",
     "damage_factor", "cost_factor", "hazard_type"
   )
   testthat::expect_true(all(req_factor_cols %in% names(factors)))
 
   # Types
   testthat::expect_true(is.numeric(factors$hazard_intensity))
-  testthat::expect_type(factors$hazard_unit, "character")
   testthat::expect_type(factors$asset_category, "character")
   testthat::expect_true(is.numeric(factors$damage_factor))
   testthat::expect_true(is.numeric(factors$cost_factor))

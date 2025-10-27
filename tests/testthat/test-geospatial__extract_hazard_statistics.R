@@ -23,6 +23,7 @@ testthat::test_that("geolocated assets extract from TIF files", {
     municipality = NA_character_,
     province = NA_character_,
     asset_category = "office",
+    asset_subtype = NA_character_,
     size_in_m2 = 1000,
     share_of_economic_activity = 0.5
   )
@@ -74,6 +75,7 @@ testthat::test_that("geolocated assets extract from NC files", {
     municipality = NA_character_,
     province = NA_character_,
     asset_category = "office",
+    asset_subtype = NA_character_,
     size_in_m2 = 1000,
     share_of_economic_activity = 0.5
   )
@@ -128,6 +130,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
     municipality = c("Barcelos", "Barcelos", NA_character_),
     province = c("Amazonas", "Amazonas", "Amazonas"),
     asset_category = "office",
+    asset_subtype = NA_character_,
     size_in_m2 = 1000,
     share_of_economic_activity = 0.5
   )
@@ -168,6 +171,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     municipality = NA_character_,
     province = "Amazonas",
     asset_category = "office",
+    asset_subtype = NA_character_,
     size_in_m2 = 1000,
     share_of_economic_activity = 0.5
   )
@@ -215,6 +219,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     municipality = "NonExistentMunicipality12345",
     province = "NonExistentProvince67890",
     asset_category = "office",
+    asset_subtype = NA_character_,
     size_in_m2 = 1000,
     share_of_economic_activity = 0.5
   )

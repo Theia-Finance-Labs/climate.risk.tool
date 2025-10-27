@@ -16,7 +16,7 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
     hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=100"),
     damage_factor = c(0.5, 0.4),
     cost_factor = c(200, 200),
-    asset_category = c("Industrial", "Commercial")
+    asset_category = c("industrial building", "commercial building")
   )
 
   # Add acute_damage column as expected by the function
@@ -70,7 +70,7 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
     hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=50"),
     damage_factor = c(0.5, 0.3),
     cost_factor = c(200, 150),
-    asset_category = c("Industrial", "Industrial")
+    asset_category = c("industrial building", "industrial building")
   )
 
   # Test with events in non-alphabetical order by event_id
@@ -91,4 +91,109 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
   # Total damage should be: (0.3 * 150) + (0.5 * 200) = 45 + 100 = 145
   expected_profit_2030 <- 120 - 145 # -25
   testthat::expect_equal(result$profit[result$asset == "A1" & result$year == 2030], expected_profit_2030)
+})
+
+testthat::test_that("apply_acute_profit_shock excludes agriculture assets", {
+  yearly_trajectories <- data.frame(
+    asset = c("AG1", "AG1", "COM1", "COM1"),
+    company = c("C1", "C1", "C1", "C1"),
+    year = c(2025, 2030, 2025, 2030),
+    revenue = c(1000, 1200, 1000, 1200),
+    profit = c(100, 120, 100, 120)
+  )
+
+  assets_factors <- data.frame(
+    asset = c("AG1", "COM1"),
+    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_name = c("flood1", "flood1"),
+    damage_factor = c(0.3, 0.3),
+    cost_factor = c(100, 100),
+    asset_category = c("agriculture", "commercial building")
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "FloodTIF",
+    hazard_name = "flood1",
+    event_year = 2030L,
+    chronic = FALSE
+  )
+
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+
+  # Agriculture asset (AG1) should NOT have profit shock applied
+  testthat::expect_equal(result$profit[result$asset == "AG1" & result$year == 2030], 120)
+  
+  # Commercial asset (COM1) should have profit shock applied
+  # profit = 120 - (0.3 * 100) = 90
+  testthat::expect_equal(result$profit[result$asset == "COM1" & result$year == 2030], 90)
+})
+
+testthat::test_that("apply_acute_profit_shock applies to industrial buildings with correct cost_factor", {
+  yearly_trajectories <- data.frame(
+    asset = c("IND1", "IND1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200),
+    profit = c(100, 120)
+  )
+
+  assets_factors <- data.frame(
+    asset = "IND1",
+    hazard_type = "FloodTIF",
+    hazard_name = "flood1",
+    damage_factor = 0.4,
+    cost_factor = 250,  # Industrial-specific cost factor
+    asset_category = "industrial building"
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "FloodTIF",
+    hazard_name = "flood1",
+    event_year = 2030L,
+    chronic = FALSE
+  )
+
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+
+  # Industrial building: profit = 120 - (0.4 * 250) = 20
+  expected_profit_2030 <- 120 - (0.4 * 250)
+  testthat::expect_equal(result$profit[result$year == 2030], expected_profit_2030)
+  testthat::expect_equal(result$profit[result$year == 2025], 100)  # 2025 unchanged
+})
+
+testthat::test_that("apply_acute_profit_shock handles commercial building separately from industrial", {
+  yearly_trajectories <- data.frame(
+    asset = c("COM1", "COM1", "IND1", "IND1"),
+    company = c("C1", "C1", "C1", "C1"),
+    year = c(2025, 2030, 2025, 2030),
+    revenue = c(1000, 1200, 1000, 1200),
+    profit = c(100, 120, 100, 120)
+  )
+
+  assets_factors <- data.frame(
+    asset = c("COM1", "IND1"),
+    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_name = c("flood1", "flood1"),
+    damage_factor = c(0.3, 0.4),
+    cost_factor = c(150, 250),  # Different cost factors
+    asset_category = c("commercial building", "industrial building")
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "FloodTIF",
+    hazard_name = "flood1",
+    event_year = 2030L,
+    chronic = FALSE
+  )
+
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+
+  # Commercial: 120 - (0.3 * 150) = 75
+  testthat::expect_equal(result$profit[result$asset == "COM1" & result$year == 2030], 75)
+  
+  # Industrial: 120 - (0.4 * 250) = 20
+  testthat::expect_equal(result$profit[result$asset == "IND1" & result$year == 2030], 20)
 })
