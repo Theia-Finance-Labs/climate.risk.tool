@@ -19,6 +19,10 @@ import rasterio
 import rasterio.mask
 from shapely.geometry import Point
 from unidecode import unidecode
+from dask.distributed import Client, LocalCluster, progress
+from dask.diagnostics import ProgressBar
+import dask
+import warnings
 
 
 # ============================================================================
@@ -147,6 +151,58 @@ def compute_statistics(values):
         "p95": percentile(values, 95),
         "p97_5": percentile(values, 97.5),
     }
+
+
+def is_nc_cube_format(nc_path):
+    """
+    Detect if a NetCDF file is in cube format.
+
+    Cube format files have multiple dimensions representing scenario and return_period
+    directly in the structure (not as layer names like terra would parse).
+
+    Args:
+        nc_path: Path to NetCDF file
+
+    Returns:
+        bool: True if cube format, False otherwise
+    """
+    try:
+        ds = xr.open_dataset(nc_path)
+
+        # Get the data variable
+        var_names = list(ds.data_vars.keys())
+        if not var_names:
+            print(f"      -> No data variables found")
+            ds.close()
+            return False
+
+        var_name = var_names[0]
+        da = ds[var_name]
+
+        # Cube format check: has scenario AND return_period dimensions BUT NO ensemble dimension
+        # Regular format: has ensemble, scenario/GWL, and return_period dimensions
+        # Cube format: has scenario and return_period dimensions but NO ensemble dimension
+        dims = list(da.dims)
+        print(f"      -> Dimensions: {dims}")
+
+        has_scenario = any(dim in dims for dim in ["scenario", "GWL", "gwl"])
+        has_return_period = "return_period" in dims
+        has_ensemble = "ensemble" in dims
+
+        print(f"      -> Has scenario dim: {has_scenario}")
+        print(f"      -> Has return_period dim: {has_return_period}")
+        print(f"      -> Has ensemble dim: {has_ensemble}")
+
+        # Cube format: has scenario AND return_period but NO ensemble
+        # Regular format: has ensemble AND scenario/GWL AND return_period
+        is_cube = has_scenario and has_return_period and not has_ensemble
+
+        ds.close()
+        return is_cube
+
+    except Exception as e:
+        print(f"      -> Error reading file: {e}")
+        return False
 
 
 # ============================================================================
@@ -294,6 +350,209 @@ def process_csv_hazard(csv_path, adm_gdf, adm_level, ensemble_filter):
     ]
 
     return agg[cols]
+
+
+def process_nc_cube_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
+    """
+    Process NetCDF cube format hazard file and aggregate over regions using Dask.
+
+    This function uses chunked, lazy loading with Dask to handle massive files
+    (e.g., 245GB+) without loading everything into memory. It processes each
+    region in parallel using multiple cores.
+
+    Args:
+        nc_path: Path to NetCDF cube file
+        adm_gdf: GeoDataFrame with administrative boundaries
+        adm_level: Administrative level name (e.g., 'ADM1', 'ADM2')
+        ensemble_filter: Ensemble value to filter for (e.g., 'mean')
+
+    Returns:
+        pd.DataFrame: Aggregated statistics per region
+
+    Raises:
+        FileNotFoundError: If NC file doesn't exist
+        ValueError: If required dimensions/variables are missing
+        RuntimeError: If spatial operations fail
+    """
+    if not os.path.exists(nc_path):
+        raise FileNotFoundError(f"NetCDF cube file not found: {nc_path}")
+
+    print(f"    🚀 Starting Dask cluster for parallel processing...")
+
+    # Set up Dask distributed processing
+    cluster = LocalCluster(
+        n_workers=8,  # Use 8 workers for parallel processing
+        threads_per_worker=2,  # 2 threads per worker
+        memory_limit="4GB",  # Limit memory per worker
+        processes=True,  # Use processes for true parallelism
+        silence_logs=True,  # Reduce log noise
+    )
+    client = Client(cluster)
+    print(f"    📊 Dask dashboard: {client.dashboard_link}")
+    print(f"    💻 Using {len(cluster.workers)} workers with {4} GB memory each")
+
+    try:
+        # Open with chunking - LAZY LOADING, doesn't load data yet
+        print(f"    📂 Opening NetCDF with chunked lazy loading...")
+        ds = xr.open_dataset(
+            nc_path, chunks={"lat": 1000, "lon": 1000}  # Adjust based on your RAM
+        )
+
+        # Get the data variable
+        var_names = list(ds.data_vars.keys())
+        if not var_names:
+            raise ValueError(f"No data variables found in NetCDF cube: {nc_path}")
+        var_name = var_names[0]
+        da = ds[var_name]
+
+        print(f"    📐 Data array dimensions: {da.dims}")
+        print(f"    📏 Data array shape: {da.shape}")
+        print(f"    🧩 Chunk sizes: {da.chunks}")
+
+        # Extract hazard info from path
+        hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
+
+        # Filter to specified ensemble if ensemble dimension exists
+        if "ensemble" in da.dims:
+            da = da.sel(ensemble=ensemble_filter)
+
+        # Get dimension names for scenarios and return periods
+        scenario_dim = None
+        for dim in ["scenario", "GWL", "gwl"]:
+            if dim in da.dims:
+                scenario_dim = dim
+                break
+
+        if scenario_dim is None:
+            raise ValueError(f"No scenario dimension found in {nc_path}")
+
+        # Get the actual dimension values
+        scenarios = da[scenario_dim].values
+        return_periods = da["return_period"].values
+
+        print(
+            f"    🌍 Processing {len(scenarios)} scenarios × {len(return_periods)} return periods × {len(adm_gdf)} regions"
+        )
+        print(f"    ⏱️  This will be processed in parallel using Dask...")
+
+        # Create delayed tasks for parallel processing
+        from dask import delayed
+        
+        def process_region_scenario(region_row, scenario, rp):
+            """Process a single region-scenario-return_period combination"""
+            region_name = region_row["region"]
+            geom = region_row.geometry
+            
+            # Get bounding box of geometry to reduce data
+            minx, miny, maxx, maxy = geom.bounds
+            
+            # Clip to bounding box (still lazy)
+            da_slice = da.sel({scenario_dim: scenario, "return_period": rp})
+            da_bbox = da_slice.sel(
+                lat=slice(maxy, miny),  # lat is usually descending
+                lon=slice(minx, maxx),
+            )
+            
+            # Check if any data in bbox
+            if da_bbox.sizes["lat"] == 0 or da_bbox.sizes["lon"] == 0:
+                return None
+            
+            # Create mask for this geometry
+            # Get lat/lon coordinates
+            lats = da_bbox.lat.values
+            lons = da_bbox.lon.values
+            
+            # Create meshgrid
+            lon_grid, lat_grid = np.meshgrid(lons, lats)
+            
+            # Flatten for point-in-polygon test
+            points = np.column_stack([lon_grid.ravel(), lat_grid.ravel()])
+            
+            # Create GeoDataFrame of points for spatial join
+            from shapely.geometry import Point
+            point_geoms = [Point(x, y) for x, y in points]
+            points_gdf = gpd.GeoDataFrame(
+                geometry=point_geoms, crs="EPSG:4326"
+            )
+            
+            # Spatial join to find points within region
+            within_mask = points_gdf.within(geom)
+            
+            if not within_mask.any():
+                return None
+            
+            # Reshape mask to match data shape
+            mask_2d = within_mask.values.reshape(len(lats), len(lons))
+            
+            # Apply mask and compute statistics (THIS is where Dask loads only needed chunks)
+            da_masked = da_bbox.where(mask_2d)
+            
+            # Compute statistics - this triggers Dask computation
+            values = da_masked.values.ravel()
+            values = values[~np.isnan(values)]
+            
+            if len(values) == 0:
+                return None
+            
+            # Calculate statistics
+            stats = {
+                "region": region_name,
+                "adm_level": adm_level,
+                "scenario_name": str(scenario),
+                "hazard_return_period": int(rp),
+                "hazard_type": hazard_type,
+                "hazard_indicator": hazard_indicator,
+                "min": float(np.min(values)),
+                "max": float(np.max(values)),
+                "mean": float(np.mean(values)),
+                "median": float(np.percentile(values, 50)),
+                "p2_5": float(np.percentile(values, 2.5)),
+                "p5": float(np.percentile(values, 5)),
+                "p10": float(np.percentile(values, 10)),
+                "p90": float(np.percentile(values, 90)),
+                "p95": float(np.percentile(values, 95)),
+                "p97_5": float(np.percentile(values, 97.5)),
+                "ensemble": ensemble_filter,
+            }
+            
+            return stats
+        
+        # Create all delayed tasks
+        print(f"    🔄 Creating {len(scenarios) * len(return_periods) * len(adm_gdf)} parallel tasks...")
+        delayed_tasks = []
+        
+        for scenario in scenarios:
+            for rp in return_periods:
+                for idx, region_row in adm_gdf.iterrows():
+                    task = delayed(process_region_scenario)(region_row, scenario, rp)
+                    delayed_tasks.append(task)
+        
+        # Execute all tasks in parallel with progress bar
+        print(f"    ⚡ Executing tasks in parallel...")
+        with ProgressBar():
+            results = dask.compute(*delayed_tasks)
+        
+        # Filter out None results
+        all_results = [r for r in results if r is not None]
+
+        # Close dataset
+        ds.close()
+
+        if len(all_results) == 0:
+            raise RuntimeError(f"No valid data found for any region in {nc_path}")
+
+        # Convert to DataFrame
+        result_df = pd.DataFrame(all_results)
+
+        print(f"    ✅ Processed {len(result_df)} region records")
+
+        return result_df
+
+    finally:
+        # Always clean up Dask resources
+        print(f"    🧹 Cleaning up Dask cluster...")
+        client.close()
+        cluster.close()
 
 
 def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
@@ -614,10 +873,33 @@ def main():
 
     print("\nSearching for hazard files...")
 
-    # Find NetCDF files
-    nc_pattern = os.path.join(HAZARDS_DIR, "**", "*ensemble_return_period*.nc")
-    nc_files = sorted(glob.glob(nc_pattern, recursive=True))
-    print(f"  Found {len(nc_files)} NetCDF file(s)")
+    # Find NetCDF files (both regular and cube formats)
+    nc_pattern = os.path.join(HAZARDS_DIR, "**", "*.nc")
+    all_nc_files = sorted(glob.glob(nc_pattern, recursive=True))
+    print(f"  Scanning {len(all_nc_files)} total NetCDF files for format detection...")
+
+    # Separate NC files into cube format and regular format
+    nc_cube_files = []
+    nc_regular_files = []
+
+    for nc_file in all_nc_files:
+        print(f"    Checking: {os.path.basename(nc_file)}")
+        print(f"      -> Full path: {nc_file}")
+
+        # First check if it's a cube format by examining the file structure
+        if is_nc_cube_format(nc_file):
+            nc_cube_files.append(nc_file)
+            print(f"      -> Detected as CUBE format")
+        else:
+            # For non-cube files, check naming pattern
+            if "ensemble_return_period" in os.path.basename(nc_file):
+                nc_regular_files.append(nc_file)
+                print(f"      -> Detected as regular format")
+            else:
+                print(f"      -> Skipped (no ensemble_return_period in name)")
+
+    print(f"  Found {len(nc_cube_files)} NetCDF cube file(s)")
+    print(f"  Found {len(nc_regular_files)} regular NetCDF file(s)")
 
     # Find CSV files (pre-converted NC)
     csv_pattern = os.path.join(HAZARDS_DIR, "**", "*ensemble_return_period*.csv")
@@ -635,37 +917,75 @@ def main():
     ]
     print(f"  Found {len(tif_files)} GeoTIFF file(s)")
 
-    if not nc_files and not csv_files and not tif_files:
+    if not nc_cube_files and not nc_regular_files and not csv_files and not tif_files:
         raise FileNotFoundError(f"No hazard files found in {HAZARDS_DIR}")
 
     # ========================================================================
     # PROCESS ALL FILES
     # ========================================================================
 
+    print("\n" + "=" * 60)
+    print("STARTING FILE PROCESSING")
+    print("=" * 60)
+
     all_results = []
 
-    # Process CSV files
-    for csv_path in csv_files:
-        print(f"\nProcessing CSV: {os.path.basename(csv_path)}")
-        for adm_level, adm_gdf in adm_gdfs.items():
-            print(f"  Aggregating over {adm_level}...")
-            result = process_csv_hazard(csv_path, adm_gdf, adm_level, ENSEMBLE_FILTER)
-            all_results.append(result)
+    # Process NetCDF cube files
+    if nc_cube_files:
+        print(f"\n📁 Processing {len(nc_cube_files)} NetCDF CUBE file(s)...")
+        for i, nc_path in enumerate(nc_cube_files, 1):
+            print(
+                f"\n[{i}/{len(nc_cube_files)}] Processing NetCDF CUBE: {os.path.basename(nc_path)}"
+            )
+            for adm_level, adm_gdf in adm_gdfs.items():
+                print(f"  📊 Aggregating over {adm_level}...")
 
-    # Process NetCDF files
-    for nc_path in nc_files:
-        print(f"\nProcessing NetCDF: {os.path.basename(nc_path)}")
-        for adm_level, adm_gdf in adm_gdfs.items():
-            print(f"  Aggregating over {adm_level}...")
-            result = process_nc_hazard(nc_path, adm_gdf, adm_level, ENSEMBLE_FILTER)
-            all_results.append(result)
+                result = process_nc_cube_hazard(
+                    nc_path, adm_gdf, adm_level, ENSEMBLE_FILTER
+                )
+                all_results.append(result)
+                print(f"    ✅ Success: {len(result)} records")
+
+    # Process CSV files
+    if csv_files:
+        print(f"\n📁 Processing {len(csv_files)} CSV file(s)...")
+        for i, csv_path in enumerate(csv_files, 1):
+            print(
+                f"\n[{i}/{len(csv_files)}] Processing CSV: {os.path.basename(csv_path)}"
+            )
+            for adm_level, adm_gdf in adm_gdfs.items():
+                print(f"  📊 Aggregating over {adm_level}...")
+
+                result = process_csv_hazard(
+                    csv_path, adm_gdf, adm_level, ENSEMBLE_FILTER
+                )
+                all_results.append(result)
+                print(f"    ✅ Success: {len(result)} records")
+
+    # Process regular NetCDF files
+    if nc_regular_files:
+        print(f"\n📁 Processing {len(nc_regular_files)} regular NetCDF file(s)...")
+        for i, nc_path in enumerate(nc_regular_files, 1):
+            print(
+                f"\n[{i}/{len(nc_regular_files)}] Processing NetCDF: {os.path.basename(nc_path)}"
+            )
+            for adm_level, adm_gdf in adm_gdfs.items():
+                print(f"  📊 Aggregating over {adm_level}...")
+                result = process_nc_hazard(nc_path, adm_gdf, adm_level, ENSEMBLE_FILTER)
+                all_results.append(result)
+                print(f"    ✅ Success: {len(result)} records")
 
     # Process GeoTIFF files (opens each file once for all ADM levels)
-    for tif_path in tif_files:
-        print(f"\nProcessing GeoTIFF: {os.path.basename(tif_path)}")
-        print("  Aggregating over all ADM levels...")
-        result = process_tif_hazard(tif_path, adm_gdfs, FLOOD_SCENARIOS)
-        all_results.append(result)
+    if tif_files:
+        print(f"\n📁 Processing {len(tif_files)} GeoTIFF file(s)...")
+        for i, tif_path in enumerate(tif_files, 1):
+            print(
+                f"\n[{i}/{len(tif_files)}] Processing GeoTIFF: {os.path.basename(tif_path)}"
+            )
+            print("  📊 Aggregating over all ADM levels...")
+            result = process_tif_hazard(tif_path, adm_gdfs, FLOOD_SCENARIOS)
+            all_results.append(result)
+            print(f"    ✅ Success: {len(result)} records")
 
     # ========================================================================
     # COMBINE AND SAVE RESULTS

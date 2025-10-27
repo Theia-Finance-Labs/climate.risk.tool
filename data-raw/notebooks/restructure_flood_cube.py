@@ -41,6 +41,14 @@ def main():
         f"Using {len(cluster.workers)} workers with {cluster._threads_per_worker} threads each"
     )
 
+    # Set the default client for all operations
+    dask.config.set(scheduler=client)
+
+    # Debug cluster status
+    print(f"Cluster status: {cluster}")
+    print(f"Active workers: {len(cluster.workers)}")
+    print(f"Scheduler address: {cluster.scheduler_address}")
+
     # Define paths
     input_file = "workspace/hazards/Flood/GIRI_flood_depth_cube.nc"
     output_file = "workspace/hazards/Flood/GIRI_flood_depth_cube_restructured.nc"
@@ -111,8 +119,17 @@ def main():
     # Use ProgressBar to show progress during save
     # The save operation will now use the Dask cluster for parallel processing
     print("Starting parallel save operation...")
+    print(f"Current scheduler: {dask.config.get('scheduler')}")
+    print(f"Dataset chunks: {ds_restructured.chunks}")
+
+    # Force computation with the client
     with ProgressBar():
-        ds_restructured.to_netcdf(
+        # Compute the dataset first to trigger parallel processing
+        print("Computing dataset with Dask cluster...")
+        ds_computed = ds_restructured.compute()
+
+        print("Saving computed dataset...")
+        ds_computed.to_netcdf(
             output_file,
             encoding={
                 "flood_depth": {
