@@ -60,8 +60,8 @@ read_assets <- function(base_dir) {
       )
     )
 
-  # Handle character columns that can have empty values (municipality, province)
-  char_cols_with_empty <- c("municipality", "province")
+  # Handle character columns that can have empty values (municipality, province, asset_subtype)
+  char_cols_with_empty <- c("municipality", "province", "asset_subtype")
 
   assets_raw <- assets_raw |>
     dplyr::mutate(

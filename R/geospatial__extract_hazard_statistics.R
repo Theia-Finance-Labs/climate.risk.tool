@@ -9,7 +9,7 @@
 #'   For NC sources: selects which ensemble raster to extract. For TIF sources: determines which statistic
 #'   to compute from extracted pixel values. Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
-#'   municipality, province, asset_category, size_in_m2, share_of_economic_activity,
+#'   municipality, province, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
 #' @noRd
 extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean") {
@@ -55,7 +55,7 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
     stop("No assets to process")
   }
 
-  final_result <- do.call(rbind, all_results)
+  final_result <- dplyr::bind_rows(all_results)
   message("[extract_hazard_statistics] Completed processing for ", nrow(assets_df), " assets")
 
   return(final_result)
@@ -238,7 +238,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",
-        "municipality", "province", "asset_category", "size_in_m2",
+        "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
@@ -250,7 +250,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     results_list <- results_list[!sapply(results_list, is.null)]
 
     if (length(results_list) > 0) {
-      raster_results <- do.call(rbind, results_list)
+      raster_results <- dplyr::bind_rows(results_list)
       all_results[[length(all_results) + 1]] <- raster_results
     }
   }
@@ -260,7 +260,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     return(tibble::tibble())
   }
 
-  return(do.call(rbind, all_results))
+  return(dplyr::bind_rows(all_results))
 }
 
 #' Extract statistics from precomputed administrative data (municipality/province lookup)
@@ -364,12 +364,13 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         municipality = asset_row$municipality,
         province = asset_row$province,
         asset_category = asset_row$asset_category,
+        asset_subtype = asset_row$asset_subtype,
         size_in_m2 = asset_row$size_in_m2,
         share_of_economic_activity = asset_row$share_of_economic_activity
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",
-        "municipality", "province", "asset_category", "size_in_m2",
+        "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
@@ -456,7 +457,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",
-        "municipality", "province", "asset_category", "size_in_m2",
+        "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )

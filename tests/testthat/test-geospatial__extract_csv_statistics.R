@@ -10,6 +10,7 @@ test_that("extract_csv_statistics finds closest point correctly", {
     municipality = c(NA, NA),
     province = c(NA, NA),
     asset_category = c("building", "building"),
+    asset_subtype = c(NA, NA),
     size_in_m2 = c(1000, 1000),
     share_of_economic_activity = c(0.5, 0.5),
     stringsAsFactors = FALSE
@@ -76,6 +77,7 @@ test_that("extract_csv_statistics handles multiple assets", {
     municipality = c(NA, NA, NA, NA),
     province = c(NA, NA, NA, NA),
     asset_category = rep("building", 4),
+    asset_subtype = rep(NA, 4),
     size_in_m2 = rep(1000, 4),
     share_of_economic_activity = rep(0.25, 4),
     stringsAsFactors = FALSE
@@ -130,6 +132,7 @@ test_that("extract_csv_statistics adds extraction_method suffix", {
     municipality = NA,
     province = NA,
     asset_category = "building",
+    asset_subtype = NA,
     size_in_m2 = 1000,
     share_of_economic_activity = 1.0,
     stringsAsFactors = FALSE
