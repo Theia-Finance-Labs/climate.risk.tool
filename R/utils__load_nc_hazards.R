@@ -1,246 +1,3 @@
-#' Load NetCDF cube format with terra
-#'
-#' @description
-#' Loads multi-layer NetCDF files where terra can directly parse the structure.
-#' This is used for "cube" format files where each layer represents a combination
-#' of scenario and return period, with layer names like:
-#' "flood_depth_return_period=2_scenario=_1"
-#'
-#' @param file_path Character. Path to the NetCDF file
-#' @param terra_rast SpatRaster. Pre-loaded terra raster object
-#' @return List with `hazards` (named list of SpatRaster) and `inventory_rows` (list of tibbles)
-#' @noRd
-load_nc_cube_with_terra <- function(file_path, terra_rast) {
-  # Parse folder structure for hazard_type and hazard_indicator
-  # Expected structure: .../hazards/{hazard_type}/{hazard_indicator?}/file.nc
-  # Or: .../hazards/{hazard_type}/file.nc
-  parts <- strsplit(normalizePath(file_path), .Platform$file.sep, fixed = TRUE)[[1]]
-
-  # Find the "hazards" directory index
-  hazards_idx <- which(parts == "hazards")
-
-  if (length(hazards_idx) > 0 && length(parts) > hazards_idx[length(hazards_idx)]) {
-    # Get parts after "hazards" directory
-    after_hazards <- parts[(hazards_idx[length(hazards_idx)] + 1):length(parts)]
-
-    if (length(after_hazards) >= 2) {
-      # hazards/{hazard_type}/file.nc or hazards/{hazard_type}/{indicator}/file.nc
-      hazard_type <- after_hazards[1]
-
-      if (length(after_hazards) == 2) {
-        # File is directly in hazard_type folder
-        # Extract indicator from filename
-        file_name <- after_hazards[2]
-        # Try to extract indicator from filename (e.g., "GIRI_flood_depth_cube.nc" -> "flood_depth")
-        indicator_match <- regmatches(file_name, regexpr("_([a-z_]+)_cube", file_name))
-        if (length(indicator_match) > 0) {
-          hazard_indicator <- sub("^_", "", sub("_cube$", "", indicator_match))
-        } else {
-          hazard_indicator <- sub("\\.nc$", "", file_name)
-        }
-      } else {
-        # File is in hazard_type/indicator folder
-        hazard_indicator <- after_hazards[2]
-      }
-    } else {
-      hazard_type <- "unknown"
-      hazard_indicator <- "indicator"
-    }
-  } else {
-    # Fallback to old logic if "hazards" not found
-    if (length(parts) >= 3) {
-      hazard_indicator <- parts[length(parts) - 1]
-      hazard_type <- parts[length(parts) - 2]
-    } else {
-      hazard_indicator <- "indicator"
-      hazard_type <- "unknown"
-    }
-  }
-
-  # Try to read dimension values from NetCDF metadata
-  scenario_mapping <- list()
-  ensemble_mapping <- list()
-  gwl_mapping <- list()
-
-  nc <- try(ncdf4::nc_open(file_path), silent = TRUE)
-  if (!inherits(nc, "try-error")) {
-    # Check if scenario dimension exists
-    if ("scenario" %in% names(nc$dim)) {
-      scenario_vals <- nc$dim[["scenario"]]$vals
-      for (i in seq_along(scenario_vals)) {
-        scenario_mapping[[paste0("_", i)]] <- as.character(scenario_vals[i])
-      }
-    }
-
-    # Check if ensemble dimension exists
-    if ("ensemble" %in% names(nc$dim)) {
-      ensemble_vals <- nc$dim[["ensemble"]]$vals
-      for (i in seq_along(ensemble_vals)) {
-        ensemble_mapping[[as.character(i)]] <- as.character(ensemble_vals[i])
-      }
-    }
-
-    # Check if GWL dimension exists
-    if ("GWL" %in% names(nc$dim)) {
-      gwl_vals <- nc$dim[["GWL"]]$vals
-      for (i in seq_along(gwl_vals)) {
-        gwl_mapping[[as.character(i)]] <- as.character(gwl_vals[i])
-      }
-    }
-
-    try(ncdf4::nc_close(nc), silent = TRUE)
-  }
-
-  # Get layer names
-  layer_names <- names(terra_rast)
-
-  # Parse layer names to extract metadata
-  # Expected formats:
-  # - "variable_return_period=X_scenario=_Y"
-  # - "variable_ensemble=_GWL=_return_period=X_Y" where Y is ensemble index
-  results <- list()
-  inventory_rows <- list()
-
-  for (i in seq_len(terra::nlyr(terra_rast))) {
-    layer_name <- layer_names[i]
-    layer_rast <- terra_rast[[i]]
-
-    # Validate that extracted layer is single-band
-    if (terra::nlyr(layer_rast) != 1) {
-      stop(
-        "Expected single-band layer from NetCDF file '", basename(file_path),
-        "', but layer ", i, " ('", layer_name, "') has ", terra::nlyr(layer_rast), " bands. ",
-        "Each layer in a multi-layer NC file should represent a single hazard scenario."
-      )
-    }
-
-    # Parse layer name for return_period
-    # Example: "SPI6_ensemble=_GWL=_return_period=5_1"
-    rp_match <- regmatches(layer_name, regexpr("return_period=([0-9]+)", layer_name))
-
-    if (length(rp_match) > 0) {
-      rp_str <- sub("return_period=", "", rp_match)
-      rp_numeric <- as.numeric(rp_str)
-    } else {
-      rp_str <- paste0("idx", i)
-      rp_numeric <- i
-    }
-
-    # Parse for scenario
-    scenario_match <- regmatches(layer_name, regexpr("scenario=(_[0-9]+)", layer_name))
-    if (length(scenario_match) > 0) {
-      scenario_idx <- sub("scenario=", "", scenario_match)
-      # Look up actual scenario name from mapping
-      if (scenario_idx %in% names(scenario_mapping)) {
-        scenario_str <- scenario_mapping[[scenario_idx]]
-      } else {
-        scenario_str <- paste0("scenario", scenario_idx)
-      }
-    } else {
-      scenario_str <- "unknown"
-    }
-
-    # Parse for GWL and ensemble based on file structure
-    gwl_str <- "present" # Default
-    ensemble_str <- "mean" # Default - always use mean ensemble
-
-    # Check if this is a GIRI-style file (explicit scenario indices) vs ensemble-style file (combination indices)
-    has_explicit_scenario <- grepl("scenario=_", layer_name)
-    has_gwl_in_name <- grepl("GWL=", layer_name)
-
-    if (has_explicit_scenario && !has_gwl_in_name) {
-      # GIRI-style file: scenario index is explicit in layer name
-      # Example: "flood_depth_return_period=2_scenario=_1"
-      # Use the scenario_str that was already parsed above
-      gwl_str <- scenario_str
-      ensemble_str <- "mean" # GIRI files don't have ensemble dimension
-    } else {
-      # Ensemble-style file: trailing number is combination index
-      # Example: "SPI6_ensemble=_GWL=_return_period=5_1"
-      trailing_match <- regmatches(layer_name, regexpr("_([0-9]+)$", layer_name))
-      if (length(trailing_match) > 0) {
-        trailing_idx <- sub("^_", "", trailing_match)
-        idx_numeric <- as.numeric(trailing_idx)
-
-        if (!is.na(idx_numeric) && length(gwl_mapping) > 0 && length(ensemble_mapping) > 0) {
-          # The trailing number is a combination index representing both GWL and ensemble
-          # Calculate GWL and ensemble indices from the combination index
-          n_ensemble <- length(ensemble_mapping)
-          gwl_idx <- ((idx_numeric - 1) %/% n_ensemble) + 1
-          ensemble_idx <- ((idx_numeric - 1) %% n_ensemble) + 1
-
-          # Look up actual values from mappings
-          if (as.character(gwl_idx) %in% names(gwl_mapping)) {
-            gwl_str <- gwl_mapping[[as.character(gwl_idx)]]
-          }
-          # Only use ensemble if it's 'mean', otherwise skip this layer
-          if (as.character(ensemble_idx) %in% names(ensemble_mapping)) {
-            potential_ensemble <- ensemble_mapping[[as.character(ensemble_idx)]]
-            if (potential_ensemble != "mean") {
-              # Skip this layer - we only want mean ensemble
-              next
-            }
-            ensemble_str <- potential_ensemble
-          }
-        } else if (!is.na(idx_numeric) && length(gwl_mapping) > 0 && length(ensemble_mapping) == 0) {
-          # Only GWL dimension, no ensemble
-          if (as.character(idx_numeric) %in% names(gwl_mapping)) {
-            gwl_str <- gwl_mapping[[as.character(idx_numeric)]]
-          }
-        } else if (!is.na(idx_numeric) && length(ensemble_mapping) > 0 && length(gwl_mapping) == 0) {
-          # Only ensemble dimension, no GWL
-          if (as.character(idx_numeric) %in% names(ensemble_mapping)) {
-            potential_ensemble <- ensemble_mapping[[as.character(idx_numeric)]]
-            if (potential_ensemble != "mean") {
-              # Skip this layer - we only want mean ensemble
-              next
-            }
-            ensemble_str <- potential_ensemble
-          }
-        }
-      }
-
-      # Fallback: try to parse GWL from layer name if combination parsing failed
-      if (gwl_str == "present") {
-        gwl_match <- regmatches(layer_name, regexpr("GWL=([^_]*)", layer_name))
-        if (length(gwl_match) > 0) {
-          gwl_str <- sub("GWL=", "", gwl_match)
-          if (gwl_str == "" || gwl_str == "_") {
-            gwl_str <- "present"
-          }
-        }
-      }
-    }
-
-
-    # Unified hazard name WITHOUT ensemble suffix for inventory
-    hazard_name <- paste0(
-      hazard_type, "__", hazard_indicator,
-      "__GWL=", gwl_str,
-      "__RP=", rp_str,
-      "__ensemble=", ensemble_str
-    )
-
-    results[[hazard_name]] <- layer_rast
-
-    # Build inventory row
-    inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
-      hazard_type = hazard_type,
-      hazard_indicator = hazard_indicator,
-      scenario_name = gwl_str,
-      hazard_return_period = rp_numeric,
-      scenario_code = gwl_str,
-      hazard_name = hazard_name,
-      ensemble = ensemble_str,
-      source = "nc"
-    )
-  }
-
-  return(list(
-    hazards = results,
-    inventory_rows = inventory_rows
-  ))
-}
 
 #' Load NetCDF hazards and build inventory
 #'
@@ -303,31 +60,17 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
   results <- list()
   inventory_rows <- list()
 
+  # Configure terra for disk-based loading to avoid memory issues
+  old_opts <- terra::terraOptions()
+  on.exit(try(terra::terraOptions(old_opts), silent = TRUE), add = TRUE)
+  
+  # Use minimal memory fraction and force disk writing for large files
+  memfrac <- getOption("terra.memfrac", 0.3)
+  terra::terraOptions(todisk = TRUE, memfrac = memfrac, progress = 0)
+
   for (f in nc_files) {
-    # Try to load with terra first to check if it's a cube format
-    terra_rast <- try(terra::rast(f), silent = TRUE)
+    message("[load_nc_hazards_with_metadata] Processing: ", basename(f))
 
-    # Check if this is a "cube" format NetCDF by examining layer names
-    # Cube format has metadata in layer names like: "variable_return_period=X_scenario=_Y"
-    # Dimension format has generic names and uses NetCDF dimensions for metadata
-    is_cube_format <- FALSE
-    if (!inherits(terra_rast, "try-error") && terra::nlyr(terra_rast) > 1) {
-      layer_names <- names(terra_rast)
-      # Check if layer names contain metadata patterns
-      has_rp_in_name <- any(grepl("return_period=", layer_names))
-      has_scenario_in_name <- any(grepl("scenario=", layer_names))
-      is_cube_format <- has_rp_in_name || has_scenario_in_name
-    }
-
-    if (is_cube_format) {
-      # This is a cube format - use terra to load it efficiently
-      message("  Loading multi-layer NetCDF with terra: ", basename(f))
-
-      result <- load_nc_cube_with_terra(f, terra_rast)
-      results <- c(results, result$hazards)
-      inventory_rows <- c(inventory_rows, result$inventory_rows)
-      next
-    }
     # Path parsing: .../hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
     parts <- strsplit(normalizePath(f), .Platform$file.sep, fixed = TRUE)[[1]]
     # Find indices for segments
@@ -338,11 +81,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
       hazard_indicator <- parts[length(parts) - 2]
       hazard_type <- parts[length(parts) - 3]
     } else {
-      # Fallbacks (ideal-path assumption per user instruction)
-      file_name <- basename(f)
-      model_type <- "ensemble"
-      hazard_indicator <- "indicator"
-      hazard_type <- "unknown"
+      stop("Path parsing failed for file: ", f)
     }
 
     # Open NetCDF and discover structure
@@ -352,7 +91,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
     var_names <- names(nc$var)
 
     if (length(var_names) == 0) {
-      warning("[load_nc_hazards_with_metadata] No variables found in NetCDF file: ", f, ". Skipping.")
+      stop("[load_nc_hazards_with_metadata] No variables found in NetCDF file: ", f, ". Skipping.")
       try(ncdf4::nc_close(nc), silent = TRUE)
       next
     }
@@ -548,20 +287,38 @@ load_nc_hazards_with_metadata <- function(hazards_dir) {
           # Flip rows so that first row is max(lat)
           mat <- mat[rev(seq_len(nrow(mat))), , drop = FALSE]
 
+          # Create raster structure first
           r <- terra::rast(
             ncols = n_lon,
             nrows = n_lat,
             xmin = xmin, xmax = xmax,
             ymin = ymin, ymax = ymax,
-            crs = "EPSG:4326"
+            crs = "EPSG:4326",
+            vals = as.vector(mat)
           )
-          terra::values(r) <- as.vector(mat)
+          
+          # Write to temporary file for disk-based storage
+          # terra will manage the temp file lifecycle
+          temp_file <- tempfile(
+            pattern = paste0("nc_", hazard_type, "_", hazard_indicator, "_g", ig, "_r", ir, "_"),
+            fileext = ".tif"
+          )
+          
+          r <- terra::writeRaster(
+            r,
+            filename = temp_file,
+            overwrite = TRUE,
+            wopt = list(
+              datatype = "FLT4S",
+              gdal = c("BIGTIFF=YES", "COMPRESS=LZW", "TILED=YES")
+            )
+          )
 
           # Validate that raster is single-band
           if (terra::nlyr(r) != 1) {
             stop(
               "Expected single-band raster from NetCDF file '", basename(f),
-              "', but got ", terra::nlyr(r), " bands for GWL=", GWL_val, " RP=", rp_val, ", ensemble=", ens_val, ". ",
+              "', but got ", terra::nlyr(r), " bands for GWL=", ig, " RP=", ir, ", ensemble=", ens_idx, ". ",
               "Each hazard scenario should be a single 2D layer."
             )
           }
