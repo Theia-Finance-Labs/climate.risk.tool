@@ -89,7 +89,7 @@ The function executes the following 16-step pipeline:
 # Load required data
 base_dir <- system.file("tests_data", package = "climate.risk.tool")
 assets <- read_assets(base_dir)
-companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
+companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
 hazards <- load_hazards(file.path(base_dir, "hazards"))
 precomputed_hazards <- read_precomputed_hazards(base_dir)
 damage_factors <- read_damage_cost_factors(base_dir)

@@ -39,8 +39,8 @@ This is handled automatically by `extract_hazard_statistics()`.
 ```
 {base_dir}/
 ├── user_input/
-│   ├── asset_information.csv
-│   └── company.csv
+│   ├── asset_information.xlsx
+│   └── company.xlsx
 ├── damage_and_cost_factors.csv
 ├── precomputed_adm_hazards.csv
 ├── hazards_name_mapping.csv
@@ -55,10 +55,10 @@ This is handled automatically by `extract_hazard_statistics()`.
 
 ### Required Input Files
 
-#### 1. `asset_information.csv`
+#### 1. `asset_information.xlsx`
 Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR province)
 
-#### 2. `company.csv`
+#### 2. `company.xlsx`
 Columns: company_id, company_name, equity, debt, other financial data
 
 #### 3. `damage_and_cost_factors.csv`
@@ -147,10 +147,10 @@ Examples:
 ### Data Loading
 
 **`read_assets(base_dir)`** → data.frame
-- Reads from `{base_dir}/user_input/asset_information.csv`
+- Reads from `{base_dir}/user_input/asset_information.xlsx`
 
 **`read_companies(file_path)`** → data.frame
-- Reads company data from specified path
+- Reads company data from specified Excel path
 
 **`read_damage_cost_factors(base_dir)`** → data.frame
 - Reads from `{base_dir}/damage_and_cost_factors.csv`

@@ -1,8 +1,8 @@
 # Tests for functions: read_assets, read_companies
 
 # Contracts:
-# - read_assets(base_dir) reads asset CSV under base_dir/user_input/asset_information.csv
-# - read_companies(file_path) reads company CSV from specified file path
+# - read_assets(base_dir) reads asset Excel under base_dir/user_input/asset_information.xlsx
+# - read_companies(file_path) reads company Excel from specified file path
 # - All functions parse numeric columns correctly and convert column names to snake_case
 # - Return non-empty data frames
 
@@ -41,7 +41,7 @@ testthat::test_that("read_assets parses key columns with correct types and snake
 
 testthat::test_that("read_companies returns companies as data.frame", {
   base_dir <- get_test_data_dir()
-  companies_path <- file.path(base_dir, "user_input", "company.csv")
+  companies_path <- file.path(base_dir, "user_input", "company.xlsx")
   companies <- read_companies(companies_path)
 
   testthat::expect_s3_class(companies, "data.frame")
@@ -51,7 +51,7 @@ testthat::test_that("read_companies returns companies as data.frame", {
 
 testthat::test_that("read_companies parses key columns with correct types and snake_case names", {
   base_dir <- get_test_data_dir()
-  companies_path <- file.path(base_dir, "user_input", "company.csv")
+  companies_path <- file.path(base_dir, "user_input", "company.xlsx")
   companies <- read_companies(companies_path)
 
   # Companies required columns (snake_case)
@@ -74,7 +74,7 @@ testthat::test_that("read_companies parses key columns with correct types and sn
 
 
 testthat::test_that("read_companies handles missing file gracefully", {
-  fake_path <- "/nonexistent/path/company.csv"
+  fake_path <- "/nonexistent/path/company.xlsx"
   testthat::expect_error(
     read_companies(fake_path),
     "Company file not found at"

@@ -1,7 +1,7 @@
 testthat::test_that("compute_risk end-to-end integration across hazards and event types", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.csv"))
+  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   # Include all hazard sources (TIF, NC, CSV). Compound hazards are provided via CSV.
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)

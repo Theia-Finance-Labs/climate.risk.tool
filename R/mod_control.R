@@ -11,9 +11,9 @@ mod_control_ui <- function(id) {
       shiny::h4("Data Upload", class = "section-header"),
       shiny::fileInput(
         ns("company_file"),
-        "Company CSV File:",
-        accept = ".csv",
-        placeholder = "Choose company.csv file"
+        "Company Excel File:",
+        accept = c(".xlsx", ".xls"),
+        placeholder = "Choose company.xlsx file"
       )
     ),
     shiny::div(

@@ -3,7 +3,7 @@ testthat::test_that("server loads inputs and runs analysis from base_dir and upl
   testthat::skip_if_not_installed("shiny")
   # Use real test data directory
   base_dir <- get_test_data_dir()
-  company_file_path <- file.path(base_dir, "user_input", "company.csv")
+  company_file_path <- file.path(base_dir, "user_input", "company.xlsx")
 
   # Test using golem::with_golem_options to properly set options
   golem::with_golem_options(
@@ -68,7 +68,7 @@ testthat::test_that("server requires hazard selection before running analysis", 
   testthat::skip_if_not_installed("shiny")
   # Use real test data directory
   base_dir <- get_test_data_dir()
-  company_file_path <- file.path(base_dir, "user_input", "company.csv")
+  company_file_path <- file.path(base_dir, "user_input", "company.xlsx")
 
   # Test using golem::with_golem_options to properly set options
   golem::with_golem_options(

@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils__read_inputs.R
 \name{read_assets}
 \alias{read_assets}
-\title{Read asset information from CSV file}
+\title{Read asset information from Excel file}
 \usage{
 read_assets(base_dir)
 }
@@ -13,11 +13,11 @@ read_assets(base_dir)
 tibble with asset information
 }
 \description{
-Reads asset information from CSV file in the user_input directory,
+Reads asset information from Excel file in the user_input directory,
 converting column names to snake_case and parsing numeric columns correctly.
 }
 \details{
-Read asset data from CSV file
+Read asset data from Excel file
 }
 \examples{
 \dontrun{
