@@ -76,7 +76,7 @@ app_server <- function(input, output, session) {
       return()
     }
     if (is.null(company_file) || is.null(company_file$datapath) || company_file$datapath == "") {
-      values$status <- "Error: Please upload a company.csv file before running the analysis."
+      values$status <- "Error: Please upload a company.xlsx file before running the analysis."
       return()
     }
 

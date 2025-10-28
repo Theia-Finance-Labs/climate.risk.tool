@@ -2,25 +2,25 @@
 % Please edit documentation in R/utils__read_inputs.R
 \name{read_companies}
 \alias{read_companies}
-\title{Read company information from CSV file}
+\title{Read company information from Excel file}
 \usage{
 read_companies(file_path)
 }
 \arguments{
-\item{file_path}{Character string specifying the path to the company CSV file}
+\item{file_path}{Character string specifying the path to the company Excel file}
 }
 \value{
 tibble with company information
 }
 \description{
-Reads company information from a CSV file,
+Reads company information from an Excel file,
 converting column names to snake_case and parsing numeric columns correctly.
 }
 \details{
-Read company data from CSV file
+Read company data from Excel file
 }
 \examples{
 \dontrun{
-companies <- read_companies("path/to/company.csv")
+companies <- read_companies("path/to/company.xlsx")
 }
 }

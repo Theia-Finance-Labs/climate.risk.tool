@@ -20,8 +20,8 @@ library(climate.risk.tool)
 
 # Set the path to your data directory
 # This should contain:
-# - user_input/asset_information.csv
-# - user_input/company.csv
+# - user_input/asset_information.xlsx
+# - user_input/company.xlsx
 # - hazards/[hazard_type]/*.tif or *.nc files (supports both formats)
 # - damage_and_cost_factors.csv
 # - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)

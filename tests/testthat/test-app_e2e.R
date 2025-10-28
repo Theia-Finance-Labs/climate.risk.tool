@@ -41,7 +41,7 @@ climate.risk.tool::run_app(base_dir = "%s")
 
   # Upload company file first (required for analysis)
   # The input is namespaced as control-company_file
-  company_file_path <- file.path(base_dir, "user_input", "company.csv")
+  company_file_path <- file.path(base_dir, "user_input", "company.xlsx")
   if (file.exists(company_file_path)) {
     app$upload_file(`control-company_file` = company_file_path)
   }

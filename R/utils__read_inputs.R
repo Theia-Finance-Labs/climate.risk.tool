@@ -9,10 +9,10 @@ to_snake_case <- function(names) {
     tolower()
 }
 
-#' Read asset data from CSV file
+#' Read asset data from Excel file
 #'
-#' @title Read asset information from CSV file
-#' @description Reads asset information from CSV file in the user_input directory,
+#' @title Read asset information from Excel file
+#' @description Reads asset information from Excel file in the user_input directory,
 #'   converting column names to snake_case and parsing numeric columns correctly.
 #' @param base_dir Character string specifying the base directory containing user_input subdirectory
 #' @return tibble with asset information
@@ -26,7 +26,7 @@ read_assets <- function(base_dir) {
   message("[read_assets] Reading asset data from: ", base_dir)
 
   # Define file path
-  assets_path <- file.path(base_dir, "user_input", "asset_information.csv")
+  assets_path <- file.path(base_dir, "user_input", "asset_information.xlsx")
 
   # Check if file exists
   if (!file.exists(assets_path)) {
@@ -34,7 +34,7 @@ read_assets <- function(base_dir) {
   }
 
   # Read assets data
-  assets_raw <- readr::read_csv(assets_path, show_col_types = FALSE) |>
+  assets_raw <- readxl::read_excel(assets_path) |>
     tibble::as_tibble() |>
     dplyr::rename_with(to_snake_case)
 
@@ -225,16 +225,16 @@ assign_province_to_assets <- function(assets_df, base_dir) {
   return(result)
 }
 
-#' Read company data from CSV file
+#' Read company data from Excel file
 #'
-#' @title Read company information from CSV file
-#' @description Reads company information from a CSV file,
+#' @title Read company information from Excel file
+#' @description Reads company information from an Excel file,
 #'   converting column names to snake_case and parsing numeric columns correctly.
-#' @param file_path Character string specifying the path to the company CSV file
+#' @param file_path Character string specifying the path to the company Excel file
 #' @return tibble with company information
 #' @examples
 #' \dontrun{
-#' companies <- read_companies("path/to/company.csv")
+#' companies <- read_companies("path/to/company.xlsx")
 #' }
 #' @export
 read_companies <- function(file_path) {
@@ -246,7 +246,7 @@ read_companies <- function(file_path) {
   }
 
   # Read companies data
-  companies_raw <- readr::read_csv(file_path, show_col_types = FALSE) |>
+  companies_raw <- readxl::read_excel(file_path) |>
     tibble::as_tibble() |>
     dplyr::rename_with(to_snake_case)
 

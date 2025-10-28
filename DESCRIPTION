@@ -16,6 +16,7 @@ Imports:
     ncdf4,
     purrr,
     readr,
+    readxl,
     sf,
     shiny,
     stringi,
