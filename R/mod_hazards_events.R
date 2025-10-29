@@ -21,7 +21,7 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 #' hazards_events Server Functions
 #'
 #' @param hazards_inventory reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, hazard_return_period, hazard_name
-#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, chronic
+#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, chronic, season
 #' @export
 mod_hazards_events_server <- function(id, hazards_inventory) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -34,7 +34,8 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       scenario_name = character(),
       hazard_return_period = numeric(),
       event_year = integer(),
-      chronic = logical()
+      chronic = logical(),
+      season = character()
     ))
 
     # Counter for dynamic UIs
@@ -85,6 +86,14 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         return()
       }
 
+      # Capture season for Drought events
+      event_season <- if (haz_type == "Drought") {
+        season_val <- input[[paste0("season_", k)]]
+        if (is.null(season_val) || season_val == "") NA_character_ else season_val
+      } else {
+        NA_character_
+      }
+
       new_row <- tibble::tibble(
         event_id = paste0("ev", nrow(events_rv()) + 1L),
         hazard_type = haz_type,
@@ -93,7 +102,8 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         scenario_name = scenario,
         hazard_return_period = return_period,
         event_year = if (isTRUE(input[[paste0("chronic_", k)]])) NA_integer_ else as.integer(input[[paste0("year_", k)]]),
-        chronic = isTRUE(input[[paste0("chronic_", k)]])
+        chronic = isTRUE(input[[paste0("chronic_", k)]]),
+        season = event_season
       )
       cur <- events_rv()
       events_rv(rbind(cur, new_row))
@@ -144,6 +154,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         shiny::uiOutput(ns(paste0("hazard_indicator_ui_", k))),
         shiny::uiOutput(ns(paste0("scenario_name_ui_", k))),
         shiny::uiOutput(ns(paste0("return_period_ui_", k))),
+        shiny::uiOutput(ns(paste0("season_ui_", k))),
         shiny::checkboxInput(ns(paste0("chronic_", k)), label = "Chronic hazard (every year)", value = FALSE),
         shiny::uiOutput(ns(paste0("year_ui_", k)))
       )
@@ -207,6 +218,19 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           choices = return_period_vec,
           selected = if (length(return_period_vec) > 0) return_period_vec[[1]] else NULL
         )
+      })
+
+      # Season UI reacts to hazard type selection (only show for Drought)
+      output[[paste0("season_ui_", k)]] <- shiny::renderUI({
+        hazard_type_val <- input[[paste0("hazard_type_", k)]]
+        if (!is.null(hazard_type_val) && hazard_type_val == "Drought") {
+          shiny::selectInput(ns(paste0("season_", k)), "Drought Season",
+            choices = c("Summer", "Autumn", "Winter", "Spring"),
+            selected = "Summer"
+          )
+        } else {
+          shiny::span("")
+        }
       })
 
       output[[paste0("year_ui_", k)]] <- shiny::renderUI({

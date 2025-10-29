@@ -18,8 +18,8 @@ tibble with columns: asset, company, year, revenue (with shocks applied)
 }
 \description{
 Applies revenue shocks from acute climate events in event_id order.
-Supports FloodTIF (business disruption) and Compound/heat (labor productivity loss via Cobb-Douglas).
-Multiple shocks in the same year are applied sequentially by event_id.
+Supports FloodTIF (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
+and Drought (crop damage for agriculture). Multiple shocks in the same year are applied sequentially by event_id.
 NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 }
 \details{

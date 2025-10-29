@@ -253,3 +253,105 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
   expected_revenue <- 1200 * (1 - 15/365)
   testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
 })
+
+testthat::test_that("apply_acute_revenue_shock applies Drought shocks to agriculture correctly", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1", "A2", "A2"),
+    company = c("C1", "C1", "C1", "C1"),
+    year = c(2025, 2030, 2025, 2030),
+    revenue = c(1000, 1200, 800, 960)
+  )
+
+  assets_factors <- data.frame(
+    asset = c("A1", "A2"),
+    hazard_type = c("Drought", "Drought"),
+    event_id = c("event_1", "event_1"),
+    damage_factor = c(0.4, 0.3),  # 40% and 30% yield loss
+    asset_category = c("agriculture", "agriculture")
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Drought",
+    event_year = 2030L,
+    chronic = FALSE
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  testthat::expect_equal(nrow(result), nrow(yearly_baseline))
+  
+  # A1 with 40% damage: 1200 * (1 - 0.4) = 720
+  expected_revenue_A1 <- 1200 * (1 - 0.4)
+  testthat::expect_equal(result$revenue[result$asset == "A1" & result$year == 2030], expected_revenue_A1, tolerance = 0.1)
+  
+  # A2 with 30% damage: 960 * (1 - 0.3) = 672
+  expected_revenue_A2 <- 960 * (1 - 0.3)
+  testthat::expect_equal(result$revenue[result$asset == "A2" & result$year == 2030], expected_revenue_A2, tolerance = 0.1)
+  
+  # 2025 revenues should be unchanged
+  testthat::expect_equal(result$revenue[result$year == 2025], yearly_baseline$revenue[yearly_baseline$year == 2025])
+})
+
+testthat::test_that("apply_acute_revenue_shock ignores Drought for non-agriculture assets", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  # Drought on commercial building should be ignored
+  assets_factors <- data.frame(
+    asset = "A1",
+    hazard_type = "Drought",
+    event_id = "event_1",
+    damage_factor = 0.4,
+    asset_category = "commercial building"
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Drought",
+    event_year = 2030L,
+    chronic = FALSE
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  # Revenue should be unchanged (drought doesn't affect non-agriculture)
+  testthat::expect_equal(result$revenue, yearly_baseline$revenue)
+})
+
+testthat::test_that("apply_acute_revenue_shock handles multiple droughts in same year", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  # Two drought events affecting same asset
+  assets_factors <- data.frame(
+    asset = c("A1", "A1"),
+    hazard_type = c("Drought", "Drought"),
+    event_id = c("event_1", "event_2"),
+    damage_factor = c(0.3, 0.2),
+    asset_category = c("agriculture", "agriculture")
+  )
+
+  acute_events <- data.frame(
+    event_id = c("event_1", "event_2"),
+    hazard_type = c("Drought", "Drought"),
+    event_year = c(2030L, 2030L),
+    chronic = c(FALSE, FALSE)
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  # Shocks should be sequential:
+  # After event_1: 1200 * (1 - 0.3) = 840
+  # After event_2: 840 * (1 - 0.2) = 672
+  expected_revenue <- 1200 * (1 - 0.3) * (1 - 0.2)
+  testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
+})

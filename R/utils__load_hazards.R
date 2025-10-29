@@ -10,8 +10,7 @@
 #' 6. Generates a unified inventory combining TIF, NC, and CSV metadata
 #' 7. Returns both hazards and inventory
 #'
-#' @param hazards_dir Character. Root directory that contains hazard files and subdirectories
-#' @param aggregate_factor Integer >= 1. Aggregation factor for TIF rasters (default: 1)
+#' @param aggregate_factor Integer >= 1. Aggregation factor for TIF and NC rasters (default: 1)
 #' @return A list with three elements:
 #'   - `hazards`: Nested list with `tif`, `nc`, and `csv` keys
 #'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
@@ -91,7 +90,10 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
   }
 
   # Load NC files and build inventory
-  nc_result <- load_nc_hazards_with_metadata(hazards_dir = hazards_dir)
+  nc_result <- load_nc_hazards_with_metadata(
+    hazards_dir = hazards_dir,
+    aggregate_factor = as.integer(aggregate_factor)
+  )
   nc_list <- nc_result$hazards
   nc_inventory <- nc_result$inventory
 

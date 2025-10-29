@@ -18,20 +18,22 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     assets_mixed$province[1] <- "Amazonas"
   }
 
-  # Events: FloodTIF (acute + chronic) and Compound (acute)
+  # Events: FloodTIF (acute + chronic), Compound (acute), and Drought (acute with season)
   events <- data.frame(
-    hazard_type = c("FloodTIF", "FloodTIF", "Compound", "Compound"),
+    hazard_type = c("FloodTIF", "FloodTIF", "Compound", "Compound", "Drought"),
     hazard_name = c(
       "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
       "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
       "Compound__HI__GWL=present__RP=10__ensemble=mean",
-      "Compound__HI__GWL=3__RP=10__ensemble=mean"
+      "Compound__HI__GWL=3__RP=10__ensemble=mean",
+      "Drought__SPI3__GWL=present__RP=10__ensemble=mean"
     ),
-    scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3"),
-    scenario_code = c("pc", "pc", "present", "3"),
-    hazard_return_period = c(10, 10, 10, 10),
-    event_year = c(2030L, NA_integer_, 2030L, 2035L),
-    chronic = c(FALSE, TRUE, FALSE, FALSE),
+    scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3", "present"),
+    scenario_code = c("pc", "pc", "present", "3", "present"),
+    hazard_return_period = c(10, 10, 10, 10, 10),
+    event_year = c(2030L, NA_integer_, 2030L, 2035L, 2032L),
+    chronic = c(FALSE, TRUE, FALSE, FALSE, FALSE),
+    season = c(NA, NA, NA, NA, "Summer"),  # Season only for Drought
     stringsAsFactors = FALSE
   )
 
@@ -75,11 +77,18 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   unique_ids <- unique(res$assets_factors$event_id)
   testthat::expect_true(any(grepl("^event_", unique_ids)))
 
-  # Hazards coverage: Flood present
+  # Hazards coverage: Flood, Compound, and Drought present
   testthat::expect_true(any(grepl("FloodTIF", res$assets_factors$hazard_name)))
   testthat::expect_true(any(grepl("Compound", res$assets_factors$hazard_name)))
+  
+  # Drought should be present only for agriculture assets
+  drought_assets <- res$assets_factors[grepl("Drought", res$assets_factors$hazard_name), ]
+  if (nrow(drought_assets) > 0) {
+    testthat::expect_true(all(drought_assets$asset_category == "agriculture"))
+    testthat::expect_true("season" %in% names(res$assets_factors))
+  }
 
-  # Coverage by matching method: each matching_method should include both FloodTIF and Compound
+  # Coverage by matching method: each matching_method should include FloodTIF and Compound
   mm_cov <- res$assets_factors |>
     dplyr::group_by(.data$matching_method) |>
     dplyr::summarise(

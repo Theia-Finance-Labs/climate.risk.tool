@@ -2,8 +2,8 @@
 #'
 #' @title Apply Acute Revenue Shock
 #' @description Applies revenue shocks from acute climate events in event_id order.
-#'   Supports FloodTIF (business disruption) and Compound/heat (labor productivity loss via Cobb-Douglas).
-#'   Multiple shocks in the same year are applied sequentially by event_id.
+#'   Supports FloodTIF (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
+#'   and Drought (crop damage for agriculture). Multiple shocks in the same year are applied sequentially by event_id.
 #'   NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue
 #' @param assets_factors tibble with hazard data and damage factors including event_id, hazard_type
@@ -49,6 +49,8 @@ apply_acute_revenue_shock <- function(
       result <- apply_flood_shock(result, event, assets_factors)
     } else if (hazard_type == "Compound") {
       result <- apply_compound_shock(result, event, assets_factors)
+    } else if (hazard_type == "Drought") {
+      result <- apply_drought_shock(result, event, assets_factors)
     }
     # Other hazard types: no action (extend later as needed)
   }
@@ -222,6 +224,50 @@ apply_compound_shock <- function(yearly_trajectories, event, assets_factors) {
       )
     ) |>
     dplyr::select(-"change")
+
+  return(result)
+}
+
+#' Apply Drought shock to agriculture revenue trajectories (internal function)
+#'
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue
+#' @param event Single event row with event_id, event_year, hazard_type
+#' @param assets_factors tibble with hazard data and damage factors
+#' @return tibble with revenue adjusted for Drought damage to agriculture
+#' @noRd
+apply_drought_shock <- function(yearly_trajectories, event, assets_factors) {
+  # Filter Drought assets for this specific event (by event_id)
+  # Drought only affects agriculture assets
+  drought_assets <- assets_factors |>
+    dplyr::filter(
+      .data$hazard_type == "Drought",
+      .data$event_id == event$event_id,
+      .data$asset_category == "agriculture"
+    )
+
+  if (nrow(drought_assets) == 0) {
+    return(yearly_trajectories)
+  }
+
+  # Aggregate damage factors by asset (in case there are multiple rows per asset)
+  drought_map <- drought_assets |>
+    dplyr::group_by(.data$asset) |>
+    dplyr::summarize(
+      damage_factor = mean(as.numeric(.data$damage_factor), na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(year = event$event_year)
+
+  # Join and apply: revenue * (1 - damage_factor)
+  result <- dplyr::left_join(yearly_trajectories, drought_map, by = c("asset", "year")) |>
+    dplyr::mutate(
+      revenue = dplyr::if_else(
+        is.na(.data$damage_factor),
+        .data$revenue,
+        as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor))
+      )
+    ) |>
+    dplyr::select(-"damage_factor")
 
   return(result)
 }

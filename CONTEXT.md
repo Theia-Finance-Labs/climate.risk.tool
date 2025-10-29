@@ -508,6 +508,38 @@ Location: [exact line where error occurred]
 - Data type verification
 - Referential integrity (asset → company, hazard → damage factors)
 
+## Hazard-Specific Implementations
+
+### Drought (SPI3) for Agriculture
+
+**Overview**: Drought impacts are calculated using SPI3 (Standardized Precipitation Index, 3-month) droughts that affect agriculture assets only. The user selects the season when the drought occurs (Summer, Autumn, Winter, Spring).
+
+**Damage Factor Matching**:
+- **Crop Type**: Coffee, Corn, Soybean, Sugarcane, or "Other" (default for missing subtypes)
+- **Province**: Uses asset province or falls back to "Other" if not found
+- **Season Matching**:
+  - **On-season**: User-selected season matches crop growing season → full damage_factor applied
+  - **Off-season**: Seasons don't match → damage_factor multiplied by off_window coefficient
+- **Intensity Capping**:
+  - SPI3 < -3: capped to -3 (maximum damage)
+  - SPI3 > -1: damage_factor = 0 (no damage)
+  - -3 ≤ SPI3 ≤ -1: use actual intensity
+
+**Revenue Shock Formula**:
+- On-season: `Revenue × (1 - damage_factor)`
+- Off-season: `Revenue × (1 - damage_factor × off_window)`
+
+**Implementation Files**:
+- UI: `R/mod_hazards_events.R` - Season dropdown for Drought events
+- Matching: `R/geospatial__join_damage_cost_factors.R` - `join_drought_damage_factors()`
+- Shock Application: `R/shock__apply_acute_revenue_shock.R` - `apply_drought_shock()`
+
+**Data Requirements**:
+- `damage_and_cost_factors.csv` must include rows with:
+  - `hazard_type = "drought"`, `hazard_indicator = "SPI3"`, `metric = "mean"`
+  - Columns: `province`, `subtype`, `season`, `damage_factor`, `off_window`
+- Events must include `season` column (Summer/Autumn/Winter/Spring)
+
 ## Recent Changes
 
 ### Bug Fixes
