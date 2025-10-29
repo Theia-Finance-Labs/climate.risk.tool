@@ -47,66 +47,86 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
   return(merged)
 }
 
-#' Join FloodTIF damage factors using intensity-based matching (internal function)
+#' Join FloodTIF damage factors using closest intensity matching (internal function)
 #'
 #' @param flood_assets Data frame with FloodTIF hazard assets
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
 #' @return Data frame with damage_factor, cost_factor, and business_disruption columns
 #' @noRd
 join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
-  # Add intensity key
-  assets_tmp <- flood_assets |>
-    dplyr::mutate(intensity_key = as.integer(round(as.numeric(.data$hazard_intensity))))
-
-  factors_tmp <- damage_factors_df |>
+  # Filter flood damage factors
+  flood_factors <- damage_factors_df |>
     dplyr::filter(.data$hazard_type == "FloodTIF") |>
-    dplyr::mutate(intensity_key = as.integer(round(as.numeric(.data$hazard_intensity))))
-
-  # Compute max available intensity key per (hazard_type, hazard_indicator, asset_category)
-  max_key_by_group <- factors_tmp |>
-    dplyr::group_by(.data$hazard_type, .data$hazard_indicator, .data$asset_category) |>
-    dplyr::summarize(
-      max_intensity_key = max(.data$intensity_key, na.rm = TRUE),
-      .groups = "drop"
-    )
-
-  # Join and cap effective intensity key
-  assets_tmp <- dplyr::left_join(
-    assets_tmp,
-    max_key_by_group,
-    by = c("hazard_type", "hazard_indicator", "asset_category")
-  ) |>
     dplyr::mutate(
-      effective_intensity_key = dplyr::if_else(
-        !is.na(.data$max_intensity_key) &
-          .data$intensity_key > .data$max_intensity_key,
-        .data$max_intensity_key,
-        .data$intensity_key
-      )
-    )
-
-  # Join on hazard_type, hazard_indicator, asset_category, effective_intensity_key
-  factors_key <- factors_tmp |>
-    dplyr::select("hazard_type", "hazard_indicator", "asset_category", "intensity_key",
+      hazard_intensity_num = as.numeric(.data$hazard_intensity)
+    ) |>
+    dplyr::select("hazard_type", "hazard_indicator", "asset_category", "hazard_intensity_num",
                   "damage_factor", "cost_factor", "business_disruption")
 
-  flood_merged <- dplyr::left_join(
-    assets_tmp,
-    factors_key,
-    by = dplyr::join_by(
-      "hazard_type",
-      "hazard_indicator",
-      "asset_category",
-      "effective_intensity_key" == "intensity_key"
+  # Prepare assets with numeric intensity
+  flood_assets_prepared <- flood_assets |>
+    dplyr::mutate(
+      hazard_intensity_num = as.numeric(.data$hazard_intensity)
     )
-  ) |>
+
+  # Find closest intensity match for each asset
+  result_list <- vector("list", nrow(flood_assets_prepared))
+  
+  for (i in seq_len(nrow(flood_assets_prepared))) {
+    asset_row <- flood_assets_prepared[i, ]
+    asset_intensity <- asset_row$hazard_intensity_num
+    
+    # Find matching factors for this hazard type, indicator, and category
+    factors_subset <- flood_factors |>
+      dplyr::filter(
+        .data$hazard_type == asset_row$hazard_type,
+        .data$hazard_indicator == asset_row$hazard_indicator,
+        .data$asset_category == asset_row$asset_category
+      )
+    
+    if (nrow(factors_subset) > 0) {
+      # Find closest intensity match and cap at maximum available
+      factors_subset <- factors_subset |>
+        dplyr::mutate(
+          intensity_diff = abs(.data$hazard_intensity_num - asset_intensity)
+        ) |>
+        dplyr::arrange(.data$intensity_diff)
+      
+      # If asset intensity exceeds max available, use max
+      max_intensity <- max(factors_subset$hazard_intensity_num, na.rm = TRUE)
+      if (asset_intensity > max_intensity) {
+        factors_subset <- factors_subset |>
+          dplyr::filter(.data$hazard_intensity_num == max_intensity) |>
+          dplyr::slice(1)
+      } else {
+        factors_subset <- factors_subset |>
+          dplyr::slice(1)
+      }
+      
+      result_list[[i]] <- asset_row |>
+        dplyr::bind_cols(
+          factors_subset |>
+            dplyr::select("damage_factor", "cost_factor", "business_disruption")
+        )
+    } else {
+      # No match found - set to NA
+      result_list[[i]] <- asset_row |>
+        dplyr::mutate(
+          damage_factor = NA_real_,
+          cost_factor = NA_real_,
+          business_disruption = NA_real_
+        )
+    }
+  }
+  
+  flood_merged <- dplyr::bind_rows(result_list) |>
     dplyr::mutate(
       damage_factor = dplyr::coalesce(as.numeric(.data$damage_factor), NA_real_),
       cost_factor = dplyr::coalesce(as.numeric(.data$cost_factor), NA_real_),
       business_disruption = dplyr::coalesce(as.numeric(.data$business_disruption), NA_real_)
     ) |>
-    dplyr::select(-c("effective_intensity_key", "intensity_key", "max_intensity_key"))
-
+    dplyr::select(-"hazard_intensity_num")
+  
   return(flood_merged)
 }
 
@@ -140,28 +160,29 @@ join_compound_damage_factors <- function(compound_assets, damage_factors_df) {
 }
 
 
-#' Join Drought damage factors for agriculture assets with crop/province/season matching (internal function)
+#' Join Drought damage factors for agriculture assets with crop/province/season matching using closest intensity (internal function)
 #'
 #' @param drought_assets Data frame with Drought hazard assets including season column from events
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
 #' @return Data frame with damage_factor column (cost_factor and business_disruption are NA)
 #' @noRd
 join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
-  # Filter damage factors for drought (hazard_type = "drought", hazard_indicator = "SPI3", metric = "mean")
-  # Rename season column in damage factors to avoid conflicts
+  # Filter damage factors for drought (hazard_type = "drought", hazard_indicator = "SPI3")
+  # Note: metric column was removed from damage factors file
   drought_factors <- damage_factors_df |>
     dplyr::filter(
-      .data$hazard_type == "drought",
-      .data$hazard_indicator == "SPI3",
-      .data$metric == "mean"
+      .data$hazard_type == "Drought",
+      .data$hazard_indicator == "SPI3"
     ) |>
     dplyr::mutate(
-      intensity_key = round(as.numeric(.data$hazard_intensity), 2)  # Round for matching
+      hazard_intensity_num = as.numeric(.data$hazard_intensity),
+      damage_factor = as.numeric(.data$damage_factor),
+      off_window = as.numeric(.data$off_window)
     ) |>
-    dplyr::select("province", "subtype", "season", "damage_factor", "off_window", "intensity_key") |>
+    dplyr::select("province", "subtype", "season", "damage_factor", "off_window", "hazard_intensity_num") |>
     dplyr::rename(growing_season = "season")  # Rename to avoid conflict with event season
 
-  # Prepare assets: normalize crop subtype (NA/empty → "Other")
+  # Prepare assets: normalize crop subtype and province
   drought_assets_prepared <- drought_assets |>
     dplyr::mutate(
       # Normalize subtype: missing values become "Other"
@@ -176,91 +197,126 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
         "Other",
         .data$province
       ),
-      # Cap intensity: < -3 becomes -3, > -1 gets damage_factor = 0
-      intensity_capped = dplyr::case_when(
+      # Use raw intensity for matching (will cap < -3 to -3, but > -1 means no damage)
+      intensity_for_match = dplyr::case_when(
         .data$hazard_intensity < -3 ~ -3,
-        .data$hazard_intensity > -1 ~ 999,  # Special marker for no damage
-        TRUE ~ .data$hazard_intensity
-      ),
-      intensity_key = round(.data$intensity_capped, 2)  # Round for matching
+        TRUE ~ as.numeric(.data$hazard_intensity)
+      )
     )
 
-  # First attempt: match on specific province
-  drought_merged_specific <- dplyr::left_join(
-    drought_assets_prepared,
-    drought_factors,
-    by = c("province_normalized" = "province", "asset_subtype_normalized" = "subtype", "intensity_key"),
-    relationship = "many-to-many"
-  )
-
-  # Second attempt: for rows that didn't match, try "Other" province
-  drought_factors_other <- drought_factors |>
-    dplyr::filter(.data$province == "Other")
-
-  # Identify rows that didn't get a match (all damage_factor values are NA)
-  unmatched_assets <- drought_merged_specific |>
-    dplyr::group_by(.data$asset, .data$event_id) |>
-    dplyr::filter(all(is.na(.data$damage_factor))) |>
-    dplyr::ungroup() |>
-    dplyr::select(-dplyr::any_of(c("subtype", "growing_season", "damage_factor", "off_window"))) |>
-    dplyr::distinct()
-
-  # Join unmatched assets with "Other" province
-  if (nrow(unmatched_assets) > 0) {
-    drought_merged_other <- dplyr::left_join(
-      unmatched_assets,
-      drought_factors_other |>
-        dplyr::select(-"province"),  # Remove province column since we're using "Other"
-      by = c("asset_subtype_normalized" = "subtype", "intensity_key"),
-      relationship = "many-to-many"
-    )
-
-    # Remove unmatched rows from specific matches and combine with "Other" matches
-    drought_merged <- drought_merged_specific |>
-      dplyr::group_by(.data$asset, .data$event_id) |>
-      dplyr::filter(!all(is.na(.data$damage_factor))) |>
-      dplyr::ungroup() |>
-      dplyr::bind_rows(drought_merged_other)
-  } else {
-    drought_merged <- drought_merged_specific
+  # Find closest intensity match for each asset
+  result_list <- vector("list", nrow(drought_assets_prepared))
+  
+  for (i in seq_len(nrow(drought_assets_prepared))) {
+    asset_row <- drought_assets_prepared[i, ]
+    asset_intensity <- asset_row$intensity_for_match
+    original_intensity <- as.numeric(drought_assets[i, ]$hazard_intensity)
+    
+    # Check if intensity > -1 (no damage) - check original intensity
+    if (original_intensity > -1) {
+      result_list[[i]] <- asset_row |>
+        dplyr::mutate(
+          damage_factor = 0,
+          cost_factor = NA_real_,
+          business_disruption = NA_real_,
+          growing_season = NA_character_,
+          off_window = NA_real_
+        )
+      next
+    }
+    
+    # First attempt: match on specific province
+    factors_specific <- drought_factors |>
+      dplyr::filter(
+        .data$province == asset_row$province_normalized,
+        .data$subtype == asset_row$asset_subtype_normalized
+      )
+    
+    # If no specific match, try "Other" province
+    if (nrow(factors_specific) == 0) {
+      factors_specific <- drought_factors |>
+        dplyr::filter(
+          .data$province == "Other",
+          .data$subtype == asset_row$asset_subtype_normalized
+        )
+    }
+    
+    # Find closest intensity match
+    if (nrow(factors_specific) > 0) {
+      factors_specific <- factors_specific |>
+        dplyr::mutate(
+          intensity_diff = abs(.data$hazard_intensity_num - asset_intensity)
+        ) |>
+        dplyr::arrange(.data$intensity_diff) |>
+        dplyr::slice(1)
+      
+      result_list[[i]] <- asset_row |>
+        dplyr::bind_cols(
+          factors_specific |>
+            dplyr::select("damage_factor", "off_window", "growing_season") |>
+            dplyr::mutate(
+              damage_factor = as.numeric(.data$damage_factor),
+              off_window = as.numeric(.data$off_window)
+            )
+        ) |>
+        dplyr::mutate(
+          cost_factor = NA_real_,
+          business_disruption = NA_real_
+        )
+    } else {
+      # No match found - set to zero
+      result_list[[i]] <- asset_row |>
+        dplyr::mutate(
+          damage_factor = 0,
+          cost_factor = NA_real_,
+          business_disruption = NA_real_,
+          growing_season = NA_character_,
+          off_window = NA_real_
+        )
+    }
   }
+  
+  drought_merged <- dplyr::bind_rows(result_list)
 
-  # Now apply season matching logic and intensity capping
+  # Apply season matching logic
   drought_merged <- drought_merged |>
     dplyr::mutate(
-      # Ensure numeric types
-      damage_factor = as.numeric(.data$damage_factor),
-      off_window = as.numeric(.data$off_window),
+      # Ensure numeric types - force conversion to handle any character columns
+      damage_factor = as.numeric(as.character(.data$damage_factor)),
+      off_window = as.numeric(as.character(.data$off_window)),
       # Check if user-selected season matches growing season
       season_match = (.data$season == .data$growing_season),
-      # Apply damage factor logic
+      # Apply damage factor logic based on season match
       damage_factor_final = dplyr::case_when(
-        # No damage if intensity > -1
-        .data$intensity_capped == 999 ~ 0,
-        # Missing damage factor (shouldn't happen but handle gracefully)
+        # Missing damage factor
         is.na(.data$damage_factor) ~ 0,
         # On-season: use full damage factor
         .data$season_match ~ .data$damage_factor,
         # Off-season: multiply by off_window
-        !.data$season_match ~ .data$damage_factor * .data$off_window,
-        # Default
-        TRUE ~ 0
+        !is.na(.data$off_window) & !.data$season_match ~ .data$damage_factor * .data$off_window,
+        # Default (no season match info)
+        TRUE ~ .data$damage_factor
       ),
       # Set cost_factor and business_disruption to NA for drought
       cost_factor = NA_real_,
       business_disruption = NA_real_
     ) |>
+    # Deduplicate: keep one row per asset/event combination
+    # Prefer season matches (on-season), otherwise keep first row (all off-season rows have same logic)
+    dplyr::group_by(.data$asset, .data$event_id) |>
+    dplyr::arrange(dplyr::desc(.data$season_match)) |>
+    dplyr::slice(1) |>
+    dplyr::ungroup() |>
     # Clean up temporary columns
     dplyr::select(
       -dplyr::any_of(c(
         "asset_subtype_normalized",
         "province_normalized",
-        "intensity_capped",
-        "intensity_key",
+        "intensity_for_match",
         "season_match",
-        "growing_season",  # Growing season from damage factors (not needed)
+        "growing_season",
         "off_window",
-        "damage_factor"  # Old damage_factor from join
+        "damage_factor"
       ))
     ) |>
     dplyr::rename(damage_factor = "damage_factor_final")

@@ -71,7 +71,7 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
   expect_true(any(grepl("Drought", nc_names)))
 
   # Should contain hazard_indicator
-  expect_true(any(grepl("CDD", nc_names) | grepl("SPI6", nc_names)))
+  expect_true(any(grepl("HI", nc_names) | grepl("SPI3", nc_names)))
 
   # Should have GWL values
   expect_true(all(grepl("GWL=", nc_names)))

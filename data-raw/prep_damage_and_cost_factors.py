@@ -26,6 +26,9 @@ df.loc[df["hazard_type"] == "flood", "hazard_type"] = "FloodTIF"
 df.loc[df["hazard_type"] == "drought", "hazard_type"] = "Drought"
 df.loc[df["hazard_indicator"] == "HI_days", "hazard_indicator"] = "HI"
 
+df = df.loc[~((df["hazard_type"] == "Drought") & (df["metric"] != "mean")), :]
+df.loc[df["hazard_type"] == "Drought", "metric"] = None
+
 # Save back to the same file
 df.to_csv("tests/tests_data/damage_and_cost_factors.csv", index=False)
 
