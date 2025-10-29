@@ -105,7 +105,7 @@ join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
       cost_factor = dplyr::coalesce(as.numeric(.data$cost_factor), NA_real_),
       business_disruption = dplyr::coalesce(as.numeric(.data$business_disruption), NA_real_)
     ) |>
-    dplyr::select(-dplyr::starts_with(".__"))
+    dplyr::select(-c("effective_intensity_key", "intensity_key", "max_intensity_key"))
 
   return(flood_merged)
 }
@@ -119,8 +119,9 @@ join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
 join_compound_damage_factors <- function(compound_assets, damage_factors_df) {
   # Filter factors for Compound type
   # gwl column in damage_factors_df matches scenario_name from events (column names are lowercased by read function)
+  # Need to select metric column and filter for median to avoid duplicates (median is primary estimate)
   compound_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "Compound") |>
+    dplyr::filter(.data$hazard_type == "Compound", .data$metric == "median") |>
     dplyr::select("hazard_type", "province", "gwl", "damage_factor")
 
   # Join on hazard_type, province, and scenario_name = gwl

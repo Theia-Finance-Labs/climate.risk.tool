@@ -21,6 +21,11 @@ except UnicodeDecodeError:
 # Unidecode the province column
 df["province"] = df["province"].apply(lambda x: unidecode(str(x)) if pd.notna(x) else x)
 
+df.loc[df["hazard_type"] == "flood", "hazard_type"] = "FloodTIF"
+
+df.loc[df["hazard_type"] == "drought", "hazard_type"] = "Drought"
+df.loc[df["hazard_indicator"] == "HI_days", "hazard_indicator"] = "HI"
+
 # Save back to the same file
 df.to_csv("tests/tests_data/damage_and_cost_factors.csv", index=False)
 

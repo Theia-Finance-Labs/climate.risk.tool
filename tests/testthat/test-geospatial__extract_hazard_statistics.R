@@ -55,10 +55,12 @@ testthat::test_that("geolocated assets extract from NC files", {
 
   # Define events with just 1 NC hazard for focused testing
   # NC hazards expand to all ensemble variants automatically
+  # Use GWL=present which exists in test data, and include season for SPI3
   events <- tibble::tibble(
-    hazard_name = "Drought__SPI6__GWL=present__RP=10__ensemble=mean",
+    hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
     event_year = 2030,
-    chronic = FALSE
+    chronic = FALSE,
+    season = "Summer"
   )
 
   # Filter to just the selected hazard (expands to all ensemble variants)
@@ -109,7 +111,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   events <- tibble::tibble(
     hazard_name = c(
       "FloodTIF__Flood Height__GWL=RCP8.5__RP=10", # TIF hazard
-      "Drought__SPI6__GWL=present__RP=10__ensemble=mean" # NC hazard (expands to all ensembles)
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
     ),
     event_year = 2030,
     chronic = FALSE

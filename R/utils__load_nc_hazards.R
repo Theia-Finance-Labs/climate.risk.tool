@@ -72,49 +72,11 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
   for (original_file in nc_files) {
     f <- original_file
     
-    # Handle aggregation (similar to TIF logic)
+    # NC aggregation disabled - terra::aggregate breaks multi-dimensional structure
+    # (converts string dimension labels to numeric indices, loses metadata)
+    # For NC files, always use original file regardless of aggregate_factor
     if (aggregate_factor > 1) {
-      base_filename <- basename(f)
-      original_name <- tools::file_path_sans_ext(base_filename)
-      
-      agg_filename <- paste0(original_name, "__agg", aggregate_factor, ".nc")
-      agg_filepath <- file.path(dirname(f), agg_filename)
-      
-      if (file.exists(agg_filepath) && !isTRUE(force_reaggregate)) {
-        message("  Using cached aggregated NC: ", agg_filename)
-        f <- agg_filepath
-      } else {
-        # Need to aggregate - load with terra
-        message("  Loading NC for aggregation: ", base_filename)
-        message("    Aggregating by factor ", aggregate_factor, "...")
-        
-        r_orig <- try(terra::rast(original_file), silent = TRUE)
-        
-        if (!inherits(r_orig, "try-error") && terra::nlyr(r_orig) < 10000) {
-          # Only aggregate if terra can reasonably load it (< 10k layers)
-          orig_dims <- dim(r_orig)
-          message("    Original: ", paste(orig_dims[1:2], collapse = "x"), " with ", orig_dims[3], " layers")
-          
-          r_agg <- try(
-            terra::aggregate(r_orig, fact = aggregate_factor, fun = mean, na.rm = TRUE),
-            silent = TRUE
-          )
-          
-          if (!inherits(r_agg, "try-error") && isTRUE(cache_aggregated)) {
-            message("    Saving aggregated NC...")
-            terra::writeCDF(r_agg, filename = agg_filepath, overwrite = TRUE, compression = 6)
-            message("    Cached: ", agg_filename)
-            f <- agg_filepath
-          } else if (!inherits(r_agg, "try-error")) {
-            # Aggregation succeeded but not caching - can't use it, would need to aggregate every slice
-            message("    Aggregation succeeded but caching disabled - using original file")
-          } else {
-            message("    Aggregation failed - using original file")
-          }
-        } else {
-          message("    File too complex for terra aggregation - using original file")
-        }
-      }
+      message("  Loading NetCDF file: ", basename(f), " (aggregation not supported for NC files)")
     } else {
       message("  Loading NetCDF file: ", basename(f))
     }
@@ -385,12 +347,23 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
 
             # Unified hazard name WITH ensemble suffix for NC files
             # NC files always use mean ensemble during load
-            hazard_name <- paste0(
-              hazard_type, "__", hazard_indicator,
-              "__GWL=", gwl_label,
-              "__RP=", rp_label,
-              "__ensemble=", ens_label
-            )
+            # Include season in hazard_name if present (e.g., for Drought SPI3)
+            hazard_name <- if (!is.na(season_label) && !inherits(season_vals, "try-error")) {
+              paste0(
+                hazard_type, "__", hazard_indicator,
+                "__GWL=", gwl_label,
+                "__RP=", rp_label,
+                "__season=", season_label,
+                "__ensemble=", ens_label
+              )
+            } else {
+              paste0(
+                hazard_type, "__", hazard_indicator,
+                "__GWL=", gwl_label,
+                "__RP=", rp_label,
+                "__ensemble=", ens_label
+              )
+            }
 
             results[[hazard_name]] <- r
 
