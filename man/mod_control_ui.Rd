@@ -7,7 +7,7 @@
 mod_control_ui(id)
 }
 \arguments{
-\item{id}{Internal parameter for {shiny}}
+\item{id}{Internal parameter for shiny}
 }
 \description{
 Sidebar control module for company upload, hazard selection, and analysis controls

@@ -353,7 +353,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       dplyr::filter(.data$aggregation_method == aggregation_method) |>
       dplyr::mutate(
         # Extract the value from the column matching the aggregation method
-        hazard_intensity = hazard_value,
+        hazard_intensity = .data$hazard_value,
         hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
         # Add asset information to each hazard row

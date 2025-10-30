@@ -7,7 +7,7 @@
 mod_results_assets_ui(id)
 }
 \arguments{
-\item{id}{Internal parameter for {shiny}}
+\item{id}{Internal parameter for shiny}
 }
 \description{
 Module to display asset-level results table with exposures

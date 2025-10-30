@@ -7,7 +7,7 @@
 mod_results_assets_server(id, results_reactive)
 }
 \arguments{
-\item{id}{Internal parameter for {shiny}}
+\item{id}{Internal parameter for shiny}
 
 \item{results_reactive}{reactive containing analysis results}
 }

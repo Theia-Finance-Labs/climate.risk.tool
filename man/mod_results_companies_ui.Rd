@@ -7,7 +7,7 @@
 mod_results_companies_ui(id)
 }
 \arguments{
-\item{id}{Internal parameter for {shiny}}
+\item{id}{Internal parameter for shiny}
 }
 \description{
 Module to display company-level results table with financials

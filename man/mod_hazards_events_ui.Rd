@@ -7,7 +7,7 @@
 mod_hazards_events_ui(id, title = "Hazard events")
 }
 \arguments{
-\item{id}{Internal parameter for {shiny}}
+\item{id}{Internal parameter for shiny}
 
 \item{title}{Character title displayed above the controls}
 }
