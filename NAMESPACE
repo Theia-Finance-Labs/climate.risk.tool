@@ -3,7 +3,6 @@
 export(aggregate_assets_to_company)
 export(apply_acute_profit_shock)
 export(apply_acute_revenue_shock)
-export(apply_chronic_revenue_shock)
 export(assign_province_to_assets)
 export(assign_province_to_assets_with_boundaries)
 export(compute_baseline_trajectories)

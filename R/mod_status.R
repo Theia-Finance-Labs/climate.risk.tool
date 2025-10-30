@@ -94,8 +94,7 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
               "Hazard Name" = .data$hazard_name,
               "Scenario" = .data$scenario_name,
               "Return Period (years)" = .data$hazard_return_period,
-              "Shock Year" = .data$event_year,
-              "Chronic" = .data$chronic
+              "Shock Year" = .data$event_year
             )
         }
       },

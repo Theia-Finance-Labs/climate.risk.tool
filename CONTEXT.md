@@ -21,7 +21,7 @@ The tool processes climate risk through a multi-step pipeline orchestrated by `c
 
 **PHASE 2: Financial Modeling**
 6. **Baseline Trajectories**: Compute revenue and profit projections without climate shocks
-7. **Shock Application**: Apply acute and chronic climate event shocks to revenue and profits
+7. **Shock Application**: Apply acute climate event shocks to revenue and profits
 8. **Scenario Building**: Combine baseline and shock trajectories
 9. **Discounting**: Apply present value discounting to future cash flows
 
@@ -295,8 +295,7 @@ inventory <- hazard_data$inventory
 - Computes baseline revenue and profit trajectories over time
 
 **`compute_shock_trajectories(yearly_baseline, assets_with_factors, events)`** → shocked yearly
-- Splits events into acute/chronic
-- Applies shocks sequentially (acute first, then chronic)
+- Applies acute shocks to revenue and profits
 
 **`concatenate_baseline_and_shock(baseline_yearly, shocked_yearly)`** → combined scenarios
 - Concatenates baseline and shock trajectories
@@ -333,9 +332,9 @@ inventory <- hazard_data$inventory
   1. Hazard Type (flood, heat, etc.)
   2. Scenario (CurrentClimate, RCP8.5, etc.)
   3. Return Period (10, 100, 1000 years)
-- Chronic checkbox, optional shock year
+- Shock year input
 - Add button, configured events table
-- Output: events dataframe with event_id, hazard_type, scenario, event_year, chronic
+- Output: events dataframe with event_id, hazard_type, scenario, event_year
 
 **`mod_results_assets`** - Asset-level results display
 
@@ -466,7 +465,7 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 - ✅ Result pivoting for reporting
 
 ### Placeholder Features (Pass-through)
-- 🔄 Shock functions (acute/chronic) - maintain interface, return baseline values
+- 🔄 Shock functions (acute) - maintain interface, return baseline values
 - Logic to be implemented based on events dataframe
 
 ## Key Concepts
@@ -492,7 +491,6 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 
 ### Event Types
 - **Acute**: One-time shock in specific year
-- **Chronic**: Ongoing degradation over time
 
 ## Dependencies
 

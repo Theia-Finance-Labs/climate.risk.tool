@@ -27,7 +27,7 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
     hazard_type = "FloodTIF",
     hazard_name = "FloodTIF__Flood Height__GWL=RCP8.5__RP=100",
     event_year = 2030L,
-    chronic = FALSE,
+    
     stringsAsFactors = FALSE
   )
 
@@ -79,7 +79,7 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
     hazard_type = c("FloodTIF", "FloodTIF"),
     hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=50"),
     event_year = c(2030L, 2030L),
-    chronic = c(FALSE, FALSE),
+    
     stringsAsFactors = FALSE
   )
 
@@ -115,8 +115,7 @@ testthat::test_that("apply_acute_profit_shock excludes agriculture assets", {
     event_id = "event_1",
     hazard_type = "FloodTIF",
     hazard_name = "flood1",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
@@ -151,8 +150,7 @@ testthat::test_that("apply_acute_profit_shock applies to industrial buildings wi
     event_id = "event_1",
     hazard_type = "FloodTIF",
     hazard_name = "flood1",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
@@ -185,8 +183,7 @@ testthat::test_that("apply_acute_profit_shock handles commercial building separa
     event_id = "event_1",
     hazard_type = "FloodTIF",
     hazard_name = "flood1",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)

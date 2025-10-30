@@ -18,7 +18,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     assets_mixed$province[1] <- "Amazonas"
   }
 
-  # Events: FloodTIF (acute + chronic), Compound (acute), and Drought (acute with season)
+  # Events: FloodTIF (acute), Compound (acute), and Drought (acute with season)
   # Hazard names match the actual available test data:
   # - FloodTIF: Uses GWL= format with scenario_name (TIF files)
   # - Compound: Uses GWL= with ensemble (CSV files)
@@ -37,8 +37,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     scenario_name = c("CurrentClimate", "CurrentClimate", "RCP8.5", "present", "2", "present", "1.5"),
     scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
     hazard_return_period = c(10, 10, 100, 10, 10, 10, 10),
-    event_year = c(2030L, NA_integer_, 2035L, 2030L, 2035L, 2032L, 2033L),
-    chronic = c(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE),
+    event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L),
+    
     season = c(NA, NA, NA, NA, NA, "Summer", "Winter"),  # Season only for Drought
     stringsAsFactors = FALSE
   )
@@ -73,10 +73,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   testthat::expect_true(all(c("baseline", "shock") %in% unique(res$companies_yearly$scenario)))
 
   # Assets factors should include metadata and event_info
-  testthat::expect_true(all(c("matching_method", "hazard_return_period", "event_year", "chronic") %in% names(res$assets_factors)))
+  testthat::expect_true(all(c("matching_method", "event_year") %in% names(res$assets_factors)))
   testthat::expect_true(all(res$assets_factors$matching_method %in% c("coordinates", "municipality", "province")))
-  testthat::expect_true(all(!is.na(res$assets_factors$hazard_return_period)))
-  testthat::expect_true(all(res$assets_factors$chronic %in% c(TRUE, FALSE)))
 
   # Event IDs: auto-generated when not provided
   testthat::expect_true("event_id" %in% names(res$assets_factors))

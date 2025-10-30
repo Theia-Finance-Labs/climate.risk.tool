@@ -20,7 +20,7 @@
 #'   profit = c(100, 120)
 #' )
 #' assets_factors <- data.frame(asset = "A1", hazard_type = "flood", cost_factor = 100)
-#' acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030, chronic = FALSE)
+#' acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030)
 #' result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
 #' }
 #' @export

@@ -17,25 +17,22 @@ compute_shock_trajectories(
 
 \item{assets_with_factors}{tibble with hazard data and damage/cost factors}
 
-\item{events}{tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA), chronic (logical)}
+\item{events}{tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA)}
 
 \item{net_profit_margin}{numeric. Net profit margin for computing profits from shocked revenue (default: 0.1)}
 
 \item{start_year}{numeric. Starting year for projections (default: 2025)}
 }
 \value{
-tibble with columns: asset, company, year, scenario, revenue, profit
-where scenario is either "baseline" or "shock"
+tibble with columns: asset, company, year, revenue, profit
 }
 \description{
 Applies climate shocks to baseline yearly trajectories through a clear sequence:
 \enumerate{
 \item Apply acute revenue shocks
-\item Apply chronic revenue shocks
 \item Compute profits from shocked revenue
 \item Apply acute profit shocks
-\item Concatenate with baseline scenarios
-Returns a single dataframe with both baseline and shock scenarios ready for downstream analysis.
+Returns a single dataframe with shock scenarios ready for downstream analysis.
 }
 }
 \details{
@@ -57,9 +54,8 @@ assets_factors <- data.frame(
 events <- data.frame(
   event_id = "ev1", hazard_type = "flood",
   hazard_name = "flood__global_rcp85_h100glob_brazil",
-  event_year = 2030, chronic = FALSE
+  event_year = 2030
 )
 result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
-# result contains both baseline and shock scenarios
 }
 }

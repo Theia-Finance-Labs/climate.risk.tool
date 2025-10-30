@@ -6,7 +6,6 @@ testthat::test_that("geolocated assets extract from TIF files", {
   events <- tibble::tibble(
     hazard_name = "FloodTIF__Flood Height__GWL=RCP8.5__RP=10",
     event_year = 2030,
-    chronic = FALSE
   )
 
   # Filter to just the selected hazard (like the real pipeline does)
@@ -60,7 +59,7 @@ testthat::test_that("geolocated assets extract from NC files", {
   events <- tibble::tibble(
     hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
     event_year = 2030,
-    chronic = FALSE,
+    
     season = "Summer"
   )
 
@@ -116,7 +115,6 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
     ),
     event_year = 2030,
-    chronic = FALSE
   )
 
   # Filter hazards to match events (like the real pipeline)
@@ -199,7 +197,6 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     events <- tibble::tibble(
       hazard_name = missing_hazard$hazard_name[1],
       event_year = 2030,
-      chronic = FALSE
     )
 
     # Filter to just this hazard
@@ -231,7 +228,6 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
   events2 <- tibble::tibble(
     hazard_name = "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
     event_year = 2030,
-    chronic = FALSE
   )
   all_hazards2 <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
   hazards2 <- filter_hazards_by_events(all_hazards2, events2)

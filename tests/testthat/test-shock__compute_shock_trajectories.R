@@ -24,7 +24,6 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
     hazard_type = "flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = 2030L,
-    chronic = FALSE,
     stringsAsFactors = FALSE
   )
 
@@ -44,9 +43,8 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
 testthat::test_that("compute_shock_trajectories applies full shock sequence", {
   # Test that the function applies:
   # 1. Acute revenue shock
-  # 2. Chronic revenue shock
-  # 3. Compute profit from shocked revenue
-  # 4. Acute profit shock
+  # 2. Compute profit from shocked revenue
+  # 3. Acute profit shock
 
   yearly_baseline <- data.frame(
     asset = c("A1", "A1"),
@@ -69,8 +67,7 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
     event_id = "e1",
     hazard_type = "flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, net_profit_margin = 0.1)
@@ -88,37 +85,3 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
   testthat::expect_true(all(result$profit >= 0))
 })
 
-testthat::test_that("compute_shock_trajectories handles mixed acute and chronic events", {
-  yearly_baseline <- data.frame(
-    asset = c("A1", "A1", "A1"),
-    company = c("C1", "C1", "C1"),
-    year = c(2025, 2030, 2035),
-    revenue = c(1000, 1200, 1440),
-    profit = c(100, 120, 144)
-  )
-
-  assets_factors <- data.frame(
-    asset = "A1",
-    hazard_type = "flood",
-    hazard_name = "flood__global_rcp85_h100glob_brazil",
-    business_disruption = 10,
-    damage_factor = 0.5,
-    cost_factor = 100
-  )
-
-  events <- data.frame(
-    event_id = c("e1", "e2"),
-    hazard_type = c("flood", "flood"),
-    hazard_name = c("flood__global_rcp85_h100glob_brazil", "flood__global_rcp85_h100glob_brazil"),
-    event_year = c(2030L, NA_integer_),
-    chronic = c(FALSE, TRUE)
-  )
-
-  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
-
-  # Should return shocked trajectories only (no scenario column)
-  testthat::expect_false("scenario" %in% names(result))
-
-  # Should have 3 rows (one for each year in baseline)
-  testthat::expect_equal(nrow(result), 3)
-})

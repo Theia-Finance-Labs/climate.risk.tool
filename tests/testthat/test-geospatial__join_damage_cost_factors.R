@@ -29,7 +29,7 @@ testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-ba
     scenario_name = c("rcp85", "rcp85"),
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
-    chronic = c(FALSE, FALSE),
+    
     cnae = NA_real_,
     stringsAsFactors = FALSE
   )
@@ -72,7 +72,7 @@ testthat::test_that("join_damage_cost_factors handles Compound with province and
     scenario_name = c("present", "1.5"),  # GWL scenarios
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
-    chronic = c(FALSE, FALSE),
+    
     cnae = NA_real_,
     stringsAsFactors = FALSE
   )
@@ -136,7 +136,6 @@ testthat::test_that("join_compound_damage_factors uses cnae-based metric selecti
     scenario_name = rep("present", 5),
     event_id = rep("event_1", 5),
     event_year = rep(2030, 5),
-    chronic = rep(FALSE, 5),
     stringsAsFactors = FALSE
   )
   
@@ -186,7 +185,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     scenario_name = c("present", "present"),
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
-    chronic = c(FALSE, FALSE),
+    
     season = c("Summer", "Autumn"),  # On-season for these crops in these provinces
     cnae = NA,
     stringsAsFactors = FALSE
@@ -233,7 +232,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    chronic = c(FALSE),
+    
     season = c("Winter"),  # Off-season (Soybean in Bahia grows in Summer)
     cnae = NA,
     stringsAsFactors = FALSE
@@ -275,7 +274,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    chronic = c(FALSE),
+    
     season = c("Winter"),  # Matches one of the growing seasons
     cnae = NA,
     stringsAsFactors = FALSE
@@ -325,7 +324,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    chronic = c(FALSE),
+    
     season = c("Summer"),  # Not a growing season - should average
     cnae = NA,
     stringsAsFactors = FALSE
@@ -377,7 +376,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - au
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    chronic = c(FALSE),
+    
     season = c("Autumn"),  # Matches one of the growing seasons
     cnae = NA,
     stringsAsFactors = FALSE
@@ -420,7 +419,7 @@ testthat::test_that("join_drought_damage_factors handles missing subtype (defaul
     scenario_name = c("present", "present"),
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
-    chronic = c(FALSE, FALSE),
+    
     season = c("Summer", "Summer"),  # Matches Soybean growing season in "Other"
     cnae = NA,
     stringsAsFactors = FALSE
@@ -459,7 +458,7 @@ testthat::test_that("join_drought_damage_factors handles intensity capping", {
     scenario_name = c("present", "present", "present"),
     event_id = c("event_1", "event_1", "event_1"),
     event_year = c(2030, 2030, 2030),
-    chronic = c(FALSE, FALSE, FALSE),
+    
     season = c("Summer", "Summer", "Summer"),  # Matches Soybean in Bahia
     cnae = NA,
     stringsAsFactors = FALSE
@@ -503,7 +502,7 @@ testthat::test_that("join_drought_damage_factors filters to agriculture only", {
     scenario_name = c("present", "present", "rcp85"),
     event_id = c("event_1", "event_1", "event_2"),
     event_year = c(2030, 2030, 2030),
-    chronic = c(FALSE, FALSE, FALSE),
+    
     season = c("Summer", "Summer", NA),
     cnae = NA,
     stringsAsFactors = FALSE
@@ -549,7 +548,7 @@ testthat::test_that("join_drought_damage_factors handles missing province with f
     scenario_name = c("present", "present"),
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
-    chronic = c(FALSE, FALSE),
+    
     season = c("Summer", "Summer"),
     cnae = NA,
     stringsAsFactors = FALSE

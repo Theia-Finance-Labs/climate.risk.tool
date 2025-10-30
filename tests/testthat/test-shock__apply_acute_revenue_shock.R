@@ -19,8 +19,7 @@ testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "FloodTIF",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
@@ -60,8 +59,7 @@ testthat::test_that("apply_acute_revenue_shock applies Compound shocks with Cobb
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "Compound",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
@@ -106,7 +104,7 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
     event_id = c("event_z", "event_a"),
     hazard_type = c("FloodTIF", "FloodTIF"),
     event_year = c(2030L, 2030L),
-    chronic = c(FALSE, FALSE),
+    
     stringsAsFactors = FALSE
   )
 
@@ -140,8 +138,7 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "FloodTIF",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
@@ -176,8 +173,7 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "FloodTIF",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
@@ -210,8 +206,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "FloodTIF",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
@@ -242,8 +237,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "FloodTIF",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
@@ -273,8 +267,7 @@ testthat::test_that("apply_acute_revenue_shock applies Drought shocks to agricul
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "Drought",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
@@ -313,8 +306,7 @@ testthat::test_that("apply_acute_revenue_shock ignores Drought for non-agricultu
   acute_events <- data.frame(
     event_id = "event_1",
     hazard_type = "Drought",
-    event_year = 2030L,
-    chronic = FALSE
+    event_year = 2030L
   )
 
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
@@ -343,8 +335,7 @@ testthat::test_that("apply_acute_revenue_shock handles multiple droughts in same
   acute_events <- data.frame(
     event_id = c("event_1", "event_2"),
     hazard_type = c("Drought", "Drought"),
-    event_year = c(2030L, 2030L),
-    chronic = c(FALSE, FALSE)
+    event_year = c(2030L, 2030L)
   )
 
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)

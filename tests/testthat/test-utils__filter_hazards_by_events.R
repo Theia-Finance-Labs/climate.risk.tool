@@ -25,8 +25,7 @@ testthat::test_that("filter_hazards_by_events handles TIF hazards with exact mat
   # Define events (only request 2 out of 3)
   events <- data.frame(
     hazard_name = c("flood__rcp85_h10glob", "heat__rcp85_h10"),
-    event_year = c(2030, 2040),
-    chronic = c(FALSE, FALSE)
+    event_year = c(2030, 2040)
   )
 
   # Filter
@@ -49,8 +48,7 @@ testthat::test_that("filter_hazards_by_events matches NC hazards with ensemble s
   # Define events (use the full hazard name with ensemble suffix)
   events <- data.frame(
     hazard_name = c("Drought__CDD__GWL=present__RP=5__ensemble=mean"),
-    event_year = c(2030),
-    chronic = c(FALSE)
+    event_year = c(2030)
   )
 
   # Filter
@@ -73,8 +71,7 @@ testthat::test_that("filter_hazards_by_events matches exact ensemble when specif
   # Define events (includes ensemble suffix - should match exactly)
   events <- data.frame(
     hazard_name = c("Compound__FWI__GWL=3__RP=10__ensemble=mean"),
-    event_year = c(2050),
-    chronic = c(FALSE)
+    event_year = c(2050)
   )
 
   # Filter
@@ -105,8 +102,7 @@ testthat::test_that("filter_hazards_by_events handles multiple NC events correct
   # Define events (use full hazard names with ensemble suffix)
   events <- data.frame(
     hazard_name = c("Drought__CDD__GWL=present__RP=5__ensemble=mean", "Heat__Frost__GWL=2__RP=10__ensemble=mean"),
-    event_year = c(2030, 2040),
-    chronic = c(FALSE, FALSE)
+    event_year = c(2030, 2040)
   )
 
   # Filter
@@ -146,8 +142,7 @@ testthat::test_that("filter_hazards_by_events handles mixed TIF and NC hazards",
   # Define events (mix of TIF and NC with full names)
   events <- data.frame(
     hazard_name = c("flood__rcp85_h10glob", "Drought__CDD__GWL=present__RP=5__ensemble=mean"),
-    event_year = c(2030, 2040),
-    chronic = c(FALSE, FALSE)
+    event_year = c(2030, 2040)
   )
 
   # Filter
