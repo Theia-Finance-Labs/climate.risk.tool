@@ -90,12 +90,12 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
           events |>
             dplyr::select("event_id", dplyr::everything()) |>
             dplyr::rename(
-              "Event ID" = .data$event_id,
-              "Hazard Type" = .data$hazard_type,
-              "Hazard Name" = .data$hazard_name,
-              "Scenario" = .data$scenario_name,
-              "Return Period (years)" = .data$hazard_return_period,
-              "Shock Year" = .data$event_year
+              "Event ID" = "event_id",
+              "Hazard Type" = "hazard_type",
+              "Hazard Name" = "hazard_name",
+              "Scenario" = "scenario_name",
+              "Return Period (years)" = "hazard_return_period",
+              "Shock Year" = "event_year"
             )
         }
       },

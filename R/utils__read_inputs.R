@@ -332,7 +332,7 @@ read_damage_cost_factors <- function(base_dir) {
     dplyr::mutate(
       # Clean up the numeric columns that have comma decimal separators and quotes
       damage_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$damage_factor))),
-      cost_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor))),
+      cost_factor = suppressWarnings(as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor)))),
       # Ensure hazard_intensity is numeric
       hazard_intensity = as.numeric(.data$hazard_intensity)
     ) |>
