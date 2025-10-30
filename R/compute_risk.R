@@ -6,7 +6,7 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA), `chronic`.
+#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA).
 #'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
@@ -26,7 +26,7 @@
 #'   For precomputed data: uses the mean ensemble variant.
 #' #'
 #' @return List containing final results:
-#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
+#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
 #'   - companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 #'   - assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 #'   - companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -40,16 +40,15 @@
 #' 5. Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
 #' 6. Join damage factors: Map hazard intensity to damage/cost factors
 #' 7. Apply acute shock: Calculate sudden climate event impacts
-#' 8. Apply chronic shock: Calculate gradual climate change impacts
-#' 9. Compute asset impact: Update share_of_economic_activity with all impacts
-#' 10. Build scenarios: Create baseline vs shock scenario data
-#' 11. Compute asset revenue: Allocate company revenue to assets
-#' 12. Compute asset profits: Apply net profit margins
-#' 13. Discount net profits: Apply present value discounting
-#' 14. Compute company NPV: Aggregate asset profits to company level
-#' 15. Compute company PD: Calculate probability of default using Merton model
-#' 16. Compute expected loss: Calculate expected loss using EL = LGD * Loan_Size * PD
-#' 17. Gather and pivot results: Transform to wide format for reporting
+#' 8. Compute asset impact: Update share_of_economic_activity with all impacts
+#' 9. Build scenarios: Create baseline vs shock scenario data
+#' 10. Compute asset revenue: Allocate company revenue to assets
+#' 11. Compute asset profits: Apply net profit margins
+#' 12. Discount net profits: Apply present value discounting
+#' 13. Compute company NPV: Aggregate asset profits to company level
+#' 14. Compute company PD: Calculate probability of default using Merton model
+#' 15. Compute expected loss: Calculate expected loss using EL = LGD * Loan_Size * PD
+#' 16. Gather and pivot results: Transform to wide format for reporting
 #'
 #' @examples
 #' \dontrun{
@@ -66,8 +65,7 @@
 #' events <- data.frame(
 #'   hazard_type = "flood",
 #'   scenario = "rcp85",
-#'   event_year = 2030,
-#'   chronic = FALSE
+#'   event_year = 2030
 #' )
 #'
 #' # Run analysis
@@ -115,7 +113,7 @@ compute_risk <- function(assets,
     stop("companies must be a non-empty data.frame (from read_companies())")
   }
   if (!is.data.frame(events) || nrow(events) == 0) {
-    stop("events must be a non-empty data.frame with hazard_type, hazard_name, event_year/chronic")
+    stop("events must be a non-empty data.frame with hazard_type, hazard_name, event_year")
   }
   if (!is.list(hazards) || length(hazards) == 0) {
     stop("hazards must be a non-empty named list of SpatRaster objects (from load_hazards())")
@@ -136,28 +134,28 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 0: INPUT PREPARATION - Assign provinces to assets and validate
   # ============================================================================
-  
+
   # Assign provinces to assets that don't have one (requires boundaries)
   if (!is.null(adm1_boundaries)) {
     message("[compute_risk] Assigning provinces to assets without location data...")
     assets <- assign_province_to_assets_with_boundaries(
-      assets, 
-      adm1_boundaries, 
+      assets,
+      adm1_boundaries,
       adm2_boundaries
     )
   }
-  
+
   # Validate input data coherence
   if (validate_inputs && !is.null(adm1_boundaries)) {
     message("[compute_risk] Validating input data coherence...")
-    
+
     # Extract boundary names for validation
     adm1_names <- adm1_boundaries |>
       dplyr::pull(.data$shapeName) |>
       as.character() |>
       stringi::stri_trans_general("Latin-ASCII") |>
       unique()
-    
+
     adm2_names <- if (!is.null(adm2_boundaries)) {
       adm2_boundaries |>
         dplyr::pull(.data$shapeName) |>
@@ -167,7 +165,7 @@ compute_risk <- function(assets,
     } else {
       character(0)
     }
-    
+
     validate_input_coherence(
       assets_df = assets,
       damage_factors_df = damage_factors,
@@ -216,7 +214,7 @@ compute_risk <- function(assets,
     aggregation_method = aggregation_method
   )
 
-  # Step 2.3: Join event information (event_year, chronic, scenario_name) from events
+  # Step 2.3: Join event information (event_year, scenario_name) from events
   # Select only the columns we need from events to avoid duplication
   # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
   # Don't use distinct() here - we want one row per event even if they share the same hazard_name
@@ -227,7 +225,7 @@ compute_risk <- function(assets,
     )
   assets_with_events <- assets_long |>
     dplyr::inner_join(
-      events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic", "season"),
+      events |> dplyr::select("hazard_name", "event_id", "event_year", "season"),
       by = "hazard_name", relationship = "many-to-many"
     )
 

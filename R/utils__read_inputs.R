@@ -117,44 +117,44 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
   if ("province" %in% names(assets_df)) {
     assets_df$province <- as.character(assets_df$province)
   }
-  
+
   # Normalize province names in boundaries
   provinces_sf <- adm1_boundaries |>
     dplyr::mutate(
       province_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
     )
-  
+
   # Identify assets without province
   assets_without_province <- assets_df |>
     dplyr::filter(is.na(.data$province))
-  
+
   assets_with_province_already <- assets_df |>
     dplyr::filter(!is.na(.data$province))
-  
+
   if (nrow(assets_without_province) == 0) {
     message("[assign_province_to_assets] All assets already have province assigned")
     return(assets_df)
   }
-  
+
   message("[assign_province_to_assets] Assigning province to ", nrow(assets_without_province), " assets")
-  
+
   # Strategy 1: Assets with lat/lon - spatial join to province
   assets_with_coords <- assets_without_province |>
     dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
-  
+
   if (nrow(assets_with_coords) > 0) {
     message("  Assigning province via coordinates for ", nrow(assets_with_coords), " assets")
-    
+
     # Convert to sf object
     assets_coords_sf <- sf::st_as_sf(
       assets_with_coords,
       coords = c("longitude", "latitude"),
       crs = 4326
     )
-    
+
     # Spatial join with provinces
     assets_coords_joined <- sf::st_join(assets_coords_sf, provinces_sf, join = sf::st_within)
-    
+
     # Extract coordinates back and assign province
     coords_matrix <- sf::st_coordinates(assets_coords_joined)
     assets_with_coords <- assets_with_coords |>
@@ -162,21 +162,21 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
         province = assets_coords_joined$province_name
       )
   }
-  
+
   # Strategy 2: Assets with municipality but no coordinates - join via municipality
   assets_with_municipality <- assets_without_province |>
     dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
     dplyr::filter(!is.na(.data$municipality))
-  
+
   if (nrow(assets_with_municipality) > 0 && !is.null(adm2_boundaries)) {
     message("  Assigning province via municipality for ", nrow(assets_with_municipality), " assets")
-    
+
     # Normalize municipality names in boundaries
     municipalities_sf <- adm2_boundaries |>
       dplyr::mutate(
         municipality_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
       )
-    
+
     # Ensure both layers share CRS
     if (!sf::st_is_longlat(municipalities_sf)) {
       municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
@@ -184,14 +184,14 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
     if (!sf::st_is_longlat(provinces_sf)) {
       provinces_sf <- sf::st_transform(provinces_sf, 4326)
     }
-    
+
     muni_points <- sf::st_point_on_surface(municipalities_sf)
     muni_points_joined <- sf::st_join(muni_points, provinces_sf, join = sf::st_within)
-    
+
     municipality_lookup <- muni_points_joined |>
       sf::st_drop_geometry() |>
       dplyr::select("municipality_name", "province_name")
-    
+
     assets_with_municipality <- assets_with_municipality |>
       dplyr::left_join(
         municipality_lookup,
@@ -202,7 +202,7 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
       ) |>
       dplyr::select(-dplyr::any_of(c("province_name", "adm1_name")))
   }
-  
+
   # Combine all assets back together
   result <- dplyr::bind_rows(
     assets_with_province_already,
@@ -212,13 +212,13 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
     assets_without_province |>
       dplyr::filter(
         (is.na(.data$latitude) | is.na(.data$longitude)) &
-        is.na(.data$municipality)
+          is.na(.data$municipality)
       )
   )
-  
+
   n_assigned <- sum(!is.na(result$province)) - sum(!is.na(assets_df$province))
   message("[assign_province_to_assets] Assigned province to ", n_assigned, " additional assets")
-  
+
   return(result)
 }
 
@@ -256,7 +256,7 @@ assign_province_to_assets <- function(assets_df, base_dir) {
   } else {
     NULL
   }
-  
+
   # Call the main function with loaded boundaries
   assign_province_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
 }
@@ -332,7 +332,7 @@ read_damage_cost_factors <- function(base_dir) {
     dplyr::mutate(
       # Clean up the numeric columns that have comma decimal separators and quotes
       damage_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$damage_factor))),
-      cost_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor))),
+      cost_factor = suppressWarnings(as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor)))),
       # Ensure hazard_intensity is numeric
       hazard_intensity = as.numeric(.data$hazard_intensity)
     ) |>
@@ -480,9 +480,9 @@ read_precomputed_hazards <- function(base_dir) {
   precomputed_final <- dplyr::bind_rows(transformed_list)
 
   precomputed_final <- precomputed_final |>
-  dplyr::mutate(
-    region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII")
-  )
+    dplyr::mutate(
+      region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII")
+    )
 
   message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
 

@@ -10,6 +10,7 @@
 #' 6. Generates a unified inventory combining TIF, NC, and CSV metadata
 #' 7. Returns both hazards and inventory
 #'
+#' @param hazards_dir Character path to hazards directory containing subdirectories with hazard files
 #' @param aggregate_factor Integer >= 1. Aggregation factor for TIF and NC rasters (default: 1)
 #' @return A list with three elements:
 #'   - `hazards`: Nested list with `tif`, `nc`, and `csv` keys

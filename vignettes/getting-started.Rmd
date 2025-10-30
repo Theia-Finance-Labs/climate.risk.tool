@@ -80,22 +80,21 @@ Define the climate scenarios you want to analyze. You can mix different hazard t
 
 ```{r}
 # Create events mixing flood and drought hazards
-  events <- data.frame(
-    hazard_type = c("FloodTIF", "FloodTIF", "Compound", "Compound"),
-    hazard_name = c(
-      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-      # Compound CSV hazards use indicator 'HI' (Heat Index) in our data
-      "Compound__HI__GWL=present__RP=10__ensemble=mean",
-      "Compound__HI__GWL=3__RP=10__ensemble=mean"
-    ),
-    scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3"),
-    scenario_code = c("pc", "pc", "present", "3"),
-    hazard_return_period = c(10, 10, 10, 10),
-    event_year = c(2030L, NA_integer_, 2030L, 2035L),
-    chronic = c(FALSE, TRUE, FALSE, FALSE),
-    stringsAsFactors = FALSE
-  )
+events <- data.frame(
+  hazard_type = c("FloodTIF", "FloodTIF", "Compound", "Compound"),
+  hazard_name = c(
+    "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+    "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+    # Compound CSV hazards use indicator 'HI' (Heat Index) in our data
+    "Compound__HI__GWL=present__RP=10__ensemble=mean",
+    "Compound__HI__GWL=3__RP=10__ensemble=mean"
+  ),
+  scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3"),
+  scenario_code = c("pc", "pc", "present", "3"),
+  hazard_return_period = c(10, 10, 10, 10),
+  event_year = c(2030L, 2030L, 2030L, 2035L),
+  stringsAsFactors = FALSE
+)
 ```
 
 ## Run the model

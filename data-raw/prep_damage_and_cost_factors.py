@@ -29,6 +29,8 @@ df = df[
     ~df["province"].isin(["Rio Grande do Norte", "Rio de Janeiro", "Brazil", "Other"])
 ]
 
+df[df == "-"] = None
+
 # Save back to the same file
 df.to_csv("tests/tests_data/damage_and_cost_factors.csv", index=False)
 

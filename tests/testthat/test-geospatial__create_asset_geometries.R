@@ -71,11 +71,11 @@ testthat::test_that("create_asset_geometries buffer: row uses size_in_m2 if give
   testthat::expect_gt(areas[1], areas[2])
 
   # 2. Asset 1 and 2: check area is close to size_in_m2 (tolerance 10%)
-  testthat::expect_true(abs(areas[1] - expected_area_1)/expected_area_1 < 0.1)
-  testthat::expect_true(abs(areas[2] - expected_area_2)/expected_area_2 < 0.1)
+  testthat::expect_true(abs(areas[1] - expected_area_1) / expected_area_1 < 0.1)
+  testthat::expect_true(abs(areas[2] - expected_area_2) / expected_area_2 < 0.1)
 
   # 3. Asset 3: check area is close to default buffer area
-  testthat::expect_true(abs(areas[3] - expected_area_3)/expected_area_3 < 0.1)
+  testthat::expect_true(abs(areas[3] - expected_area_3) / expected_area_3 < 0.1)
 })
 
 
@@ -115,4 +115,3 @@ testthat::test_that("create_asset_geometries respects output_crs parameter", {
   out_3857 <- create_asset_geometries(df, output_crs = 3857)
   testthat::expect_equal(sf::st_crs(out_3857$geometry)$epsg, 3857)
 })
-

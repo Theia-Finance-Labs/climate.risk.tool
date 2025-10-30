@@ -32,7 +32,6 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     session$setInputs("hazard_indicator_1" = "Flood Height")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
-    session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
 
     # First click of add_event should save the current event and increment counter
@@ -46,7 +45,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     session$setInputs("hazard_indicator_2" = "Flood Height")
     session$setInputs("scenario_name_2" = "RCP8.5")
     session$setInputs("return_period_2" = 10)
-    session$setInputs("chronic_2" = TRUE)
+    session$setInputs("year_2" = 2035)
     session$setInputs(add_event = 2)
 
     ret <- session$returned
@@ -83,7 +82,6 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
     session$setInputs("hazard_indicator_1" = "Flood Height")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
-    session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1) # This is now the first 'add_event' click
 
@@ -115,7 +113,6 @@ testthat::test_that("mod_hazards_events_server captures season for Drought event
     session$setInputs("scenario_name_1" = "present")
     session$setInputs("return_period_1" = 10)
     session$setInputs("season_1" = "Summer")
-    session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1)
 
@@ -147,7 +144,6 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
     session$setInputs("hazard_indicator_1" = "Flood Height")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
-    session$setInputs("chronic_1" = FALSE)
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1)
 

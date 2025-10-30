@@ -1,7 +1,7 @@
 #' status UI Function
 #'
 #' @description Module to display analysis status and configured events
-#' @param id,input,output,session Internal parameters for {shiny}
+#' @param id Internal parameter for shiny
 #' @export
 mod_status_ui <- function(id) {
   ns <- shiny::NS(id)
@@ -41,6 +41,7 @@ mod_status_ui <- function(id) {
 
 #' status Server Functions
 #'
+#' @param id Internal parameter for shiny
 #' @param status_reactive reactive containing current status message
 #' @param events_reactive reactive containing configured events
 #' @export
@@ -80,7 +81,7 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
               function_name = "events_table renderTable"
             )
           }
-          
+
           tibble::tibble(
             Message = "No events configured - will use default event"
           )
@@ -89,13 +90,12 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
           events |>
             dplyr::select("event_id", dplyr::everything()) |>
             dplyr::rename(
-              "Event ID" = .data$event_id,
-              "Hazard Type" = .data$hazard_type,
-              "Hazard Name" = .data$hazard_name,
-              "Scenario" = .data$scenario_name,
-              "Return Period (years)" = .data$hazard_return_period,
-              "Shock Year" = .data$event_year,
-              "Chronic" = .data$chronic
+              "Event ID" = "event_id",
+              "Hazard Type" = "hazard_type",
+              "Hazard Name" = "hazard_name",
+              "Scenario" = "scenario_name",
+              "Return Period (years)" = "hazard_return_period",
+              "Shock Year" = "event_year"
             )
         }
       },

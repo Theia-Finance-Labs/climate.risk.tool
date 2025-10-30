@@ -21,7 +21,7 @@ The tool processes climate risk through a multi-step pipeline orchestrated by `c
 
 **PHASE 2: Financial Modeling**
 6. **Baseline Trajectories**: Compute revenue and profit projections without climate shocks
-7. **Shock Application**: Apply acute and chronic climate event shocks to revenue and profits
+7. **Shock Application**: Apply acute climate event shocks to revenue and profits
 8. **Scenario Building**: Combine baseline and shock trajectories
 9. **Discounting**: Apply present value discounting to future cash flows
 
@@ -295,8 +295,7 @@ inventory <- hazard_data$inventory
 - Computes baseline revenue and profit trajectories over time
 
 **`compute_shock_trajectories(yearly_baseline, assets_with_factors, events)`** → shocked yearly
-- Splits events into acute/chronic
-- Applies shocks sequentially (acute first, then chronic)
+- Applies acute shocks to revenue and profits
 
 **`concatenate_baseline_and_shock(baseline_yearly, shocked_yearly)`** → combined scenarios
 - Concatenates baseline and shock trajectories
@@ -333,9 +332,9 @@ inventory <- hazard_data$inventory
   1. Hazard Type (flood, heat, etc.)
   2. Scenario (CurrentClimate, RCP8.5, etc.)
   3. Return Period (10, 100, 1000 years)
-- Chronic checkbox, optional shock year
+- Shock year input
 - Add button, configured events table
-- Output: events dataframe with event_id, hazard_type, scenario, event_year, chronic
+- Output: events dataframe with event_id, hazard_type, scenario, event_year
 
 **`mod_results_assets`** - Asset-level results display
 
@@ -466,7 +465,7 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 - ✅ Result pivoting for reporting
 
 ### Placeholder Features (Pass-through)
-- 🔄 Shock functions (acute/chronic) - maintain interface, return baseline values
+- 🔄 Shock functions (acute) - maintain interface, return baseline values
 - Logic to be implemented based on events dataframe
 
 ## Key Concepts
@@ -492,7 +491,6 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 
 ### Event Types
 - **Acute**: One-time shock in specific year
-- **Chronic**: Ongoing degradation over time
 
 ## Dependencies
 
@@ -642,6 +640,7 @@ Assets output now includes drought metadata:
 ## Recent Changes
 
 ### Bug Fixes
+- **Fixed Windows path parsing in hazard loading**: Replaced fragile absolute path parsing with robust cross-platform relative path parsing in `load_nc_hazards_with_metadata()` and `load_csv_hazards_with_metadata()`. Previously, path parsing relied on finding the "hazards" directory in absolute paths, which failed on Windows due to differences in `normalizePath()` behavior and path separators. Now uses `normalizePath(..., winslash = "/")` to ensure consistent forward slashes across platforms, then computes relative paths from the known `hazards_dir` parameter. This ensures hazard_type and hazard_indicator are parsed correctly on all platforms. (2025-10-30)
 - **Fixed drought damage factor matching with province fallback**: Enhanced `join_drought_damage_factors()` to handle provinces without specific drought damage data. When a province doesn't have drought factors for a crop (e.g., Amapá province), the function now falls back to the first available province that has data for that crop type. This ensures all agriculture assets affected by drought get proper damage factors, growing_season, and off_window columns. Previously, assets in provinces without drought data would get damage_factor=0 with NA metadata. (2025-10-30)
 - **Fixed NC hazard scenario extraction**: Corrected parsing logic in `load_nc_cube_with_terra()` to properly handle both GIRI-style files (explicit scenario indices like `scenario=_1`) and ensemble-style files (combination indices). Files now correctly extract all scenarios instead of defaulting to "present" only.
 - **Fixed hazard selection validation**: Added proper validation to require at least one hazard event selection before running analysis. Previously, the app would run with a default hazard when none were selected, which could lead to unexpected results. Now shows clear error message: "Please select at least one hazard event before running the analysis. Use the 'Add hazard' button to configure hazard events."

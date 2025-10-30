@@ -48,9 +48,8 @@ damage_factors <- read_damage_cost_factors(base_dir)
 # Create events (updated format)
 events <- data.frame(
   hazard_type = "flood",
-  hazard_name = "flood__rcp85_h100glob", 
-  event_year = 2030,
-  chronic = FALSE
+  hazard_name = "flood__rcp85_h100glob",
+  event_year = 2030
 )
 
 # Run the complete climate risk analysis

@@ -2,7 +2,22 @@
 
 # Helpers for locating test data and common checks
 get_test_data_dir <- function(...) {
-  file.path(testthat::test_path(".."), "tests_data", ...)
+  # Try local path (when running tests from source checkout)
+  testthat_dir <- testthat::test_path()
+  tests_dir <- normalizePath(file.path(testthat_dir, ".."), winslash = "/", mustWork = FALSE)
+  candidate <- normalizePath(file.path(tests_dir, "tests_data"), winslash = "/", mustWork = FALSE)
+
+  if (!is.na(candidate) && dir.exists(candidate)) {
+    return(file.path(candidate, ...))
+  }
+
+  # Fallback: when running in installed/check environment, use system.file()
+  pkg_installed_path <- system.file("tests_data", package = "climate.risk.tool")
+  if (nzchar(pkg_installed_path) && dir.exists(pkg_installed_path)) {
+    return(file.path(pkg_installed_path, ...))
+  }
+
+  stop("tests/tests_data directory not found. Ensure it is included in the package build or available at runtime.")
 }
 
 

@@ -27,7 +27,7 @@ compute_risk(
 
 \item{companies}{Data frame containing company information (from read_companies())}
 
-\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{hazard_return_period}, \code{event_year} (or NA), \code{chronic}.
+\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{hazard_return_period}, \code{event_year} (or NA).
 The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{hazards}{Named list of SpatRaster objects (from load_hazards())}
@@ -62,7 +62,7 @@ For precomputed data: uses the mean ensemble variant.
 \value{
 List containing final results:
 \itemize{
-\item assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
+\item assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
 \item companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 \item assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 \item companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -84,7 +84,6 @@ The function executes the following 16-step pipeline:
 \item Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
 \item Join damage factors: Map hazard intensity to damage/cost factors
 \item Apply acute shock: Calculate sudden climate event impacts
-\item Apply chronic shock: Calculate gradual climate change impacts
 \item Compute asset impact: Update share_of_economic_activity with all impacts
 \item Build scenarios: Create baseline vs shock scenario data
 \item Compute asset revenue: Allocate company revenue to assets
@@ -111,8 +110,7 @@ cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
 events <- data.frame(
   hazard_type = "flood",
   scenario = "rcp85",
-  event_year = 2030,
-  chronic = FALSE
+  event_year = 2030
 )
 
 # Run analysis

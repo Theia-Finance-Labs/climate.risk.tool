@@ -1,7 +1,7 @@
 #' control UI Function
 #'
 #' @description Sidebar control module for company upload, hazard selection, and analysis controls
-#' @param id,input,output,session Internal parameters for {shiny}
+#' @param id Internal parameter for shiny
 #' @export
 mod_control_ui <- function(id) {
   ns <- shiny::NS(id)
@@ -47,6 +47,7 @@ mod_control_ui <- function(id) {
 
 #' control Server Functions
 #'
+#' @param id Internal parameter for shiny
 #' @param base_dir_reactive reactive containing base directory path
 #' @return list with reactive values for company_file, events, run_trigger, results_ready, and get_hazards_at_factor
 #' @export
@@ -90,7 +91,7 @@ mod_control_server <- function(id, base_dir_reactive) {
           module_name = "mod_control_server",
           function_name = "hazards_and_inventory reactive"
         )
-        
+
         message("Error loading hazards: ", if (inherits(result, "try-error")) attr(result, "condition")$message else "unknown")
         return(NULL)
       }

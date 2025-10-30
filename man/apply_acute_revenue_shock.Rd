@@ -38,7 +38,7 @@ assets_factors <- data.frame(
   damage_factor = 0.1, business_disruption = 10
 )
 acute_events <- data.frame(
-  event_id = "event_1", hazard_type = "FloodTIF", event_year = 2030, chronic = FALSE
+  event_id = "event_1", hazard_type = "FloodTIF", event_year = 2030
 )
 result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 }

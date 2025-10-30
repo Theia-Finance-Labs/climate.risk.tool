@@ -20,7 +20,7 @@
 #'   profit = c(100, 120)
 #' )
 #' assets_factors <- data.frame(asset = "A1", hazard_type = "flood", cost_factor = 100)
-#' acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030, chronic = FALSE)
+#' acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030)
 #' result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
 #' }
 #' @export
@@ -92,7 +92,7 @@ apply_acute_profit_shock <- function(
   # Attach shock (by asset + year == event_year), then deduct from profit
   if (nrow(shocks_by_asset_year) > 0) {
     shock_data <- shocks_by_asset_year |>
-      dplyr::rename(year = .data$event_year, acute_damage_to_apply = .data$acute_damage)
+      dplyr::rename(year = "event_year", acute_damage_to_apply = "acute_damage")
     result <- dplyr::left_join(result, shock_data, by = c("asset", "year"))
 
     # Deduct (do not alter revenue here as per request)

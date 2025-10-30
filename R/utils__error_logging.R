@@ -9,7 +9,7 @@ log_error_to_console <- function(error, context = NULL) {
   if (!is.null(context)) {
     cat("Context:", context, "\n")
   }
-  
+
   # Get the actual line where the error occurred
   traceback_info <- sys.calls()
   if (length(traceback_info) > 0) {

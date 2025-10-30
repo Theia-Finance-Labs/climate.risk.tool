@@ -55,10 +55,10 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
                                           cache_aggregated = TRUE,
                                           force_reaggregate = FALSE) {
   all_nc_files <- list.files(hazards_dir, pattern = "\\.nc$", full.names = TRUE, recursive = TRUE)
-  
+
   # Filter out aggregated files from the initial scan (they'll be loaded via aggregation logic)
   nc_files <- all_nc_files[!grepl("__agg\\d+\\.nc$", all_nc_files)]
-  
+
   if (length(nc_files) == 0) {
     return(list(
       hazards = list(),
@@ -71,7 +71,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
 
   for (original_file in nc_files) {
     f <- original_file
-    
+
     # NC aggregation disabled - terra::aggregate breaks multi-dimensional structure
     # (converts string dimension labels to numeric indices, loses metadata)
     # For NC files, always use original file regardless of aggregate_factor
@@ -80,12 +80,16 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
     } else {
       message("  Loading NetCDF file: ", basename(f))
     }
-    
-    # Path parsing: .../hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
-    parts <- strsplit(normalizePath(f), .Platform$file.sep, fixed = TRUE)[[1]]
-    # Find indices for segments
+
+    # Path parsing: {hazards_dir}/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
+    # Use relative path from hazards_dir for more robust parsing
+    hazards_dir_norm <- normalizePath(hazards_dir, winslash = "/")
+    f_norm <- normalizePath(f, winslash = "/")
+    relative_path <- sub(paste0("^", hazards_dir_norm, "/"), "", f_norm)
+    parts <- strsplit(relative_path, "/", fixed = TRUE)[[1]]
+
     if (length(parts) >= 4) {
-      # Use last 4 meaningful segments: {hazard_type}/{hazard_indicator}/{model_type}/{file}
+      # hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
       file_name <- parts[length(parts)]
       model_type <- parts[length(parts) - 1]
       hazard_indicator <- parts[length(parts) - 2]
@@ -197,7 +201,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
     } else {
       try(ncdf4::ncvar_get(nc, rp_dim), silent = TRUE)
     }
-    
+
     season_vals <- if (length(season_dim) > 0 && season_dim[1] %in% names(nc$dim)) {
       nc$dim[[season_dim[1]]]$vals
     } else if (length(season_dim) > 0) {
@@ -279,65 +283,65 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
             start <- vapply(sc_list, function(z) z$start, integer(1))
             count <- vapply(sc_list, function(z) z$count, integer(1))
 
-          # Read the 2D slice
-          slice <- ncdf4::ncvar_get(nc, main_var, start = start, count = count)
+            # Read the 2D slice
+            slice <- ncdf4::ncvar_get(nc, main_var, start = start, count = count)
 
-          # Normalize lon/lat vectors
-          if (inherits(lon_vals, "try-error")) {
-            # Infer from slice ncol if needed (ideal path assumption)
-            lon_vals <- seq_len(dim(slice)[1])
-          }
-          if (inherits(lat_vals, "try-error")) {
-            lat_vals <- seq_len(dim(slice)[2])
-          }
-
-          # Calculate resolution and extent
-          # Coordinates in NC files are cell centers; we need to extend by half-pixel
-          n_lon <- length(lon_vals)
-          n_lat <- length(lat_vals)
-
-          # Resolution: spacing between coordinate centers
-          res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
-          res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
-
-          # Extent: expand by half-pixel on each side to convert centers to edges
-          xmin <- min(lon_vals) - res_lon / 2
-          xmax <- max(lon_vals) + res_lon / 2
-          ymin <- min(lat_vals) - res_lat / 2
-          ymax <- max(lat_vals) + res_lat / 2
-
-          # Ensure correct orientation: rows = lat (descending), cols = lon (ascending)
-          if (length(dim(slice)) == 2L) {
-            if (identical(dim(slice), c(length(lon_vals), length(lat_vals)))) {
-              mat <- t(slice)
-            } else if (identical(dim(slice), c(length(lat_vals), length(lon_vals)))) {
-              mat <- slice
-            } else {
-              mat <- t(slice)
+            # Normalize lon/lat vectors
+            if (inherits(lon_vals, "try-error")) {
+              # Infer from slice ncol if needed (ideal path assumption)
+              lon_vals <- seq_len(dim(slice)[1])
             }
-          } else {
-            mat <- as.matrix(slice)
-          }
-          # Flip rows so that first row is max(lat)
-          mat <- mat[rev(seq_len(nrow(mat))), , drop = FALSE]
+            if (inherits(lat_vals, "try-error")) {
+              lat_vals <- seq_len(dim(slice)[2])
+            }
 
-          r <- terra::rast(
-            ncols = n_lon,
-            nrows = n_lat,
-            xmin = xmin, xmax = xmax,
-            ymin = ymin, ymax = ymax,
-            crs = "EPSG:4326"
-          )
-          terra::values(r) <- as.vector(mat)
+            # Calculate resolution and extent
+            # Coordinates in NC files are cell centers; we need to extend by half-pixel
+            n_lon <- length(lon_vals)
+            n_lat <- length(lat_vals)
 
-          # Validate that raster is single-band
-          if (terra::nlyr(r) != 1) {
-            stop(
-              "Expected single-band raster from NetCDF file '", basename(f),
-              "', but got ", terra::nlyr(r), " bands. ",
-              "Each hazard scenario should be a single 2D layer."
+            # Resolution: spacing between coordinate centers
+            res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
+            res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
+
+            # Extent: expand by half-pixel on each side to convert centers to edges
+            xmin <- min(lon_vals) - res_lon / 2
+            xmax <- max(lon_vals) + res_lon / 2
+            ymin <- min(lat_vals) - res_lat / 2
+            ymax <- max(lat_vals) + res_lat / 2
+
+            # Ensure correct orientation: rows = lat (descending), cols = lon (ascending)
+            if (length(dim(slice)) == 2L) {
+              if (identical(dim(slice), c(length(lon_vals), length(lat_vals)))) {
+                mat <- t(slice)
+              } else if (identical(dim(slice), c(length(lat_vals), length(lon_vals)))) {
+                mat <- slice
+              } else {
+                mat <- t(slice)
+              }
+            } else {
+              mat <- as.matrix(slice)
+            }
+            # Flip rows so that first row is max(lat)
+            mat <- mat[rev(seq_len(nrow(mat))), , drop = FALSE]
+
+            r <- terra::rast(
+              ncols = n_lon,
+              nrows = n_lat,
+              xmin = xmin, xmax = xmax,
+              ymin = ymin, ymax = ymax,
+              crs = "EPSG:4326"
             )
-          }
+            terra::values(r) <- as.vector(mat)
+
+            # Validate that raster is single-band
+            if (terra::nlyr(r) != 1) {
+              stop(
+                "Expected single-band raster from NetCDF file '", basename(f),
+                "', but got ", terra::nlyr(r), " bands. ",
+                "Each hazard scenario should be a single 2D layer."
+              )
+            }
 
             # Compose hazard name including ensemble/statistic
             gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])

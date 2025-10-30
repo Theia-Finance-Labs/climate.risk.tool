@@ -1,8 +1,8 @@
 #' hazards_events UI Function
 #'
 #' @description Shiny module to build a list of hazard events to apply. Allows adding
-#' multiple events with type, hazard name, event year, and chronic toggle.
-#' @param id,input,output,session Internal parameters for {shiny}
+#' multiple events with type, hazard name, and event year.
+#' @param id Internal parameter for shiny
 #' @param title Character title displayed above the controls
 #' @export
 mod_hazards_events_ui <- function(id, title = "Hazard events") {
@@ -20,8 +20,9 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 
 #' hazards_events Server Functions
 #'
+#' @param id Internal parameter for shiny
 #' @param hazards_inventory reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, hazard_return_period, hazard_name
-#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, chronic, season
+#' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, season
 #' @export
 mod_hazards_events_server <- function(id, hazards_inventory) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -34,7 +35,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       scenario_name = character(),
       hazard_return_period = numeric(),
       event_year = integer(),
-      chronic = logical(),
       season = character()
     ))
 
@@ -101,8 +101,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         hazard_name = hazard_name_val,
         scenario_name = scenario,
         hazard_return_period = return_period,
-        event_year = if (isTRUE(input[[paste0("chronic_", k)]])) NA_integer_ else as.integer(input[[paste0("year_", k)]]),
-        chronic = isTRUE(input[[paste0("chronic_", k)]]),
+        event_year = as.integer(input[[paste0("year_", k)]]),
         season = event_season
       )
       cur <- events_rv()
@@ -155,8 +154,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         shiny::uiOutput(ns(paste0("scenario_name_ui_", k))),
         shiny::uiOutput(ns(paste0("return_period_ui_", k))),
         shiny::uiOutput(ns(paste0("season_ui_", k))),
-        shiny::checkboxInput(ns(paste0("chronic_", k)), label = "Chronic hazard (every year)", value = FALSE),
-        shiny::uiOutput(ns(paste0("year_ui_", k)))
+        shiny::numericInput(ns(paste0("year_", k)), label = "Shock year", value = 2030, min = 2025, max = 2100, step = 1)
       )
     })
 
@@ -230,14 +228,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           )
         } else {
           shiny::span("")
-        }
-      })
-
-      output[[paste0("year_ui_", k)]] <- shiny::renderUI({
-        if (isTRUE(shiny::isTruthy(input[[paste0("chronic_", k)]]))) {
-          shiny::span("")
-        } else {
-          shiny::numericInput(ns(paste0("year_", k)), label = "Shock year", value = 2030, min = 2025, max = 2100, step = 1)
         }
       })
     })
