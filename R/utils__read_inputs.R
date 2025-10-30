@@ -77,16 +77,17 @@ read_assets <- function(base_dir) {
     )
 
   # Normalize municipality and province names (remove accents, convert to ASCII)
+  # Also ensure that whitespace-only strings are converted to NA
   assets_raw <- assets_raw |>
     dplyr::mutate(
       municipality = dplyr::if_else(
-        !is.na(.data$municipality) & nzchar(as.character(.data$municipality)),
-        stringi::stri_trans_general(as.character(.data$municipality), "Latin-ASCII"),
+        !is.na(.data$municipality) & nzchar(trimws(as.character(.data$municipality))),
+        stringi::stri_trans_general(as.character(trimws(.data$municipality)), "Latin-ASCII"),
         NA_character_
       ),
       province = dplyr::if_else(
-        !is.na(.data$province) & nzchar(as.character(.data$province)),
-        stringi::stri_trans_general(as.character(.data$province), "Latin-ASCII"),
+        !is.na(.data$province) & nzchar(trimws(as.character(.data$province))),
+        stringi::stri_trans_general(as.character(trimws(.data$province)), "Latin-ASCII"),
         NA_character_
       )
     )

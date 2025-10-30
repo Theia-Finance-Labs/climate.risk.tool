@@ -252,6 +252,151 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
   testthat::expect_true(out$damage_factor >= 0)
 })
 
+testthat::test_that("join_drought_damage_factors handles multi-season crops - exact season match", {
+  base_dir <- get_test_data_dir()
+  
+  # Test Sugarcane in Alagoas which has 2 growing seasons: Winter (37%, off=30%) and Autumn (35%, off=30%)
+  # User selects Winter - should match Winter season exactly
+  assets_long <- data.frame(
+    asset = c("A1"),
+    company = c("C1"),
+    latitude = c(-10),
+    longitude = c(-50),
+    municipality = c("Mun1"),
+    province = c("Alagoas"),
+    asset_category = c("agriculture"),
+    asset_subtype = c("Sugarcane"),
+    size_in_m2 = c(10000),
+    share_of_economic_activity = c(0.5),
+    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_type = c("Drought"),
+    hazard_indicator = c("SPI3"),
+    hazard_intensity = c(-3.0),
+    scenario_name = c("present"),
+    event_id = c("event_1"),
+    event_year = c(2030),
+    chronic = c(FALSE),
+    season = c("Winter"),  # Matches one of the growing seasons
+    cnae = NA,
+    stringsAsFactors = FALSE
+  )
+  
+  # Load damage factors
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  out <- join_damage_cost_factors(assets_long, damage_factors)
+  
+  testthat::expect_equal(nrow(out), 1)
+  testthat::expect_true(!is.na(out$damage_factor))
+  
+  # Should have metadata columns in output
+  testthat::expect_true("growing_season" %in% names(out))
+  testthat::expect_true("off_window" %in% names(out))
+  testthat::expect_true("season" %in% names(out))
+  
+  # Should match Winter season (37% damage factor)
+  testthat::expect_equal(out$growing_season, "Winter")
+  testthat::expect_equal(out$damage_factor, 0.37, tolerance = 0.001)
+  testthat::expect_equal(out$off_window, 0.3, tolerance = 0.001)
+})
+
+testthat::test_that("join_drought_damage_factors handles multi-season crops - off-season averages", {
+  base_dir <- get_test_data_dir()
+  
+  # Test Sugarcane in Alagoas with Summer (not a growing season)
+  # Has Winter (37%, off=30%) and Autumn (35%, off=30%)
+  # Should average: damage = (37+35)/2 = 36%, off_window = (30+30)/2 = 30%
+  # Final damage_factor = 36% * 30% = 10.8%
+  assets_long <- data.frame(
+    asset = c("A1"),
+    company = c("C1"),
+    latitude = c(-10),
+    longitude = c(-50),
+    municipality = c("Mun1"),
+    province = c("Alagoas"),
+    asset_category = c("agriculture"),
+    asset_subtype = c("Sugarcane"),
+    size_in_m2 = c(10000),
+    share_of_economic_activity = c(0.5),
+    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_type = c("Drought"),
+    hazard_indicator = c("SPI3"),
+    hazard_intensity = c(-3.0),
+    scenario_name = c("present"),
+    event_id = c("event_1"),
+    event_year = c(2030),
+    chronic = c(FALSE),
+    season = c("Summer"),  # Not a growing season - should average
+    cnae = NA,
+    stringsAsFactors = FALSE
+  )
+  
+  # Load damage factors
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  out <- join_damage_cost_factors(assets_long, damage_factors)
+  
+  testthat::expect_equal(nrow(out), 1)
+  testthat::expect_true(!is.na(out$damage_factor))
+  
+  # Should have metadata columns in output
+  testthat::expect_true("growing_season" %in% names(out))
+  testthat::expect_true("off_window" %in% names(out))
+  testthat::expect_true("season" %in% names(out))
+  
+  # Should show "Averaged" with sorted season names
+  testthat::expect_equal(out$growing_season, "Averaged (Autumn, Winter)")
+  
+  # Average damage: (0.37 + 0.35) / 2 = 0.36
+  # Average off_window: (0.3 + 0.3) / 2 = 0.3
+  # Applied damage: 0.36 * 0.3 = 0.108
+  testthat::expect_equal(out$damage_factor, 0.108, tolerance = 0.001)
+  testthat::expect_equal(out$off_window, 0.3, tolerance = 0.001)
+})
+
+testthat::test_that("join_drought_damage_factors handles multi-season crops - autumn match", {
+  base_dir <- get_test_data_dir()
+  
+  # Test Sugarcane in Alagoas with Autumn selected
+  # Should match Autumn season (35%, off=30%)
+  assets_long <- data.frame(
+    asset = c("A1"),
+    company = c("C1"),
+    latitude = c(-10),
+    longitude = c(-50),
+    municipality = c("Mun1"),
+    province = c("Alagoas"),
+    asset_category = c("agriculture"),
+    asset_subtype = c("Sugarcane"),
+    size_in_m2 = c(10000),
+    share_of_economic_activity = c(0.5),
+    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_type = c("Drought"),
+    hazard_indicator = c("SPI3"),
+    hazard_intensity = c(-3.0),
+    scenario_name = c("present"),
+    event_id = c("event_1"),
+    event_year = c(2030),
+    chronic = c(FALSE),
+    season = c("Autumn"),  # Matches one of the growing seasons
+    cnae = NA,
+    stringsAsFactors = FALSE
+  )
+  
+  # Load damage factors
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  out <- join_damage_cost_factors(assets_long, damage_factors)
+  
+  testthat::expect_equal(nrow(out), 1)
+  testthat::expect_true(!is.na(out$damage_factor))
+  
+  # Should match Autumn season (35% damage factor)
+  testthat::expect_equal(out$growing_season, "Autumn")
+  testthat::expect_equal(out$damage_factor, 0.35, tolerance = 0.001)
+  testthat::expect_equal(out$off_window, 0.3, tolerance = 0.001)
+})
+
 testthat::test_that("join_drought_damage_factors handles missing subtype (defaults to Other)", {
   base_dir <- get_test_data_dir()
   
@@ -378,4 +523,59 @@ testthat::test_that("join_drought_damage_factors filters to agriculture only", {
   
   # Check that A1 is agriculture
   testthat::expect_equal(out$asset_category[out$asset == "A1"], "agriculture")
+})
+
+testthat::test_that("join_drought_damage_factors handles missing province with fallback strategy", {
+  base_dir <- get_test_data_dir()
+  
+  # Create test data with province that doesn't have drought data (Amapa)
+  # Soybean should fall back to first available province (Bahia)
+  # Unknown subtype should get damage_factor = 0
+  assets_long <- data.frame(
+    asset = c("AGRI1", "AGRI2"),
+    company = c("AGRItest", "AGRItest"),
+    latitude = c(0.856, 0.856),
+    longitude = c(-51.2, -51.2),
+    municipality = c(NA, NA),
+    province = c("Amapa", "Amapa"),  # Amapa doesn't have drought damage factors
+    asset_category = c("agriculture", "agriculture"),
+    asset_subtype = c("Soybean", "UnknownCrop"),  # One valid, one unknown
+    size_in_m2 = c(10000, 8000),
+    share_of_economic_activity = c(0.5, 0.3),
+    hazard_name = c("SPI3__extraction_method=mean", "SPI3__extraction_method=mean"),
+    hazard_type = c("Drought", "Drought"),
+    hazard_indicator = c("SPI3", "SPI3"),
+    hazard_intensity = c(-2.5, -2.5),
+    scenario_name = c("present", "present"),
+    event_id = c("event_1", "event_1"),
+    event_year = c(2030, 2030),
+    chronic = c(FALSE, FALSE),
+    season = c("Summer", "Summer"),
+    cnae = NA,
+    stringsAsFactors = FALSE
+  )
+  
+  # Load damage factors
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  out <- join_damage_cost_factors(assets_long, damage_factors)
+  
+  # Should have both assets (agriculture only)
+  testthat::expect_equal(nrow(out), 2)
+  testthat::expect_true(all(c("AGRI1", "AGRI2") %in% out$asset))
+  
+  # Should have metadata columns present
+  testthat::expect_true("growing_season" %in% names(out))
+  testthat::expect_true("off_window" %in% names(out))
+  testthat::expect_true("season" %in% names(out))
+  
+  # AGRI1 (Soybean) should use fallback province and have non-zero damage
+  testthat::expect_true(out$damage_factor[out$asset == "AGRI1"] > 0)
+  testthat::expect_true(!is.na(out$growing_season[out$asset == "AGRI1"]))
+  testthat::expect_true(!is.na(out$off_window[out$asset == "AGRI1"]))
+  
+  # AGRI2 (UnknownCrop) should have damage_factor = 0 and NA metadata
+  testthat::expect_equal(out$damage_factor[out$asset == "AGRI2"], 0)
+  testthat::expect_true(is.na(out$growing_season[out$asset == "AGRI2"]))
+  testthat::expect_true(is.na(out$off_window[out$asset == "AGRI2"]))
 })

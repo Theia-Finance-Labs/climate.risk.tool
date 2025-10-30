@@ -565,17 +565,38 @@ Location: [exact line where error occurred]
 **Damage Factor Matching**:
 - **Crop Type**: Coffee, Corn, Soybean, Sugarcane, or "Other" (default for missing subtypes)
 - **Province**: Uses asset province or falls back to "Other" if not found
-- **Season Matching**:
-  - **On-season**: User-selected season matches crop growing season → full damage_factor applied
-  - **Off-season**: Seasons don't match → damage_factor multiplied by off_window coefficient
+- **Multi-Season Crops** (NEW): Some crops have multiple growing seasons (e.g., Sugarcane in Alagoas has Winter 37% and Autumn 35%)
+  - System finds ALL growing seasons for the crop at the matched intensity level
+- **Season Matching Logic**:
+  - **Exact Match**: User-selected season matches one of the crop's growing seasons
+    - Use that specific season's damage_factor directly
+    - `growing_season` column shows the matched season (e.g., "Winter")
+  - **No Match**: User-selected season doesn't match any growing season (off-season)
+    - Calculate: `avg_damage_factor = mean(all growing season damage factors)`
+    - Calculate: `avg_off_window = mean(all growing season off_windows)`
+    - Apply: `final_damage_factor = avg_damage_factor × avg_off_window`
+    - `growing_season` column shows "Averaged (Season1, Season2, ...)" with seasons sorted alphabetically
 - **Intensity Capping**:
   - SPI3 < -3: capped to -3 (maximum damage)
   - SPI3 > -1: damage_factor = 0 (no damage)
   - -3 ≤ SPI3 ≤ -1: use actual intensity
 
+**Output Columns** (NEW):
+Assets output now includes drought metadata:
+- `season`: User-selected drought season
+- `growing_season`: Matched growing season name or "Averaged (...)" for off-season
+- `off_window`: Off-window coefficient value used
+- `damage_factor`: Final applied damage factor
+
 **Revenue Shock Formula**:
-- On-season: `Revenue × (1 - damage_factor)`
-- Off-season: `Revenue × (1 - damage_factor × off_window)`
+- Exact season match: `Revenue × (1 - damage_factor)`
+- Off-season/averaged: `Revenue × (1 - avg_damage_factor × avg_off_window)`
+
+**Example - Sugarcane in Alagoas**:
+- Growing seasons: Winter (37%, off=30%), Autumn (35%, off=30%)
+- User selects Winter → damage_factor = 0.37, growing_season = "Winter"
+- User selects Autumn → damage_factor = 0.35, growing_season = "Autumn"
+- User selects Summer → avg_damage = 0.36, avg_off = 0.30, final damage = 0.108 (36% × 30%), growing_season = "Averaged (Autumn, Winter)"
 
 **Implementation Files**:
 - UI: `R/mod_hazards_events.R` - Season dropdown for Drought events
@@ -621,6 +642,7 @@ Location: [exact line where error occurred]
 ## Recent Changes
 
 ### Bug Fixes
+- **Fixed drought damage factor matching with province fallback**: Enhanced `join_drought_damage_factors()` to handle provinces without specific drought damage data. When a province doesn't have drought factors for a crop (e.g., Amapá province), the function now falls back to the first available province that has data for that crop type. This ensures all agriculture assets affected by drought get proper damage factors, growing_season, and off_window columns. Previously, assets in provinces without drought data would get damage_factor=0 with NA metadata. (2025-10-30)
 - **Fixed NC hazard scenario extraction**: Corrected parsing logic in `load_nc_cube_with_terra()` to properly handle both GIRI-style files (explicit scenario indices like `scenario=_1`) and ensemble-style files (combination indices). Files now correctly extract all scenarios instead of defaulting to "present" only.
 - **Fixed hazard selection validation**: Added proper validation to require at least one hazard event selection before running analysis. Previously, the app would run with a default hazard when none were selected, which could lead to unexpected results. Now shows clear error message: "Please select at least one hazard event before running the analysis. Use the 'Add hazard' button to configure hazard events."
 - Fixed encoding issues in Brazilian flood map processing
