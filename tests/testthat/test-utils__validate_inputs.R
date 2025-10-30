@@ -87,6 +87,34 @@ testthat::test_that("validate_damage_factors_provinces detects mismatched provin
   testthat::expect_true(any(grepl("FakeProvince", result$errors)))
 })
 
+testthat::test_that("validate_damage_factors_required_fields passes on reference data", {
+  base_dir <- get_test_data_dir()
+  damage_factors <- read_damage_cost_factors(base_dir)
+  validation_results <- list(errors = character(), warnings = character())
+
+  result <- validate_damage_factors_required_fields(damage_factors, validation_results)
+
+  testthat::expect_equal(length(result$errors), 0)
+})
+
+testthat::test_that("validate_damage_factors_required_fields flags missing required columns per hazard", {
+  base_dir <- get_test_data_dir()
+  damage_factors <- read_damage_cost_factors(base_dir)
+
+  # Pick a hazard_type present in reference data, e.g., FloodTIF, and blank a required col
+  idx <- which(damage_factors$hazard_type == "FloodTIF")[1]
+  testthat::skip_if(length(idx) == 0)
+
+  damage_factors_bad <- damage_factors
+  damage_factors_bad$damage_factor[idx] <- NA_real_
+
+  validation_results <- list(errors = character(), warnings = character())
+  result <- validate_damage_factors_required_fields(damage_factors_bad, validation_results)
+
+  testthat::expect_gt(length(result$errors), 0)
+  testthat::expect_true(any(grepl("missing required column 'damage_factor'", result$errors)))
+})
+
 testthat::test_that("validate_assets_geography detects mismatched provinces", {
   base_dir <- get_test_data_dir()
 

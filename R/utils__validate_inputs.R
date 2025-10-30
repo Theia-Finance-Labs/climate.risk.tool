@@ -51,6 +51,14 @@ validate_input_coherence <- function(
   )
 
   # ============================================================================
+  # VALIDATION CHECK 1b: Required columns per hazard type in damage factors
+  # ============================================================================
+  validation_results <- validate_damage_factors_required_fields(
+    damage_factors_df = damage_factors_df,
+    validation_results = validation_results
+  )
+
+  # ============================================================================
   # VALIDATION CHECK 2: Province and municipality names in assets
   # ============================================================================
   validation_results <- validate_assets_geography(
@@ -213,6 +221,93 @@ validate_damage_factors_provinces <- function(damage_factors_df, adm1_names, val
         paste(invalid_provinces, collapse = ", ")
       )
     )
+  }
+
+  return(validation_results)
+}
+
+
+#' Validate required non-NA fields per hazard type in damage factors (HARDCODED)
+#'
+#' Enforces specific required columns per `hazard_type`:
+#' - FloodTIF: hazard_intensity, hazard_unit, asset_category, damage_factor,
+#'             cost_factor, hazard_indicator, business_disruption
+#' - Drought:  hazard_intensity, hazard_unit, asset_category, damage_factor,
+#'             hazard_indicator, province, subtype, season, off_window
+#' - Compound: gwl, damage_factor, hazard_indicator, province, metric
+#'
+#' @param damage_factors_df Damage factors data frame
+#' @param validation_results List with errors and warnings vectors
+#' @return Updated validation_results list
+#' @noRd
+validate_damage_factors_required_fields <- function(damage_factors_df, validation_results) {
+  if (!"hazard_type" %in% names(damage_factors_df)) {
+    validation_results$errors <- c(
+      validation_results$errors,
+      "Damage factors table must contain 'hazard_type' column"
+    )
+    return(validation_results)
+  }
+
+  # Hardcoded mapping of hazard_type -> required columns
+  required_by_hazard <- list(
+    FloodTIF = c(
+      "hazard_intensity", "hazard_unit", "asset_category", "damage_factor",
+      "cost_factor", "hazard_indicator", "business_disruption"
+    ),
+    Drought = c(
+      "hazard_intensity", "hazard_unit", "asset_category", "damage_factor",
+      "hazard_indicator", "province", "subtype", "season", "off_window"
+    ),
+    Compound = c(
+      "gwl", "damage_factor", "hazard_indicator", "province", "metric"
+    )
+  )
+
+  # Validate each known hazard type; ignore unknown types for forward-compatibility
+  present_types <- intersect(names(required_by_hazard), unique(stats::na.omit(damage_factors_df$hazard_type)))
+
+  for (hz in present_types) {
+    hz_rows <- damage_factors_df[damage_factors_df$hazard_type == hz, , drop = FALSE]
+    required_cols <- required_by_hazard[[hz]]
+
+    # Check required columns presence first
+    missing_columns <- setdiff(required_cols, names(hz_rows))
+    if (length(missing_columns) > 0) {
+      validation_results$errors <- c(
+        validation_results$errors,
+        paste0(
+          "Damage factors: hazard_type '", hz, "' is missing required column(s): ",
+          paste(missing_columns, collapse = ", ")
+        )
+      )
+      next
+    }
+
+    # Now ensure non-NA/non-empty values for all rows in required columns
+    for (col_name in required_cols) {
+      col_vals <- hz_rows[[col_name]]
+      is_missing <- is.na(col_vals) | (!is.na(col_vals) & !nzchar(trimws(as.character(col_vals))))
+
+      # Exception: For FloodTIF, cost_factor is not required when asset_category == "agriculture"
+      if (hz == "FloodTIF" && col_name == "cost_factor" && "asset_category" %in% names(hz_rows)) {
+        exempt_idx <- which(tolower(as.character(hz_rows$asset_category)) == "agriculture")
+        if (length(exempt_idx) > 0) {
+          # Do not count missing on exempt rows
+          is_missing[exempt_idx] <- FALSE
+        }
+      }
+      if (any(is_missing)) {
+        missing_idx <- which(is_missing)
+        validation_results$errors <- c(
+          validation_results$errors,
+          paste0(
+            "Damage factors: hazard_type '", hz, "' has missing required column '",
+            col_name, "' in rows: ", paste(missing_idx, collapse = ", ")
+          )
+        )
+      }
+    }
   }
 
   return(validation_results)
