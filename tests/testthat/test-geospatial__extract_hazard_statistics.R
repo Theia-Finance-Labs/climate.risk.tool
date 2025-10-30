@@ -48,7 +48,6 @@ testthat::test_that("geolocated assets extract from TIF files", {
 })
 
 
-
 testthat::test_that("geolocated assets extract from NC files", {
   # Load all hazards
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
@@ -59,7 +58,6 @@ testthat::test_that("geolocated assets extract from NC files", {
   events <- tibble::tibble(
     hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
     event_year = 2030,
-    
     season = "Summer"
   )
 

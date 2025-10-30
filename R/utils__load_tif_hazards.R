@@ -50,7 +50,7 @@ load_tif_hazards <- function(mapping_df,
     pattern = "\\.tif$",
     full.names = TRUE, recursive = TRUE
   )
-  
+
 
   if (length(all_tif_files) == 0) {
     warning(
@@ -78,13 +78,13 @@ load_tif_hazards <- function(mapping_df,
         base_name <- tools::file_path_sans_ext(hazard_file)
         agg_pattern <- paste0("^", base_name, "__agg", aggregate_factor, ".tif$")
         agg_files <- all_tif_files[grepl(agg_pattern, basename(all_tif_files))]
-        
+
         if (length(agg_files) > 0) {
           mapping$full_path[i] <- agg_files[1]
           next
         }
       }
-      
+
       files_not_found <- c(files_not_found, hazard_file)
       next
     }

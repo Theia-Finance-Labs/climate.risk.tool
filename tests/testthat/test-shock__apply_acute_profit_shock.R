@@ -27,7 +27,6 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
     hazard_type = "FloodTIF",
     hazard_name = "FloodTIF__Flood Height__GWL=RCP8.5__RP=100",
     event_year = 2030L,
-    
     stringsAsFactors = FALSE
   )
 
@@ -79,7 +78,6 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
     hazard_type = c("FloodTIF", "FloodTIF"),
     hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=50"),
     event_year = c(2030L, 2030L),
-    
     stringsAsFactors = FALSE
   )
 
@@ -122,7 +120,7 @@ testthat::test_that("apply_acute_profit_shock excludes agriculture assets", {
 
   # Agriculture asset (AG1) should NOT have profit shock applied
   testthat::expect_equal(result$profit[result$asset == "AG1" & result$year == 2030], 120)
-  
+
   # Commercial asset (COM1) should have profit shock applied
   # profit = 120 - (0.3 * 100) = 90
   testthat::expect_equal(result$profit[result$asset == "COM1" & result$year == 2030], 90)
@@ -142,7 +140,7 @@ testthat::test_that("apply_acute_profit_shock applies to industrial buildings wi
     hazard_type = "FloodTIF",
     hazard_name = "flood1",
     damage_factor = 0.4,
-    cost_factor = 250,  # Industrial-specific cost factor
+    cost_factor = 250, # Industrial-specific cost factor
     asset_category = "industrial building"
   )
 
@@ -158,7 +156,7 @@ testthat::test_that("apply_acute_profit_shock applies to industrial buildings wi
   # Industrial building: profit = 120 - (0.4 * 250) = 20
   expected_profit_2030 <- 120 - (0.4 * 250)
   testthat::expect_equal(result$profit[result$year == 2030], expected_profit_2030)
-  testthat::expect_equal(result$profit[result$year == 2025], 100)  # 2025 unchanged
+  testthat::expect_equal(result$profit[result$year == 2025], 100) # 2025 unchanged
 })
 
 testthat::test_that("apply_acute_profit_shock handles commercial building separately from industrial", {
@@ -175,7 +173,7 @@ testthat::test_that("apply_acute_profit_shock handles commercial building separa
     hazard_type = c("FloodTIF", "FloodTIF"),
     hazard_name = c("flood1", "flood1"),
     damage_factor = c(0.3, 0.4),
-    cost_factor = c(150, 250),  # Different cost factors
+    cost_factor = c(150, 250), # Different cost factors
     asset_category = c("commercial building", "industrial building")
   )
 
@@ -190,7 +188,7 @@ testthat::test_that("apply_acute_profit_shock handles commercial building separa
 
   # Commercial: 120 - (0.3 * 150) = 75
   testthat::expect_equal(result$profit[result$asset == "COM1" & result$year == 2030], 75)
-  
+
   # Industrial: 120 - (0.4 * 250) = 20
   testthat::expect_equal(result$profit[result$asset == "IND1" & result$year == 2030], 20)
 })

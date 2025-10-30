@@ -26,7 +26,6 @@ test_that("load_tif_hazards loads from mapping dataframe", {
 })
 
 
-
 test_that("load_tif_hazards loads rasters correctly", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),

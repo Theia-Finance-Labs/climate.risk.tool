@@ -229,7 +229,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           shiny::span("")
         }
       })
-
     })
 
     # Return

@@ -84,4 +84,3 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
   testthat::expect_true(all(!is.na(result$profit)))
   testthat::expect_true(all(result$profit >= 0))
 })
-

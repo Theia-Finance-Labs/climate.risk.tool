@@ -30,7 +30,7 @@ test_that("load_csv_hazards_with_metadata loads CSV files correctly", {
 })
 
 test_that("load_csv_hazards_with_metadata parses folder structure", {
-  hazards_dir <-    get_hazards_dir()
+  hazards_dir <- get_hazards_dir()
 
   result <- load_csv_hazards_with_metadata(hazards_dir = hazards_dir)
 
@@ -142,4 +142,3 @@ test_that("load_csv_hazards_with_metadata handles CSV with required columns", {
   expect_equal(result$inventory$hazard_type, "TestHazard")
   expect_equal(result$inventory$hazard_indicator, "TestIndicator")
 })
-

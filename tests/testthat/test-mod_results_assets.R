@@ -19,7 +19,6 @@ testthat::test_that("mod_results_assets_server displays event information column
     matching_method = "coordinates",
     hazard_return_period = 10,
     event_year = 2030,
-    
     hazard_type = "flood",
     hazard_intensity = 1.5,
     damage_factor = 0.1,
@@ -68,7 +67,6 @@ testthat::test_that("mod_results_assets_server displays event_id column when pre
     matching_method = "coordinates",
     hazard_return_period = 10,
     event_year = 2030,
-    
     hazard_type = "flood",
     hazard_intensity = 1.5,
     damage_factor = 0.1,
@@ -124,7 +122,6 @@ testthat::test_that("mod_results_assets_server orders columns correctly", {
     cost_factor = 1000,
     hazard_return_period = 10,
     event_year = 2030,
-    
     stringsAsFactors = FALSE
   )
 

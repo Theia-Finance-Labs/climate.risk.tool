@@ -80,7 +80,7 @@ mod_status_server <- function(id, status_reactive, events_reactive) {
               function_name = "events_table renderTable"
             )
           }
-          
+
           tibble::tibble(
             Message = "No events configured - will use default event"
           )

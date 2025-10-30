@@ -38,8 +38,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
     hazard_return_period = c(10, 10, 100, 10, 10, 10, 10),
     event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L),
-    
-    season = c(NA, NA, NA, NA, NA, "Summer", "Winter"),  # Season only for Drought
+    season = c(NA, NA, NA, NA, NA, "Summer", "Winter"), # Season only for Drought
     stringsAsFactors = FALSE
   )
 
@@ -84,7 +83,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   # Hazards coverage: Flood, Compound, and Drought present
   testthat::expect_true(any(grepl("FloodTIF", res$assets_factors$hazard_name)))
   testthat::expect_true(any(grepl("Compound", res$assets_factors$hazard_name)))
-  
+
   # Drought should be present only for agriculture assets
   drought_assets <- res$assets_factors[grepl("Drought", res$assets_factors$hazard_name), ]
   if (nrow(drought_assets) > 0) {
@@ -109,7 +108,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   a_y <- res$assets_yearly
   if (all(c("year", "scenario", "revenue") %in% names(a_y))) {
     post_2030_shock <- a_y[a_y$year >= 2030 & a_y$scenario == "shock", ]
-    post_2030_base  <- a_y[a_y$year >= 2030 & a_y$scenario == "baseline", ]
+    post_2030_base <- a_y[a_y$year >= 2030 & a_y$scenario == "baseline", ]
     if (nrow(post_2030_shock) > 0 && nrow(post_2030_base) > 0) {
       testthat::expect_true(mean(post_2030_shock$revenue) <= mean(post_2030_base$revenue))
     }
@@ -118,7 +117,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   # Chronic behavior: total shock revenue should be <= baseline over full horizon
   if (all(c("scenario", "revenue") %in% names(a_y))) {
     total_shock <- sum(a_y$revenue[a_y$scenario == "shock"])
-    total_base  <- sum(a_y$revenue[a_y$scenario == "baseline"])
+    total_base <- sum(a_y$revenue[a_y$scenario == "baseline"])
     testthat::expect_true(total_shock <= total_base)
   }
 })

@@ -25,15 +25,15 @@ testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
 
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
-  
+
   # A1 with 10 days disruption: 1200 * (1 - 10/365) = 1167.12
-  expected_revenue_A1 <- 1200 * (1 - 10/365)
+  expected_revenue_A1 <- 1200 * (1 - 10 / 365)
   testthat::expect_equal(result$revenue[result$asset == "A1" & result$year == 2030], expected_revenue_A1, tolerance = 0.1)
-  
+
   # A2 with 20 days disruption: 960 * (1 - 20/365) = 907.4
-  expected_revenue_A2 <- 960 * (1 - 20/365)
+  expected_revenue_A2 <- 960 * (1 - 20 / 365)
   testthat::expect_equal(result$revenue[result$asset == "A2" & result$year == 2030], expected_revenue_A2, tolerance = 0.1)
-  
+
   # 2025 revenues should be unchanged
   testthat::expect_equal(result$revenue[result$year == 2025], yearly_baseline$revenue[yearly_baseline$year == 2025])
 })
@@ -50,10 +50,10 @@ testthat::test_that("apply_acute_revenue_shock applies Compound shocks with Cobb
   assets_factors <- data.frame(
     asset = "A1",
     hazard_type = "Compound",
-    hazard_intensity = 50,  # days with extreme heat
-    damage_factor = -0.042,  # labor productivity loss (negative)
+    hazard_intensity = 50, # days with extreme heat
+    damage_factor = -0.042, # labor productivity loss (negative)
     event_id = "event_1",
-    asset_category = "commercial building"  # Compound doesn't use this but include for consistency
+    asset_category = "commercial building" # Compound doesn't use this but include for consistency
   )
 
   acute_events <- data.frame(
@@ -65,7 +65,7 @@ testthat::test_that("apply_acute_revenue_shock applies Compound shocks with Cobb
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
 
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
-  
+
   # Calculate expected using Cobb-Douglas
   # weighted_lp_loss = (50/365) * (-0.042) = -0.00575
   # L0 = 339.2285, K0 = 87025023, E0 = 43.99034
@@ -75,10 +75,10 @@ testthat::test_that("apply_acute_revenue_shock applies Compound shocks with Cobb
   # Y_shock = exp(2.398 + 0.602*log(87025023) + 0.455*log(337.28) + 0.147*log(43.99034))
   # change = (Y_shock / Y_base) - 1 (should be negative)
   # expected_revenue = 1200 * (1 + change)
-  
+
   # Revenue should decrease (Compound shock reduces labor productivity)
   testthat::expect_true(result$revenue[result$year == 2030] < 1200)
-  
+
   # 2025 should be unchanged
   testthat::expect_equal(result$revenue[result$year == 2025], 1000)
 })
@@ -94,7 +94,7 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
   assets_factors <- data.frame(
     asset = c("A1", "A1"),
     hazard_type = c("FloodTIF", "FloodTIF"),
-    event_id = c("event_z", "event_a"),  # Non-alphabetical order
+    event_id = c("event_z", "event_a"), # Non-alphabetical order
     business_disruption = c(10, 20),
     asset_category = c("commercial building", "commercial building")
   )
@@ -104,7 +104,6 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
     event_id = c("event_z", "event_a"),
     hazard_type = c("FloodTIF", "FloodTIF"),
     event_year = c(2030L, 2030L),
-    
     stringsAsFactors = FALSE
   )
 
@@ -113,8 +112,8 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
   # Should process event_a first (alphabetically), then event_z
   # event_a: 1200 * (1 - 20/365) = 1134.25
   # event_z: 1134.25 * (1 - 10/365) = 1103.17
-  step1 <- 1200 * (1 - 20/365)
-  step2 <- step1 * (1 - 10/365)
+  step1 <- 1200 * (1 - 20 / 365)
+  step2 <- step1 * (1 - 10 / 365)
   testthat::expect_equal(result$revenue[result$year == 2030], step2, tolerance = 0.1)
 })
 
@@ -130,8 +129,8 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
     asset = "AG1",
     hazard_type = "FloodTIF",
     event_id = "event_1",
-    damage_factor = 0.3,  # 30% damage
-    business_disruption = 10,  # 10 days
+    damage_factor = 0.3, # 30% damage
+    business_disruption = 10, # 10 days
     asset_category = "agriculture"
   )
 
@@ -147,10 +146,10 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
   # Step 1: revenue * (1 - damage_factor) = 1200 * (1 - 0.3) = 840
   # Step 2: revenue * (1 - disruption_days/365) = 840 * (1 - 10/365) = 817.26
   step1 <- 1200 * (1 - 0.3)
-  step2 <- step1 * (1 - 10/365)
-  
+  step2 <- step1 * (1 - 10 / 365)
+
   testthat::expect_equal(result$revenue[result$year == 2030], step2, tolerance = 0.1)
-  testthat::expect_equal(result$revenue[result$year == 2025], 1000)  # 2025 unchanged
+  testthat::expect_equal(result$revenue[result$year == 2025], 1000) # 2025 unchanged
 })
 
 testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from going below zero", {
@@ -165,8 +164,8 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
     asset = "AG1",
     hazard_type = "FloodTIF",
     event_id = "event_1",
-    damage_factor = 0.95,  # 95% damage
-    business_disruption = 350,  # 350 days (almost full year)
+    damage_factor = 0.95, # 95% damage
+    business_disruption = 350, # 350 days (almost full year)
     asset_category = "agriculture"
   )
 
@@ -183,7 +182,7 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
   # Step 2: 60 * (1 - 350/365) = 2.47
   # But if it were negative, should be capped at 0
   testthat::expect_true(result$revenue[result$year == 2030] >= 0)
-  testthat::expect_true(result$revenue[result$year == 2030] < 100)  # Should be very small
+  testthat::expect_true(result$revenue[result$year == 2030] < 100) # Should be very small
 })
 
 testthat::test_that("apply_acute_revenue_shock applies only business disruption for commercial buildings", {
@@ -198,7 +197,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
     asset = "COM1",
     hazard_type = "FloodTIF",
     event_id = "event_1",
-    damage_factor = 0.3,  # This should NOT be applied for commercial
+    damage_factor = 0.3, # This should NOT be applied for commercial
     business_disruption = 10,
     asset_category = "commercial building"
   )
@@ -213,7 +212,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   # Commercial building: Only business disruption applied
   # revenue * (1 - disruption_days/365) = 1200 * (1 - 10/365) = 1167.12
-  expected_revenue <- 1200 * (1 - 10/365)
+  expected_revenue <- 1200 * (1 - 10 / 365)
   testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
 })
 
@@ -229,7 +228,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
     asset = "IND1",
     hazard_type = "FloodTIF",
     event_id = "event_1",
-    damage_factor = 0.3,  # This should NOT be applied for industrial
+    damage_factor = 0.3, # This should NOT be applied for industrial
     business_disruption = 15,
     asset_category = "industrial building"
   )
@@ -244,7 +243,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   # Industrial building: Only business disruption applied
   # revenue * (1 - disruption_days/365) = 1200 * (1 - 15/365) = 1150.68
-  expected_revenue <- 1200 * (1 - 15/365)
+  expected_revenue <- 1200 * (1 - 15 / 365)
   testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
 })
 
@@ -260,7 +259,7 @@ testthat::test_that("apply_acute_revenue_shock applies Drought shocks to agricul
     asset = c("A1", "A2"),
     hazard_type = c("Drought", "Drought"),
     event_id = c("event_1", "event_1"),
-    damage_factor = c(0.4, 0.3),  # 40% and 30% yield loss
+    damage_factor = c(0.4, 0.3), # 40% and 30% yield loss
     asset_category = c("agriculture", "agriculture")
   )
 
@@ -273,15 +272,15 @@ testthat::test_that("apply_acute_revenue_shock applies Drought shocks to agricul
   result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
 
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
-  
+
   # A1 with 40% damage: 1200 * (1 - 0.4) = 720
   expected_revenue_A1 <- 1200 * (1 - 0.4)
   testthat::expect_equal(result$revenue[result$asset == "A1" & result$year == 2030], expected_revenue_A1, tolerance = 0.1)
-  
+
   # A2 with 30% damage: 960 * (1 - 0.3) = 672
   expected_revenue_A2 <- 960 * (1 - 0.3)
   testthat::expect_equal(result$revenue[result$asset == "A2" & result$year == 2030], expected_revenue_A2, tolerance = 0.1)
-  
+
   # 2025 revenues should be unchanged
   testthat::expect_equal(result$revenue[result$year == 2025], yearly_baseline$revenue[yearly_baseline$year == 2025])
 })

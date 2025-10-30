@@ -134,28 +134,28 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 0: INPUT PREPARATION - Assign provinces to assets and validate
   # ============================================================================
-  
+
   # Assign provinces to assets that don't have one (requires boundaries)
   if (!is.null(adm1_boundaries)) {
     message("[compute_risk] Assigning provinces to assets without location data...")
     assets <- assign_province_to_assets_with_boundaries(
-      assets, 
-      adm1_boundaries, 
+      assets,
+      adm1_boundaries,
       adm2_boundaries
     )
   }
-  
+
   # Validate input data coherence
   if (validate_inputs && !is.null(adm1_boundaries)) {
     message("[compute_risk] Validating input data coherence...")
-    
+
     # Extract boundary names for validation
     adm1_names <- adm1_boundaries |>
       dplyr::pull(.data$shapeName) |>
       as.character() |>
       stringi::stri_trans_general("Latin-ASCII") |>
       unique()
-    
+
     adm2_names <- if (!is.null(adm2_boundaries)) {
       adm2_boundaries |>
         dplyr::pull(.data$shapeName) |>
@@ -165,7 +165,7 @@ compute_risk <- function(assets,
     } else {
       character(0)
     }
-    
+
     validate_input_coherence(
       assets_df = assets,
       damage_factors_df = damage_factors,
