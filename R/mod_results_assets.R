@@ -1,7 +1,7 @@
 #' results_assets UI Function
 #'
 #' @description Module to display asset-level results table with exposures
-#' @param id Internal parameter for {shiny}
+#' @param id Internal parameter for shiny
 #' @export
 mod_results_assets_ui <- function(id) {
   ns <- shiny::NS(id)
@@ -16,7 +16,7 @@ mod_results_assets_ui <- function(id) {
 
 #' results_assets Server Functions
 #'
-#' @param id Internal parameter for {shiny}
+#' @param id Internal parameter for shiny
 #' @param results_reactive reactive containing analysis results
 #' @export
 mod_results_assets_server <- function(id, results_reactive) {

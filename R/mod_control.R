@@ -1,7 +1,7 @@
 #' control UI Function
 #'
 #' @description Sidebar control module for company upload, hazard selection, and analysis controls
-#' @param id Internal parameter for {shiny}
+#' @param id Internal parameter for shiny
 #' @export
 mod_control_ui <- function(id) {
   ns <- shiny::NS(id)
@@ -47,7 +47,7 @@ mod_control_ui <- function(id) {
 
 #' control Server Functions
 #'
-#' @param id Internal parameter for {shiny}
+#' @param id Internal parameter for shiny
 #' @param base_dir_reactive reactive containing base directory path
 #' @return list with reactive values for company_file, events, run_trigger, results_ready, and get_hazards_at_factor
 #' @export

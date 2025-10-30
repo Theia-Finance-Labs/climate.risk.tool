@@ -2,7 +2,7 @@
 #'
 #' @description Shiny module to build a list of hazard events to apply. Allows adding
 #' multiple events with type, hazard name, and event year.
-#' @param id Internal parameter for {shiny}
+#' @param id Internal parameter for shiny
 #' @param title Character title displayed above the controls
 #' @export
 mod_hazards_events_ui <- function(id, title = "Hazard events") {
@@ -20,7 +20,7 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 
 #' hazards_events Server Functions
 #'
-#' @param id Internal parameter for {shiny}
+#' @param id Internal parameter for shiny
 #' @param hazards_inventory reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, hazard_return_period, hazard_name
 #' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, season
 #' @export
