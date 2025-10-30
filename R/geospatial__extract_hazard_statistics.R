@@ -239,7 +239,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       dplyr::select(
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "hazard_name", "hazard_type",
+        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
@@ -366,12 +366,13 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         asset_category = asset_row$asset_category,
         asset_subtype = asset_row$asset_subtype,
         size_in_m2 = asset_row$size_in_m2,
-        share_of_economic_activity = asset_row$share_of_economic_activity
+        share_of_economic_activity = asset_row$share_of_economic_activity,
+        cnae = asset_row$cnae
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "hazard_name", "hazard_type",
+        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
@@ -458,7 +459,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
       dplyr::select(
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "hazard_name", "hazard_type",
+        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 

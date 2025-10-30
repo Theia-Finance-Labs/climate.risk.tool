@@ -30,6 +30,7 @@ testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-ba
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
     chronic = c(FALSE, FALSE),
+    cnae = NA_real_,
     stringsAsFactors = FALSE
   )
 
@@ -72,6 +73,7 @@ testthat::test_that("join_damage_cost_factors handles Compound with province and
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
     chronic = c(FALSE, FALSE),
+    cnae = NA_real_,
     stringsAsFactors = FALSE
   )
 
@@ -90,6 +92,75 @@ testthat::test_that("join_damage_cost_factors handles Compound with province and
   
   # Damage factor should be negative (labor productivity loss)
   testthat::expect_true(all(out$damage_factor < 0))
+})
+
+testthat::test_that("read_cnae_labor_productivity_exposure loads file correctly", {
+  base_dir <- get_test_data_dir()
+  
+  cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+  
+  testthat::expect_true(all(c("cnae", "description", "lp_exposure") %in% names(cnae_exposure)))
+  testthat::expect_gt(nrow(cnae_exposure), 0)
+  testthat::expect_true(is.numeric(cnae_exposure$cnae))
+  testthat::expect_true(all(cnae_exposure$lp_exposure %in% c("high", "median", "low")))
+})
+
+testthat::test_that("join_compound_damage_factors uses cnae-based metric selection", {
+  base_dir <- get_test_data_dir()
+  
+  # Load CNAE exposure data
+  cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  # Find examples of CNAE codes with different exposures
+  high_exposure <- cnae_exposure$cnae[cnae_exposure$lp_exposure == "high"][1]
+  median_exposure <- cnae_exposure$cnae[cnae_exposure$lp_exposure == "median"][1]
+  low_exposure <- cnae_exposure$cnae[cnae_exposure$lp_exposure == "low"][1]
+  
+  # Create Compound test data with different cnae and missing cases
+  assets_long <- data.frame(
+    asset = c("A1", "A2", "A3", "A4", "A5"),
+    company = c("C1", "C2", "C3", "C4", "C5"),
+    latitude = c(-10, -15, -20, -25, -30),
+    longitude = c(-50, -55, -60, -65, -70),
+    municipality = c("Mun1", "Mun2", "Mun3", "Mun4", "Mun5"),
+    province = c("Acre", "Acre", "Acre", "Acre", "Acre"), # Same province, different metrics
+    asset_category = c("commercial building", "commercial building", "commercial building", "commercial building", "agriculture"),
+    cnae = c(high_exposure, median_exposure, low_exposure, NA, NA), # Different CNAEs + missing
+    size_in_m2 = c(1000, 800, 600, 400, 200),
+    share_of_economic_activity = c(0.5, 0.3, 0.2, 0.1, 0.05),
+    hazard_name = rep("HI__extraction_method=mean", 5),
+    hazard_type = rep("Compound", 5),
+    hazard_indicator = rep("HI", 5),
+    hazard_intensity = rep(50, 5),
+    scenario_name = rep("present", 5),
+    event_id = rep("event_1", 5),
+    event_year = rep(2030, 5),
+    chronic = rep(FALSE, 5),
+    stringsAsFactors = FALSE
+  )
+  
+  out <- join_damage_cost_factors(assets_long, damage_factors, cnae_exposure)
+  
+  testthat::expect_equal(nrow(out), 5)
+  testthat::expect_true(all(!is.na(out$damage_factor)))
+
+  # Get damage factors for each asset
+  a1_df <- out$damage_factor[out$asset == "A1"]  # High exposure
+  a2_df <- out$damage_factor[out$asset == "A2"]  # Median exposure
+  a3_df <- out$damage_factor[out$asset == "A3"]  # Low exposure
+  a4_df <- out$damage_factor[out$asset == "A4"]  # Missing cnae (median)
+  a5_df <- out$damage_factor[out$asset == "A5"]  # Missing cnae + agriculture (high)
+  
+  # All should be negative (labor productivity loss)
+  testthat::expect_true(all(c(a1_df, a2_df, a3_df, a4_df, a5_df) < 0))
+
+  # High exposure should have more negative (worse) damage than low exposure
+  testthat::expect_true(a1_df < a3_df)  # High < Low (more negative)
+
+  # Agriculture without cnae should use high metric (should match A1 in value if factors are correct)
+  # For strict equality test, damage_factors must give same value for "high" metric and scenario/province match
+  testthat::expect_equal(a5_df, a1_df)
 })
 
 testthat::test_that("join_drought_damage_factors handles crop/province/season matching - on season", {
@@ -117,6 +188,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     event_year = c(2030, 2030),
     chronic = c(FALSE, FALSE),
     season = c("Summer", "Autumn"),  # On-season for these crops in these provinces
+    cnae = NA,
     stringsAsFactors = FALSE
   )
   
@@ -163,6 +235,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     event_year = c(2030),
     chronic = c(FALSE),
     season = c("Winter"),  # Off-season (Soybean in Bahia grows in Summer)
+    cnae = NA,
     stringsAsFactors = FALSE
   )
   
@@ -204,6 +277,7 @@ testthat::test_that("join_drought_damage_factors handles missing subtype (defaul
     event_year = c(2030, 2030),
     chronic = c(FALSE, FALSE),
     season = c("Summer", "Summer"),  # Matches Soybean growing season in "Other"
+    cnae = NA,
     stringsAsFactors = FALSE
   )
   
@@ -242,6 +316,7 @@ testthat::test_that("join_drought_damage_factors handles intensity capping", {
     event_year = c(2030, 2030, 2030),
     chronic = c(FALSE, FALSE, FALSE),
     season = c("Summer", "Summer", "Summer"),  # Matches Soybean in Bahia
+    cnae = NA,
     stringsAsFactors = FALSE
   )
   
@@ -285,6 +360,7 @@ testthat::test_that("join_drought_damage_factors filters to agriculture only", {
     event_year = c(2030, 2030, 2030),
     chronic = c(FALSE, FALSE, FALSE),
     season = c("Summer", "Summer", NA),
+    cnae = NA,
     stringsAsFactors = FALSE
   )
   

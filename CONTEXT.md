@@ -8,19 +8,27 @@ R package built with {golem} framework for Shiny apps. Performs climate risk ana
 
 ### Data Pipeline
 
-The tool processes climate risk through a 16-step pipeline orchestrated by `compute_risk()`:
+The tool processes climate risk through a multi-step pipeline orchestrated by `compute_risk()`:
 
-1. **Input Loading**: Assets, companies, hazards, precomputed hazards, damage factors
-2. **Asset Filtering**: Filter assets to only include those with matching companies
-3. **Geospatial Processing**: Assign hazard values to assets using priority cascade
-4. **Hazard-Damage Mapping**: Join damage cost factors based on hazard intensity
-5. **Baseline Trajectories**: Compute revenue and profit projections
-6. **Shock Application**: Apply acute and chronic event shocks
-7. **Scenario Building**: Combine baseline and shock trajectories
-8. **Discounting**: Apply present value calculations
-9. **Company Aggregation**: Roll up asset-level to company-level metrics
-10. **Risk Metrics**: Compute NPV, PD (Merton), Expected Loss
-11. **Result Formatting**: Pivot to wide format for reporting
+**PHASE 0: Input Preparation**
+1. **Province Assignment**: Assign provinces to assets without province data (via coordinates or municipality)
+2. **Input Validation**: Validate data coherence (if `validate_inputs=TRUE` and `base_dir` provided)
+3. **Asset Filtering**: Filter assets to only include those with matching companies
+
+**PHASE 1: Geospatial Processing**
+4. **Geospatial Extraction**: Assign hazard values to assets using priority cascade (coordinates → municipality → province)
+5. **Hazard-Damage Mapping**: Join damage cost factors based on hazard intensity and asset characteristics
+
+**PHASE 2: Financial Modeling**
+6. **Baseline Trajectories**: Compute revenue and profit projections without climate shocks
+7. **Shock Application**: Apply acute and chronic climate event shocks to revenue and profits
+8. **Scenario Building**: Combine baseline and shock trajectories
+9. **Discounting**: Apply present value discounting to future cash flows
+
+**PHASE 3: Risk Aggregation**
+10. **Company Aggregation**: Roll up asset-level to company-level metrics
+11. **Risk Metrics**: Compute NPV, PD (Merton), Expected Loss
+12. **Result Formatting**: Pivot to wide format for reporting
 
 ### Hazard Assignment Priority Cascade
 
@@ -144,10 +152,46 @@ Examples:
 - Filters assets to only those with matching companies
 - Uses priority cascade for hazard assignment
 
+### Input Data Validation
+
+**`validate_input_coherence(assets_df, damage_factors_df, precomputed_hazards_df, cnae_exposure_df, adm1_names, adm2_names)`**
+- Performs comprehensive validation checks on all input data for coherence and consistency
+- Called automatically by `compute_risk()` if `base_dir` and `validate_inputs=TRUE` are provided
+- Can be called manually before running analysis to catch data issues early
+- Stops execution if validation errors are found; returns list with `errors` and `warnings` vectors
+
+**Validation Checks:**
+
+1. **Province Names in Damage Factors**: All province names must match ADM1 boundary names (after ASCII normalization)
+2. **Province Names in Assets**: All asset province names must match ADM1 boundary names
+3. **Municipality Names in Assets**: All asset municipality names must match ADM2 boundary names  
+4. **Province Names in Precomputed Hazards**: All province-level (ADM1) regions must match ADM1 boundary names
+5. **Municipality Names in Precomputed Hazards**: All municipality-level (ADM2) regions must match ADM2 boundary names
+6. **CNAE Codes in Assets**: All CNAE codes in assets must exist in the reference CNAE exposure file
+7. **Share of Economic Activity**: For each company, asset shares must sum to 1.0 (±0.01 tolerance)
+
+**ASCII Normalization**: All province and municipality names are normalized using `stringi::stri_trans_general("Latin-ASCII")` to remove accents (e.g., "Espírito Santo" → "Espirito Santo"). This ensures consistent matching between data sources.
+
+**Helper Functions**:
+- `load_adm1_province_names(base_dir)` → Character vector of normalized ADM1 province names
+- `load_adm2_municipality_names(base_dir)` → Character vector of normalized ADM2 municipality names
+
+**Implementation**: `R/utils__validate_inputs.R`
+**Tests**: `tests/testthat/test-utils__validate_inputs.R`
+
 ### Data Loading
 
 **`read_assets(base_dir)`** → data.frame
 - Reads from `{base_dir}/user_input/asset_information.xlsx`
+- ASCII-normalizes province and municipality names
+- **Does NOT assign provinces to assets** - this is now done in `compute_risk()` or can be called separately
+
+**`assign_province_to_assets(assets_df, base_dir)`** → data.frame
+- Assigns provinces to assets without province data using spatial matching
+- Strategy 1: Uses coordinates (lat/lon) for spatial join with ADM1 boundaries
+- Strategy 2: Uses municipality name to look up province
+- Called automatically by `compute_risk()` if `base_dir` is provided
+- Can be called manually: `assets <- assign_province_to_assets(assets, base_dir)`
 
 **`read_companies(file_path)`** → data.frame
 - Reads company data from specified Excel path
@@ -235,8 +279,12 @@ inventory <- hazard_data$inventory
 - Returns `matching_method = "municipality"` or `"province"`
 - Raises detailed errors if region or hazard combo not found
 
-**`join_damage_cost_factors(assets_long_format, damage_factors_df)`** → data.frame
-- Joins on hazard_type, rounded hazard_intensity, asset_category
+**`join_damage_cost_factors(assets_long_format, damage_factors_df, cnae_exposure = NULL)`** → data.frame
+- Joins damage and cost factors based on hazard type:
+  - **FloodTIF**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
+  - **Compound**: Joins on hazard_type, province, scenario_name (GWL), and metric (sector-based from CNAE exposure)
+  - **Drought**: Joins on province, crop subtype, season, and closest hazard_intensity match
+- Optional `cnae_exposure` parameter used for Compound hazards to determine metric (high/median/low) based on sector CNAE codes
 
 ### Financial Calculations
 
@@ -533,6 +581,36 @@ Location: [exact line where error occurred]
 - UI: `R/mod_hazards_events.R` - Season dropdown for Drought events
 - Matching: `R/geospatial__join_damage_cost_factors.R` - `join_drought_damage_factors()`
 - Shock Application: `R/shock__apply_acute_revenue_shock.R` - `apply_drought_shock()`
+
+### Compound (Heat) for All Assets
+
+**Overview**: Compound (heat) impacts affect all asset categories through labor productivity loss calculated using Cobb-Douglas production function. Damage factors vary by province, Global Warming Level (GWL), and sector-based labor productivity exposure (high/median/low).
+
+**Damage Factor Matching**:
+- **Province**: Uses asset province for geographic matching
+- **GWL**: Uses scenario_name from events (matches gwl column in damage_factors)
+- **Metric Selection** (new): Based on sector CNAE code:
+  - If asset has sector (CNAE code) and found in CNAE exposure file → use corresponding LP exposure value (high/median/low)
+  - If sector is missing/NA → use "median" (default)
+  - Exception: If sector is missing AND `asset_category == "agriculture"` → use "high"
+- **Join**: Matches on `hazard_type`, `province`, `gwl`, AND `metric` (not hardcoded to "median")
+
+**Revenue Shock Formula**:
+- Uses Cobb-Douglas production function to calculate labor productivity loss
+- Formula: `weighted_lp_loss = (hazard_intensity / 365) × damage_factor`
+- Then adjusts labor input and calculates output change
+
+**Implementation Files**:
+- Data Loading: `R/utils__read_inputs.R` - `read_cnae_labor_productivity_exposure()`
+- Matching: `R/geospatial__join_damage_cost_factors.R` - `join_compound_damage_factors()` (now accepts `cnae_exposure` parameter)
+- Shock Application: `R/shock__apply_acute_revenue_shock.R` - `apply_compound_shock()` (unchanged)
+
+**Data Requirements**:
+- `damage_and_cost_factors.csv` must include rows with:
+  - `hazard_type = "Compound"`, `metric` in ("high", "median", "low")
+  - Columns: `province`, `gwl`, `metric`, `damage_factor`
+- `cnae_labor_productivity_exposure.xlsx` with columns: `cnae` (numeric), `sector`/`description`, `decision`/`lp_exposure` ("High"/"Median"/"Low" normalized to lowercase)
+- Assets should have `sector` column with numeric CNAE codes (no leading zeros, e.g., 6 not 06)
 
 **Data Requirements**:
 - `damage_and_cost_factors.csv` must include rows with:

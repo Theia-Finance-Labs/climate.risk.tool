@@ -25,7 +25,8 @@ testthat::test_that("geolocated assets extract from TIF files", {
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
-    share_of_economic_activity = 0.5
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
   )
 
   # Extract
@@ -79,7 +80,8 @@ testthat::test_that("geolocated assets extract from NC files", {
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
-    share_of_economic_activity = 0.5
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
   )
 
   # Extract
@@ -134,7 +136,8 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
-    share_of_economic_activity = 0.5
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
   )
 
   # Extract (pass precomputed for administrative lookup)

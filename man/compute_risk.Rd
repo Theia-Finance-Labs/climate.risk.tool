@@ -12,6 +12,10 @@ compute_risk(
   hazards_inventory,
   precomputed_hazards,
   damage_factors,
+  cnae_exposure = NULL,
+  adm1_boundaries = NULL,
+  adm2_boundaries = NULL,
+  validate_inputs = TRUE,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05,
@@ -33,6 +37,14 @@ The \code{event_id} column is auto-generated internally if not provided.}
 \item{precomputed_hazards}{Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())}
 
 \item{damage_factors}{Data frame with damage and cost factors (from read_damage_cost_factors())}
+
+\item{cnae_exposure}{Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())}
+
+\item{adm1_boundaries}{Optional sf object with ADM1 (province) boundaries for province assignment and validation}
+
+\item{adm2_boundaries}{Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup}
+
+\item{validate_inputs}{Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)}
 
 \item{growth_rate}{Numeric. Revenue growth rate assumption (default: 0.02)}
 
@@ -93,6 +105,7 @@ companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
 hazards <- load_hazards(file.path(base_dir, "hazards"))
 precomputed_hazards <- read_precomputed_hazards(base_dir)
 damage_factors <- read_damage_cost_factors(base_dir)
+cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
 
 # Define events
 events <- data.frame(
@@ -108,8 +121,10 @@ results <- compute_risk(
   companies = companies,
   events = events,
   hazards = hazards,
+  hazards_inventory = hazards_inventory,
   precomputed_hazards = precomputed_hazards,
   damage_factors = damage_factors,
+  cnae_exposure = cnae_exposure,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05

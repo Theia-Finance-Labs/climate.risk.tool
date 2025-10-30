@@ -1,12 +1,13 @@
 #' Join damage and cost factors based on hazard type, indicator, intensity and asset category (internal function)
 #'
 #' @param assets_with_hazards Data frame in long format with asset and hazard information
-#'   including hazard_type, hazard_indicator, hazard_intensity, scenario_name columns
+#'   including hazard_type, hazard_indicator,<｜place▁holder▁no▁118｜> hazard_intensity, scenario_name columns
 #'   (from extract_hazard_statistics joined with events)
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
+#' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (columns: cnae, lp_exposure)
 #' @return Data frame with original columns plus damage_factor, cost_factor, and business_disruption columns
 #' @noRd
-join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
+join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cnae_exposure = NULL) {
   # Separate assets by hazard type
   flood_assets <- assets_with_hazards |>
     dplyr::filter(.data$hazard_type == "FloodTIF")
@@ -23,7 +24,7 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df) {
   }
 
   compound_merged <- if (nrow(compound_assets) > 0) {
-    join_compound_damage_factors(compound_assets, damage_factors_df)
+    join_compound_damage_factors(compound_assets, damage_factors_df, cnae_exposure)
   } else {
     NULL
   }
@@ -130,26 +131,54 @@ join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
   return(flood_merged)
 }
 
-#' Join Compound (heat) damage factors using province and GWL matching (internal function)
+#' Join Compound (heat) damage factors using province, GWL, and sector-based metric matching (internal function)
 #'
 #' @param compound_assets Data frame with Compound hazard assets
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
+#' @param cnae_exposure Optional tibble with CNAE exposure data (columns: cnae, lp_exposure). If NULL, uses median metric.
 #' @return Data frame with damage_factor column (cost_factor and business_disruption are NA)
 #' @noRd
-join_compound_damage_factors <- function(compound_assets, damage_factors_df) {
-  # Filter factors for Compound type
-  # gwl column in damage_factors_df matches scenario_name from events (column names are lowercased by read function)
-  # Need to select metric column and filter for median to avoid duplicates (median is primary estimate)
-  compound_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "Compound", .data$metric == "median") |>
-    dplyr::select("hazard_type", "province", "gwl", "damage_factor")
+join_compound_damage_factors <- function(compound_assets, damage_factors_df, cnae_exposure = NULL) {
+  # Determine metric for each asset based on CNAE exposure code
+  # If cnae_exposure is provided, use CNAE-based lookup
+  # Otherwise, default to median/high fallback
+  if (!is.null(cnae_exposure) && nrow(cnae_exposure) > 0) {
+    compound_assets_with_metric <- compound_assets |>
+      dplyr::left_join(
+        cnae_exposure |>
+          dplyr::select("cnae", "lp_exposure"),
+        by = "cnae"
+      ) |>
+      dplyr::mutate(
+        # Determine metric based on lookup or defaults; only cnae is used
+        metric = dplyr::case_when(
+          !is.na(.data$lp_exposure) ~ .data$lp_exposure,
+          is.na(.data$cnae) & .data$asset_category == "agriculture" ~ "high",
+          TRUE ~ "median"
+        )
+      ) |>
+      dplyr::select(-"lp_exposure")
+  } else {
+    # If no CNAE exposure data provided, use fallback logic based on asset_category
+    compound_assets_with_metric <- compound_assets |>
+      dplyr::mutate(
+        metric = dplyr::if_else(
+          is.na(.data$cnae) & .data$asset_category == "agriculture",
+          "high",
+          "median"
+        )
+      )
+  }
 
-  # Join on hazard_type, province, and scenario_name = gwl
-  # scenario_name is already available in compound_assets from events join
+  # Join with damage factors matching on hazard_type, province, gwl, AND metric
+  compound_factors <- damage_factors_df |>
+    dplyr::filter(.data$hazard_type == "Compound") |>
+    dplyr::select("hazard_type", "province", "gwl", "metric", "damage_factor")
+
   compound_merged <- dplyr::left_join(
-    compound_assets,
+    compound_assets_with_metric,
     compound_factors,
-    by = c("hazard_type", "province", "scenario_name" = "gwl")
+    by = c("hazard_type", "province", "scenario_name" = "gwl", "metric")
   ) |>
     dplyr::mutate(
       cost_factor = NA_real_,

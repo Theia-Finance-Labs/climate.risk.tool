@@ -12,6 +12,10 @@
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
+#' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())
+#' @param adm1_boundaries Optional sf object with ADM1 (province) boundaries for province assignment and validation
+#' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup
+#' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
@@ -56,6 +60,7 @@
 #' hazards <- load_hazards(file.path(base_dir, "hazards"))
 #' precomputed_hazards <- read_precomputed_hazards(base_dir)
 #' damage_factors <- read_damage_cost_factors(base_dir)
+#' cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
 #'
 #' # Define events
 #' events <- data.frame(
@@ -71,8 +76,10 @@
 #'   companies = companies,
 #'   events = events,
 #'   hazards = hazards,
+#'   hazards_inventory = hazards_inventory,
 #'   precomputed_hazards = precomputed_hazards,
 #'   damage_factors = damage_factors,
+#'   cnae_exposure = cnae_exposure,
 #'   growth_rate = 0.02,
 #'   net_profit_margin = 0.1,
 #'   discount_rate = 0.05
@@ -92,6 +99,10 @@ compute_risk <- function(assets,
                          hazards_inventory,
                          precomputed_hazards,
                          damage_factors,
+                         cnae_exposure = NULL,
+                         adm1_boundaries = NULL,
+                         adm2_boundaries = NULL,
+                         validate_inputs = TRUE,
                          growth_rate = 0.02,
                          net_profit_margin = 0.1,
                          discount_rate = 0.05,
@@ -123,7 +134,52 @@ compute_risk <- function(assets,
   }
 
   # ============================================================================
-  # PHASE 1: UTILS - Input validation and data preparation
+  # PHASE 0: INPUT PREPARATION - Assign provinces to assets and validate
+  # ============================================================================
+  
+  # Assign provinces to assets that don't have one (requires boundaries)
+  if (!is.null(adm1_boundaries)) {
+    message("[compute_risk] Assigning provinces to assets without location data...")
+    assets <- assign_province_to_assets_with_boundaries(
+      assets, 
+      adm1_boundaries, 
+      adm2_boundaries
+    )
+  }
+  
+  # Validate input data coherence
+  if (validate_inputs && !is.null(adm1_boundaries)) {
+    message("[compute_risk] Validating input data coherence...")
+    
+    # Extract boundary names for validation
+    adm1_names <- adm1_boundaries |>
+      dplyr::pull(.data$shapeName) |>
+      as.character() |>
+      stringi::stri_trans_general("Latin-ASCII") |>
+      unique()
+    
+    adm2_names <- if (!is.null(adm2_boundaries)) {
+      adm2_boundaries |>
+        dplyr::pull(.data$shapeName) |>
+        as.character() |>
+        stringi::stri_trans_general("Latin-ASCII") |>
+        unique()
+    } else {
+      character(0)
+    }
+    
+    validate_input_coherence(
+      assets_df = assets,
+      damage_factors_df = damage_factors,
+      precomputed_hazards_df = precomputed_hazards,
+      cnae_exposure_df = cnae_exposure,
+      adm1_names = adm1_names,
+      adm2_names = adm2_names
+    )
+  }
+
+  # ============================================================================
+  # PHASE 1: UTILS - Data preparation
   # ============================================================================
 
   # Auto-generate event_id if not provided (only if column doesn't exist)
@@ -176,7 +232,7 @@ compute_risk <- function(assets,
     )
 
   # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards)
-  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors)
+  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure)
 
 
   # ============================================================================

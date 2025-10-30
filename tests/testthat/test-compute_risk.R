@@ -19,21 +19,27 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   }
 
   # Events: FloodTIF (acute + chronic), Compound (acute), and Drought (acute with season)
+  # Hazard names match the actual available test data:
+  # - FloodTIF: Uses GWL= format with scenario_name (TIF files)
+  # - Compound: Uses GWL= with ensemble (CSV files)
+  # - Drought: Uses GWL= with season and ensemble (NC files)
   events <- data.frame(
-    hazard_type = c("FloodTIF", "FloodTIF", "Compound", "Compound", "Drought"),
+    hazard_type = c("FloodTIF", "FloodTIF", "FloodTIF", "Compound", "Compound", "Drought", "Drought"),
     hazard_name = c(
       "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
       "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+      "FloodTIF__Flood Height__GWL=RCP8.5__RP=100",
       "Compound__HI__GWL=present__RP=10__ensemble=mean",
-      "Compound__HI__GWL=3__RP=10__ensemble=mean",
-      "Drought__SPI3__GWL=present__RP=10__ensemble=mean"
+      "Compound__HI__GWL=2__RP=10__ensemble=mean",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
     ),
-    scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3", "present"),
-    scenario_code = c("pc", "pc", "present", "3", "present"),
-    hazard_return_period = c(10, 10, 10, 10, 10),
-    event_year = c(2030L, NA_integer_, 2030L, 2035L, 2032L),
-    chronic = c(FALSE, TRUE, FALSE, FALSE, FALSE),
-    season = c(NA, NA, NA, NA, "Summer"),  # Season only for Drought
+    scenario_name = c("CurrentClimate", "CurrentClimate", "RCP8.5", "present", "2", "present", "1.5"),
+    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
+    hazard_return_period = c(10, 10, 100, 10, 10, 10, 10),
+    event_year = c(2030L, NA_integer_, 2035L, 2030L, 2035L, 2032L, 2033L),
+    chronic = c(FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE),
+    season = c(NA, NA, NA, NA, NA, "Summer", "Winter"),  # Season only for Drought
     stringsAsFactors = FALSE
   )
 

@@ -13,6 +13,7 @@ test_that("extract_csv_statistics finds closest point correctly", {
     asset_subtype = c(NA, NA),
     size_in_m2 = c(1000, 1000),
     share_of_economic_activity = c(0.5, 0.5),
+    cnae = c(NA_real_, NA_real_),
     stringsAsFactors = FALSE
   )
 
@@ -80,6 +81,7 @@ test_that("extract_csv_statistics handles multiple assets", {
     asset_subtype = rep(NA, 4),
     size_in_m2 = rep(1000, 4),
     share_of_economic_activity = rep(0.25, 4),
+    cnae = rep(NA_real_, 4),
     stringsAsFactors = FALSE
   )
 
@@ -135,6 +137,7 @@ test_that("extract_csv_statistics adds extraction_method suffix", {
     asset_subtype = NA,
     size_in_m2 = 1000,
     share_of_economic_activity = 1.0,
+    cnae = NA_real_,
     stringsAsFactors = FALSE
   )
 
