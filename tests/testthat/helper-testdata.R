@@ -2,7 +2,11 @@
 
 # Helpers for locating test data and common checks
 get_test_data_dir <- function(...) {
-  file.path(testthat::test_path(".."), "tests_data", ...)
+  # Resolve absolute path to tests/tests_data reliably in all environments (including R CMD check)
+  testthat_dir <- testthat::test_path()
+  tests_dir <- normalizePath(file.path(testthat_dir, ".."), winslash = "/", mustWork = TRUE)
+  base_dir <- normalizePath(file.path(tests_dir, "tests_data"), winslash = "/", mustWork = TRUE)
+  file.path(base_dir, ...)
 }
 
 
