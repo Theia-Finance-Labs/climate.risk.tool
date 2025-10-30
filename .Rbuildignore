@@ -31,7 +31,5 @@ $run_dev.*
 ^workspace/.*$
 ^.*workspace.*$
 ^data-raw/notebooks$
-^tests/tests_data$
-^tests/tests_data/.*\.(tif|nc|csv|geojson)$
 ^[.]?air[.]toml$
 ^\.vscode$
