@@ -122,7 +122,7 @@ testthat::test_that("assign_province_to_assets assigns province via municipality
     stringsAsFactors = FALSE
   )
 
-  result <- assign_province_to_assets(test_assets, base_dir)
+  result <- suppressWarnings(assign_province_to_assets(test_assets, base_dir))
 
   testthat::expect_true(!is.na(result$province[1]))
   # Province should be Rondonia (ASCII normalized)
