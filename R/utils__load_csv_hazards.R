@@ -35,8 +35,10 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
   for (f in csv_files) {
     # Path parsing: {hazards_dir}/{hazard_type}/{hazard_indicator}/{model_type}/{file}.csv
     # Use relative path from hazards_dir for more robust parsing
-    relative_path <- sub(paste0("^", normalizePath(hazards_dir), .Platform$file.sep), "", normalizePath(f))
-    parts <- strsplit(relative_path, .Platform$file.sep, fixed = TRUE)[[1]]
+    hazards_dir_norm <- normalizePath(hazards_dir, winslash = "/")
+    f_norm <- normalizePath(f, winslash = "/")
+    relative_path <- sub(paste0("^", hazards_dir_norm, "/"), "", f_norm)
+    parts <- strsplit(relative_path, "/", fixed = TRUE)[[1]]
 
     if (length(parts) >= 4) {
       # hazards/{hazard_type}/{hazard_indicator}/{model_type}/file.csv
