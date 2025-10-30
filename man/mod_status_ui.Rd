@@ -7,7 +7,7 @@
 mod_status_ui(id)
 }
 \arguments{
-\item{id, input, output, session}{Internal parameters for {shiny}}
+\item{id}{Internal parameter for {shiny}}
 }
 \description{
 Module to display analysis status and configured events

@@ -13,6 +13,7 @@
 #' @param force_reaggregate Logical. If TRUE, recompute aggregated rasters even if cached files exist (default: FALSE)
 #' @param memfrac Numeric in (0,1]. Memory fraction hint passed to terra options during load (default: 0.3)
 #' @return Named list of SpatRaster objects
+#' @importFrom utils head
 #' @noRd
 load_tif_hazards <- function(mapping_df,
                              hazards_dir,

@@ -4,6 +4,7 @@
 #' @description Takes yearly company trajectories and computes final company-level
 #'   NPV, PD, and Expected Loss metrics. Aggregates yearly data and applies risk models.
 #'   This is the main function for company-level financial analysis.
+#' @param companies tibble with company data including NPV and debt information
 #' @param company_yearly_trajectories tibble with columns: company, year, scenario, total_revenue, total_profit, total_discounted_profit, total_discounted_net_profit
 #' @param assets_discounted_yearly tibble with yearly asset data for asset-level results
 #' @param discount_rate numeric. Discount rate (used for consistency, but discounting already applied)

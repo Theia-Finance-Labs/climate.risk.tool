@@ -1,7 +1,7 @@
 #' results_companies UI Function
 #'
 #' @description Module to display company-level results table with financials
-#' @param id,input,output,session Internal parameters for {shiny}
+#' @param id Internal parameter for {shiny}
 #' @export
 mod_results_companies_ui <- function(id) {
   ns <- shiny::NS(id)
@@ -16,6 +16,7 @@ mod_results_companies_ui <- function(id) {
 
 #' results_companies Server Functions
 #'
+#' @param id Internal parameter for {shiny}
 #' @param results_reactive reactive containing analysis results
 #' @export
 mod_results_companies_server <- function(id, results_reactive) {

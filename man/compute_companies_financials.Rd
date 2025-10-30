@@ -12,6 +12,8 @@ compute_companies_financials(
 )
 }
 \arguments{
+\item{companies}{tibble with company data including NPV and debt information}
+
 \item{company_yearly_trajectories}{tibble with columns: company, year, scenario, total_revenue, total_profit, total_discounted_profit, total_discounted_net_profit}
 
 \item{assets_discounted_yearly}{tibble with yearly asset data for asset-level results}

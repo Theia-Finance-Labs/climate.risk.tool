@@ -6,6 +6,7 @@
 \usage{
 validate_input_coherence(
   assets_df,
+  companies_df,
   damage_factors_df,
   precomputed_hazards_df = NULL,
   cnae_exposure_df,
@@ -15,6 +16,8 @@ validate_input_coherence(
 }
 \arguments{
 \item{assets_df}{Assets data frame}
+
+\item{companies_df}{Companies data frame}
 
 \item{damage_factors_df}{Damage factors data frame}
 

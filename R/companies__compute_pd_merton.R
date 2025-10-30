@@ -14,6 +14,7 @@
 #' companies <- data.frame(company = "A", scenario = "baseline", npv = 1000)
 #' result <- compute_pd_merton(companies)
 #' }
+#' @importFrom stats pnorm
 #' @export
 compute_pd_merton <- function(companies_npv) {
   # Make a copy to avoid modifying the input

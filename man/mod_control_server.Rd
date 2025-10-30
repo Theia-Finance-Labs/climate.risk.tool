@@ -7,6 +7,8 @@
 mod_control_server(id, base_dir_reactive)
 }
 \arguments{
+\item{id}{Internal parameter for {shiny}}
+
 \item{base_dir_reactive}{reactive containing base directory path}
 }
 \value{

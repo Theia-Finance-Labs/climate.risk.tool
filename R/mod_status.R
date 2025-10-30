@@ -1,7 +1,7 @@
 #' status UI Function
 #'
 #' @description Module to display analysis status and configured events
-#' @param id,input,output,session Internal parameters for {shiny}
+#' @param id Internal parameter for {shiny}
 #' @export
 mod_status_ui <- function(id) {
   ns <- shiny::NS(id)
@@ -41,6 +41,7 @@ mod_status_ui <- function(id) {
 
 #' status Server Functions
 #'
+#' @param id Internal parameter for {shiny}
 #' @param status_reactive reactive containing current status message
 #' @param events_reactive reactive containing configured events
 #' @export
