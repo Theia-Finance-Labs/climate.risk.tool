@@ -33,38 +33,27 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
   inventory_rows <- list()
 
   for (f in csv_files) {
-    # Path parsing: .../hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.csv
-    parts <- strsplit(normalizePath(f), .Platform$file.sep, fixed = TRUE)[[1]]
+    # Path parsing: {hazards_dir}/{hazard_type}/{hazard_indicator}/{model_type}/{file}.csv
+    # Use relative path from hazards_dir for more robust parsing
+    relative_path <- sub(paste0("^", normalizePath(hazards_dir), .Platform$file.sep), "", normalizePath(f))
+    parts <- strsplit(relative_path, .Platform$file.sep, fixed = TRUE)[[1]]
 
-    # Find the "hazards" directory index
-    hazards_idx <- which(parts == "hazards")
-
-    if (length(hazards_idx) > 0 && length(parts) > hazards_idx[length(hazards_idx)]) {
-      # Get parts after "hazards" directory
-      after_hazards <- parts[(hazards_idx[length(hazards_idx)] + 1):length(parts)]
-
-      if (length(after_hazards) >= 4) {
-        # hazards/{hazard_type}/{hazard_indicator}/{model_type}/file.csv
-        hazard_type <- after_hazards[1]
-        hazard_indicator <- after_hazards[2]
-        model_type <- after_hazards[3]
-      } else if (length(after_hazards) == 3) {
-        # hazards/{hazard_type}/{hazard_indicator}/file.csv
-        hazard_type <- after_hazards[1]
-        hazard_indicator <- after_hazards[2]
-        model_type <- "ensemble"
-      } else if (length(after_hazards) == 2) {
-        # hazards/{hazard_type}/file.csv
-        hazard_type <- after_hazards[1]
-        hazard_indicator <- "indicator"
-        model_type <- "ensemble"
-      } else {
-        hazard_type <- "unknown"
-        hazard_indicator <- "indicator"
-        model_type <- "ensemble"
-      }
+    if (length(parts) >= 4) {
+      # hazards/{hazard_type}/{hazard_indicator}/{model_type}/file.csv
+      hazard_type <- parts[1]
+      hazard_indicator <- parts[2]
+      model_type <- parts[3]
+    } else if (length(parts) == 3) {
+      # hazards/{hazard_type}/{hazard_indicator}/file.csv
+      hazard_type <- parts[1]
+      hazard_indicator <- parts[2]
+      model_type <- "ensemble"
+    } else if (length(parts) == 2) {
+      # hazards/{hazard_type}/file.csv
+      hazard_type <- parts[1]
+      hazard_indicator <- "indicator"
+      model_type <- "ensemble"
     } else {
-      # Fallback
       hazard_type <- "unknown"
       hazard_indicator <- "indicator"
       model_type <- "ensemble"

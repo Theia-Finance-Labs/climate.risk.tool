@@ -81,11 +81,13 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
       message("  Loading NetCDF file: ", basename(f))
     }
 
-    # Path parsing: .../hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
-    parts <- strsplit(normalizePath(f), .Platform$file.sep, fixed = TRUE)[[1]]
-    # Find indices for segments
+    # Path parsing: {hazards_dir}/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
+    # Use relative path from hazards_dir for more robust parsing
+    relative_path <- sub(paste0("^", normalizePath(hazards_dir), .Platform$file.sep), "", normalizePath(f))
+    parts <- strsplit(relative_path, .Platform$file.sep, fixed = TRUE)[[1]]
+
     if (length(parts) >= 4) {
-      # Use last 4 meaningful segments: {hazard_type}/{hazard_indicator}/{model_type}/{file}
+      # hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
       file_name <- parts[length(parts)]
       model_type <- parts[length(parts) - 1]
       hazard_indicator <- parts[length(parts) - 2]
