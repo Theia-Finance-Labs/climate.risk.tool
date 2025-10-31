@@ -124,6 +124,9 @@ mod_control_server <- function(id, base_dir_reactive) {
 
     # Hazards events module
     hz_mod <- mod_hazards_events_server("hazards", hazards_inventory = hazards_inventory)
+    
+    # Store clear function for external access
+    clear_events_fn <- hz_mod$clear_events
 
     # Results ready output for conditional panel
     output$results_ready <- shiny::reactive({
@@ -148,6 +151,7 @@ mod_control_server <- function(id, base_dir_reactive) {
       }),
       hazards_inventory = hazards_inventory,
       get_hazards_at_factor = get_hazards_at_factor,
+      clear_events = clear_events_fn,
       set_results = function(results) {
         values$results <- results
         values$results_ready <- !is.null(results)

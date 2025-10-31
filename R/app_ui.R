@@ -42,20 +42,28 @@ app_ui <- function(request) {
               mod_status_ui("status")
             ),
 
-            # Tab 2: Asset Results (shown only after results)
+            # Tab 2: Hazard Maps
             tabPanel(
-              title = "Asset Analysis",
-              value = "assets",
-              icon = icon("building"),
-              mod_results_assets_ui("results_assets")
+              title = "Hazard Maps",
+              value = "maps",
+              icon = icon("map"),
+              mod_hazard_maps_ui("hazard_maps")
             ),
 
-            # Tab 3: Company Results (shown only after results)
+            # Tab 3: Asset Profit Pathways
+            tabPanel(
+              title = "Profit Pathways",
+              value = "pathways",
+              icon = icon("chart-line"),
+              mod_profit_pathways_ui("profit_pathways")
+            ),
+
+            # Tab 4: Company Analysis
             tabPanel(
               title = "Company Analysis",
               value = "companies",
-              icon = icon("chart-line"),
-              mod_results_companies_ui("results_companies")
+              icon = icon("building"),
+              mod_company_analysis_ui("company_analysis")
             )
           )
         )

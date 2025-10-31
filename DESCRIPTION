@@ -13,8 +13,12 @@ Imports:
     dplyr (>= 1.0.0),
     DT,
     golem,
+    htmltools,
+    leaflet,
     ncdf4,
+    plotly,
     purrr,
+    RColorBrewer,
     readr,
     readxl,
     sf,
@@ -36,7 +40,6 @@ Suggests:
     rmarkdown,
     testthat (>= 3.0.0),
     shinytest2,
-    htmltools,
     rprojroot
 Config/testthat/edition: 3
 VignetteBuilder: knitr

@@ -42,18 +42,45 @@ app_server <- function(input, output, session) {
   # Initialize control module
   control <- mod_control_server("control", base_dir_reactive = get_base_dir)
 
+  # Event deletion callback
+  delete_event_callback <- function(event_id) {
+    if (event_id == "all") {
+      # Clear all events
+      message("[app_server] Clearing all events")
+      control$clear_events()
+      values$status <- "All events cleared. Add new events and run analysis."
+    }
+  }
+
   # Initialize status module
-  mod_status_server(
+  status_module <- mod_status_server(
     "status",
     status_reactive = reactive({
       values$status
     }),
-    events_reactive = control$events
+    events_reactive = control$events,
+    results_reactive = results,
+    delete_event_callback = delete_event_callback
   )
 
-  # Initialize results modules
-  mod_results_assets_server("results_assets", results_reactive = results)
-  mod_results_companies_server("results_companies", results_reactive = results)
+  # Initialize new visualization modules
+  mod_hazard_maps_server(
+    "hazard_maps",
+    results_reactive = results,
+    events_reactive = control$events,
+    hazards_reactive = control$get_hazards_at_factor,
+    base_dir_reactive = get_base_dir
+  )
+
+  mod_profit_pathways_server(
+    "profit_pathways",
+    results_reactive = results
+  )
+
+  mod_company_analysis_server(
+    "company_analysis",
+    results_reactive = results
+  )
 
   # Check data directory on startup
   observe({
@@ -147,10 +174,10 @@ app_server <- function(input, output, session) {
 
         values$results <- results
         control$set_results(results)
-        values$status <- "Analysis complete. Check the Asset and Company Analysis tabs for detailed results."
+        values$status <- "Analysis complete. Check the Hazard Maps, Profit Pathways, and Company Analysis tabs for detailed results."
 
-        # Switch to results tab after completion
-        updateTabsetPanel(session, "main_tabs", selected = "assets")
+        # Switch to maps tab after completion
+        updateTabsetPanel(session, "main_tabs", selected = "maps")
       },
       error = function(e) {
         log_error_to_console(e, "Main app analysis")

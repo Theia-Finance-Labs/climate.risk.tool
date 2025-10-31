@@ -326,37 +326,126 @@ inventory <- hazard_data$inventory
 
 **`mod_control`** - Control panel
 - File upload, parameter inputs, run button
+- Exposes `clear_events()` function for event management
 
 **`mod_hazards_events`** - Event configuration
-- Three cascading dropdowns:
+- Four cascading dropdowns:
   1. Hazard Type (flood, heat, etc.)
-  2. Scenario (CurrentClimate, RCP8.5, etc.)
-  3. Return Period (10, 100, 1000 years)
+  2. Hazard Indicator (CDD, FWI, etc.)
+  3. Scenario (CurrentClimate, RCP8.5, GWL levels)
+  4. Return Period (10, 100, 1000 years)
 - Shock year input
+- Season selection (for Drought events)
 - Add button, configured events table
-- Output: events dataframe with event_id, hazard_type, scenario, event_year
+- Output: events dataframe with event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, season
 
-**`mod_results_assets`** - Asset-level results display
+**`mod_status`** - Processing status indicator and event management
+- Displays analysis status with colored badges (ERROR, READY, RUNNING, WAITING)
+- Shows configured events in interactive DataTable
+- "Clear All Events" button to reset event configuration
+- Accepts `delete_event_callback` to handle event deletion
 
-**`mod_results_companies`** - Company-level results display
-- Displays pivoted company results with formatted columns:
-  - Percentage change columns: formatted as "X.XX%"
-  - PD columns: multiplied by 100 and formatted as "X.XXXX%"
-  - NPV and loss columns: formatted as currency "$X,XXX"
+**`mod_hazard_maps`** - Interactive hazard maps with asset overlays (NEW)
+- One map per unique hazard in events table
+- Uses `leaflet` for interactive mapping
+- Displays hazard layers:
+  - Raster visualization for TIF/NC files with color scale
+  - Point markers for CSV files
+- Asset overlay layers:
+  - **Geolocated assets**: Blue circle markers at exact coordinates
+  - **Municipality assets**: Polygon boundaries (filled by count) with asset lists in hover popups
+  - **Province assets**: Red polygon boundaries with asset lists in hover popups
+- Hover interactions show:
+  - Asset name and hazard intensity for geolocated assets
+  - Asset list, count, and average hazard intensity for regions
+- Layer controls to toggle hazard and asset layers
+- Centered on Brazil with OpenStreetMap base layer
 
-**`mod_status`** - Processing status indicator
+**`mod_profit_pathways`** - Asset profit trajectory visualization (NEW)
+- Two side-by-side `plotly` line charts:
+  - Baseline scenario: profit over time for all assets
+  - Shock scenario: profit over time for all assets (first non-baseline event)
+- Interactive asset highlighting:
+  - Click rows in asset table below to highlight corresponding lines
+  - Highlighted assets: thicker lines (4px) in red, opacity 1.0
+  - Non-highlighted assets: thin lines (1px) in gray, opacity 0.3
+- Asset details table below charts with selection capability
+
+**`mod_company_analysis`** - Company-level visualization and metrics (NEW)
+- Three visualizations using `plotly`:
+  1. **Expected Loss % Change**: Horizontal bar chart sorted by highest to lowest change
+     - Red bars for positive change (increased risk)
+     - Green bars for negative change (decreased risk)
+  2. **Portfolio Summary**: Three-bar chart comparing:
+     - Sum of Expected Loss Baseline (blue)
+     - Sum of Expected Loss Shock (red)
+     - Difference between shock and baseline (orange)
+  3. **Company Details Table**: Formatted financial metrics
+     - Percentage columns: "X.XX%"
+     - PD columns: "X.XXXX%"
+     - NPV/Loss columns: "$X,XXX"
+
+### Visualization Utilities
+
+**`utils__visualization.R`** - Helper functions for maps and plots
+- `format_hover_text()` - Creates HTML popups for map markers
+- `create_color_palette()` - Generates color palettes for categorical data
+- `prepare_profit_trajectories()` - Filters and formats yearly profit data by scenario
+- `compute_portfolio_summary()` - Aggregates company expected loss to portfolio level
+- `extract_hazard_data()` - Retrieves specific hazard from hazards list
+- `get_hazard_type()` - Determines if hazard is raster or points
+- `prepare_asset_overlay()` - Prepares asset geometries for map overlays by matching method
+- `get_municipality_centroids()` - Calculates municipality centroids for point rendering
+
+### App Tab Structure
+
+The application is organized into four main tabs:
+
+1. **Parameters & Status** (`mod_status`)
+   - Analysis status with colored indicators
+   - Configured events table with interactive controls
+   - "Clear All Events" button for resetting configuration
+   - Ready for re-running analysis without restarting app
+
+2. **Hazard Maps** (`mod_hazard_maps`)
+   - Interactive leaflet maps for each configured hazard
+   - Hazard intensity visualization (raster or points)
+   - Asset overlays by matching method (coordinates, municipality, province)
+   - Hover interactions for detailed asset information
+
+3. **Profit Pathways** (`mod_profit_pathways`)
+   - Dual plotly charts: Baseline vs Shock scenarios
+   - Interactive asset highlighting from table selection
+   - Detailed asset results table with export capabilities
+
+4. **Company Analysis** (`mod_company_analysis`)
+   - Expected Loss % Change visualization
+   - Portfolio-level summary metrics
+   - Detailed company financial table
 
 ### Running the App
 
 **Development:**
 ```r
 golem::run_dev()
+# Or with data directory
+devtools::load_all()
+run_app("workspace/demo_inputs")
 ```
 
 **Production:**
 ```r
 run_app(base_dir = "path/to/data")
 ```
+
+### Event Management
+
+Users can now:
+- Add multiple hazard events via cascading dropdowns
+- View all configured events in a table
+- Clear all events with a single button
+- Re-run analysis without closing the app
+- Results automatically update in all visualization tabs
 
 ## Testing
 
@@ -496,6 +585,11 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 
 ### Required Packages (Imports)
 - shiny, golem
+- leaflet (interactive maps)
+- plotly (interactive plots)
+- htmltools (HTML generation for popups)
+- RColorBrewer (color palettes)
+- DT (interactive tables)
 - terra (raster processing)
 - sf (spatial operations)
 - dplyr, tidyr (data manipulation)

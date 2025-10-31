@@ -521,3 +521,127 @@ body {
   padding-top: 1.5rem;
   border-top: 1px solid var(--border-color);
 }
+
+/* Maps Container */
+.maps-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.map-section {
+  margin-bottom: 3rem;
+}
+
+.map-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  margin-bottom: 1rem;
+}
+
+.map-container {
+  height: 600px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+/* Leaflet popup styling */
+.leaflet-popup-content {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.leaflet-popup-content strong {
+  color: var(--primary-color);
+}
+
+/* Pathways Container */
+.pathways-container {
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.chart-section {
+  margin-bottom: 3rem;
+}
+
+/* Company Analysis Container */
+.company-analysis-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Chart Container Enhancements */
+.chart-container {
+  background-color: var(--card-background);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
+  margin-bottom: 1.5rem;
+}
+
+/* Plotly styling overrides */
+.js-plotly-plot .plotly {
+  border-radius: var(--border-radius);
+}
+
+/* Table row selection highlighting */
+.dataTables_wrapper .dataTable tbody tr.selected {
+  background-color: #e3f2fd !important;
+}
+
+.dataTables_wrapper .dataTable tbody tr:hover {
+  background-color: #f5f5f5;
+  cursor: pointer;
+}
+
+/* Events controls */
+.events-controls {
+  margin-bottom: 1rem;
+}
+
+.events-controls .btn-secondary {
+  background-color: var(--error-color);
+  border: none;
+}
+
+.events-controls .btn-secondary:hover {
+  background-color: #c0392b;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Alert styling */
+.alert {
+  padding: 1.5rem;
+  border-radius: var(--border-radius);
+  border: 1px solid;
+  margin: 1rem 0;
+}
+
+.alert-info {
+  background-color: #e3f2fd;
+  border-color: #2196f3;
+  color: #1976d2;
+}
+
+.alert-warning {
+  background-color: #fff3cd;
+  border-color: #ffc107;
+  color: #856404;
+}
+
+/* Responsive adjustments for plots */
+@media (max-width: 992px) {
+  .pathways-container .fluidRow .col-sm-6 {
+    margin-bottom: 2rem;
+  }
+  
+  .chart-container {
+    padding: 1rem;
+  }
+}

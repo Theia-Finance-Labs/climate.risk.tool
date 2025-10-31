@@ -232,7 +232,22 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       })
     })
 
-    # Return
-    return(list(events = events_rv))
+    # Return with clear method
+    return(list(
+      events = events_rv,
+      clear_events = function() {
+        events_rv(tibble::tibble(
+          event_id = character(),
+          hazard_type = character(),
+          hazard_indicator = character(),
+          hazard_name = character(),
+          scenario_name = character(),
+          hazard_return_period = numeric(),
+          event_year = integer(),
+          season = character()
+        ))
+        counter(1L)
+      }
+    ))
   })
 }
