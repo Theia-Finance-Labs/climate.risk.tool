@@ -167,4 +167,3 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   testthat::expect_true("ADM1" %in% adm_levels)
   testthat::expect_true("ADM2" %in% adm_levels)
 })
-

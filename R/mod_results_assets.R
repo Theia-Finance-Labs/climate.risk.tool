@@ -1,7 +1,7 @@
 #' results_assets UI Function
 #'
 #' @description Module to display asset-level results table with exposures
-#' @param id,input,output,session Internal parameters for {shiny}
+#' @param id Internal parameter for shiny
 #' @export
 mod_results_assets_ui <- function(id) {
   ns <- shiny::NS(id)
@@ -16,6 +16,7 @@ mod_results_assets_ui <- function(id) {
 
 #' results_assets Server Functions
 #'
+#' @param id Internal parameter for shiny
 #' @param results_reactive reactive containing analysis results
 #' @export
 mod_results_assets_server <- function(id, results_reactive) {
@@ -42,18 +43,13 @@ mod_results_assets_server <- function(id, results_reactive) {
       }
 
       # Reorder columns to show key columns prominently
-      priority_cols <- c("asset", "company", "event_id", "matching_method", "hazard_return_period", "event_year", "chronic")
+      priority_cols <- c("asset", "company", "event_id", "matching_method", "hazard_return_period", "event_year")
       existing_priority <- intersect(priority_cols, names(assets))
       other_cols <- setdiff(names(assets), existing_priority)
 
       if (length(existing_priority) > 0) {
         col_order <- c(existing_priority, other_cols)
         assets <- assets[, col_order, drop = FALSE]
-      }
-
-      # Format the chronic column as Yes/No for better readability
-      if ("chronic" %in% names(assets)) {
-        assets$chronic <- ifelse(assets$chronic, "Yes", "No")
       }
 
       DT::datatable(

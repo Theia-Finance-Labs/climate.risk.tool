@@ -1,0 +1,33 @@
+---
+description: Frontend/UI work is exempt from TDD-first; code directly without tests
+globs: inst/app/**,inst/app/www/**,R/app_ui.R,R/mod_*.R,inst/golem-config.yml
+---
+## Frontend/UI TDD Exception
+
+For all changes scoped to the app frontend and UI layer, the strict TDD-first rules do not apply. You may implement UI changes directly without first writing tests.
+
+This exception applies to:
+- `inst/app/**` and `inst/app/www/**` (static assets: CSS, JS, images, html templates)
+- `R/app_ui.R` (top-level UI composition)
+- `R/mod_*.R` changes limited to UI construction (`mod_*_ui()`), layout, inputs/outputs declarations, htmlwidgets, and visual-only refactors
+- `inst/golem-config.yml` UI-only configuration tweaks
+
+Constraints and clarifications:
+- Do NOT use this exception for server logic, reactivity, or data/business logic inside `R/mod_*.R` (e.g., `mod_*_server()`): TDD-first still applies there.
+- If a change spans both UI and server logic, split the edits: UI parts may proceed without tests; server parts must follow TDD-first.
+- Keep documentation practices: update `CONTEXT.md` for notable UI changes and run `devtools::document()` when roxygen docs are impacted.
+- NAMESPACE/DESCRIPTION policies remain unchanged.
+
+Examples covered by this exception:
+- Adding/changing inputs, outputs, layout, CSS classes, icons, or HTML structure in `mod_*_ui()`
+- Styling updates in `inst/app/www/custom.css` and other static assets
+- Adjusting top-level UI composition in `app_ui()`
+
+Examples NOT covered (TDD required):
+- Any changes in `mod_*_server()` or other server-side functions
+- Data transformations, validations, or computations, even if triggered by UI
+- Inter-module communication logic beyond simple wiring of UI elements
+
+Rationale:
+- UI work benefits from rapid iteration; enforcing TDD on visual changes can slow delivery without improving reliability proportionally. This rule enables faster frontend iteration while preserving TDD rigor for server/business logic.
+

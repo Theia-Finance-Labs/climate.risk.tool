@@ -23,7 +23,6 @@ testthat::test_that("mod_status_server displays events with event_id", {
     scenario_name = c("RCP8.5", "RCP8.5"),
     hazard_return_period = c(100, 50),
     event_year = c(2030L, 2035L),
-    chronic = c(FALSE, FALSE),
     stringsAsFactors = FALSE
   )
 

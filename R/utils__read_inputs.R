@@ -77,50 +77,49 @@ read_assets <- function(base_dir) {
     )
 
   # Normalize municipality and province names (remove accents, convert to ASCII)
+  # Also ensure that whitespace-only strings are converted to NA
   assets_raw <- assets_raw |>
     dplyr::mutate(
       municipality = dplyr::if_else(
-        !is.na(.data$municipality) & nzchar(as.character(.data$municipality)),
-        stringi::stri_trans_general(as.character(.data$municipality), "Latin-ASCII"),
+        !is.na(.data$municipality) & nzchar(trimws(as.character(.data$municipality))),
+        stringi::stri_trans_general(as.character(trimws(.data$municipality)), "Latin-ASCII"),
         NA_character_
       ),
       province = dplyr::if_else(
-        !is.na(.data$province) & nzchar(as.character(.data$province)),
-        stringi::stri_trans_general(as.character(.data$province), "Latin-ASCII"),
+        !is.na(.data$province) & nzchar(trimws(as.character(.data$province))),
+        stringi::stri_trans_general(as.character(trimws(.data$province)), "Latin-ASCII"),
         NA_character_
       )
     )
 
-  # Assign province to assets that don't have one
-  assets_with_province <- assign_province_to_assets(assets_raw, base_dir)
-
-  message("[read_assets] Loaded ", nrow(assets_with_province), " assets")
-  assets_with_province
+  message("[read_assets] Loaded ", nrow(assets_raw), " assets")
+  assets_raw
 }
 
-#' Assign province to assets based on coordinates or municipality (internal function)
+#' Assign province to assets using already-loaded boundaries
 #'
+#' @title Assign provinces to assets using spatial matching with loaded boundaries
+#' @description For assets without province assigned, uses spatial matching with ADM1 boundaries
+#'   based on coordinates (if available) or municipality lookup (if no coordinates).
+#'   Province names are ASCII-normalized for consistency.
 #' @param assets_df Data frame with asset information
-#' @param base_dir Base directory containing areas subdirectory
+#' @param adm1_boundaries sf object with ADM1 (province) boundaries
+#' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for municipality-based lookup
 #' @return Data frame with province assigned to all assets
-#' @noRd
-assign_province_to_assets <- function(assets_df, base_dir) {
+#' @examples
+#' \dontrun{
+#' adm1 <- sf::st_read("path/to/ADM1.geojson")
+#' assets_with_provinces <- assign_province_to_assets_with_boundaries(assets, adm1)
+#' }
+#' @export
+assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL) {
   # Ensure province column is character (not logical if all NA)
   if ("province" %in% names(assets_df)) {
     assets_df$province <- as.character(assets_df$province)
   }
-  
-  # Load province boundaries
-  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
-  municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
 
-  if (!file.exists(province_path)) {
-    message("[assign_province_to_assets] Province boundaries not found, skipping province assignment")
-    return(assets_df)
-  }
-
-  # Read province boundaries and normalize names
-  provinces_sf <- sf::st_read(province_path, quiet = TRUE) |>
+  # Normalize province names in boundaries
+  provinces_sf <- adm1_boundaries |>
     dplyr::mutate(
       province_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
     )
@@ -169,17 +168,15 @@ assign_province_to_assets <- function(assets_df, base_dir) {
     dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
     dplyr::filter(!is.na(.data$municipality))
 
-  if (nrow(assets_with_municipality) > 0 && file.exists(municipality_path)) {
+  if (nrow(assets_with_municipality) > 0 && !is.null(adm2_boundaries)) {
     message("  Assigning province via municipality for ", nrow(assets_with_municipality), " assets")
 
-    # Read municipality boundaries and normalize names
-    municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE) |>
+    # Normalize municipality names in boundaries
+    municipalities_sf <- adm2_boundaries |>
       dplyr::mutate(
         municipality_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
       )
 
-    # Build municipality -> province lookup using municipality barycenter (point-on-surface) within province
-    # This avoids polygon-polygon topological quirks and ensures the point lies within the intended province
     # Ensure both layers share CRS
     if (!sf::st_is_longlat(municipalities_sf)) {
       municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
@@ -215,7 +212,7 @@ assign_province_to_assets <- function(assets_df, base_dir) {
     assets_without_province |>
       dplyr::filter(
         (is.na(.data$latitude) | is.na(.data$longitude)) &
-        is.na(.data$municipality)
+          is.na(.data$municipality)
       )
   )
 
@@ -223,6 +220,45 @@ assign_province_to_assets <- function(assets_df, base_dir) {
   message("[assign_province_to_assets] Assigned province to ", n_assigned, " additional assets")
 
   return(result)
+}
+
+
+#' Assign province to assets based on coordinates or municipality (from base_dir)
+#'
+#' @title Assign provinces to assets using spatial matching (loads boundaries from base_dir)
+#' @description For assets without province assigned, uses spatial matching with ADM1 boundaries
+#'   based on coordinates (if available) or municipality lookup (if no coordinates).
+#'   Province names are ASCII-normalized for consistency.
+#'   This is a convenience wrapper that loads boundaries from base_dir.
+#' @param assets_df Data frame with asset information
+#' @param base_dir Base directory containing areas subdirectory with geoBoundaries files
+#' @return Data frame with province assigned to all assets
+#' @examples
+#' \dontrun{
+#' assets <- read_assets("tests/tests_data")
+#' assets_with_provinces <- assign_province_to_assets(assets, "tests/tests_data")
+#' }
+#' @export
+assign_province_to_assets <- function(assets_df, base_dir) {
+  # Load province boundaries
+  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+  municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+
+  if (!file.exists(province_path)) {
+    message("[assign_province_to_assets] Province boundaries not found, skipping province assignment")
+    return(assets_df)
+  }
+
+  # Load boundaries
+  adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
+  adm2_boundaries <- if (file.exists(municipality_path)) {
+    sf::st_read(municipality_path, quiet = TRUE)
+  } else {
+    NULL
+  }
+
+  # Call the main function with loaded boundaries
+  assign_province_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
 }
 
 #' Read company data from Excel file
@@ -296,7 +332,7 @@ read_damage_cost_factors <- function(base_dir) {
     dplyr::mutate(
       # Clean up the numeric columns that have comma decimal separators and quotes
       damage_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$damage_factor))),
-      cost_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor))),
+      cost_factor = suppressWarnings(as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor)))),
       # Ensure hazard_intensity is numeric
       hazard_intensity = as.numeric(.data$hazard_intensity)
     ) |>
@@ -313,6 +349,46 @@ read_damage_cost_factors <- function(base_dir) {
 
   message("[read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
   factors_df
+}
+
+#' Read CNAE Labor Productivity Exposure data from Excel file
+#'
+#' @title Read CNAE Labor Productivity Exposure lookup table
+#' @description Reads CNAE sector codes and their labor productivity exposure classification
+#'   from Excel file. Used to determine metric (high/median/low) for Compound hazard damage factors.
+#' @param base_dir Character string specifying the base directory containing cnae_labor_productivity_exposure.xlsx
+#' @return tibble with columns: cnae (numeric), description, lp_exposure (character: "high", "median", "low")
+#' @examples
+#' \dontrun{
+#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
+#' cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+#' }
+#' @export
+read_cnae_labor_productivity_exposure <- function(base_dir) {
+  message("[read_cnae_labor_productivity_exposure] Reading CNAE exposure data from: ", base_dir)
+
+  # Define file path
+  cnae_path <- file.path(base_dir, "cnae_labor_productivity_exposure.xlsx")
+
+  # Check if file exists
+  if (!file.exists(cnae_path)) {
+    stop("CNAE labor productivity exposure file not found at: ", cnae_path)
+  }
+
+  # Read CNAE data
+  cnae_raw <- readxl::read_excel(cnae_path) |>
+    tibble::as_tibble() |>
+    dplyr::rename_with(to_snake_case)
+
+  # Normalize lp_exposure values to lowercase
+  cnae_df <- cnae_raw |>
+    dplyr::mutate(
+      cnae = as.numeric(.data$cnae)
+    ) |>
+    dplyr::select("cnae", "description", "lp_exposure")
+
+  message("[read_cnae_labor_productivity_exposure] Loaded ", nrow(cnae_df), " CNAE records")
+  cnae_df
 }
 
 #' Read precomputed administrative hazard statistics from CSV file
@@ -404,9 +480,9 @@ read_precomputed_hazards <- function(base_dir) {
   precomputed_final <- dplyr::bind_rows(transformed_list)
 
   precomputed_final <- precomputed_final |>
-  dplyr::mutate(
-    region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII")
-  )
+    dplyr::mutate(
+      region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII")
+    )
 
   message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
 

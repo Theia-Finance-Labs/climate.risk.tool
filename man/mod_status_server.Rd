@@ -7,6 +7,8 @@
 mod_status_server(id, status_reactive, events_reactive)
 }
 \arguments{
+\item{id}{Internal parameter for shiny}
+
 \item{status_reactive}{reactive containing current status message}
 
 \item{events_reactive}{reactive containing configured events}

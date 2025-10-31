@@ -3,12 +3,6 @@
 ^tests/tests_data/hazards/.gitkeep$
 ^tests/tests_data/hazards/flood/.gitkeep$
 ^.cursor*
-^tests/tests_data/hazards/FloodTIF/global_pc_h10glob.tif$
-^tests/tests_data/hazards/FloodTIF/global_pc_h10glob__agg16.tif$
-^tests/tests_data/hazards/FloodTIF/global_rcp85_h10glob.tif$
-^tests/tests_data/hazards/FloodTIF/global_rcp85_h10glob__agg16.tif$
-^tests/tests_data/hazards/FloodTIF/global_rcp85_h100glob.tif$
-^tests/tests_data/hazards/FloodTIF/global_rcp85_h100glob__agg16.tif$
 ^.git*
 ^.DS_Store$
 ^.*\.Rproj$
@@ -31,7 +25,5 @@ $run_dev.*
 ^workspace/.*$
 ^.*workspace.*$
 ^data-raw/notebooks$
-^tests/tests_data$
-^tests/tests_data/.*\.(tif|nc|csv|geojson)$
 ^[.]?air[.]toml$
 ^\.vscode$

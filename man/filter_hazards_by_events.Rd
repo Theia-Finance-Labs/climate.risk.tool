@@ -53,8 +53,7 @@ events <- data.frame(
     "Drought__CDD__GWL=present__RP=5",
     "Compound__FWI__GWL=2__RP=10"
   ),
-  event_year = c(2030, 2040),
-  chronic = c(FALSE, FALSE)
+  event_year = c(2030, 2040)
 )
 
 # Filter: matches 2 events -> 2 hazard rasters (mean ensemble only)

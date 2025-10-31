@@ -3,18 +3,15 @@
 #' @title Compute Shock Yearly Trajectories
 #' @description Applies climate shocks to baseline yearly trajectories through a clear sequence:
 #'   1. Apply acute revenue shocks
-#'   2. Apply chronic revenue shocks
-#'   3. Compute profits from shocked revenue
-#'   4. Apply acute profit shocks
-#'   5. Concatenate with baseline scenarios
-#'   Returns a single dataframe with both baseline and shock scenarios ready for downstream analysis.
+#'   2. Compute profits from shocked revenue
+#'   3. Apply acute profit shocks
+#'   Returns a single dataframe with shock scenarios ready for downstream analysis.
 #' @param yearly_baseline_profits tibble with columns: asset, company, year, revenue, profit
 #' @param assets_with_factors tibble with hazard data and damage/cost factors
-#' @param events tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA), chronic (logical)
+#' @param events tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA)
 #' @param net_profit_margin numeric. Net profit margin for computing profits from shocked revenue (default: 0.1)
 #' @param start_year numeric. Starting year for projections (default: 2025)
-#' @return tibble with columns: asset, company, year, scenario, revenue, profit
-#'   where scenario is either "baseline" or "shock"
+#' @return tibble with columns: asset, company, year, revenue, profit
 #' @examples
 #' \dontrun{
 #' yearly_baseline <- data.frame(
@@ -31,10 +28,9 @@
 #' events <- data.frame(
 #'   event_id = "ev1", hazard_type = "flood",
 #'   hazard_name = "flood__global_rcp85_h100glob_brazil",
-#'   event_year = 2030, chronic = FALSE
+#'   event_year = 2030
 #' )
 #' result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
-#' # result contains both baseline and shock scenarios
 #' }
 #' @export
 compute_shock_trajectories <- function(
@@ -56,12 +52,6 @@ compute_shock_trajectories <- function(
     stop("No matching hazard_name entries found in assets_with_factors for provided events")
   }
 
-  # Split events into acute and chronic dataframes
-  acute_events <- events |>
-    dplyr::filter(!isTRUE(.data$chronic))
-  chronic_events <- events |>
-    dplyr::filter(isTRUE(.data$chronic))
-
   # ============================================================================
   # SHOCK SEQUENCE: Apply shocks in the correct order
   # ============================================================================
@@ -71,41 +61,31 @@ compute_shock_trajectories <- function(
     dplyr::select("asset", "company", "year", "revenue")
 
   # STEP 1: Apply acute revenue shocks
-  if (nrow(acute_events) > 0) {
+  if (nrow(events) > 0) {
     current_trajectories <- apply_acute_revenue_shock(
       current_trajectories,
       filtered_assets,
-      acute_events
+      events
     )
   } else {
-    # No acute events, just keep the revenue columns
+    # No events, just keep the revenue columns
     current_trajectories <- current_trajectories |>
       dplyr::select("asset", "company", "year", "revenue")
   }
 
-  # STEP 2: Apply chronic revenue shocks
-  if (nrow(chronic_events) > 0) {
-    current_trajectories <- apply_chronic_revenue_shock(
-      current_trajectories,
-      filtered_assets,
-      chronic_events
-    )
-  }
-  # At this point: current_trajectories has columns: asset, company, year, revenue
-
-  # STEP 3: Compute profits from shocked revenue
+  # STEP 2: Compute profits from shocked revenue
   current_trajectories <- compute_profits_from_revenue(
     current_trajectories,
     net_profit_margin = net_profit_margin
   )
   # At this point: current_trajectories has columns: asset, company, year, revenue, profit
 
-  # STEP 4: Apply acute profit shocks
-  if (nrow(acute_events) > 0) {
+  # STEP 3: Apply acute profit shocks
+  if (nrow(events) > 0) {
     current_trajectories <- apply_acute_profit_shock(
       current_trajectories,
       filtered_assets,
-      acute_events
+      events
     )
   }
 

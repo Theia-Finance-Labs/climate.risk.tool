@@ -149,102 +149,102 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     n_hazards <- nrow(combined_inventory)
     results_list <- vector("list", n_hazards)
 
-  for (i in seq_len(n_hazards)) {
-    hazard_meta <- combined_inventory |> dplyr::slice(i)
+    for (i in seq_len(n_hazards)) {
+      hazard_meta <- combined_inventory |> dplyr::slice(i)
 
-    base_hazard_name <- hazard_meta$hazard_name
-    hazard_source <- hazard_meta$source
-    hazard_rast <- hazards[[base_hazard_name]]
+      base_hazard_name <- hazard_meta$hazard_name
+      hazard_source <- hazard_meta$source
+      hazard_rast <- hazards[[base_hazard_name]]
 
-    # Get metadata
-    hazard_type <- hazard_meta$hazard_type
-    hazard_indicator <- hazard_meta$hazard_indicator
-    hazard_return_period <- hazard_meta$hazard_return_period
-    hazard_scenario_code <- hazard_meta$scenario_code
-    hazard_scenario_name <- hazard_meta$scenario_name
-    # Add extraction_method suffix for output
-    hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
+      # Get metadata
+      hazard_type <- hazard_meta$hazard_type
+      hazard_indicator <- hazard_meta$hazard_indicator
+      hazard_return_period <- hazard_meta$hazard_return_period
+      hazard_scenario_code <- hazard_meta$scenario_code
+      hazard_scenario_name <- hazard_meta$scenario_name
+      # Add extraction_method suffix for output
+      hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
 
-    message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
+      message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
 
-    # Get raster CRS
-    r_crs <- terra::crs(hazard_rast)
-    if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
+      # Get raster CRS
+      r_crs <- terra::crs(hazard_rast)
+      if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
-    # Unified extraction method: polygon extraction with masking and aggregation for both NC and TIF
-    message("      Using polygon extraction (crop/mask) for ", toupper(hazard_source), " source")
+      # Unified extraction method: polygon extraction with masking and aggregation for both NC and TIF
+      message("      Using polygon extraction (crop/mask) for ", toupper(hazard_source), " source")
 
-    n_geoms <- nrow(assets_sf)
-    stats_df <- tibble::tibble(
-      ID = seq_len(n_geoms),
-      hazard_intensity = NA_real_
-    )
-
-    # Process each geometry
-    for (j in seq_len(n_geoms)) {
-      if (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms) {
-        message("      Asset ", j, "/", n_geoms, " (", round(100 * j / n_geoms), "%)")
-      }
-
-      geom_j <- assets_sf |> dplyr::slice(j)
-      geom_j_transformed <- sf::st_transform(geom_j, r_crs)
-      geom_vect <- terra::vect(geom_j_transformed)
-
-      r_crop <- tryCatch(
-        suppressWarnings(terra::crop(hazard_rast, geom_vect)),
-        error = function(e) NULL
+      n_geoms <- nrow(assets_sf)
+      stats_df <- tibble::tibble(
+        ID = seq_len(n_geoms),
+        hazard_intensity = NA_real_
       )
 
-      if (!is.null(r_crop) && terra::ncell(r_crop) > 0) {
-        r_mask <- tryCatch(
-          suppressWarnings(terra::mask(r_crop, geom_vect)),
+      # Process each geometry
+      for (j in seq_len(n_geoms)) {
+        if (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms) {
+          message("      Asset ", j, "/", n_geoms, " (", round(100 * j / n_geoms), "%)")
+        }
+
+        geom_j <- assets_sf |> dplyr::slice(j)
+        geom_j_transformed <- sf::st_transform(geom_j, r_crs)
+        geom_vect <- terra::vect(geom_j_transformed)
+
+        r_crop <- tryCatch(
+          suppressWarnings(terra::crop(hazard_rast, geom_vect)),
           error = function(e) NULL
         )
 
-        if (!is.null(r_mask) && terra::ncell(r_mask) > 0) {
-          vals <- as.numeric(terra::values(r_mask, mat = FALSE, na.rm = TRUE))
+        if (!is.null(r_crop) && terra::ncell(r_crop) > 0) {
+          r_mask <- tryCatch(
+            suppressWarnings(terra::mask(r_crop, geom_vect)),
+            error = function(e) NULL
+          )
 
-          if (length(vals) > 0) {
-            # Apply the chosen aggregation method
-            intensity_val <- agg_func(vals)
+          if (!is.null(r_mask) && terra::ncell(r_mask) > 0) {
+            vals <- as.numeric(terra::values(r_mask, mat = FALSE, na.rm = TRUE))
 
-            # Update hazard_intensity
-            stats_df <- stats_df |>
-              dplyr::mutate(
-                hazard_intensity = dplyr::if_else(.data$ID == j, intensity_val, .data$hazard_intensity)
-              )
+            if (length(vals) > 0) {
+              # Apply the chosen aggregation method
+              intensity_val <- agg_func(vals)
+
+              # Update hazard_intensity
+              stats_df <- stats_df |>
+                dplyr::mutate(
+                  hazard_intensity = dplyr::if_else(.data$ID == j, intensity_val, .data$hazard_intensity)
+                )
+            }
           }
         }
       }
-    }
 
-    # Combine statistics with asset data (same format for both NC and TIF)
-    df_i <- dplyr::bind_cols(
-      sf::st_drop_geometry(assets_sf),
-      stats_df |> dplyr::select(-"ID")
-    ) |>
-      dplyr::mutate(
-        # Use hazard_name with ensemble suffix added
-        hazard_name = hazard_name_with_ensemble,
-        hazard_type = hazard_type,
-        scenario_code = hazard_scenario_code,
-        scenario_name = hazard_scenario_name,
-        hazard_indicator = hazard_indicator,
-        hazard_return_period = hazard_return_period,
-        source = hazard_source,
-        matching_method = "coordinates",
-        # Replace NAs with 0
-        hazard_intensity = dplyr::coalesce(.data$hazard_intensity, 0)
+      # Combine statistics with asset data (same format for both NC and TIF)
+      df_i <- dplyr::bind_cols(
+        sf::st_drop_geometry(assets_sf),
+        stats_df |> dplyr::select(-"ID")
       ) |>
-      dplyr::select(
-        "asset", "company", "latitude", "longitude",
-        "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
-      )
+        dplyr::mutate(
+          # Use hazard_name with ensemble suffix added
+          hazard_name = hazard_name_with_ensemble,
+          hazard_type = hazard_type,
+          scenario_code = hazard_scenario_code,
+          scenario_name = hazard_scenario_name,
+          hazard_indicator = hazard_indicator,
+          hazard_return_period = hazard_return_period,
+          source = hazard_source,
+          matching_method = "coordinates",
+          # Replace NAs with 0
+          hazard_intensity = dplyr::coalesce(.data$hazard_intensity, 0)
+        ) |>
+        dplyr::select(
+          "asset", "company", "latitude", "longitude",
+          "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
+          "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
+          "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        )
 
-    results_list[[i]] <- df_i
-  }
+      results_list[[i]] <- df_i
+    }
 
     # Filter out NULL entries for raster results
     results_list <- results_list[!sapply(results_list, is.null)]
@@ -353,7 +353,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       dplyr::filter(.data$aggregation_method == aggregation_method) |>
       dplyr::mutate(
         # Extract the value from the column matching the aggregation method
-        hazard_intensity = hazard_value,
+        hazard_intensity = .data$hazard_value,
         hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
         # Add asset information to each hazard row
@@ -366,12 +366,13 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         asset_category = asset_row$asset_category,
         asset_subtype = asset_row$asset_subtype,
         size_in_m2 = asset_row$size_in_m2,
-        share_of_economic_activity = asset_row$share_of_economic_activity
+        share_of_economic_activity = asset_row$share_of_economic_activity,
+        cnae = asset_row$cnae
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "hazard_name", "hazard_type",
+        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
@@ -432,7 +433,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
       # Calculate Euclidean distance to all CSV points
       distances <- sqrt(
         (hazard_csv_data$lat - asset_lat)^2 +
-        (hazard_csv_data$lon - asset_lon)^2
+          (hazard_csv_data$lon - asset_lon)^2
       )
 
       # Find minimum distance
@@ -458,7 +459,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
       dplyr::select(
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "hazard_name", "hazard_type",
+        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 

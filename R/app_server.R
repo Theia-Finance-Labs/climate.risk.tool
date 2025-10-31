@@ -1,6 +1,6 @@
 #' The application server-side
 #'
-#' @param input,output,session Internal parameters for {shiny}.
+#' @param input,output,session Internal parameters for shiny.
 #'     DO NOT REMOVE.
 #' @import shiny
 #' @noRd
@@ -93,6 +93,15 @@ app_server <- function(input, output, session) {
 
         precomputed_hazards <- read_precomputed_hazards(base_dir)
         damage_factors <- read_damage_cost_factors(base_dir)
+        cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+
+        # Load ADM1 and ADM2 boundaries for province assignment and validation
+        province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+        municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+
+        adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
+
+        adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
 
         values$data_loaded <- TRUE
         values$status <- "Data loaded. Running analysis..."
@@ -126,6 +135,10 @@ app_server <- function(input, output, session) {
           hazards_inventory = control$hazards_inventory(),
           precomputed_hazards = precomputed_hazards,
           damage_factors = damage_factors,
+          cnae_exposure = cnae_exposure,
+          adm1_boundaries = adm1_boundaries,
+          adm2_boundaries = adm2_boundaries,
+          validate_inputs = TRUE,
           growth_rate = 0.02,
           net_profit_margin = 0.1,
           discount_rate = 0.05,

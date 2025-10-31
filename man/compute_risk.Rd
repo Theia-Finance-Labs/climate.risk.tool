@@ -12,6 +12,10 @@ compute_risk(
   hazards_inventory,
   precomputed_hazards,
   damage_factors,
+  cnae_exposure = NULL,
+  adm1_boundaries = NULL,
+  adm2_boundaries = NULL,
+  validate_inputs = TRUE,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05,
@@ -23,7 +27,7 @@ compute_risk(
 
 \item{companies}{Data frame containing company information (from read_companies())}
 
-\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{hazard_return_period}, \code{event_year} (or NA), \code{chronic}.
+\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{hazard_return_period}, \code{event_year} (or NA).
 The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{hazards}{Named list of SpatRaster objects (from load_hazards())}
@@ -33,6 +37,14 @@ The \code{event_id} column is auto-generated internally if not provided.}
 \item{precomputed_hazards}{Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())}
 
 \item{damage_factors}{Data frame with damage and cost factors (from read_damage_cost_factors())}
+
+\item{cnae_exposure}{Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())}
+
+\item{adm1_boundaries}{Optional sf object with ADM1 (province) boundaries for province assignment and validation}
+
+\item{adm2_boundaries}{Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup}
+
+\item{validate_inputs}{Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)}
 
 \item{growth_rate}{Numeric. Revenue growth rate assumption (default: 0.02)}
 
@@ -50,7 +62,7 @@ For precomputed data: uses the mean ensemble variant.
 \value{
 List containing final results:
 \itemize{
-\item assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
+\item assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
 \item companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 \item assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 \item companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -72,7 +84,6 @@ The function executes the following 16-step pipeline:
 \item Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
 \item Join damage factors: Map hazard intensity to damage/cost factors
 \item Apply acute shock: Calculate sudden climate event impacts
-\item Apply chronic shock: Calculate gradual climate change impacts
 \item Compute asset impact: Update share_of_economic_activity with all impacts
 \item Build scenarios: Create baseline vs shock scenario data
 \item Compute asset revenue: Allocate company revenue to assets
@@ -93,13 +104,13 @@ companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
 hazards <- load_hazards(file.path(base_dir, "hazards"))
 precomputed_hazards <- read_precomputed_hazards(base_dir)
 damage_factors <- read_damage_cost_factors(base_dir)
+cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
 
 # Define events
 events <- data.frame(
   hazard_type = "flood",
   scenario = "rcp85",
-  event_year = 2030,
-  chronic = FALSE
+  event_year = 2030
 )
 
 # Run analysis
@@ -108,8 +119,10 @@ results <- compute_risk(
   companies = companies,
   events = events,
   hazards = hazards,
+  hazards_inventory = hazards_inventory,
   precomputed_hazards = precomputed_hazards,
   damage_factors = damage_factors,
+  cnae_exposure = cnae_exposure,
   growth_rate = 0.02,
   net_profit_margin = 0.1,
   discount_rate = 0.05

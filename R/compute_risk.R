@@ -6,12 +6,16 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA), `chronic`.
+#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA).
 #'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
+#' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())
+#' @param adm1_boundaries Optional sf object with ADM1 (province) boundaries for province assignment and validation
+#' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup
+#' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
@@ -22,7 +26,7 @@
 #'   For precomputed data: uses the mean ensemble variant.
 #' #'
 #' @return List containing final results:
-#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year, chronic)
+#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
 #'   - companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 #'   - assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 #'   - companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -36,16 +40,15 @@
 #' 5. Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
 #' 6. Join damage factors: Map hazard intensity to damage/cost factors
 #' 7. Apply acute shock: Calculate sudden climate event impacts
-#' 8. Apply chronic shock: Calculate gradual climate change impacts
-#' 9. Compute asset impact: Update share_of_economic_activity with all impacts
-#' 10. Build scenarios: Create baseline vs shock scenario data
-#' 11. Compute asset revenue: Allocate company revenue to assets
-#' 12. Compute asset profits: Apply net profit margins
-#' 13. Discount net profits: Apply present value discounting
-#' 14. Compute company NPV: Aggregate asset profits to company level
-#' 15. Compute company PD: Calculate probability of default using Merton model
-#' 16. Compute expected loss: Calculate expected loss using EL = LGD * Loan_Size * PD
-#' 17. Gather and pivot results: Transform to wide format for reporting
+#' 8. Compute asset impact: Update share_of_economic_activity with all impacts
+#' 9. Build scenarios: Create baseline vs shock scenario data
+#' 10. Compute asset revenue: Allocate company revenue to assets
+#' 11. Compute asset profits: Apply net profit margins
+#' 12. Discount net profits: Apply present value discounting
+#' 13. Compute company NPV: Aggregate asset profits to company level
+#' 14. Compute company PD: Calculate probability of default using Merton model
+#' 15. Compute expected loss: Calculate expected loss using EL = LGD * Loan_Size * PD
+#' 16. Gather and pivot results: Transform to wide format for reporting
 #'
 #' @examples
 #' \dontrun{
@@ -56,13 +59,13 @@
 #' hazards <- load_hazards(file.path(base_dir, "hazards"))
 #' precomputed_hazards <- read_precomputed_hazards(base_dir)
 #' damage_factors <- read_damage_cost_factors(base_dir)
+#' cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
 #'
 #' # Define events
 #' events <- data.frame(
 #'   hazard_type = "flood",
 #'   scenario = "rcp85",
-#'   event_year = 2030,
-#'   chronic = FALSE
+#'   event_year = 2030
 #' )
 #'
 #' # Run analysis
@@ -71,8 +74,10 @@
 #'   companies = companies,
 #'   events = events,
 #'   hazards = hazards,
+#'   hazards_inventory = hazards_inventory,
 #'   precomputed_hazards = precomputed_hazards,
 #'   damage_factors = damage_factors,
+#'   cnae_exposure = cnae_exposure,
 #'   growth_rate = 0.02,
 #'   net_profit_margin = 0.1,
 #'   discount_rate = 0.05
@@ -92,6 +97,10 @@ compute_risk <- function(assets,
                          hazards_inventory,
                          precomputed_hazards,
                          damage_factors,
+                         cnae_exposure = NULL,
+                         adm1_boundaries = NULL,
+                         adm2_boundaries = NULL,
+                         validate_inputs = TRUE,
                          growth_rate = 0.02,
                          net_profit_margin = 0.1,
                          discount_rate = 0.05,
@@ -104,7 +113,7 @@ compute_risk <- function(assets,
     stop("companies must be a non-empty data.frame (from read_companies())")
   }
   if (!is.data.frame(events) || nrow(events) == 0) {
-    stop("events must be a non-empty data.frame with hazard_type, hazard_name, event_year/chronic")
+    stop("events must be a non-empty data.frame with hazard_type, hazard_name, event_year")
   }
   if (!is.list(hazards) || length(hazards) == 0) {
     stop("hazards must be a non-empty named list of SpatRaster objects (from load_hazards())")
@@ -123,7 +132,52 @@ compute_risk <- function(assets,
   }
 
   # ============================================================================
-  # PHASE 1: UTILS - Input validation and data preparation
+  # PHASE 0: INPUT PREPARATION - Assign provinces to assets and validate
+  # ============================================================================
+
+  # Assign provinces to assets that don't have one (requires boundaries)
+  if (!is.null(adm1_boundaries)) {
+    message("[compute_risk] Assigning provinces to assets without location data...")
+    assets <- assign_province_to_assets_with_boundaries(
+      assets,
+      adm1_boundaries,
+      adm2_boundaries
+    )
+  }
+
+  # Validate input data coherence
+  if (validate_inputs && !is.null(adm1_boundaries)) {
+    message("[compute_risk] Validating input data coherence...")
+
+    # Extract boundary names for validation
+    adm1_names <- adm1_boundaries |>
+      dplyr::pull(.data$shapeName) |>
+      as.character() |>
+      stringi::stri_trans_general("Latin-ASCII") |>
+      unique()
+
+    adm2_names <- if (!is.null(adm2_boundaries)) {
+      adm2_boundaries |>
+        dplyr::pull(.data$shapeName) |>
+        as.character() |>
+        stringi::stri_trans_general("Latin-ASCII") |>
+        unique()
+    } else {
+      character(0)
+    }
+
+    validate_input_coherence(
+      assets_df = assets,
+      damage_factors_df = damage_factors,
+      precomputed_hazards_df = precomputed_hazards,
+      cnae_exposure_df = cnae_exposure,
+      adm1_names = adm1_names,
+      adm2_names = adm2_names
+    )
+  }
+
+  # ============================================================================
+  # PHASE 1: UTILS - Data preparation
   # ============================================================================
 
   # Auto-generate event_id if not provided (only if column doesn't exist)
@@ -160,7 +214,7 @@ compute_risk <- function(assets,
     aggregation_method = aggregation_method
   )
 
-  # Step 2.3: Join event information (event_year, chronic, scenario_name) from events
+  # Step 2.3: Join event information (event_year, scenario_name) from events
   # Select only the columns we need from events to avoid duplication
   # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
   # Don't use distinct() here - we want one row per event even if they share the same hazard_name
@@ -171,12 +225,12 @@ compute_risk <- function(assets,
     )
   assets_with_events <- assets_long |>
     dplyr::inner_join(
-      events |> dplyr::select("hazard_name", "event_id", "event_year", "chronic"),
+      events |> dplyr::select("hazard_name", "event_id", "event_year", "season"),
       by = "hazard_name", relationship = "many-to-many"
     )
 
   # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards)
-  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors)
+  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure)
 
 
   # ============================================================================

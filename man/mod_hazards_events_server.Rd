@@ -7,10 +7,12 @@
 mod_hazards_events_server(id, hazards_inventory)
 }
 \arguments{
+\item{id}{Internal parameter for shiny}
+
 \item{hazards_inventory}{reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, hazard_return_period, hazard_name}
 }
 \value{
-reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, chronic
+reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, season
 }
 \description{
 hazards_events Server Functions

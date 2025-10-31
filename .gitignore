@@ -1,3 +1,5 @@
+.DS_Store
+tests/tests_data/hazards/Drought/SPI3/ensemble/ensemble_return_period.csv
 __pycache__
 tests/tests_data/hazards/Flood/depth/ensemble_return_period.nc
 tests/tests_data/areas/municipality/geoBoundaries-BRA-ADM2.shp

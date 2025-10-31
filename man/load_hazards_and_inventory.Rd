@@ -7,9 +7,9 @@
 load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
 }
 \arguments{
-\item{hazards_dir}{Character. Root directory that contains hazard files and subdirectories}
+\item{hazards_dir}{Character path to hazards directory containing subdirectories with hazard files}
 
-\item{aggregate_factor}{Integer >= 1. Aggregation factor for TIF rasters (default: 1)}
+\item{aggregate_factor}{Integer >= 1. Aggregation factor for TIF and NC rasters (default: 1)}
 }
 \value{
 A list with three elements:
