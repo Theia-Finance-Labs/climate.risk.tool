@@ -46,7 +46,7 @@ validate_input_coherence <- function(
   # ============================================================================
   validation_results <- validate_damage_factors_provinces(
     damage_factors_df,
-    adm1_names,
+    c(adm1_names, "Other"),
     validation_results
   )
 

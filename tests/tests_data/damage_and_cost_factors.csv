@@ -2125,6 +2125,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-3,SPI3,agriculture,0.35,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-3,SPI3,agriculture,0.35,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-3,SPI3,agriculture,0.315,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-3,SPI3,agriculture,0.38,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-3,SPI3,agriculture,0.375714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-3,SPI3,agriculture,0.471428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-3,SPI3,agriculture,0.332222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-3,SPI3,agriculture,0.53,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-3,SPI3,agriculture,0.55,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-3,SPI3,agriculture,0.315,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2163,6 +2167,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.99,SPI3,agriculture,0.3489,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.99,SPI3,agriculture,0.3489,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.99,SPI3,agriculture,0.31395,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.99,SPI3,agriculture,0.37884,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.99,SPI3,agriculture,0.3745,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.99,SPI3,agriculture,0.470228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.99,SPI3,agriculture,0.331166666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.99,SPI3,agriculture,0.5282,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.99,SPI3,agriculture,0.5488,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.99,SPI3,agriculture,0.31395,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2201,6 +2209,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.98,SPI3,agriculture,0.3478,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.98,SPI3,agriculture,0.3478,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.98,SPI3,agriculture,0.3129,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.98,SPI3,agriculture,0.37768,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.98,SPI3,agriculture,0.373285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.98,SPI3,agriculture,0.469028571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.98,SPI3,agriculture,0.330111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.98,SPI3,agriculture,0.5264,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.98,SPI3,agriculture,0.5476,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.98,SPI3,agriculture,0.3129,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2239,6 +2251,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.97,SPI3,agriculture,0.3467,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.97,SPI3,agriculture,0.3467,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.97,SPI3,agriculture,0.31185,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.97,SPI3,agriculture,0.37652,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.97,SPI3,agriculture,0.372071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.97,SPI3,agriculture,0.467828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.97,SPI3,agriculture,0.329055555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.97,SPI3,agriculture,0.5246,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.97,SPI3,agriculture,0.5464,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.97,SPI3,agriculture,0.31185,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2277,6 +2293,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.96,SPI3,agriculture,0.3456,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.96,SPI3,agriculture,0.3456,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.96,SPI3,agriculture,0.3108,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.96,SPI3,agriculture,0.37536,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.96,SPI3,agriculture,0.370857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.96,SPI3,agriculture,0.466628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.96,SPI3,agriculture,0.328,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.96,SPI3,agriculture,0.5228,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.96,SPI3,agriculture,0.5452,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.96,SPI3,agriculture,0.3108,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2315,6 +2335,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.95,SPI3,agriculture,0.3445,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.95,SPI3,agriculture,0.3445,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.95,SPI3,agriculture,0.30975,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.95,SPI3,agriculture,0.3742,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.95,SPI3,agriculture,0.369642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.95,SPI3,agriculture,0.465428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.95,SPI3,agriculture,0.326944444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.95,SPI3,agriculture,0.521,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.95,SPI3,agriculture,0.544,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.95,SPI3,agriculture,0.30975,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2353,6 +2377,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.94,SPI3,agriculture,0.3434,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.94,SPI3,agriculture,0.3434,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.94,SPI3,agriculture,0.3087,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.94,SPI3,agriculture,0.37304,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.94,SPI3,agriculture,0.368428571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.94,SPI3,agriculture,0.464228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.94,SPI3,agriculture,0.325888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.94,SPI3,agriculture,0.5192,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.94,SPI3,agriculture,0.5428,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.94,SPI3,agriculture,0.3087,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2391,6 +2419,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.93,SPI3,agriculture,0.3423,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.93,SPI3,agriculture,0.3423,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.93,SPI3,agriculture,0.30765,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.93,SPI3,agriculture,0.37188,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.93,SPI3,agriculture,0.367214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.93,SPI3,agriculture,0.463028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.93,SPI3,agriculture,0.324833333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.93,SPI3,agriculture,0.5174,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.93,SPI3,agriculture,0.5416,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.93,SPI3,agriculture,0.30765,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2429,6 +2461,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.92,SPI3,agriculture,0.3412,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.92,SPI3,agriculture,0.3412,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.92,SPI3,agriculture,0.3066,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.92,SPI3,agriculture,0.37072,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.92,SPI3,agriculture,0.366,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.92,SPI3,agriculture,0.461828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.92,SPI3,agriculture,0.323777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.92,SPI3,agriculture,0.5156,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.92,SPI3,agriculture,0.5404,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.92,SPI3,agriculture,0.3066,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2467,6 +2503,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.91,SPI3,agriculture,0.3401,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.91,SPI3,agriculture,0.3401,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.91,SPI3,agriculture,0.30555,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.91,SPI3,agriculture,0.36956,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.91,SPI3,agriculture,0.364785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.91,SPI3,agriculture,0.460628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.91,SPI3,agriculture,0.322722222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.91,SPI3,agriculture,0.5138,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.91,SPI3,agriculture,0.5392,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.91,SPI3,agriculture,0.30555,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2505,6 +2545,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.9,SPI3,agriculture,0.339,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.9,SPI3,agriculture,0.339,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.9,SPI3,agriculture,0.3045,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.9,SPI3,agriculture,0.3684,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.9,SPI3,agriculture,0.363571428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.9,SPI3,agriculture,0.459428571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.9,SPI3,agriculture,0.321666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.9,SPI3,agriculture,0.512,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.9,SPI3,agriculture,0.538,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.9,SPI3,agriculture,0.3045,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2543,6 +2587,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.89,SPI3,agriculture,0.3379,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.89,SPI3,agriculture,0.3379,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.89,SPI3,agriculture,0.30345,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.89,SPI3,agriculture,0.36724,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.89,SPI3,agriculture,0.362357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.89,SPI3,agriculture,0.458228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.89,SPI3,agriculture,0.320611111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.89,SPI3,agriculture,0.5102,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.89,SPI3,agriculture,0.5368,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.89,SPI3,agriculture,0.30345,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2581,6 +2629,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.88,SPI3,agriculture,0.3368,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.88,SPI3,agriculture,0.3368,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.88,SPI3,agriculture,0.3024,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.88,SPI3,agriculture,0.36608,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.88,SPI3,agriculture,0.361142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.88,SPI3,agriculture,0.457028571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.88,SPI3,agriculture,0.319555555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.88,SPI3,agriculture,0.5084,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.88,SPI3,agriculture,0.5356,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.88,SPI3,agriculture,0.3024,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2619,6 +2671,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.87,SPI3,agriculture,0.3357,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.87,SPI3,agriculture,0.3357,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.87,SPI3,agriculture,0.30135,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.87,SPI3,agriculture,0.36492,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.87,SPI3,agriculture,0.359928571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.87,SPI3,agriculture,0.455828571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.87,SPI3,agriculture,0.3185,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.87,SPI3,agriculture,0.5066,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.87,SPI3,agriculture,0.5344,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.87,SPI3,agriculture,0.30135,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2657,6 +2713,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.86,SPI3,agriculture,0.3346,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.86,SPI3,agriculture,0.3346,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.86,SPI3,agriculture,0.3003,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.86,SPI3,agriculture,0.36376,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.86,SPI3,agriculture,0.358714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.86,SPI3,agriculture,0.454628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.86,SPI3,agriculture,0.317444444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.86,SPI3,agriculture,0.5048,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.86,SPI3,agriculture,0.5332,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.86,SPI3,agriculture,0.3003,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2695,6 +2755,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.85,SPI3,agriculture,0.3335,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.85,SPI3,agriculture,0.3335,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.85,SPI3,agriculture,0.29925,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.85,SPI3,agriculture,0.3626,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.85,SPI3,agriculture,0.3575,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.85,SPI3,agriculture,0.453428571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.85,SPI3,agriculture,0.316388888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.85,SPI3,agriculture,0.503,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.85,SPI3,agriculture,0.532,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.85,SPI3,agriculture,0.29925,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2733,6 +2797,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.84,SPI3,agriculture,0.3324,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.84,SPI3,agriculture,0.3324,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.84,SPI3,agriculture,0.2982,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.84,SPI3,agriculture,0.36144,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.84,SPI3,agriculture,0.356285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.84,SPI3,agriculture,0.452228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.84,SPI3,agriculture,0.315333333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.84,SPI3,agriculture,0.5012,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.84,SPI3,agriculture,0.5308,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.84,SPI3,agriculture,0.2982,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2771,6 +2839,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.83,SPI3,agriculture,0.3313,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.83,SPI3,agriculture,0.3313,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.83,SPI3,agriculture,0.29715,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.83,SPI3,agriculture,0.36028,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.83,SPI3,agriculture,0.355071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.83,SPI3,agriculture,0.451028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.83,SPI3,agriculture,0.314277777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.83,SPI3,agriculture,0.4994,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.83,SPI3,agriculture,0.5296,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.83,SPI3,agriculture,0.29715,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2809,6 +2881,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.82,SPI3,agriculture,0.3302,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.82,SPI3,agriculture,0.3302,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.82,SPI3,agriculture,0.2961,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.82,SPI3,agriculture,0.35912,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.82,SPI3,agriculture,0.353857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.82,SPI3,agriculture,0.449828571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.82,SPI3,agriculture,0.313222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.82,SPI3,agriculture,0.4976,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.82,SPI3,agriculture,0.5284,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.82,SPI3,agriculture,0.2961,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2847,6 +2923,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.81,SPI3,agriculture,0.3291,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.81,SPI3,agriculture,0.3291,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.81,SPI3,agriculture,0.29505,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.81,SPI3,agriculture,0.35796,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.81,SPI3,agriculture,0.352642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.81,SPI3,agriculture,0.448628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.81,SPI3,agriculture,0.312166666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.81,SPI3,agriculture,0.4958,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.81,SPI3,agriculture,0.5272,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.81,SPI3,agriculture,0.29505,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2885,6 +2965,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.8,SPI3,agriculture,0.328,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.8,SPI3,agriculture,0.328,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.8,SPI3,agriculture,0.294,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.8,SPI3,agriculture,0.3568,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.8,SPI3,agriculture,0.351428571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.8,SPI3,agriculture,0.447428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.8,SPI3,agriculture,0.311111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.8,SPI3,agriculture,0.494,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.8,SPI3,agriculture,0.526,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.8,SPI3,agriculture,0.294,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2923,6 +3007,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.79,SPI3,agriculture,0.3269,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.79,SPI3,agriculture,0.3269,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.79,SPI3,agriculture,0.29295,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.79,SPI3,agriculture,0.35564,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.79,SPI3,agriculture,0.350214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.79,SPI3,agriculture,0.446228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.79,SPI3,agriculture,0.310055555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.79,SPI3,agriculture,0.4922,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.79,SPI3,agriculture,0.5248,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.79,SPI3,agriculture,0.29295,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2961,6 +3049,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.78,SPI3,agriculture,0.3258,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.78,SPI3,agriculture,0.3258,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.78,SPI3,agriculture,0.2919,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.78,SPI3,agriculture,0.35448,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.78,SPI3,agriculture,0.349,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.78,SPI3,agriculture,0.445028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.78,SPI3,agriculture,0.309,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.78,SPI3,agriculture,0.4904,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.78,SPI3,agriculture,0.5236,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.78,SPI3,agriculture,0.2919,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -2999,6 +3091,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.77,SPI3,agriculture,0.3247,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.77,SPI3,agriculture,0.3247,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.77,SPI3,agriculture,0.29085,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.77,SPI3,agriculture,0.35332,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.77,SPI3,agriculture,0.347785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.77,SPI3,agriculture,0.443828571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.77,SPI3,agriculture,0.307944444444445,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.77,SPI3,agriculture,0.4886,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.77,SPI3,agriculture,0.5224,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.77,SPI3,agriculture,0.29085,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3037,6 +3133,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.76,SPI3,agriculture,0.3236,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.76,SPI3,agriculture,0.3236,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.76,SPI3,agriculture,0.2898,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.76,SPI3,agriculture,0.35216,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.76,SPI3,agriculture,0.346571428571428,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.76,SPI3,agriculture,0.442628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.76,SPI3,agriculture,0.306888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.76,SPI3,agriculture,0.4868,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.76,SPI3,agriculture,0.5212,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.76,SPI3,agriculture,0.2898,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3075,6 +3175,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.75,SPI3,agriculture,0.3225,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.75,SPI3,agriculture,0.3225,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.75,SPI3,agriculture,0.28875,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.75,SPI3,agriculture,0.351,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.75,SPI3,agriculture,0.345357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.75,SPI3,agriculture,0.441428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.75,SPI3,agriculture,0.305833333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.75,SPI3,agriculture,0.485,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.75,SPI3,agriculture,0.52,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.75,SPI3,agriculture,0.28875,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3113,6 +3217,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.74,SPI3,agriculture,0.3214,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.74,SPI3,agriculture,0.3214,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.74,SPI3,agriculture,0.2877,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.74,SPI3,agriculture,0.34984,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.74,SPI3,agriculture,0.344142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.74,SPI3,agriculture,0.440228571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.74,SPI3,agriculture,0.304777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.74,SPI3,agriculture,0.4832,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.74,SPI3,agriculture,0.5188,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.74,SPI3,agriculture,0.2877,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3151,6 +3259,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.73,SPI3,agriculture,0.3203,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.73,SPI3,agriculture,0.3203,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.73,SPI3,agriculture,0.28665,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.73,SPI3,agriculture,0.34868,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.73,SPI3,agriculture,0.342928571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.73,SPI3,agriculture,0.439028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.73,SPI3,agriculture,0.303722222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.73,SPI3,agriculture,0.4814,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.73,SPI3,agriculture,0.5176,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.73,SPI3,agriculture,0.28665,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3189,6 +3301,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.72,SPI3,agriculture,0.3192,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.72,SPI3,agriculture,0.3192,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.72,SPI3,agriculture,0.2856,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.72,SPI3,agriculture,0.34752,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.72,SPI3,agriculture,0.341714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.72,SPI3,agriculture,0.437828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.72,SPI3,agriculture,0.302666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.72,SPI3,agriculture,0.4796,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.72,SPI3,agriculture,0.5164,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.72,SPI3,agriculture,0.2856,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3227,6 +3343,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.71,SPI3,agriculture,0.3181,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.71,SPI3,agriculture,0.3181,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.71,SPI3,agriculture,0.28455,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.71,SPI3,agriculture,0.34636,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.71,SPI3,agriculture,0.3405,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.71,SPI3,agriculture,0.436628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.71,SPI3,agriculture,0.301611111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.71,SPI3,agriculture,0.4778,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.71,SPI3,agriculture,0.5152,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.71,SPI3,agriculture,0.28455,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3265,6 +3385,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.7,SPI3,agriculture,0.317,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.7,SPI3,agriculture,0.317,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.7,SPI3,agriculture,0.2835,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.7,SPI3,agriculture,0.3452,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.7,SPI3,agriculture,0.339285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.7,SPI3,agriculture,0.435428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.7,SPI3,agriculture,0.300555555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.7,SPI3,agriculture,0.476,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.7,SPI3,agriculture,0.514,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.7,SPI3,agriculture,0.2835,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3303,6 +3427,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.69,SPI3,agriculture,0.3159,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.69,SPI3,agriculture,0.3159,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.69,SPI3,agriculture,0.28245,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.69,SPI3,agriculture,0.34404,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.69,SPI3,agriculture,0.338071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.69,SPI3,agriculture,0.434228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.69,SPI3,agriculture,0.2995,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.69,SPI3,agriculture,0.4742,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.69,SPI3,agriculture,0.5128,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.69,SPI3,agriculture,0.28245,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3341,6 +3469,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.68,SPI3,agriculture,0.3148,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.68,SPI3,agriculture,0.3148,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.68,SPI3,agriculture,0.2814,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.68,SPI3,agriculture,0.34288,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.68,SPI3,agriculture,0.336857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.68,SPI3,agriculture,0.433028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.68,SPI3,agriculture,0.298444444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.68,SPI3,agriculture,0.4724,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.68,SPI3,agriculture,0.5116,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.68,SPI3,agriculture,0.2814,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3379,6 +3511,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.67,SPI3,agriculture,0.3137,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.67,SPI3,agriculture,0.3137,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.67,SPI3,agriculture,0.28035,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.67,SPI3,agriculture,0.34172,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.67,SPI3,agriculture,0.335642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.67,SPI3,agriculture,0.431828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.67,SPI3,agriculture,0.297388888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.67,SPI3,agriculture,0.4706,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.67,SPI3,agriculture,0.5104,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.67,SPI3,agriculture,0.28035,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3417,6 +3553,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.66,SPI3,agriculture,0.3126,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.66,SPI3,agriculture,0.3126,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.66,SPI3,agriculture,0.2793,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.66,SPI3,agriculture,0.34056,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.66,SPI3,agriculture,0.334428571428572,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.66,SPI3,agriculture,0.430628571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.66,SPI3,agriculture,0.296333333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.66,SPI3,agriculture,0.4688,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.66,SPI3,agriculture,0.5092,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.66,SPI3,agriculture,0.2793,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3455,6 +3595,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.65,SPI3,agriculture,0.3115,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.65,SPI3,agriculture,0.3115,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.65,SPI3,agriculture,0.27825,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.65,SPI3,agriculture,0.3394,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.65,SPI3,agriculture,0.333214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.65,SPI3,agriculture,0.429428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.65,SPI3,agriculture,0.295277777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.65,SPI3,agriculture,0.467,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.65,SPI3,agriculture,0.508,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.65,SPI3,agriculture,0.27825,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3493,6 +3637,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.64,SPI3,agriculture,0.3104,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.64,SPI3,agriculture,0.3104,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.64,SPI3,agriculture,0.2772,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.64,SPI3,agriculture,0.33824,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.64,SPI3,agriculture,0.332,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.64,SPI3,agriculture,0.428228571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.64,SPI3,agriculture,0.294222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.64,SPI3,agriculture,0.4652,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.64,SPI3,agriculture,0.5068,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.64,SPI3,agriculture,0.2772,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3531,6 +3679,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.63,SPI3,agriculture,0.3093,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.63,SPI3,agriculture,0.3093,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.63,SPI3,agriculture,0.27615,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.63,SPI3,agriculture,0.33708,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.63,SPI3,agriculture,0.330785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.63,SPI3,agriculture,0.427028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.63,SPI3,agriculture,0.293166666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.63,SPI3,agriculture,0.4634,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.63,SPI3,agriculture,0.5056,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.63,SPI3,agriculture,0.27615,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3569,6 +3721,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.62,SPI3,agriculture,0.3082,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.62,SPI3,agriculture,0.3082,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.62,SPI3,agriculture,0.2751,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.62,SPI3,agriculture,0.33592,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.62,SPI3,agriculture,0.329571428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.62,SPI3,agriculture,0.425828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.62,SPI3,agriculture,0.292111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.62,SPI3,agriculture,0.4616,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.62,SPI3,agriculture,0.5044,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.62,SPI3,agriculture,0.2751,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3607,6 +3763,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.61,SPI3,agriculture,0.3071,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.61,SPI3,agriculture,0.3071,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.61,SPI3,agriculture,0.27405,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.61,SPI3,agriculture,0.33476,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.61,SPI3,agriculture,0.328357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.61,SPI3,agriculture,0.424628571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.61,SPI3,agriculture,0.291055555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.61,SPI3,agriculture,0.4598,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.61,SPI3,agriculture,0.5032,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.61,SPI3,agriculture,0.27405,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3645,6 +3805,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.6,SPI3,agriculture,0.306,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.6,SPI3,agriculture,0.306,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.6,SPI3,agriculture,0.273,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.6,SPI3,agriculture,0.3336,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.6,SPI3,agriculture,0.327142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.6,SPI3,agriculture,0.423428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.6,SPI3,agriculture,0.29,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.6,SPI3,agriculture,0.458,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.6,SPI3,agriculture,0.502,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.6,SPI3,agriculture,0.273,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3683,6 +3847,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.59,SPI3,agriculture,0.3049,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.59,SPI3,agriculture,0.3049,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.59,SPI3,agriculture,0.27195,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.59,SPI3,agriculture,0.33244,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.59,SPI3,agriculture,0.325928571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.59,SPI3,agriculture,0.422228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.59,SPI3,agriculture,0.288944444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.59,SPI3,agriculture,0.4562,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.59,SPI3,agriculture,0.5008,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.59,SPI3,agriculture,0.27195,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3721,6 +3889,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.58,SPI3,agriculture,0.3038,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.58,SPI3,agriculture,0.3038,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.58,SPI3,agriculture,0.2709,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.58,SPI3,agriculture,0.33128,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.58,SPI3,agriculture,0.324714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.58,SPI3,agriculture,0.421028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.58,SPI3,agriculture,0.287888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.58,SPI3,agriculture,0.4544,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.58,SPI3,agriculture,0.4996,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.58,SPI3,agriculture,0.2709,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3759,6 +3931,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.57,SPI3,agriculture,0.3027,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.57,SPI3,agriculture,0.3027,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.57,SPI3,agriculture,0.26985,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.57,SPI3,agriculture,0.33012,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.57,SPI3,agriculture,0.3235,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.57,SPI3,agriculture,0.419828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.57,SPI3,agriculture,0.286833333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.57,SPI3,agriculture,0.4526,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.57,SPI3,agriculture,0.4984,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.57,SPI3,agriculture,0.26985,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3797,6 +3973,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.56,SPI3,agriculture,0.3016,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.56,SPI3,agriculture,0.3016,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.56,SPI3,agriculture,0.2688,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.56,SPI3,agriculture,0.32896,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.56,SPI3,agriculture,0.322285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.56,SPI3,agriculture,0.418628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.56,SPI3,agriculture,0.285777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.56,SPI3,agriculture,0.4508,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.56,SPI3,agriculture,0.4972,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.56,SPI3,agriculture,0.2688,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3835,6 +4015,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.55,SPI3,agriculture,0.3005,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.55,SPI3,agriculture,0.3005,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.55,SPI3,agriculture,0.26775,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.55,SPI3,agriculture,0.3278,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.55,SPI3,agriculture,0.321071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.55,SPI3,agriculture,0.417428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.55,SPI3,agriculture,0.284722222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.55,SPI3,agriculture,0.449,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.55,SPI3,agriculture,0.496,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.55,SPI3,agriculture,0.26775,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3873,6 +4057,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.54,SPI3,agriculture,0.2994,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.54,SPI3,agriculture,0.2994,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.54,SPI3,agriculture,0.2667,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.54,SPI3,agriculture,0.32664,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.54,SPI3,agriculture,0.319857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.54,SPI3,agriculture,0.416228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.54,SPI3,agriculture,0.283666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.54,SPI3,agriculture,0.4472,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.54,SPI3,agriculture,0.4948,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.54,SPI3,agriculture,0.2667,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3911,6 +4099,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.53,SPI3,agriculture,0.2983,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.53,SPI3,agriculture,0.2983,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.53,SPI3,agriculture,0.26565,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.53,SPI3,agriculture,0.32548,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.53,SPI3,agriculture,0.318642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.53,SPI3,agriculture,0.415028571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.53,SPI3,agriculture,0.282611111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.53,SPI3,agriculture,0.4454,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.53,SPI3,agriculture,0.4936,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.53,SPI3,agriculture,0.26565,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3949,6 +4141,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.52,SPI3,agriculture,0.2972,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.52,SPI3,agriculture,0.2972,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.52,SPI3,agriculture,0.2646,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.52,SPI3,agriculture,0.32432,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.52,SPI3,agriculture,0.317428571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.52,SPI3,agriculture,0.413828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.52,SPI3,agriculture,0.281555555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.52,SPI3,agriculture,0.4436,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.52,SPI3,agriculture,0.4924,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.52,SPI3,agriculture,0.2646,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -3987,6 +4183,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.51,SPI3,agriculture,0.2961,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.51,SPI3,agriculture,0.2961,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.51,SPI3,agriculture,0.26355,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.51,SPI3,agriculture,0.32316,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.51,SPI3,agriculture,0.316214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.51,SPI3,agriculture,0.412628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.51,SPI3,agriculture,0.2805,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.51,SPI3,agriculture,0.4418,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.51,SPI3,agriculture,0.4912,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.51,SPI3,agriculture,0.26355,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4025,6 +4225,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.5,SPI3,agriculture,0.295,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.5,SPI3,agriculture,0.295,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.5,SPI3,agriculture,0.2625,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.5,SPI3,agriculture,0.322,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.5,SPI3,agriculture,0.315,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.5,SPI3,agriculture,0.411428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.5,SPI3,agriculture,0.279444444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.5,SPI3,agriculture,0.44,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.5,SPI3,agriculture,0.49,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.5,SPI3,agriculture,0.2625,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4063,6 +4267,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.49,SPI3,agriculture,0.2939,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.49,SPI3,agriculture,0.2939,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.49,SPI3,agriculture,0.26145,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.49,SPI3,agriculture,0.32084,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.49,SPI3,agriculture,0.313785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.49,SPI3,agriculture,0.410228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.49,SPI3,agriculture,0.278388888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.49,SPI3,agriculture,0.4382,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.49,SPI3,agriculture,0.4888,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.49,SPI3,agriculture,0.26145,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4101,6 +4309,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.48,SPI3,agriculture,0.2928,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.48,SPI3,agriculture,0.2928,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.48,SPI3,agriculture,0.2604,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.48,SPI3,agriculture,0.31968,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.48,SPI3,agriculture,0.312571428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.48,SPI3,agriculture,0.409028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.48,SPI3,agriculture,0.277333333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.48,SPI3,agriculture,0.4364,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.48,SPI3,agriculture,0.4876,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.48,SPI3,agriculture,0.2604,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4139,6 +4351,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.47,SPI3,agriculture,0.2917,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.47,SPI3,agriculture,0.2917,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.47,SPI3,agriculture,0.25935,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.47,SPI3,agriculture,0.31852,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.47,SPI3,agriculture,0.311357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.47,SPI3,agriculture,0.407828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.47,SPI3,agriculture,0.276277777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.47,SPI3,agriculture,0.4346,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.47,SPI3,agriculture,0.4864,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.47,SPI3,agriculture,0.25935,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4177,6 +4393,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.46,SPI3,agriculture,0.2906,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.46,SPI3,agriculture,0.2906,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.46,SPI3,agriculture,0.2583,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.46,SPI3,agriculture,0.31736,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.46,SPI3,agriculture,0.310142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.46,SPI3,agriculture,0.406628571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.46,SPI3,agriculture,0.275222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.46,SPI3,agriculture,0.4328,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.46,SPI3,agriculture,0.4852,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.46,SPI3,agriculture,0.2583,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4215,6 +4435,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.45,SPI3,agriculture,0.2895,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.45,SPI3,agriculture,0.2895,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.45,SPI3,agriculture,0.25725,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.45,SPI3,agriculture,0.3162,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.45,SPI3,agriculture,0.308928571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.45,SPI3,agriculture,0.405428571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.45,SPI3,agriculture,0.274166666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.45,SPI3,agriculture,0.431,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.45,SPI3,agriculture,0.484,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.45,SPI3,agriculture,0.25725,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4253,6 +4477,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.44,SPI3,agriculture,0.2884,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.44,SPI3,agriculture,0.2884,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.44,SPI3,agriculture,0.2562,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.44,SPI3,agriculture,0.31504,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.44,SPI3,agriculture,0.307714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.44,SPI3,agriculture,0.404228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.44,SPI3,agriculture,0.273111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.44,SPI3,agriculture,0.4292,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.44,SPI3,agriculture,0.4828,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.44,SPI3,agriculture,0.2562,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4291,6 +4519,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.43,SPI3,agriculture,0.2873,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.43,SPI3,agriculture,0.2873,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.43,SPI3,agriculture,0.25515,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.43,SPI3,agriculture,0.31388,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.43,SPI3,agriculture,0.3065,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.43,SPI3,agriculture,0.403028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.43,SPI3,agriculture,0.272055555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.43,SPI3,agriculture,0.4274,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.43,SPI3,agriculture,0.4816,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.43,SPI3,agriculture,0.25515,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4329,6 +4561,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.42,SPI3,agriculture,0.2862,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.42,SPI3,agriculture,0.2862,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.42,SPI3,agriculture,0.2541,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.42,SPI3,agriculture,0.31272,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.42,SPI3,agriculture,0.305285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.42,SPI3,agriculture,0.401828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.42,SPI3,agriculture,0.271,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.42,SPI3,agriculture,0.4256,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.42,SPI3,agriculture,0.4804,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.42,SPI3,agriculture,0.2541,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4367,6 +4603,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.41,SPI3,agriculture,0.2851,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.41,SPI3,agriculture,0.2851,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.41,SPI3,agriculture,0.25305,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.41,SPI3,agriculture,0.31156,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.41,SPI3,agriculture,0.304071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.41,SPI3,agriculture,0.400628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.41,SPI3,agriculture,0.269944444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.41,SPI3,agriculture,0.4238,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.41,SPI3,agriculture,0.4792,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.41,SPI3,agriculture,0.25305,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4405,6 +4645,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.4,SPI3,agriculture,0.284,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.4,SPI3,agriculture,0.284,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.4,SPI3,agriculture,0.252,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.4,SPI3,agriculture,0.3104,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.4,SPI3,agriculture,0.302857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.4,SPI3,agriculture,0.399428571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.4,SPI3,agriculture,0.268888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.4,SPI3,agriculture,0.422,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.4,SPI3,agriculture,0.478,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.4,SPI3,agriculture,0.252,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4443,6 +4687,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.39,SPI3,agriculture,0.2829,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.39,SPI3,agriculture,0.2829,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.39,SPI3,agriculture,0.25095,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.39,SPI3,agriculture,0.30924,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.39,SPI3,agriculture,0.301642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.39,SPI3,agriculture,0.398228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.39,SPI3,agriculture,0.267833333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.39,SPI3,agriculture,0.4202,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.39,SPI3,agriculture,0.4768,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.39,SPI3,agriculture,0.25095,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4481,6 +4729,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.38,SPI3,agriculture,0.2818,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.38,SPI3,agriculture,0.2818,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.38,SPI3,agriculture,0.2499,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.38,SPI3,agriculture,0.30808,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.38,SPI3,agriculture,0.300428571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.38,SPI3,agriculture,0.397028571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.38,SPI3,agriculture,0.266777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.38,SPI3,agriculture,0.4184,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.38,SPI3,agriculture,0.4756,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.38,SPI3,agriculture,0.2499,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4519,6 +4771,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.37,SPI3,agriculture,0.2807,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.37,SPI3,agriculture,0.2807,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.37,SPI3,agriculture,0.24885,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.37,SPI3,agriculture,0.30692,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.37,SPI3,agriculture,0.299214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.37,SPI3,agriculture,0.395828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.37,SPI3,agriculture,0.265722222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.37,SPI3,agriculture,0.4166,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.37,SPI3,agriculture,0.4744,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.37,SPI3,agriculture,0.24885,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4557,6 +4813,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.36,SPI3,agriculture,0.2796,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.36,SPI3,agriculture,0.2796,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.36,SPI3,agriculture,0.2478,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.36,SPI3,agriculture,0.30576,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.36,SPI3,agriculture,0.298,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.36,SPI3,agriculture,0.394628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.36,SPI3,agriculture,0.264666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.36,SPI3,agriculture,0.4148,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.36,SPI3,agriculture,0.4732,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.36,SPI3,agriculture,0.2478,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4595,6 +4855,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.35,SPI3,agriculture,0.2785,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.35,SPI3,agriculture,0.2785,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.35,SPI3,agriculture,0.24675,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.35,SPI3,agriculture,0.3046,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.35,SPI3,agriculture,0.296785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.35,SPI3,agriculture,0.393428571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.35,SPI3,agriculture,0.263611111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.35,SPI3,agriculture,0.413,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.35,SPI3,agriculture,0.472,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.35,SPI3,agriculture,0.24675,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4633,6 +4897,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.34,SPI3,agriculture,0.2774,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.34,SPI3,agriculture,0.2774,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.34,SPI3,agriculture,0.2457,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.34,SPI3,agriculture,0.30344,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.34,SPI3,agriculture,0.295571428571428,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.34,SPI3,agriculture,0.392228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.34,SPI3,agriculture,0.262555555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.34,SPI3,agriculture,0.4112,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.34,SPI3,agriculture,0.4708,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.34,SPI3,agriculture,0.2457,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4671,6 +4939,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.33,SPI3,agriculture,0.2763,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.33,SPI3,agriculture,0.2763,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.33,SPI3,agriculture,0.24465,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.33,SPI3,agriculture,0.30228,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.33,SPI3,agriculture,0.294357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.33,SPI3,agriculture,0.391028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.33,SPI3,agriculture,0.2615,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.33,SPI3,agriculture,0.4094,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.33,SPI3,agriculture,0.4696,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.33,SPI3,agriculture,0.24465,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4709,6 +4981,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.32,SPI3,agriculture,0.2752,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.32,SPI3,agriculture,0.2752,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.32,SPI3,agriculture,0.2436,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.32,SPI3,agriculture,0.30112,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.32,SPI3,agriculture,0.293142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.32,SPI3,agriculture,0.389828571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.32,SPI3,agriculture,0.260444444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.32,SPI3,agriculture,0.4076,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.32,SPI3,agriculture,0.4684,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.32,SPI3,agriculture,0.2436,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4747,6 +5023,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.31,SPI3,agriculture,0.2741,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.31,SPI3,agriculture,0.2741,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.31,SPI3,agriculture,0.24255,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.31,SPI3,agriculture,0.29996,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.31,SPI3,agriculture,0.291928571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.31,SPI3,agriculture,0.388628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.31,SPI3,agriculture,0.259388888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.31,SPI3,agriculture,0.4058,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.31,SPI3,agriculture,0.4672,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.31,SPI3,agriculture,0.24255,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4785,6 +5065,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.3,SPI3,agriculture,0.273,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.3,SPI3,agriculture,0.273,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.3,SPI3,agriculture,0.2415,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.3,SPI3,agriculture,0.2988,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.3,SPI3,agriculture,0.290714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.3,SPI3,agriculture,0.387428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.3,SPI3,agriculture,0.258333333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.3,SPI3,agriculture,0.404,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.3,SPI3,agriculture,0.466,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.3,SPI3,agriculture,0.2415,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4823,6 +5107,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.29,SPI3,agriculture,0.2719,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.29,SPI3,agriculture,0.2719,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.29,SPI3,agriculture,0.24045,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.29,SPI3,agriculture,0.29764,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.29,SPI3,agriculture,0.2895,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.29,SPI3,agriculture,0.386228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.29,SPI3,agriculture,0.257277777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.29,SPI3,agriculture,0.4022,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.29,SPI3,agriculture,0.4648,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.29,SPI3,agriculture,0.24045,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4861,6 +5149,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.28,SPI3,agriculture,0.2708,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.28,SPI3,agriculture,0.2708,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.28,SPI3,agriculture,0.2394,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.28,SPI3,agriculture,0.29648,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.28,SPI3,agriculture,0.288285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.28,SPI3,agriculture,0.385028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.28,SPI3,agriculture,0.256222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.28,SPI3,agriculture,0.4004,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.28,SPI3,agriculture,0.4636,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.28,SPI3,agriculture,0.2394,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4899,6 +5191,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.27,SPI3,agriculture,0.2697,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.27,SPI3,agriculture,0.2697,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.27,SPI3,agriculture,0.23835,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.27,SPI3,agriculture,0.29532,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.27,SPI3,agriculture,0.287071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.27,SPI3,agriculture,0.383828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.27,SPI3,agriculture,0.255166666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.27,SPI3,agriculture,0.3986,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.27,SPI3,agriculture,0.4624,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.27,SPI3,agriculture,0.23835,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4937,6 +5233,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.26,SPI3,agriculture,0.2686,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.26,SPI3,agriculture,0.2686,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.26,SPI3,agriculture,0.2373,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.26,SPI3,agriculture,0.29416,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.26,SPI3,agriculture,0.285857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.26,SPI3,agriculture,0.382628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.26,SPI3,agriculture,0.254111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.26,SPI3,agriculture,0.3968,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.26,SPI3,agriculture,0.4612,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.26,SPI3,agriculture,0.2373,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -4975,6 +5275,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.25,SPI3,agriculture,0.2675,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.25,SPI3,agriculture,0.2675,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.25,SPI3,agriculture,0.23625,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.25,SPI3,agriculture,0.293,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.25,SPI3,agriculture,0.284642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.25,SPI3,agriculture,0.381428571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.25,SPI3,agriculture,0.253055555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.25,SPI3,agriculture,0.395,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.25,SPI3,agriculture,0.46,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.25,SPI3,agriculture,0.23625,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5013,6 +5317,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.24,SPI3,agriculture,0.2664,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.24,SPI3,agriculture,0.2664,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.24,SPI3,agriculture,0.2352,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.24,SPI3,agriculture,0.29184,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.24,SPI3,agriculture,0.283428571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.24,SPI3,agriculture,0.380228571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.24,SPI3,agriculture,0.252,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.24,SPI3,agriculture,0.3932,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.24,SPI3,agriculture,0.4588,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.24,SPI3,agriculture,0.2352,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5051,6 +5359,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.23,SPI3,agriculture,0.2653,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.23,SPI3,agriculture,0.2653,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.23,SPI3,agriculture,0.23415,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.23,SPI3,agriculture,0.29068,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.23,SPI3,agriculture,0.282214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.23,SPI3,agriculture,0.379028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.23,SPI3,agriculture,0.250944444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.23,SPI3,agriculture,0.3914,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.23,SPI3,agriculture,0.4576,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.23,SPI3,agriculture,0.23415,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5089,6 +5401,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.22,SPI3,agriculture,0.2642,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.22,SPI3,agriculture,0.2642,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.22,SPI3,agriculture,0.2331,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.22,SPI3,agriculture,0.28952,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.22,SPI3,agriculture,0.281,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.22,SPI3,agriculture,0.377828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.22,SPI3,agriculture,0.249888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.22,SPI3,agriculture,0.3896,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.22,SPI3,agriculture,0.4564,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.22,SPI3,agriculture,0.2331,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5127,6 +5443,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.21,SPI3,agriculture,0.2631,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.21,SPI3,agriculture,0.2631,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.21,SPI3,agriculture,0.23205,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.21,SPI3,agriculture,0.28836,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.21,SPI3,agriculture,0.279785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.21,SPI3,agriculture,0.376628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.21,SPI3,agriculture,0.248833333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.21,SPI3,agriculture,0.3878,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.21,SPI3,agriculture,0.4552,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.21,SPI3,agriculture,0.23205,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5165,6 +5485,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.2,SPI3,agriculture,0.262,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.2,SPI3,agriculture,0.262,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.2,SPI3,agriculture,0.231,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.2,SPI3,agriculture,0.2872,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.2,SPI3,agriculture,0.278571428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.2,SPI3,agriculture,0.375428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.2,SPI3,agriculture,0.247777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.2,SPI3,agriculture,0.386,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.2,SPI3,agriculture,0.454,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.2,SPI3,agriculture,0.231,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5203,6 +5527,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.19,SPI3,agriculture,0.2609,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.19,SPI3,agriculture,0.2609,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.19,SPI3,agriculture,0.22995,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.19,SPI3,agriculture,0.28604,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.19,SPI3,agriculture,0.277357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.19,SPI3,agriculture,0.374228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.19,SPI3,agriculture,0.246722222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.19,SPI3,agriculture,0.3842,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.19,SPI3,agriculture,0.4528,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.19,SPI3,agriculture,0.22995,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5241,6 +5569,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.18,SPI3,agriculture,0.2598,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.18,SPI3,agriculture,0.2598,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.18,SPI3,agriculture,0.2289,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.18,SPI3,agriculture,0.28488,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.18,SPI3,agriculture,0.276142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.18,SPI3,agriculture,0.373028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.18,SPI3,agriculture,0.245666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.18,SPI3,agriculture,0.3824,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.18,SPI3,agriculture,0.4516,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.18,SPI3,agriculture,0.2289,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5279,6 +5611,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.17,SPI3,agriculture,0.2587,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.17,SPI3,agriculture,0.2587,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.17,SPI3,agriculture,0.22785,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.17,SPI3,agriculture,0.28372,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.17,SPI3,agriculture,0.274928571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.17,SPI3,agriculture,0.371828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.17,SPI3,agriculture,0.244611111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.17,SPI3,agriculture,0.3806,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.17,SPI3,agriculture,0.4504,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.17,SPI3,agriculture,0.22785,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5317,6 +5653,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.16,SPI3,agriculture,0.2576,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.16,SPI3,agriculture,0.2576,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.16,SPI3,agriculture,0.2268,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.16,SPI3,agriculture,0.28256,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.16,SPI3,agriculture,0.273714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.16,SPI3,agriculture,0.370628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.16,SPI3,agriculture,0.243555555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.16,SPI3,agriculture,0.3788,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.16,SPI3,agriculture,0.4492,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.16,SPI3,agriculture,0.2268,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5355,6 +5695,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.15,SPI3,agriculture,0.2565,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.15,SPI3,agriculture,0.2565,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.15,SPI3,agriculture,0.22575,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.15,SPI3,agriculture,0.2814,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.15,SPI3,agriculture,0.2725,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.15,SPI3,agriculture,0.369428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.15,SPI3,agriculture,0.2425,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.15,SPI3,agriculture,0.377,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.15,SPI3,agriculture,0.448,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.15,SPI3,agriculture,0.22575,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5393,6 +5737,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.14,SPI3,agriculture,0.2554,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.14,SPI3,agriculture,0.2554,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.14,SPI3,agriculture,0.2247,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.14,SPI3,agriculture,0.28024,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.14,SPI3,agriculture,0.271285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.14,SPI3,agriculture,0.368228571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.14,SPI3,agriculture,0.241444444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.14,SPI3,agriculture,0.3752,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.14,SPI3,agriculture,0.4468,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.14,SPI3,agriculture,0.2247,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5431,6 +5779,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.13,SPI3,agriculture,0.2543,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.13,SPI3,agriculture,0.2543,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.13,SPI3,agriculture,0.22365,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.13,SPI3,agriculture,0.27908,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.13,SPI3,agriculture,0.270071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.13,SPI3,agriculture,0.367028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.13,SPI3,agriculture,0.240388888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.13,SPI3,agriculture,0.3734,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.13,SPI3,agriculture,0.4456,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.13,SPI3,agriculture,0.22365,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5469,6 +5821,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.12,SPI3,agriculture,0.2532,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.12,SPI3,agriculture,0.2532,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.12,SPI3,agriculture,0.2226,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.12,SPI3,agriculture,0.27792,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.12,SPI3,agriculture,0.268857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.12,SPI3,agriculture,0.365828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.12,SPI3,agriculture,0.239333333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.12,SPI3,agriculture,0.3716,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.12,SPI3,agriculture,0.4444,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.12,SPI3,agriculture,0.2226,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5507,6 +5863,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.11,SPI3,agriculture,0.2521,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.11,SPI3,agriculture,0.2521,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.11,SPI3,agriculture,0.22155,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.11,SPI3,agriculture,0.27676,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.11,SPI3,agriculture,0.267642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.11,SPI3,agriculture,0.364628571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.11,SPI3,agriculture,0.238277777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.11,SPI3,agriculture,0.3698,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.11,SPI3,agriculture,0.4432,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.11,SPI3,agriculture,0.22155,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5545,6 +5905,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.1,SPI3,agriculture,0.251,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.1,SPI3,agriculture,0.251,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.1,SPI3,agriculture,0.2205,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.1,SPI3,agriculture,0.2756,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.1,SPI3,agriculture,0.266428571428572,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.1,SPI3,agriculture,0.363428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.1,SPI3,agriculture,0.237222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.1,SPI3,agriculture,0.368,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.1,SPI3,agriculture,0.442,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.1,SPI3,agriculture,0.2205,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5583,6 +5947,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.09,SPI3,agriculture,0.2499,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.09,SPI3,agriculture,0.2499,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.09,SPI3,agriculture,0.21945,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.09,SPI3,agriculture,0.27444,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.09,SPI3,agriculture,0.265214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.09,SPI3,agriculture,0.362228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.09,SPI3,agriculture,0.236166666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.09,SPI3,agriculture,0.3662,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.09,SPI3,agriculture,0.4408,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.09,SPI3,agriculture,0.21945,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5621,6 +5989,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.08,SPI3,agriculture,0.2488,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.08,SPI3,agriculture,0.2488,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.08,SPI3,agriculture,0.2184,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.08,SPI3,agriculture,0.27328,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.08,SPI3,agriculture,0.264,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.08,SPI3,agriculture,0.361028571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.08,SPI3,agriculture,0.235111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.08,SPI3,agriculture,0.3644,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.08,SPI3,agriculture,0.4396,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.08,SPI3,agriculture,0.2184,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5659,6 +6031,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.07,SPI3,agriculture,0.2477,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.07,SPI3,agriculture,0.2477,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.07,SPI3,agriculture,0.21735,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.07,SPI3,agriculture,0.27212,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.07,SPI3,agriculture,0.262785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.07,SPI3,agriculture,0.359828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.07,SPI3,agriculture,0.234055555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.07,SPI3,agriculture,0.3626,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.07,SPI3,agriculture,0.4384,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.07,SPI3,agriculture,0.21735,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5697,6 +6073,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.06,SPI3,agriculture,0.2466,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.06,SPI3,agriculture,0.2466,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.06,SPI3,agriculture,0.2163,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.06,SPI3,agriculture,0.27096,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.06,SPI3,agriculture,0.261571428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.06,SPI3,agriculture,0.358628571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.06,SPI3,agriculture,0.233,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.06,SPI3,agriculture,0.3608,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.06,SPI3,agriculture,0.4372,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.06,SPI3,agriculture,0.2163,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5735,6 +6115,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.05,SPI3,agriculture,0.2455,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.05,SPI3,agriculture,0.2455,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.05,SPI3,agriculture,0.21525,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.05,SPI3,agriculture,0.2698,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.05,SPI3,agriculture,0.260357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.05,SPI3,agriculture,0.357428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.05,SPI3,agriculture,0.231944444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.05,SPI3,agriculture,0.359,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.05,SPI3,agriculture,0.436,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.05,SPI3,agriculture,0.21525,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5773,6 +6157,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.04,SPI3,agriculture,0.2444,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.04,SPI3,agriculture,0.2444,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.04,SPI3,agriculture,0.2142,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.04,SPI3,agriculture,0.26864,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.04,SPI3,agriculture,0.259142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.04,SPI3,agriculture,0.356228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.04,SPI3,agriculture,0.230888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.04,SPI3,agriculture,0.3572,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.04,SPI3,agriculture,0.4348,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.04,SPI3,agriculture,0.2142,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5811,6 +6199,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.03,SPI3,agriculture,0.2433,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.03,SPI3,agriculture,0.2433,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.03,SPI3,agriculture,0.21315,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.03,SPI3,agriculture,0.26748,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.03,SPI3,agriculture,0.257928571428572,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.03,SPI3,agriculture,0.355028571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.03,SPI3,agriculture,0.229833333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.03,SPI3,agriculture,0.3554,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.03,SPI3,agriculture,0.4336,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.03,SPI3,agriculture,0.21315,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5849,6 +6241,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.02,SPI3,agriculture,0.2422,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.02,SPI3,agriculture,0.2422,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.02,SPI3,agriculture,0.2121,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.02,SPI3,agriculture,0.26632,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.02,SPI3,agriculture,0.256714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.02,SPI3,agriculture,0.353828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.02,SPI3,agriculture,0.228777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.02,SPI3,agriculture,0.3536,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.02,SPI3,agriculture,0.4324,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.02,SPI3,agriculture,0.2121,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5887,6 +6283,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2.01,SPI3,agriculture,0.2411,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2.01,SPI3,agriculture,0.2411,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2.01,SPI3,agriculture,0.21105,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2.01,SPI3,agriculture,0.26516,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2.01,SPI3,agriculture,0.2555,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2.01,SPI3,agriculture,0.352628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2.01,SPI3,agriculture,0.227722222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2.01,SPI3,agriculture,0.3518,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2.01,SPI3,agriculture,0.4312,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2.01,SPI3,agriculture,0.21105,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5925,6 +6325,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-2,SPI3,agriculture,0.24,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-2,SPI3,agriculture,0.24,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-2,SPI3,agriculture,0.21,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-2,SPI3,agriculture,0.264,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-2,SPI3,agriculture,0.254285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-2,SPI3,agriculture,0.351428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-2,SPI3,agriculture,0.226666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-2,SPI3,agriculture,0.35,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-2,SPI3,agriculture,0.43,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-2,SPI3,agriculture,0.21,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -5963,6 +6367,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.99,SPI3,agriculture,0.2389,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.99,SPI3,agriculture,0.2389,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.99,SPI3,agriculture,0.209,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.99,SPI3,agriculture,0.26281,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.99,SPI3,agriculture,0.253042857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.99,SPI3,agriculture,0.349871428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.99,SPI3,agriculture,0.225644444444445,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.99,SPI3,agriculture,0.3483,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.99,SPI3,agriculture,0.428,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.99,SPI3,agriculture,0.209,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6001,6 +6409,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.98,SPI3,agriculture,0.2378,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.98,SPI3,agriculture,0.2378,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.98,SPI3,agriculture,0.208,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.98,SPI3,agriculture,0.26162,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.98,SPI3,agriculture,0.2518,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.98,SPI3,agriculture,0.348314285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.98,SPI3,agriculture,0.224622222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.98,SPI3,agriculture,0.3466,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.98,SPI3,agriculture,0.426,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.98,SPI3,agriculture,0.208,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6039,6 +6451,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.97,SPI3,agriculture,0.2367,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.97,SPI3,agriculture,0.2367,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.97,SPI3,agriculture,0.207,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.97,SPI3,agriculture,0.26043,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.97,SPI3,agriculture,0.250557142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.97,SPI3,agriculture,0.346757142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.97,SPI3,agriculture,0.2236,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.97,SPI3,agriculture,0.3449,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.97,SPI3,agriculture,0.424,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.97,SPI3,agriculture,0.207,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6077,6 +6493,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.96,SPI3,agriculture,0.2356,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.96,SPI3,agriculture,0.2356,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.96,SPI3,agriculture,0.206,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.96,SPI3,agriculture,0.25924,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.96,SPI3,agriculture,0.249314285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.96,SPI3,agriculture,0.3452,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.96,SPI3,agriculture,0.222577777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.96,SPI3,agriculture,0.3432,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.96,SPI3,agriculture,0.422,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.96,SPI3,agriculture,0.206,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6115,6 +6535,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.95,SPI3,agriculture,0.2345,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.95,SPI3,agriculture,0.2345,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.95,SPI3,agriculture,0.205,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.95,SPI3,agriculture,0.25805,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.95,SPI3,agriculture,0.248071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.95,SPI3,agriculture,0.343642857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.95,SPI3,agriculture,0.221555555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.95,SPI3,agriculture,0.3415,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.95,SPI3,agriculture,0.42,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.95,SPI3,agriculture,0.205,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6153,6 +6577,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.94,SPI3,agriculture,0.2334,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.94,SPI3,agriculture,0.2334,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.94,SPI3,agriculture,0.204,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.94,SPI3,agriculture,0.25686,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.94,SPI3,agriculture,0.246828571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.94,SPI3,agriculture,0.342085714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.94,SPI3,agriculture,0.220533333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.94,SPI3,agriculture,0.3398,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.94,SPI3,agriculture,0.418,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.94,SPI3,agriculture,0.204,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6191,6 +6619,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.93,SPI3,agriculture,0.2323,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.93,SPI3,agriculture,0.2323,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.93,SPI3,agriculture,0.203,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.93,SPI3,agriculture,0.25567,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.93,SPI3,agriculture,0.245585714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.93,SPI3,agriculture,0.340528571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.93,SPI3,agriculture,0.219511111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.93,SPI3,agriculture,0.3381,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.93,SPI3,agriculture,0.416,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.93,SPI3,agriculture,0.203,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6229,6 +6661,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.92,SPI3,agriculture,0.2312,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.92,SPI3,agriculture,0.2312,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.92,SPI3,agriculture,0.202,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.92,SPI3,agriculture,0.25448,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.92,SPI3,agriculture,0.244342857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.92,SPI3,agriculture,0.338971428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.92,SPI3,agriculture,0.218488888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.92,SPI3,agriculture,0.3364,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.92,SPI3,agriculture,0.414,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.92,SPI3,agriculture,0.202,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6267,6 +6703,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.91,SPI3,agriculture,0.2301,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.91,SPI3,agriculture,0.2301,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.91,SPI3,agriculture,0.201,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.91,SPI3,agriculture,0.25329,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.91,SPI3,agriculture,0.2431,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.91,SPI3,agriculture,0.337414285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.91,SPI3,agriculture,0.217466666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.91,SPI3,agriculture,0.3347,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.91,SPI3,agriculture,0.412,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.91,SPI3,agriculture,0.201,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6305,6 +6745,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.9,SPI3,agriculture,0.229,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.9,SPI3,agriculture,0.229,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.9,SPI3,agriculture,0.2,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.9,SPI3,agriculture,0.2521,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.9,SPI3,agriculture,0.241857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.9,SPI3,agriculture,0.335857142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.9,SPI3,agriculture,0.216444444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.9,SPI3,agriculture,0.333,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.9,SPI3,agriculture,0.41,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.9,SPI3,agriculture,0.2,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6343,6 +6787,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.89,SPI3,agriculture,0.2279,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.89,SPI3,agriculture,0.2279,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.89,SPI3,agriculture,0.199,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.89,SPI3,agriculture,0.25091,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.89,SPI3,agriculture,0.240614285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.89,SPI3,agriculture,0.3343,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.89,SPI3,agriculture,0.215422222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.89,SPI3,agriculture,0.3313,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.89,SPI3,agriculture,0.408,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.89,SPI3,agriculture,0.199,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6381,6 +6829,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.88,SPI3,agriculture,0.2268,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.88,SPI3,agriculture,0.2268,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.88,SPI3,agriculture,0.198,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.88,SPI3,agriculture,0.24972,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.88,SPI3,agriculture,0.239371428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.88,SPI3,agriculture,0.332742857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.88,SPI3,agriculture,0.2144,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.88,SPI3,agriculture,0.3296,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.88,SPI3,agriculture,0.406,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.88,SPI3,agriculture,0.198,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6419,6 +6871,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.87,SPI3,agriculture,0.2257,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.87,SPI3,agriculture,0.2257,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.87,SPI3,agriculture,0.197,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.87,SPI3,agriculture,0.24853,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.87,SPI3,agriculture,0.238128571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.87,SPI3,agriculture,0.331185714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.87,SPI3,agriculture,0.213377777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.87,SPI3,agriculture,0.3279,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.87,SPI3,agriculture,0.404,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.87,SPI3,agriculture,0.197,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6457,6 +6913,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.86,SPI3,agriculture,0.2246,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.86,SPI3,agriculture,0.2246,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.86,SPI3,agriculture,0.196,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.86,SPI3,agriculture,0.24734,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.86,SPI3,agriculture,0.236885714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.86,SPI3,agriculture,0.329628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.86,SPI3,agriculture,0.212355555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.86,SPI3,agriculture,0.3262,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.86,SPI3,agriculture,0.402,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.86,SPI3,agriculture,0.196,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6495,6 +6955,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.85,SPI3,agriculture,0.2235,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.85,SPI3,agriculture,0.2235,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.85,SPI3,agriculture,0.195,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.85,SPI3,agriculture,0.24615,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.85,SPI3,agriculture,0.235642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.85,SPI3,agriculture,0.328071428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.85,SPI3,agriculture,0.211333333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.85,SPI3,agriculture,0.3245,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.85,SPI3,agriculture,0.4,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.85,SPI3,agriculture,0.195,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6533,6 +6997,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.84,SPI3,agriculture,0.2224,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.84,SPI3,agriculture,0.2224,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.84,SPI3,agriculture,0.194,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.84,SPI3,agriculture,0.24496,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.84,SPI3,agriculture,0.2344,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.84,SPI3,agriculture,0.326514285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.84,SPI3,agriculture,0.210311111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.84,SPI3,agriculture,0.3228,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.84,SPI3,agriculture,0.398,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.84,SPI3,agriculture,0.194,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6571,6 +7039,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.83,SPI3,agriculture,0.2213,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.83,SPI3,agriculture,0.2213,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.83,SPI3,agriculture,0.193,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.83,SPI3,agriculture,0.24377,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.83,SPI3,agriculture,0.233157142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.83,SPI3,agriculture,0.324957142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.83,SPI3,agriculture,0.209288888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.83,SPI3,agriculture,0.3211,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.83,SPI3,agriculture,0.396,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.83,SPI3,agriculture,0.193,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6609,6 +7081,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.82,SPI3,agriculture,0.2202,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.82,SPI3,agriculture,0.2202,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.82,SPI3,agriculture,0.192,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.82,SPI3,agriculture,0.24258,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.82,SPI3,agriculture,0.231914285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.82,SPI3,agriculture,0.3234,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.82,SPI3,agriculture,0.208266666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.82,SPI3,agriculture,0.3194,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.82,SPI3,agriculture,0.394,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.82,SPI3,agriculture,0.192,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6647,6 +7123,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.81,SPI3,agriculture,0.2191,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.81,SPI3,agriculture,0.2191,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.81,SPI3,agriculture,0.191,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.81,SPI3,agriculture,0.24139,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.81,SPI3,agriculture,0.230671428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.81,SPI3,agriculture,0.321842857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.81,SPI3,agriculture,0.207244444444445,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.81,SPI3,agriculture,0.3177,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.81,SPI3,agriculture,0.392,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.81,SPI3,agriculture,0.191,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6685,6 +7165,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.8,SPI3,agriculture,0.218,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.8,SPI3,agriculture,0.218,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.8,SPI3,agriculture,0.19,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.8,SPI3,agriculture,0.2402,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.8,SPI3,agriculture,0.229428571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.8,SPI3,agriculture,0.320285714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.8,SPI3,agriculture,0.206222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.8,SPI3,agriculture,0.316,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.8,SPI3,agriculture,0.39,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.8,SPI3,agriculture,0.19,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6723,6 +7207,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.79,SPI3,agriculture,0.2169,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.79,SPI3,agriculture,0.2169,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.79,SPI3,agriculture,0.189,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.79,SPI3,agriculture,0.23901,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.79,SPI3,agriculture,0.228185714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.79,SPI3,agriculture,0.318728571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.79,SPI3,agriculture,0.2052,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.79,SPI3,agriculture,0.3143,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.79,SPI3,agriculture,0.388,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.79,SPI3,agriculture,0.189,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6761,6 +7249,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.78,SPI3,agriculture,0.2158,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.78,SPI3,agriculture,0.2158,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.78,SPI3,agriculture,0.188,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.78,SPI3,agriculture,0.23782,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.78,SPI3,agriculture,0.226942857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.78,SPI3,agriculture,0.317171428571428,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.78,SPI3,agriculture,0.204177777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.78,SPI3,agriculture,0.3126,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.78,SPI3,agriculture,0.386,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.78,SPI3,agriculture,0.188,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6799,6 +7291,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.77,SPI3,agriculture,0.2147,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.77,SPI3,agriculture,0.2147,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.77,SPI3,agriculture,0.187,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.77,SPI3,agriculture,0.23663,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.77,SPI3,agriculture,0.2257,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.77,SPI3,agriculture,0.315614285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.77,SPI3,agriculture,0.203155555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.77,SPI3,agriculture,0.3109,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.77,SPI3,agriculture,0.384,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.77,SPI3,agriculture,0.187,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6837,6 +7333,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.76,SPI3,agriculture,0.2136,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.76,SPI3,agriculture,0.2136,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.76,SPI3,agriculture,0.186,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.76,SPI3,agriculture,0.23544,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.76,SPI3,agriculture,0.224457142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.76,SPI3,agriculture,0.314057142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.76,SPI3,agriculture,0.202133333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.76,SPI3,agriculture,0.3092,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.76,SPI3,agriculture,0.382,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.76,SPI3,agriculture,0.186,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6875,6 +7375,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.75,SPI3,agriculture,0.2125,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.75,SPI3,agriculture,0.2125,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.75,SPI3,agriculture,0.185,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.75,SPI3,agriculture,0.23425,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.75,SPI3,agriculture,0.223214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.75,SPI3,agriculture,0.3125,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.75,SPI3,agriculture,0.201111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.75,SPI3,agriculture,0.3075,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.75,SPI3,agriculture,0.38,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.75,SPI3,agriculture,0.185,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6913,6 +7417,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.74,SPI3,agriculture,0.2114,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.74,SPI3,agriculture,0.2114,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.74,SPI3,agriculture,0.184,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.74,SPI3,agriculture,0.23306,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.74,SPI3,agriculture,0.221971428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.74,SPI3,agriculture,0.310942857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.74,SPI3,agriculture,0.200088888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.74,SPI3,agriculture,0.3058,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.74,SPI3,agriculture,0.378,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.74,SPI3,agriculture,0.184,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6951,6 +7459,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.73,SPI3,agriculture,0.2103,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.73,SPI3,agriculture,0.2103,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.73,SPI3,agriculture,0.183,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.73,SPI3,agriculture,0.23187,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.73,SPI3,agriculture,0.220728571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.73,SPI3,agriculture,0.309385714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.73,SPI3,agriculture,0.199066666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.73,SPI3,agriculture,0.3041,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.73,SPI3,agriculture,0.376,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.73,SPI3,agriculture,0.183,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -6989,6 +7501,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.72,SPI3,agriculture,0.2092,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.72,SPI3,agriculture,0.2092,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.72,SPI3,agriculture,0.182,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.72,SPI3,agriculture,0.23068,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.72,SPI3,agriculture,0.219485714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.72,SPI3,agriculture,0.307828571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.72,SPI3,agriculture,0.198044444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.72,SPI3,agriculture,0.3024,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.72,SPI3,agriculture,0.374,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.72,SPI3,agriculture,0.182,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7027,6 +7543,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.71,SPI3,agriculture,0.2081,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.71,SPI3,agriculture,0.2081,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.71,SPI3,agriculture,0.181,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.71,SPI3,agriculture,0.22949,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.71,SPI3,agriculture,0.218242857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.71,SPI3,agriculture,0.306271428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.71,SPI3,agriculture,0.197022222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.71,SPI3,agriculture,0.3007,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.71,SPI3,agriculture,0.372,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.71,SPI3,agriculture,0.181,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7065,6 +7585,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.7,SPI3,agriculture,0.207,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.7,SPI3,agriculture,0.207,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.7,SPI3,agriculture,0.18,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.7,SPI3,agriculture,0.2283,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.7,SPI3,agriculture,0.217,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.7,SPI3,agriculture,0.304714285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.7,SPI3,agriculture,0.196,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.7,SPI3,agriculture,0.299,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.7,SPI3,agriculture,0.37,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.7,SPI3,agriculture,0.18,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7103,6 +7627,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.69,SPI3,agriculture,0.2059,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.69,SPI3,agriculture,0.2059,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.69,SPI3,agriculture,0.179,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.69,SPI3,agriculture,0.22711,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.69,SPI3,agriculture,0.215757142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.69,SPI3,agriculture,0.303157142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.69,SPI3,agriculture,0.194977777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.69,SPI3,agriculture,0.2973,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.69,SPI3,agriculture,0.368,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.69,SPI3,agriculture,0.179,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7141,6 +7669,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.68,SPI3,agriculture,0.2048,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.68,SPI3,agriculture,0.2048,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.68,SPI3,agriculture,0.178,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.68,SPI3,agriculture,0.22592,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.68,SPI3,agriculture,0.214514285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.68,SPI3,agriculture,0.3016,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.68,SPI3,agriculture,0.193955555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.68,SPI3,agriculture,0.2956,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.68,SPI3,agriculture,0.366,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.68,SPI3,agriculture,0.178,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7179,6 +7711,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.67,SPI3,agriculture,0.2037,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.67,SPI3,agriculture,0.2037,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.67,SPI3,agriculture,0.177,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.67,SPI3,agriculture,0.22473,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.67,SPI3,agriculture,0.213271428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.67,SPI3,agriculture,0.300042857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.67,SPI3,agriculture,0.192933333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.67,SPI3,agriculture,0.2939,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.67,SPI3,agriculture,0.364,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.67,SPI3,agriculture,0.177,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7217,6 +7753,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.66,SPI3,agriculture,0.2026,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.66,SPI3,agriculture,0.2026,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.66,SPI3,agriculture,0.176,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.66,SPI3,agriculture,0.22354,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.66,SPI3,agriculture,0.212028571428572,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.66,SPI3,agriculture,0.298485714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.66,SPI3,agriculture,0.191911111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.66,SPI3,agriculture,0.2922,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.66,SPI3,agriculture,0.362,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.66,SPI3,agriculture,0.176,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7255,6 +7795,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.65,SPI3,agriculture,0.2015,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.65,SPI3,agriculture,0.2015,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.65,SPI3,agriculture,0.175,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.65,SPI3,agriculture,0.22235,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.65,SPI3,agriculture,0.210785714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.65,SPI3,agriculture,0.296928571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.65,SPI3,agriculture,0.190888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.65,SPI3,agriculture,0.2905,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.65,SPI3,agriculture,0.36,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.65,SPI3,agriculture,0.175,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7293,6 +7837,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.64,SPI3,agriculture,0.2004,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.64,SPI3,agriculture,0.2004,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.64,SPI3,agriculture,0.174,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.64,SPI3,agriculture,0.22116,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.64,SPI3,agriculture,0.209542857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.64,SPI3,agriculture,0.295371428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.64,SPI3,agriculture,0.189866666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.64,SPI3,agriculture,0.2888,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.64,SPI3,agriculture,0.358,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.64,SPI3,agriculture,0.174,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7331,6 +7879,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.63,SPI3,agriculture,0.1993,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.63,SPI3,agriculture,0.1993,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.63,SPI3,agriculture,0.173,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.63,SPI3,agriculture,0.21997,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.63,SPI3,agriculture,0.2083,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.63,SPI3,agriculture,0.293814285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.63,SPI3,agriculture,0.188844444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.63,SPI3,agriculture,0.2871,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.63,SPI3,agriculture,0.356,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.63,SPI3,agriculture,0.173,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7369,6 +7921,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.62,SPI3,agriculture,0.1982,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.62,SPI3,agriculture,0.1982,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.62,SPI3,agriculture,0.172,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.62,SPI3,agriculture,0.21878,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.62,SPI3,agriculture,0.207057142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.62,SPI3,agriculture,0.292257142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.62,SPI3,agriculture,0.187822222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.62,SPI3,agriculture,0.2854,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.62,SPI3,agriculture,0.354,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.62,SPI3,agriculture,0.172,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7407,6 +7963,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.61,SPI3,agriculture,0.1971,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.61,SPI3,agriculture,0.1971,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.61,SPI3,agriculture,0.171,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.61,SPI3,agriculture,0.21759,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.61,SPI3,agriculture,0.205814285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.61,SPI3,agriculture,0.2907,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.61,SPI3,agriculture,0.1868,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.61,SPI3,agriculture,0.2837,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.61,SPI3,agriculture,0.352,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.61,SPI3,agriculture,0.171,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7445,6 +8005,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.6,SPI3,agriculture,0.196,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.6,SPI3,agriculture,0.196,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.6,SPI3,agriculture,0.17,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.6,SPI3,agriculture,0.2164,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.6,SPI3,agriculture,0.204571428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.6,SPI3,agriculture,0.289142857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.6,SPI3,agriculture,0.185777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.6,SPI3,agriculture,0.282,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.6,SPI3,agriculture,0.35,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.6,SPI3,agriculture,0.17,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7483,6 +8047,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.59,SPI3,agriculture,0.1949,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.59,SPI3,agriculture,0.1949,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.59,SPI3,agriculture,0.169,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.59,SPI3,agriculture,0.21521,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.59,SPI3,agriculture,0.203328571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.59,SPI3,agriculture,0.287585714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.59,SPI3,agriculture,0.184755555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.59,SPI3,agriculture,0.2803,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.59,SPI3,agriculture,0.348,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.59,SPI3,agriculture,0.169,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7521,6 +8089,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.58,SPI3,agriculture,0.1938,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.58,SPI3,agriculture,0.1938,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.58,SPI3,agriculture,0.168,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.58,SPI3,agriculture,0.21402,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.58,SPI3,agriculture,0.202085714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.58,SPI3,agriculture,0.286028571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.58,SPI3,agriculture,0.183733333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.58,SPI3,agriculture,0.2786,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.58,SPI3,agriculture,0.346,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.58,SPI3,agriculture,0.168,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7559,6 +8131,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.57,SPI3,agriculture,0.1927,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.57,SPI3,agriculture,0.1927,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.57,SPI3,agriculture,0.167,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.57,SPI3,agriculture,0.21283,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.57,SPI3,agriculture,0.200842857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.57,SPI3,agriculture,0.284471428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.57,SPI3,agriculture,0.182711111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.57,SPI3,agriculture,0.2769,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.57,SPI3,agriculture,0.344,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.57,SPI3,agriculture,0.167,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7597,6 +8173,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.56,SPI3,agriculture,0.1916,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.56,SPI3,agriculture,0.1916,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.56,SPI3,agriculture,0.166,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.56,SPI3,agriculture,0.21164,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.56,SPI3,agriculture,0.1996,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.56,SPI3,agriculture,0.282914285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.56,SPI3,agriculture,0.181688888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.56,SPI3,agriculture,0.2752,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.56,SPI3,agriculture,0.342,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.56,SPI3,agriculture,0.166,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7635,6 +8215,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.55,SPI3,agriculture,0.1905,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.55,SPI3,agriculture,0.1905,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.55,SPI3,agriculture,0.165,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.55,SPI3,agriculture,0.21045,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.55,SPI3,agriculture,0.198357142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.55,SPI3,agriculture,0.281357142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.55,SPI3,agriculture,0.180666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.55,SPI3,agriculture,0.2735,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.55,SPI3,agriculture,0.34,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.55,SPI3,agriculture,0.165,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7673,6 +8257,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.54,SPI3,agriculture,0.1894,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.54,SPI3,agriculture,0.1894,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.54,SPI3,agriculture,0.164,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.54,SPI3,agriculture,0.20926,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.54,SPI3,agriculture,0.197114285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.54,SPI3,agriculture,0.2798,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.54,SPI3,agriculture,0.179644444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.54,SPI3,agriculture,0.2718,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.54,SPI3,agriculture,0.338,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.54,SPI3,agriculture,0.164,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7711,6 +8299,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.53,SPI3,agriculture,0.1883,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.53,SPI3,agriculture,0.1883,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.53,SPI3,agriculture,0.163,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.53,SPI3,agriculture,0.20807,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.53,SPI3,agriculture,0.195871428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.53,SPI3,agriculture,0.278242857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.53,SPI3,agriculture,0.178622222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.53,SPI3,agriculture,0.2701,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.53,SPI3,agriculture,0.336,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.53,SPI3,agriculture,0.163,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7749,6 +8341,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.52,SPI3,agriculture,0.1872,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.52,SPI3,agriculture,0.1872,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.52,SPI3,agriculture,0.162,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.52,SPI3,agriculture,0.20688,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.52,SPI3,agriculture,0.194628571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.52,SPI3,agriculture,0.276685714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.52,SPI3,agriculture,0.1776,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.52,SPI3,agriculture,0.2684,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.52,SPI3,agriculture,0.334,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.52,SPI3,agriculture,0.162,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7787,6 +8383,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.51,SPI3,agriculture,0.1861,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.51,SPI3,agriculture,0.1861,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.51,SPI3,agriculture,0.161,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.51,SPI3,agriculture,0.20569,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.51,SPI3,agriculture,0.193385714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.51,SPI3,agriculture,0.275128571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.51,SPI3,agriculture,0.176577777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.51,SPI3,agriculture,0.2667,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.51,SPI3,agriculture,0.332,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.51,SPI3,agriculture,0.161,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7825,6 +8425,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.5,SPI3,agriculture,0.185,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.5,SPI3,agriculture,0.185,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.5,SPI3,agriculture,0.16,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.5,SPI3,agriculture,0.2045,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.5,SPI3,agriculture,0.192142857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.5,SPI3,agriculture,0.273571428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.5,SPI3,agriculture,0.175555555555555,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.5,SPI3,agriculture,0.265,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.5,SPI3,agriculture,0.33,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.5,SPI3,agriculture,0.16,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7863,6 +8467,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.49,SPI3,agriculture,0.1839,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.49,SPI3,agriculture,0.1839,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.49,SPI3,agriculture,0.159,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.49,SPI3,agriculture,0.20331,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.49,SPI3,agriculture,0.1909,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.49,SPI3,agriculture,0.272014285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.49,SPI3,agriculture,0.174533333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.49,SPI3,agriculture,0.2633,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.49,SPI3,agriculture,0.328,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.49,SPI3,agriculture,0.159,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7901,6 +8509,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.48,SPI3,agriculture,0.1828,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.48,SPI3,agriculture,0.1828,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.48,SPI3,agriculture,0.158,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.48,SPI3,agriculture,0.20212,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.48,SPI3,agriculture,0.189657142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.48,SPI3,agriculture,0.270457142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.48,SPI3,agriculture,0.173511111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.48,SPI3,agriculture,0.2616,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.48,SPI3,agriculture,0.326,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.48,SPI3,agriculture,0.158,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7939,6 +8551,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.47,SPI3,agriculture,0.1817,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.47,SPI3,agriculture,0.1817,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.47,SPI3,agriculture,0.157,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.47,SPI3,agriculture,0.20093,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.47,SPI3,agriculture,0.188414285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.47,SPI3,agriculture,0.2689,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.47,SPI3,agriculture,0.172488888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.47,SPI3,agriculture,0.2599,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.47,SPI3,agriculture,0.324,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.47,SPI3,agriculture,0.157,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -7977,6 +8593,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.46,SPI3,agriculture,0.1806,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.46,SPI3,agriculture,0.1806,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.46,SPI3,agriculture,0.156,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.46,SPI3,agriculture,0.19974,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.46,SPI3,agriculture,0.187171428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.46,SPI3,agriculture,0.267342857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.46,SPI3,agriculture,0.171466666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.46,SPI3,agriculture,0.2582,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.46,SPI3,agriculture,0.322,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.46,SPI3,agriculture,0.156,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8015,6 +8635,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.45,SPI3,agriculture,0.1795,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.45,SPI3,agriculture,0.1795,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.45,SPI3,agriculture,0.155,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.45,SPI3,agriculture,0.19855,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.45,SPI3,agriculture,0.185928571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.45,SPI3,agriculture,0.265785714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.45,SPI3,agriculture,0.170444444444445,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.45,SPI3,agriculture,0.2565,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.45,SPI3,agriculture,0.32,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.45,SPI3,agriculture,0.155,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8053,6 +8677,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.44,SPI3,agriculture,0.1784,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.44,SPI3,agriculture,0.1784,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.44,SPI3,agriculture,0.154,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.44,SPI3,agriculture,0.19736,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.44,SPI3,agriculture,0.184685714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.44,SPI3,agriculture,0.264228571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.44,SPI3,agriculture,0.169422222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.44,SPI3,agriculture,0.2548,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.44,SPI3,agriculture,0.318,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.44,SPI3,agriculture,0.154,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8091,6 +8719,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.43,SPI3,agriculture,0.1773,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.43,SPI3,agriculture,0.1773,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.43,SPI3,agriculture,0.153,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.43,SPI3,agriculture,0.19617,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.43,SPI3,agriculture,0.183442857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.43,SPI3,agriculture,0.262671428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.43,SPI3,agriculture,0.1684,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.43,SPI3,agriculture,0.2531,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.43,SPI3,agriculture,0.316,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.43,SPI3,agriculture,0.153,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8129,6 +8761,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.42,SPI3,agriculture,0.1762,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.42,SPI3,agriculture,0.1762,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.42,SPI3,agriculture,0.152,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.42,SPI3,agriculture,0.19498,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.42,SPI3,agriculture,0.1822,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.42,SPI3,agriculture,0.261114285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.42,SPI3,agriculture,0.167377777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.42,SPI3,agriculture,0.2514,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.42,SPI3,agriculture,0.314,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.42,SPI3,agriculture,0.152,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8167,6 +8803,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.41,SPI3,agriculture,0.1751,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.41,SPI3,agriculture,0.1751,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.41,SPI3,agriculture,0.151,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.41,SPI3,agriculture,0.19379,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.41,SPI3,agriculture,0.180957142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.41,SPI3,agriculture,0.259557142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.41,SPI3,agriculture,0.166355555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.41,SPI3,agriculture,0.2497,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.41,SPI3,agriculture,0.312,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.41,SPI3,agriculture,0.151,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8205,6 +8845,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.4,SPI3,agriculture,0.174,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.4,SPI3,agriculture,0.174,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.4,SPI3,agriculture,0.15,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.4,SPI3,agriculture,0.1926,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.4,SPI3,agriculture,0.179714285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.4,SPI3,agriculture,0.258,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.4,SPI3,agriculture,0.165333333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.4,SPI3,agriculture,0.248,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.4,SPI3,agriculture,0.31,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.4,SPI3,agriculture,0.15,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8243,6 +8887,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.39,SPI3,agriculture,0.1729,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.39,SPI3,agriculture,0.1729,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.39,SPI3,agriculture,0.149,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.39,SPI3,agriculture,0.19141,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.39,SPI3,agriculture,0.178471428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.39,SPI3,agriculture,0.256442857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.39,SPI3,agriculture,0.164311111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.39,SPI3,agriculture,0.2463,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.39,SPI3,agriculture,0.308,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.39,SPI3,agriculture,0.149,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8281,6 +8929,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.38,SPI3,agriculture,0.1718,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.38,SPI3,agriculture,0.1718,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.38,SPI3,agriculture,0.148,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.38,SPI3,agriculture,0.19022,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.38,SPI3,agriculture,0.177228571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.38,SPI3,agriculture,0.254885714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.38,SPI3,agriculture,0.163288888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.38,SPI3,agriculture,0.2446,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.38,SPI3,agriculture,0.306,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.38,SPI3,agriculture,0.148,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8319,6 +8971,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.37,SPI3,agriculture,0.1707,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.37,SPI3,agriculture,0.1707,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.37,SPI3,agriculture,0.147,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.37,SPI3,agriculture,0.18903,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.37,SPI3,agriculture,0.175985714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.37,SPI3,agriculture,0.253328571428572,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.37,SPI3,agriculture,0.162266666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.37,SPI3,agriculture,0.2429,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.37,SPI3,agriculture,0.304,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.37,SPI3,agriculture,0.147,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8357,6 +9013,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.36,SPI3,agriculture,0.1696,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.36,SPI3,agriculture,0.1696,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.36,SPI3,agriculture,0.146,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.36,SPI3,agriculture,0.18784,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.36,SPI3,agriculture,0.174742857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.36,SPI3,agriculture,0.251771428571428,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.36,SPI3,agriculture,0.161244444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.36,SPI3,agriculture,0.2412,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.36,SPI3,agriculture,0.302,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.36,SPI3,agriculture,0.146,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8395,6 +9055,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.35,SPI3,agriculture,0.1685,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.35,SPI3,agriculture,0.1685,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.35,SPI3,agriculture,0.145,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.35,SPI3,agriculture,0.18665,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.35,SPI3,agriculture,0.1735,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.35,SPI3,agriculture,0.250214285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.35,SPI3,agriculture,0.160222222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.35,SPI3,agriculture,0.2395,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.35,SPI3,agriculture,0.3,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.35,SPI3,agriculture,0.145,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8433,6 +9097,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.34,SPI3,agriculture,0.1674,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.34,SPI3,agriculture,0.1674,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.34,SPI3,agriculture,0.144,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.34,SPI3,agriculture,0.18546,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.34,SPI3,agriculture,0.172257142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.34,SPI3,agriculture,0.248657142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.34,SPI3,agriculture,0.1592,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.34,SPI3,agriculture,0.2378,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.34,SPI3,agriculture,0.298,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.34,SPI3,agriculture,0.144,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8471,6 +9139,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.33,SPI3,agriculture,0.1663,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.33,SPI3,agriculture,0.1663,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.33,SPI3,agriculture,0.143,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.33,SPI3,agriculture,0.18427,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.33,SPI3,agriculture,0.171014285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.33,SPI3,agriculture,0.2471,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.33,SPI3,agriculture,0.158177777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.33,SPI3,agriculture,0.2361,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.33,SPI3,agriculture,0.296,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.33,SPI3,agriculture,0.143,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8509,6 +9181,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.32,SPI3,agriculture,0.1652,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.32,SPI3,agriculture,0.1652,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.32,SPI3,agriculture,0.142,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.32,SPI3,agriculture,0.18308,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.32,SPI3,agriculture,0.169771428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.32,SPI3,agriculture,0.245542857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.32,SPI3,agriculture,0.157155555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.32,SPI3,agriculture,0.2344,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.32,SPI3,agriculture,0.294,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.32,SPI3,agriculture,0.142,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8547,6 +9223,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.31,SPI3,agriculture,0.1641,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.31,SPI3,agriculture,0.1641,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.31,SPI3,agriculture,0.141,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.31,SPI3,agriculture,0.18189,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.31,SPI3,agriculture,0.168528571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.31,SPI3,agriculture,0.243985714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.31,SPI3,agriculture,0.156133333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.31,SPI3,agriculture,0.2327,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.31,SPI3,agriculture,0.292,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.31,SPI3,agriculture,0.141,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8585,6 +9265,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.3,SPI3,agriculture,0.163,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.3,SPI3,agriculture,0.163,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.3,SPI3,agriculture,0.14,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.3,SPI3,agriculture,0.1807,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.3,SPI3,agriculture,0.167285714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.3,SPI3,agriculture,0.242428571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.3,SPI3,agriculture,0.155111111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.3,SPI3,agriculture,0.231,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.3,SPI3,agriculture,0.29,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.3,SPI3,agriculture,0.14,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8623,6 +9307,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.29,SPI3,agriculture,0.1619,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.29,SPI3,agriculture,0.1619,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.29,SPI3,agriculture,0.139,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.29,SPI3,agriculture,0.17951,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.29,SPI3,agriculture,0.166042857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.29,SPI3,agriculture,0.240871428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.29,SPI3,agriculture,0.154088888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.29,SPI3,agriculture,0.2293,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.29,SPI3,agriculture,0.288,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.29,SPI3,agriculture,0.139,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8661,6 +9349,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.28,SPI3,agriculture,0.1608,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.28,SPI3,agriculture,0.1608,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.28,SPI3,agriculture,0.138,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.28,SPI3,agriculture,0.17832,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.28,SPI3,agriculture,0.1648,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.28,SPI3,agriculture,0.239314285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.28,SPI3,agriculture,0.153066666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.28,SPI3,agriculture,0.2276,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.28,SPI3,agriculture,0.286,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.28,SPI3,agriculture,0.138,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8699,6 +9391,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.27,SPI3,agriculture,0.1597,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.27,SPI3,agriculture,0.1597,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.27,SPI3,agriculture,0.137,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.27,SPI3,agriculture,0.17713,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.27,SPI3,agriculture,0.163557142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.27,SPI3,agriculture,0.237757142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.27,SPI3,agriculture,0.152044444444445,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.27,SPI3,agriculture,0.2259,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.27,SPI3,agriculture,0.284,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.27,SPI3,agriculture,0.137,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8737,6 +9433,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.26,SPI3,agriculture,0.1586,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.26,SPI3,agriculture,0.1586,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.26,SPI3,agriculture,0.136,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.26,SPI3,agriculture,0.17594,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.26,SPI3,agriculture,0.162314285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.26,SPI3,agriculture,0.2362,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.26,SPI3,agriculture,0.151022222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.26,SPI3,agriculture,0.2242,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.26,SPI3,agriculture,0.282,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.26,SPI3,agriculture,0.136,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8775,6 +9475,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.25,SPI3,agriculture,0.1575,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.25,SPI3,agriculture,0.1575,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.25,SPI3,agriculture,0.135,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.25,SPI3,agriculture,0.17475,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.25,SPI3,agriculture,0.161071428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.25,SPI3,agriculture,0.234642857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.25,SPI3,agriculture,0.15,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.25,SPI3,agriculture,0.2225,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.25,SPI3,agriculture,0.28,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.25,SPI3,agriculture,0.135,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8813,6 +9517,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.24,SPI3,agriculture,0.1564,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.24,SPI3,agriculture,0.1564,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.24,SPI3,agriculture,0.134,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.24,SPI3,agriculture,0.17356,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.24,SPI3,agriculture,0.159828571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.24,SPI3,agriculture,0.233085714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.24,SPI3,agriculture,0.148977777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.24,SPI3,agriculture,0.2208,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.24,SPI3,agriculture,0.278,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.24,SPI3,agriculture,0.134,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8851,6 +9559,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.23,SPI3,agriculture,0.1553,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.23,SPI3,agriculture,0.1553,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.23,SPI3,agriculture,0.133,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.23,SPI3,agriculture,0.17237,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.23,SPI3,agriculture,0.158585714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.23,SPI3,agriculture,0.231528571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.23,SPI3,agriculture,0.147955555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.23,SPI3,agriculture,0.2191,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.23,SPI3,agriculture,0.276,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.23,SPI3,agriculture,0.133,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8889,6 +9601,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.22,SPI3,agriculture,0.1542,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.22,SPI3,agriculture,0.1542,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.22,SPI3,agriculture,0.132,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.22,SPI3,agriculture,0.17118,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.22,SPI3,agriculture,0.157342857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.22,SPI3,agriculture,0.229971428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.22,SPI3,agriculture,0.146933333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.22,SPI3,agriculture,0.2174,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.22,SPI3,agriculture,0.274,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.22,SPI3,agriculture,0.132,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8927,6 +9643,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.21,SPI3,agriculture,0.1531,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.21,SPI3,agriculture,0.1531,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.21,SPI3,agriculture,0.131,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.21,SPI3,agriculture,0.16999,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.21,SPI3,agriculture,0.1561,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.21,SPI3,agriculture,0.228414285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.21,SPI3,agriculture,0.145911111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.21,SPI3,agriculture,0.2157,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.21,SPI3,agriculture,0.272,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.21,SPI3,agriculture,0.131,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -8965,6 +9685,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.2,SPI3,agriculture,0.152,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.2,SPI3,agriculture,0.152,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.2,SPI3,agriculture,0.13,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.2,SPI3,agriculture,0.1688,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.2,SPI3,agriculture,0.154857142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.2,SPI3,agriculture,0.226857142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.2,SPI3,agriculture,0.144888888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.2,SPI3,agriculture,0.214,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.2,SPI3,agriculture,0.27,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.2,SPI3,agriculture,0.13,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9003,6 +9727,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.19,SPI3,agriculture,0.1509,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.19,SPI3,agriculture,0.1509,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.19,SPI3,agriculture,0.129,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.19,SPI3,agriculture,0.16761,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.19,SPI3,agriculture,0.153614285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.19,SPI3,agriculture,0.2253,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.19,SPI3,agriculture,0.143866666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.19,SPI3,agriculture,0.2123,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.19,SPI3,agriculture,0.268,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.19,SPI3,agriculture,0.129,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9041,6 +9769,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.18,SPI3,agriculture,0.1498,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.18,SPI3,agriculture,0.1498,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.18,SPI3,agriculture,0.128,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.18,SPI3,agriculture,0.16642,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.18,SPI3,agriculture,0.152371428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.18,SPI3,agriculture,0.223742857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.18,SPI3,agriculture,0.142844444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.18,SPI3,agriculture,0.2106,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.18,SPI3,agriculture,0.266,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.18,SPI3,agriculture,0.128,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9079,6 +9811,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.17,SPI3,agriculture,0.1487,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.17,SPI3,agriculture,0.1487,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.17,SPI3,agriculture,0.127,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.17,SPI3,agriculture,0.16523,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.17,SPI3,agriculture,0.151128571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.17,SPI3,agriculture,0.222185714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.17,SPI3,agriculture,0.141822222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.17,SPI3,agriculture,0.2089,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.17,SPI3,agriculture,0.264,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.17,SPI3,agriculture,0.127,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9117,6 +9853,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.16,SPI3,agriculture,0.1476,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.16,SPI3,agriculture,0.1476,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.16,SPI3,agriculture,0.126,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.16,SPI3,agriculture,0.16404,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.16,SPI3,agriculture,0.149885714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.16,SPI3,agriculture,0.220628571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.16,SPI3,agriculture,0.1408,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.16,SPI3,agriculture,0.2072,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.16,SPI3,agriculture,0.262,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.16,SPI3,agriculture,0.126,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9155,6 +9895,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.15,SPI3,agriculture,0.1465,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.15,SPI3,agriculture,0.1465,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.15,SPI3,agriculture,0.125,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.15,SPI3,agriculture,0.16285,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.15,SPI3,agriculture,0.148642857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.15,SPI3,agriculture,0.219071428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.15,SPI3,agriculture,0.139777777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.15,SPI3,agriculture,0.2055,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.15,SPI3,agriculture,0.26,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.15,SPI3,agriculture,0.125,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9193,6 +9937,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.14,SPI3,agriculture,0.1454,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.14,SPI3,agriculture,0.1454,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.14,SPI3,agriculture,0.124,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.14,SPI3,agriculture,0.16166,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.14,SPI3,agriculture,0.1474,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.14,SPI3,agriculture,0.217514285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.14,SPI3,agriculture,0.138755555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.14,SPI3,agriculture,0.2038,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.14,SPI3,agriculture,0.258,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.14,SPI3,agriculture,0.124,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9231,6 +9979,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.13,SPI3,agriculture,0.1443,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.13,SPI3,agriculture,0.1443,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.13,SPI3,agriculture,0.123,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.13,SPI3,agriculture,0.16047,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.13,SPI3,agriculture,0.146157142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.13,SPI3,agriculture,0.215957142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.13,SPI3,agriculture,0.137733333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.13,SPI3,agriculture,0.2021,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.13,SPI3,agriculture,0.256,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.13,SPI3,agriculture,0.123,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9269,6 +10021,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.12,SPI3,agriculture,0.1432,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.12,SPI3,agriculture,0.1432,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.12,SPI3,agriculture,0.122,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.12,SPI3,agriculture,0.15928,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.12,SPI3,agriculture,0.144914285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.12,SPI3,agriculture,0.2144,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.12,SPI3,agriculture,0.136711111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.12,SPI3,agriculture,0.2004,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.12,SPI3,agriculture,0.254,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.12,SPI3,agriculture,0.122,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9307,6 +10063,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.11,SPI3,agriculture,0.1421,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.11,SPI3,agriculture,0.1421,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.11,SPI3,agriculture,0.121,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.11,SPI3,agriculture,0.15809,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.11,SPI3,agriculture,0.143671428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.11,SPI3,agriculture,0.212842857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.11,SPI3,agriculture,0.135688888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.11,SPI3,agriculture,0.1987,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.11,SPI3,agriculture,0.252,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.11,SPI3,agriculture,0.121,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9345,6 +10105,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.1,SPI3,agriculture,0.141,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.1,SPI3,agriculture,0.141,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.1,SPI3,agriculture,0.12,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.1,SPI3,agriculture,0.1569,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.1,SPI3,agriculture,0.142428571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.1,SPI3,agriculture,0.211285714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.1,SPI3,agriculture,0.134666666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.1,SPI3,agriculture,0.197,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.1,SPI3,agriculture,0.25,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.1,SPI3,agriculture,0.12,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9383,6 +10147,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.09,SPI3,agriculture,0.1399,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.09,SPI3,agriculture,0.1399,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.09,SPI3,agriculture,0.119,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.09,SPI3,agriculture,0.15571,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.09,SPI3,agriculture,0.141185714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.09,SPI3,agriculture,0.209728571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.09,SPI3,agriculture,0.133644444444445,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.09,SPI3,agriculture,0.1953,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.09,SPI3,agriculture,0.248,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.09,SPI3,agriculture,0.119,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9421,6 +10189,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.08,SPI3,agriculture,0.1388,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.08,SPI3,agriculture,0.1388,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.08,SPI3,agriculture,0.118,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.08,SPI3,agriculture,0.15452,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.08,SPI3,agriculture,0.139942857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.08,SPI3,agriculture,0.208171428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.08,SPI3,agriculture,0.132622222222222,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.08,SPI3,agriculture,0.1936,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.08,SPI3,agriculture,0.246,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.08,SPI3,agriculture,0.118,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9459,6 +10231,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.07,SPI3,agriculture,0.1377,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.07,SPI3,agriculture,0.1377,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.07,SPI3,agriculture,0.117,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.07,SPI3,agriculture,0.15333,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.07,SPI3,agriculture,0.1387,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.07,SPI3,agriculture,0.206614285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.07,SPI3,agriculture,0.1316,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.07,SPI3,agriculture,0.1919,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.07,SPI3,agriculture,0.244,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.07,SPI3,agriculture,0.117,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9497,6 +10273,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.06,SPI3,agriculture,0.1366,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.06,SPI3,agriculture,0.1366,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.06,SPI3,agriculture,0.116,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.06,SPI3,agriculture,0.15214,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.06,SPI3,agriculture,0.137457142857143,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.06,SPI3,agriculture,0.205057142857143,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.06,SPI3,agriculture,0.130577777777778,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.06,SPI3,agriculture,0.1902,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.06,SPI3,agriculture,0.242,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.06,SPI3,agriculture,0.116,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9535,6 +10315,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.05,SPI3,agriculture,0.1355,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.05,SPI3,agriculture,0.1355,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.05,SPI3,agriculture,0.115,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.05,SPI3,agriculture,0.15095,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.05,SPI3,agriculture,0.136214285714286,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.05,SPI3,agriculture,0.2035,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.05,SPI3,agriculture,0.129555555555556,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.05,SPI3,agriculture,0.1885,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.05,SPI3,agriculture,0.24,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.05,SPI3,agriculture,0.115,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9573,6 +10357,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.04,SPI3,agriculture,0.1344,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.04,SPI3,agriculture,0.1344,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.04,SPI3,agriculture,0.114,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.04,SPI3,agriculture,0.14976,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.04,SPI3,agriculture,0.134971428571429,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.04,SPI3,agriculture,0.201942857142857,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.04,SPI3,agriculture,0.128533333333333,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.04,SPI3,agriculture,0.1868,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.04,SPI3,agriculture,0.238,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.04,SPI3,agriculture,0.114,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9611,6 +10399,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.03,SPI3,agriculture,0.1333,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.03,SPI3,agriculture,0.1333,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.03,SPI3,agriculture,0.113,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.03,SPI3,agriculture,0.14857,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.03,SPI3,agriculture,0.133728571428571,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.03,SPI3,agriculture,0.200385714285714,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.03,SPI3,agriculture,0.127511111111111,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.03,SPI3,agriculture,0.1851,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.03,SPI3,agriculture,0.236,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.03,SPI3,agriculture,0.113,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9649,6 +10441,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.02,SPI3,agriculture,0.1322,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.02,SPI3,agriculture,0.1322,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.02,SPI3,agriculture,0.112,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.02,SPI3,agriculture,0.14738,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.02,SPI3,agriculture,0.132485714285714,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.02,SPI3,agriculture,0.198828571428571,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.02,SPI3,agriculture,0.126488888888889,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.02,SPI3,agriculture,0.1834,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.02,SPI3,agriculture,0.234,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.02,SPI3,agriculture,0.112,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9687,6 +10483,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1.01,SPI3,agriculture,0.1311,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1.01,SPI3,agriculture,0.1311,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1.01,SPI3,agriculture,0.111,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1.01,SPI3,agriculture,0.14619,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1.01,SPI3,agriculture,0.131242857142857,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1.01,SPI3,agriculture,0.197271428571429,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1.01,SPI3,agriculture,0.125466666666667,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1.01,SPI3,agriculture,0.1817,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1.01,SPI3,agriculture,0.232,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1.01,SPI3,agriculture,0.111,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3
@@ -9725,6 +10525,10 @@ present,,,,-0.07402026,,Compound,HI,,Acre,,,high,
 ,-1,SPI3,agriculture,0.13,,Drought,SPI3,,Minas Gerais,Corn,Summer,,0.15
 ,-1,SPI3,agriculture,0.13,,Drought,SPI3,,Minas Gerais,Soybean,Summer,,0.15
 ,-1,SPI3,agriculture,0.11,,Drought,SPI3,,Minas Gerais,Sugarcane,Summer,,0.3
+,-1,SPI3,agriculture,0.145,,Drought,SPI3,,Other,Coffee,Spring,,0.25
+,-1,SPI3,agriculture,0.13,,Drought,SPI3,,Other,Corn,Summer,,0.15
+,-1,SPI3,agriculture,0.195714285714286,,Drought,SPI3,,Other,Soybean,Summer,,0.15
+,-1,SPI3,agriculture,0.124444444444444,,Drought,SPI3,,Other,Sugarcane,Summer,,0.3
 ,-1,SPI3,agriculture,0.18,,Drought,SPI3,,Parana,Corn,Summer,,0.15
 ,-1,SPI3,agriculture,0.23,,Drought,SPI3,,Parana,Soybean,Summer,,0.15
 ,-1,SPI3,agriculture,0.11,,Drought,SPI3,,Parana,Sugarcane,Summer,,0.3

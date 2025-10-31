@@ -224,33 +224,16 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     dplyr::select("province", "subtype", "season", "damage_factor_value", "off_window_value", "hazard_intensity_num") |>
     dplyr::rename(growing_season = "season") # Rename to avoid conflict with event season
 
-  # Create "Other" province entries for each crop/intensity/season by averaging across all provinces
-  drought_factors_other_province <- drought_factors |>
-    dplyr::group_by(.data$subtype, .data$growing_season, .data$hazard_intensity_num) |>
-    dplyr::summarize(
-      damage_factor_value = mean(.data$damage_factor_value, na.rm = TRUE),
-      off_window_value = mean(.data$off_window_value, na.rm = TRUE),
-      province = "Other",
-      .groups = "drop"
-    ) |>
-    dplyr::select("province", "subtype", "growing_season", "damage_factor_value", "off_window_value", "hazard_intensity_num")
-  
-  # Create "Other" crop entries by duplicating Soybean data (for missing crop types)
+  # Create "Other" crop type by duplicating Soybean data (for missing crop types)
+  # "Other" province already exists in the input data
   drought_factors_other_crop <- drought_factors |>
     dplyr::filter(.data$subtype == "Soybean") |>
     dplyr::mutate(subtype = "Other")
   
-  # Also create "Other" crop + "Other" province combination
-  drought_factors_other_both <- drought_factors_other_province |>
-    dplyr::filter(.data$subtype == "Soybean") |>
-    dplyr::mutate(subtype = "Other")
-  
-  # Combine all damage factors
+  # Combine original data with "Other" crop type
   drought_factors <- dplyr::bind_rows(
-    drought_factors, 
-    drought_factors_other_province,
-    drought_factors_other_crop,
-    drought_factors_other_both
+    drought_factors,
+    drought_factors_other_crop
   )
 
   # Get list of province+crop combinations that exist (for matching logic)
@@ -318,17 +301,29 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
       drought_factors,
       by = c("province_for_match" = "province", "subtype_for_match" = "subtype", "season" = "growing_season"),
       relationship = "many-to-many"
-    ) |>
-    dplyr::mutate(
-      intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
-    ) |>
-    dplyr::group_by(.data$asset_id) |>
-    dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
-    dplyr::ungroup() |>
-    dplyr::mutate(
-      match_type = "exact_season",
-      growing_season = .data$season # After join, season contains the matched growing season
     )
+
+  # Only process intensity matching if we have matches
+  if (nrow(merged_exact) > 0) {
+    merged_exact <- merged_exact |>
+      dplyr::mutate(
+        intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
+      ) |>
+      dplyr::group_by(.data$asset_id) |>
+      dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
+      dplyr::ungroup() |>
+      dplyr::mutate(
+        match_type = "exact_season",
+        growing_season = .data$season # After join, season contains the matched growing season
+      )
+  } else {
+    # No matches found, create empty data frame with expected structure
+    merged_exact <- merged_exact |>
+      dplyr::mutate(
+        match_type = "exact_season",
+        growing_season = .data$season
+      )
+  }
 
   # Step 2: OFF-SEASON MATCH - province + subtype (all seasons, will average)
   # Join handles all combinations: actual prov + actual crop, actual prov + Other crop, Other prov + actual crop, Other prov + Other crop
@@ -345,14 +340,22 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
         drought_factors,
         by = c("province_for_match" = "province", "subtype_for_match" = "subtype"),
         relationship = "many-to-many"
-      ) |>
-      dplyr::mutate(
-        intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
-      ) |>
-      dplyr::group_by(.data$asset_id) |>
-      dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
-      dplyr::ungroup() |>
-      dplyr::mutate(match_type = "off_season")
+      )
+
+    # Only process intensity matching if we have matches
+    if (nrow(merged_off_season) > 0) {
+      merged_off_season <- merged_off_season |>
+        dplyr::mutate(
+          intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
+        ) |>
+        dplyr::group_by(.data$asset_id) |>
+        dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
+        dplyr::ungroup() |>
+        dplyr::mutate(match_type = "off_season")
+    } else {
+      # No matches found, create empty data frame
+      merged_off_season <- merged_off_season
+    }
   }
 
   # Combine all matches (no Step 3 needed - "Other" crop is already in damage factors)

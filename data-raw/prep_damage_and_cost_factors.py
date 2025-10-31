@@ -25,9 +25,7 @@ df.loc[df["hazard_indicator"] == "HI_days", "hazard_indicator"] = "HI"
 df = df.loc[~((df["hazard_type"] == "Drought") & (df["metric"] != "mean")), :]
 df.loc[df["hazard_type"] == "Drought", "metric"] = None
 
-df = df[
-    ~df["province"].isin(["Rio Grande do Norte", "Rio de Janeiro", "Brazil", "Other"])
-]
+df = df[~df["province"].isin(["Rio Grande do Norte", "Rio de Janeiro", "Brazil"])]
 
 df[df == "-"] = None
 
