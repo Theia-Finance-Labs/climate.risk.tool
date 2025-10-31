@@ -193,23 +193,24 @@ join_compound_damage_factors <- function(compound_assets, damage_factors_df, cna
 
 #' Join Drought damage factors for agriculture assets with crop/province/season matching using closest intensity (internal function)
 #'
-#' Handles crops with multiple growing seasons (e.g., Sugarcane with Winter and Autumn).
-#' - If user-selected season matches a growing season: use that season's damage factor
-#' - If user-selected season doesn't match any growing season: average all growing seasons'
-#'   damage factors and off_windows, then apply: avg_damage_factor * avg_off_window
+#' Matching strategy (in order of priority):
+#' 1. Province + Subtype: First attempts to match the asset's province and crop subtype
+#' 2. Fallback Province: If province not found, uses the first available province with data for that crop
+#' 3. No match: If crop not found at all, sets damage_factor = 0 with NA for growing_season and off_window
 #'
-#' Province fallback strategy:
-#' - First tries to match the asset's specific province
-#' - If province not found, uses the first available province that has data for the crop
-#' - If no crop data found at all, sets damage_factor = 0 with NA for growing_season and off_window
+#' After finding the correct province and crop:
+#' - Finds the closest intensity match (caps at -3 for values below -3)
+#' - For multi-season crops (e.g., Sugarcane with Winter and Autumn):
+#'   * If user-selected season matches a growing season: use that season's damage factor
+#'   * If user-selected season doesn't match: average all growing seasons' damage factors and off_windows,
+#'     then apply: avg_damage_factor * avg_off_window
 #'
 #' @param drought_assets Data frame with Drought hazard assets including season column from events
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
 #' @return Data frame with damage_factor, growing_season, off_window, and season columns (cost_factor and business_disruption are NA)
 #' @noRd
 join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
-  # Filter damage factors for drought (hazard_type = "drought", hazard_indicator = "SPI3")
-  # Note: metric column was removed from damage factors file
+  # Filter damage factors for drought (hazard_type = "Drought", hazard_indicator = "SPI3")
   drought_factors <- damage_factors_df |>
     dplyr::filter(
       .data$hazard_type == "Drought",
@@ -217,163 +218,225 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     ) |>
     dplyr::mutate(
       hazard_intensity_num = as.numeric(.data$hazard_intensity),
-      damage_factor = as.numeric(.data$damage_factor),
-      off_window = as.numeric(.data$off_window)
+      damage_factor_value = as.numeric(.data$damage_factor),
+      off_window_value = as.numeric(.data$off_window)
     ) |>
-    dplyr::select("province", "subtype", "season", "damage_factor", "off_window", "hazard_intensity_num") |>
+    dplyr::select("province", "subtype", "season", "damage_factor_value", "off_window_value", "hazard_intensity_num") |>
     dplyr::rename(growing_season = "season") # Rename to avoid conflict with event season
 
-  # Prepare assets: normalize crop subtype and province
+  # Create "Other" province entries for each crop/intensity/season by averaging across all provinces
+  drought_factors_other_province <- drought_factors |>
+    dplyr::group_by(.data$subtype, .data$growing_season, .data$hazard_intensity_num) |>
+    dplyr::summarize(
+      damage_factor_value = mean(.data$damage_factor_value, na.rm = TRUE),
+      off_window_value = mean(.data$off_window_value, na.rm = TRUE),
+      province = "Other",
+      .groups = "drop"
+    ) |>
+    dplyr::select("province", "subtype", "growing_season", "damage_factor_value", "off_window_value", "hazard_intensity_num")
+  
+  # Create "Other" crop entries by duplicating Soybean data (for missing crop types)
+  drought_factors_other_crop <- drought_factors |>
+    dplyr::filter(.data$subtype == "Soybean") |>
+    dplyr::mutate(subtype = "Other")
+  
+  # Also create "Other" crop + "Other" province combination
+  drought_factors_other_both <- drought_factors_other_province |>
+    dplyr::filter(.data$subtype == "Soybean") |>
+    dplyr::mutate(subtype = "Other")
+  
+  # Combine all damage factors
+  drought_factors <- dplyr::bind_rows(
+    drought_factors, 
+    drought_factors_other_province,
+    drought_factors_other_crop,
+    drought_factors_other_both
+  )
+
+  # Get list of provinces that exist in damage factors (excluding "Other")
+  available_provinces <- drought_factors |>
+    dplyr::filter(.data$province != "Other") |>
+    dplyr::pull(.data$province) |>
+    unique()
+  
+  # Get list of crops that exist in damage factors (excluding "Other")
+  available_crops <- drought_factors |>
+    dplyr::filter(.data$subtype != "Other") |>
+    dplyr::pull(.data$subtype) |>
+    unique()
+  
+  # Prepare assets: map to available provinces/crops or use "Other"
   drought_assets_prepared <- drought_assets |>
     dplyr::mutate(
-      # Normalize subtype: missing values become "Other"
-      asset_subtype_normalized = dplyr::if_else(
-        is.na(.data$asset_subtype) | .data$asset_subtype == "",
-        "Other",
-        .data$asset_subtype
+      # If subtype is missing or not in available crops, use "Other"
+      subtype_for_match = dplyr::case_when(
+        is.na(.data$asset_subtype) | .data$asset_subtype == "" ~ "Other",
+        !(.data$asset_subtype %in% available_crops) ~ .data$asset_subtype, # Keep original for first try
+        TRUE ~ .data$asset_subtype
       ),
-      # Normalize province for matching: missing values will be matched to "Other"
-      province_normalized = dplyr::if_else(
-        is.na(.data$province) | .data$province == "",
-        "Other",
-        .data$province
+      # If province is missing or not in available provinces, use "Other" for matching
+      province_for_match = dplyr::case_when(
+        is.na(.data$province) | .data$province == "" ~ "Other",
+        !(.data$province %in% available_provinces) ~ "Other",  # Use "Other" if province doesn't exist
+        TRUE ~ .data$province
       ),
-      # Use raw intensity for matching (will cap < -3 to -3, but > -1 means no damage)
-      intensity_for_match = dplyr::case_when(
-        .data$hazard_intensity < -3 ~ -3,
-        TRUE ~ as.numeric(.data$hazard_intensity)
-      )
+      # Asset identifier for tracking
+      asset_id = dplyr::row_number()
+    )
+  
+  # Handle assets with intensity > -1 (no damage) early
+  assets_no_damage <- drought_assets_prepared |>
+    dplyr::filter(.data$hazard_intensity > -1) |>
+    dplyr::mutate(
+      damage_factor = 0,
+      off_window = NA_real_,
+      growing_season = NA_character_,
+      cost_factor = NA_real_,
+      business_disruption = NA_real_
+    ) |>
+    dplyr::select(-dplyr::any_of(c("subtype_for_match", "province_for_match", "asset_id")))
+  
+  # Continue with assets that need damage factor lookup (intensity <= -1)
+  drought_assets_prepared <- drought_assets_prepared |>
+    dplyr::filter(.data$hazard_intensity <= -1)
+
+  # Step 1: EXACT MATCH - Try province + subtype + season combinations
+  # Priority: actual province + actual crop, then fallbacks
+  merged_exact <- drought_assets_prepared |>
+    dplyr::inner_join(
+      drought_factors,
+      by = c("province_for_match" = "province", "subtype_for_match" = "subtype", "season" = "growing_season"),
+      relationship = "many-to-many"
+    ) |>
+    dplyr::mutate(
+      intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
+    ) |>
+    dplyr::group_by(.data$asset_id) |>
+    dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
+    dplyr::ungroup() |>
+    dplyr::mutate(
+      match_type = "exact_season",
+      growing_season = .data$season # After join, season contains the matched growing season
     )
 
-  # Process each asset to handle multiple growing seasons
-  result_list <- vector("list", nrow(drought_assets_prepared))
+  # Step 2: OFF-SEASON MATCH - province + subtype (all seasons, will average)
+  # Join handles all combinations: actual prov + actual crop, actual prov + Other crop, Other prov + actual crop, Other prov + Other crop
+  assets_no_exact_match <- drought_assets_prepared |>
+    dplyr::anti_join(
+      merged_exact |> dplyr::select("asset_id") |> dplyr::distinct(),
+      by = "asset_id"
+    )
 
-  for (i in seq_len(nrow(drought_assets_prepared))) {
-    asset_row <- drought_assets_prepared[i, ]
-    asset_intensity <- asset_row$intensity_for_match
-    original_intensity <- as.numeric(drought_assets[i, ]$hazard_intensity)
-    user_season <- as.character(asset_row$season)
-
-    # Check if intensity > -1 (no damage) - check original intensity
-    if (original_intensity > -1) {
-      result_list[[i]] <- asset_row |>
-        dplyr::mutate(
-          damage_factor = 0,
-          cost_factor = NA_real_,
-          business_disruption = NA_real_,
-          growing_season = NA_character_,
-          off_window = NA_real_
-        )
-      next
-    }
-
-    # First attempt: match on specific province and subtype
-    factors_for_crop <- drought_factors |>
-      dplyr::filter(
-        .data$province == asset_row$province_normalized,
-        .data$subtype == asset_row$asset_subtype_normalized
-      )
-
-    # If no specific match, try fallback provinces in order
-    # Strategy: use the first available province for this crop
-    if (nrow(factors_for_crop) == 0) {
-      # Get all provinces that have this crop type
-      available_provinces <- drought_factors |>
-        dplyr::filter(.data$subtype == asset_row$asset_subtype_normalized) |>
-        dplyr::pull(.data$province) |>
-        unique()
-
-      if (length(available_provinces) > 0) {
-        # Use the first available province as fallback
-        fallback_province <- available_provinces[1]
-        factors_for_crop <- drought_factors |>
-          dplyr::filter(
-            .data$province == fallback_province,
-            .data$subtype == asset_row$asset_subtype_normalized
-          )
-      }
-    }
-
-    # If still no match, set to zero
-    if (nrow(factors_for_crop) == 0) {
-      result_list[[i]] <- asset_row |>
-        dplyr::mutate(
-          damage_factor = 0,
-          cost_factor = NA_real_,
-          business_disruption = NA_real_,
-          growing_season = NA_character_,
-          off_window = NA_real_
-        )
-      next
-    }
-
-    # Find all growing seasons for this crop (at closest intensity match)
-    # First, find the closest intensity
-    closest_intensity <- factors_for_crop |>
-      dplyr::mutate(
-        intensity_diff = abs(.data$hazard_intensity_num - asset_intensity)
+  merged_off_season <- NULL
+  if (nrow(assets_no_exact_match) > 0) {
+    merged_off_season <- assets_no_exact_match |>
+      dplyr::inner_join(
+        drought_factors,
+        by = c("province_for_match" = "province", "subtype_for_match" = "subtype"),
+        relationship = "many-to-many"
       ) |>
-      dplyr::arrange(.data$intensity_diff) |>
-      dplyr::slice(1) |>
-      dplyr::pull(.data$hazard_intensity_num)
-
-    # Get all seasons at this intensity (handles multi-season crops)
-    all_seasons_for_crop <- factors_for_crop |>
-      dplyr::filter(.data$hazard_intensity_num == closest_intensity)
-
-    # Check if user-selected season matches any growing season
-    season_match <- all_seasons_for_crop |>
-      dplyr::filter(.data$growing_season == user_season)
-
-    if (nrow(season_match) > 0) {
-      # CASE 1: User season matches a growing season - use that season's factors
-      result_list[[i]] <- asset_row |>
-        dplyr::bind_cols(
-          season_match |>
-            dplyr::slice(1) |>
-            dplyr::select("damage_factor", "off_window", "growing_season") |>
-            dplyr::mutate(
-              damage_factor = as.numeric(.data$damage_factor),
-              off_window = as.numeric(.data$off_window)
-            )
-        ) |>
-        dplyr::mutate(
-          cost_factor = NA_real_,
-          business_disruption = NA_real_
-        )
-    } else {
-      # CASE 2: User season doesn't match - average all growing seasons
-      avg_factors <- all_seasons_for_crop |>
-        dplyr::summarize(
-          avg_damage_factor = mean(.data$damage_factor, na.rm = TRUE),
-          avg_off_window = mean(.data$off_window, na.rm = TRUE),
-          seasons_list = paste(sort(unique(.data$growing_season)), collapse = ", "),
-          .groups = "drop"
-        )
-
-      # Applied damage = avg_damage_factor * avg_off_window
-      applied_damage <- avg_factors$avg_damage_factor * avg_factors$avg_off_window
-
-      result_list[[i]] <- asset_row |>
-        dplyr::mutate(
-          damage_factor = applied_damage,
-          off_window = avg_factors$avg_off_window,
-          growing_season = paste0("Averaged (", avg_factors$seasons_list, ")"),
-          cost_factor = NA_real_,
-          business_disruption = NA_real_
-        )
-    }
+      dplyr::mutate(
+        intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
+      ) |>
+      dplyr::group_by(.data$asset_id) |>
+      dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
+      dplyr::ungroup() |>
+      dplyr::mutate(match_type = "off_season")
   }
 
-  drought_merged <- dplyr::bind_rows(result_list)
+  # Combine all matches (no Step 3 needed - "Other" crop is already in damage factors)
+  all_matched <- dplyr::bind_rows(merged_exact, merged_off_season)
 
-  # Clean up temporary columns but KEEP growing_season, off_window, and season
-  drought_merged <- drought_merged |>
+  # Step 4: Process results - intensity matching already done in earlier steps
+  if (nrow(all_matched) > 0) {
+    # For exact_season: use damage factor directly
+    # These already have closest intensity from Step 1
+    result_exact_matches <- all_matched |>
+      dplyr::filter(.data$match_type == "exact_season") |>
+      dplyr::group_by(.data$asset_id) |>
+      dplyr::slice(1) |>
+      dplyr::ungroup() |>
+      dplyr::mutate(
+        damage_factor = .data$damage_factor_value,
+        off_window = .data$off_window_value
+        # growing_season is already in the data from the join
+      )
+
+    # For off_season: average and apply off_window
+    # These already have closest intensity from Step 2
+    off_season_data <- all_matched |>
+      dplyr::filter(.data$match_type == "off_season")
+    
+    if (nrow(off_season_data) > 0) {
+      result_off_season_matches <- off_season_data |>
+        dplyr::group_by(.data$asset_id) |>
+        dplyr::summarize(
+          # Keep all asset columns from first row
+          dplyr::across(dplyr::any_of(names(drought_assets_prepared)), dplyr::first),
+          # Average the damage factors and off_windows across all growing seasons
+          avg_damage_factor = mean(.data$damage_factor_value, na.rm = TRUE),
+          avg_off_window = mean(.data$off_window_value, na.rm = TRUE),
+          # Collect all growing seasons for this crop/province
+          seasons_list = paste(sort(unique(dplyr::pick("growing_season")$growing_season)), collapse = ", "),
+          .groups = "drop"
+        ) |>
+        dplyr::mutate(
+          damage_factor = .data$avg_damage_factor * .data$avg_off_window,
+          off_window = .data$avg_off_window,
+          growing_season = paste0("Averaged (", .data$seasons_list, ")")
+        ) |>
+        dplyr::select(-"avg_damage_factor", -"avg_off_window", -"seasons_list")
+    } else {
+      result_off_season_matches <- data.frame()
+    }
+
+    # Only keep off-season assets that weren't already exact matched
+    if (nrow(result_off_season_matches) > 0 && nrow(result_exact_matches) > 0) {
+      assets_with_exact_match <- result_exact_matches |> dplyr::pull(.data$asset_id)
+      result_off_season_matches <- result_off_season_matches |>
+        dplyr::filter(!(.data$asset_id %in% assets_with_exact_match))
+    }
+
+    # Combine both cases
+    result_with_factors <- dplyr::bind_rows(
+      result_exact_matches |> dplyr::select(dplyr::any_of(c(names(drought_assets_prepared), "damage_factor", "off_window", "growing_season"))),
+      result_off_season_matches
+    )
+  } else {
+    result_with_factors <- data.frame()
+  }
+
+  # Step 5: Handle unmatched assets (those that didn't match any crop/province)
+  all_asset_ids <- if (nrow(result_with_factors) > 0) {
+    result_with_factors |> dplyr::pull(.data$asset_id)
+  } else {
+    integer(0)
+  }
+
+  result_no_factors <- drought_assets_prepared |>
+    dplyr::filter(!(.data$asset_id %in% all_asset_ids)) |>
+    dplyr::mutate(
+      damage_factor = 0, # No match means no damage
+      off_window = NA_real_,
+      growing_season = NA_character_
+    )
+
+  # Combine all results (matched, unmatched, and no-damage assets)
+  drought_merged <- dplyr::bind_rows(result_with_factors, result_no_factors, assets_no_damage) |>
+    dplyr::mutate(
+      cost_factor = NA_real_,
+      business_disruption = NA_real_
+    ) |>
     dplyr::select(
       -dplyr::any_of(c(
-        "asset_subtype_normalized",
-        "province_normalized",
-        "intensity_for_match"
+        "subtype_for_match",
+        "province_for_match",
+        "asset_id",
+        "intensity_diff",
+        "match_type",
+        "damage_factor_value",
+        "off_window_value",
+        "hazard_intensity_num"
       ))
     )
 
