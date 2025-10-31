@@ -11,42 +11,47 @@ mod_profit_pathways_ui <- function(id) {
       shiny::h3("Asset Profit Pathways", class = "results-title"),
       shiny::p(
         "Compare baseline and shock scenarios for asset profitability over time. ",
-        "Click on table rows below to highlight specific assets in the charts.",
+        "Select assets from the table below to highlight their trajectories.",
         class = "text-muted",
-        style = "margin-bottom: 2rem;"
+        style = "margin-bottom: 1rem;"
       ),
       
-      # Two plots side by side
-      shiny::fluidRow(
-        shiny::column(
-          width = 6,
-          shiny::div(
-            class = "chart-container",
-            shiny::h4("Baseline Scenario", class = "chart-title"),
-            plotly::plotlyOutput(ns("profit_baseline"), height = "500px")
-          )
-        ),
-        shiny::column(
-          width = 6,
-          shiny::div(
-            class = "chart-container",
-            shiny::h4("Shock Scenario", class = "chart-title"),
-            plotly::plotlyOutput(ns("profit_shock"), height = "500px")
-          )
+      # Controls: Log scale toggle
+      shiny::div(
+        style = "margin-bottom: 2rem;",
+        shiny::checkboxInput(
+          ns("log_scale"),
+          "Use logarithmic scale for Y-axis",
+          value = FALSE
         )
       ),
       
-      # Asset results table
+      # Asset selection table at top
       shiny::div(
-        class = "results-section",
-        style = "margin-top: 3rem;",
-        shiny::h4("Asset Exposure Details", class = "section-header"),
+        class = "asset-selection-section",
+        style = "margin-bottom: 2rem;",
+        shiny::h4("Asset Selection", class = "section-header"),
         shiny::p(
-          "Click on rows to highlight the corresponding asset trajectories in the charts above.",
+          "Click on rows to select assets and highlight their trajectories in the charts below.",
           class = "text-muted",
-          style = "margin-bottom: 1rem;"
+          style = "margin-bottom: 1rem; font-size: 0.9em;"
         ),
-        DT::dataTableOutput(ns("assets_table"))
+        DT::dataTableOutput(ns("assets_selection_table"))
+      ),
+      
+      # Baseline plot on top
+      shiny::div(
+        class = "chart-container",
+        style = "margin-bottom: 2rem;",
+        shiny::h4("Baseline Scenario", class = "chart-title"),
+        plotly::plotlyOutput(ns("profit_baseline"), height = "500px")
+      ),
+      
+      # Shock plot below
+      shiny::div(
+        class = "chart-container",
+        shiny::h4("Shock Scenario", class = "chart-title"),
+        plotly::plotlyOutput(ns("profit_shock"), height = "500px")
       )
     )
   )
@@ -64,38 +69,17 @@ mod_profit_pathways_server <- function(id, results_reactive) {
     # Store selected assets
     selected_assets <- shiny::reactiveVal(character(0))
 
-    # Track if we have results
-    has_results <- shiny::reactiveVal(FALSE)
-
-    # Observe results changes and trigger updates
-    shiny::observe({
-      results <- results_reactive()
-      new_has_results <- !is.null(results) && !is.null(results$assets_yearly)
-      has_results(new_has_results)
-      message("[mod_profit_pathways] has_results updated to: ", new_has_results)
-    })
-
     # Prepare baseline profit trajectories
     baseline_data <- shiny::reactive({
-      message("[mod_profit_pathways] baseline_data reactive triggered")
       results <- results_reactive()
-      if (is.null(results)) {
-        message("[mod_profit_pathways] Results is NULL")
+      if (is.null(results) || is.null(results$assets_yearly)) {
         return(NULL)
       }
-      if (is.null(results$assets_yearly)) {
-        message("[mod_profit_pathways] results$assets_yearly is NULL")
-        message("[mod_profit_pathways] Available result names: ", paste(names(results), collapse = ", "))
-        return(NULL)
-      }
-
-      message("[mod_profit_pathways] Processing baseline data, nrows=", nrow(results$assets_yearly))
       prepare_profit_trajectories(results$assets_yearly, "baseline")
     })
 
     # Prepare shock profit trajectories (first non-baseline scenario)
     shock_data <- shiny::reactive({
-      message("[mod_profit_pathways] shock_data reactive triggered")
       results <- results_reactive()
       if (is.null(results) || is.null(results$assets_yearly)) {
         return(NULL)
@@ -103,49 +87,19 @@ mod_profit_pathways_server <- function(id, results_reactive) {
 
       # Get first shock scenario (not baseline)
       scenarios <- unique(results$assets_yearly$scenario)
-      message("[mod_profit_pathways] Available scenarios: ", paste(scenarios, collapse = ", "))
       shock_scenario <- scenarios[scenarios != "baseline"][1]
 
       if (is.na(shock_scenario)) {
-        message("[mod_profit_pathways] No shock scenario found")
         return(NULL)
       }
 
-      message("[mod_profit_pathways] Using shock scenario: ", shock_scenario)
       prepare_profit_trajectories(results$assets_yearly, shock_scenario)
     })
     
     # Create baseline plot
     output$profit_baseline <- plotly::renderPlotly({
-      message("[mod_profit_pathways] Baseline plot render triggered - has_results: ", has_results())
-
-      # Depend on has_results to trigger re-rendering
-      if (!has_results()) {
-        message("[mod_profit_pathways] Returning empty baseline plot - no results")
-        return(
-          plotly::plot_ly() |>
-            plotly::add_text(
-              x = 0.5, y = 0.5,
-              text = "No data available. Run analysis first.",
-              textposition = "middle center",
-              showlegend = FALSE
-            ) |>
-            plotly::layout(
-              xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
-              yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
-            )
-        )
-      }
-
-      # Get results and selected assets
-      results <- results_reactive()
-      selected <- selected_assets()
-
-      message("[mod_profit_pathways] Baseline plot - processing data")
-      data <- prepare_profit_trajectories(results$assets_yearly, "baseline")
-
+      data <- baseline_data()
       if (is.null(data) || nrow(data) == 0) {
-        message("[mod_profit_pathways] No baseline data to plot")
         return(
           plotly::plot_ly() |>
             plotly::add_text(
@@ -160,63 +114,19 @@ mod_profit_pathways_server <- function(id, results_reactive) {
             )
         )
       }
-
-      message("[mod_profit_pathways] Creating baseline plot with ", nrow(data), " rows")
-      create_profit_plot(data, selected, "Baseline")
+      
+      create_profit_plot(
+        data, 
+        selected_assets(), 
+        "Baseline",
+        log_scale = input$log_scale
+      )
     })
     
     # Create shock plot
     output$profit_shock <- plotly::renderPlotly({
-      message("[mod_profit_pathways] Shock plot render triggered - has_results: ", has_results())
-
-      # Depend on has_results to trigger re-rendering
-      if (!has_results()) {
-        message("[mod_profit_pathways] Returning empty shock plot - no results")
-        return(
-          plotly::plot_ly() |>
-            plotly::add_text(
-              x = 0.5, y = 0.5,
-              text = "No data available. Run analysis first.",
-              textposition = "middle center",
-              showlegend = FALSE
-            ) |>
-            plotly::layout(
-              xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
-              yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
-            )
-        )
-      }
-
-      # Get results and selected assets
-      results <- results_reactive()
-      selected <- selected_assets()
-
-      # Get shock scenario
-      scenarios <- unique(results$assets_yearly$scenario)
-      shock_scenario <- scenarios[scenarios != "baseline"][1]
-
-      if (is.na(shock_scenario)) {
-        message("[mod_profit_pathways] No shock scenario found")
-        return(
-          plotly::plot_ly() |>
-            plotly::add_text(
-              x = 0.5, y = 0.5,
-              text = "No shock scenario available",
-              textposition = "middle center",
-              showlegend = FALSE
-            ) |>
-            plotly::layout(
-              xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
-              yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
-            )
-        )
-      }
-
-      message("[mod_profit_pathways] Shock plot - processing data for scenario: ", shock_scenario)
-      data <- prepare_profit_trajectories(results$assets_yearly, shock_scenario)
-
+      data <- shock_data()
       if (is.null(data) || nrow(data) == 0) {
-        message("[mod_profit_pathways] No shock data to plot")
         return(
           plotly::plot_ly() |>
             plotly::add_text(
@@ -231,73 +141,96 @@ mod_profit_pathways_server <- function(id, results_reactive) {
             )
         )
       }
-
-      message("[mod_profit_pathways] Creating shock plot with ", nrow(data), " rows")
-      create_profit_plot(data, selected, "Shock")
+      
+      create_profit_plot(
+        data, 
+        selected_assets(), 
+        "Shock",
+        log_scale = input$log_scale
+      )
     })
     
-    # Assets table
-    output$assets_table <- DT::renderDataTable({
+    # Asset selection table - unique assets with metadata
+    output$assets_selection_table <- DT::renderDataTable({
       results <- results_reactive()
       if (is.null(results) || is.null(results$assets_factors)) {
         return(NULL)
       }
       
-      assets <- results$assets_factors
+      # Get unique assets with their metadata
+      # Check which columns exist before selecting
+      available_cols <- names(results$assets_factors)
+      cols_to_select <- c("asset", "asset_category")
       
-      # Format numeric columns for better display
-      numeric_cols <- sapply(assets, is.numeric)
-      for (col in names(assets)[numeric_cols]) {
-        if (grepl("ratio|intensity|factor", col)) {
-          assets[[col]] <- round(assets[[col]], 4)
-        } else if (grepl("cost|value|revenue", col)) {
-          assets[[col]] <- round(assets[[col]], 0)
-        }
+      # Add optional columns if they exist
+      if ("asset_subtype" %in% available_cols) {
+        cols_to_select <- c(cols_to_select, "asset_subtype")
+      }
+      if ("cnae" %in% available_cols) {
+        cols_to_select <- c(cols_to_select, "cnae")
+      } else if ("sector" %in% available_cols) {
+        cols_to_select <- c(cols_to_select, "sector")
       }
       
-      # Reorder columns to show key columns prominently
-      priority_cols <- c("asset", "company", "event_id", "hazard_type", "matching_method", "hazard_intensity", "damage_factor")
-      existing_priority <- intersect(priority_cols, names(assets))
-      other_cols <- setdiff(names(assets), existing_priority)
+      assets_unique <- results$assets_factors |>
+        dplyr::select(dplyr::all_of(cols_to_select)) |>
+        dplyr::distinct() |>
+        dplyr::arrange(.data$asset)
       
-      if (length(existing_priority) > 0) {
-        col_order <- c(existing_priority, other_cols)
-        assets <- assets[, col_order, drop = FALSE]
+      # Rename columns for display
+      display_names <- c("Asset", "Category")
+      if ("asset_subtype" %in% cols_to_select) {
+        display_names <- c(display_names, "Subtype")
       }
+      if ("cnae" %in% cols_to_select || "sector" %in% cols_to_select) {
+        display_names <- c(display_names, "CNAE/Sector")
+      }
+      colnames(assets_unique) <- display_names
       
       DT::datatable(
-        assets,
+        assets_unique,
         options = list(
-          pageLength = 25,
+          pageLength = 15,
           scrollX = TRUE,
-          dom = "Bfrtip",
-          buttons = c("copy", "csv", "excel")
+          dom = "ftp"
         ),
-        extensions = "Buttons",
         rownames = FALSE,
-        selection = list(mode = "multiple", target = "row")
+        selection = "multiple"
       )
     })
     
     # Update selected assets when table rows are clicked
-    shiny::observeEvent(input$assets_table_rows_selected, {
+    shiny::observeEvent(input$assets_selection_table_rows_selected, {
       results <- results_reactive()
       if (is.null(results) || is.null(results$assets_factors)) {
         return()
       }
       
-      selected_rows <- input$assets_table_rows_selected
+      selected_rows <- input$assets_selection_table_rows_selected
       if (length(selected_rows) == 0) {
         selected_assets(character(0))
       } else {
-        assets <- results$assets_factors
-        # Get unique asset names from selected rows
-        selected <- unique(assets$asset[selected_rows])
-        selected_assets(selected)
+        # Get unique assets from the selection table
+        available_cols <- names(results$assets_factors)
+        cols_to_select <- c("asset")
+        if ("asset_subtype" %in% available_cols) {
+          cols_to_select <- c(cols_to_select, "asset_subtype")
+        }
+        if ("cnae" %in% available_cols) {
+          cols_to_select <- c(cols_to_select, "cnae")
+        } else if ("sector" %in% available_cols) {
+          cols_to_select <- c(cols_to_select, "sector")
+        }
         
-        message("[mod_profit_pathways] Selected assets: ", paste(selected, collapse = ", "))
+        assets_unique <- results$assets_factors |>
+          dplyr::select(dplyr::all_of(cols_to_select)) |>
+          dplyr::distinct() |>
+          dplyr::arrange(.data$asset)
+        
+        selected <- assets_unique$asset[selected_rows]
+        selected_assets(selected)
       }
-    }, ignoreNULL = FALSE)
+    })
   })
 }
 
@@ -306,15 +239,37 @@ mod_profit_pathways_server <- function(id, results_reactive) {
 #' @param data Data frame with asset, year, profit columns
 #' @param highlighted_assets Character vector of assets to highlight
 #' @param title Character. Plot title
+#' @param log_scale Logical. Whether to use logarithmic scale for y-axis (default: FALSE)
 #' @return plotly object
 #' @noRd
-create_profit_plot <- function(data, highlighted_assets, title) {
+create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALSE) {
   if (is.null(data) || nrow(data) == 0) {
     return(plotly::plot_ly())
   }
   
   # Get unique assets
   unique_assets <- unique(data$asset)
+  
+  # Handle log scale: filter out non-positive values
+  if (log_scale) {
+    data <- data |>
+      dplyr::filter(.data$profit > 0)
+    if (nrow(data) == 0) {
+      return(
+        plotly::plot_ly() |>
+          plotly::add_text(
+            x = 0.5, y = 0.5,
+            text = "No positive profit values available for log scale",
+            textposition = "middle center",
+            showlegend = FALSE
+          ) |>
+          plotly::layout(
+            xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
+            yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
+          )
+      )
+    }
+  }
   
   # Create base plot
   p <- plotly::plot_ly()
@@ -324,8 +279,29 @@ create_profit_plot <- function(data, highlighted_assets, title) {
     asset_data <- data |>
       dplyr::filter(.data$asset == !!asset_name)
     
+    if (nrow(asset_data) == 0) {
+      next
+    }
+    
     # Determine if this asset is highlighted
     is_highlighted <- asset_name %in% highlighted_assets
+    
+    # Format hover template based on scale
+    if (log_scale) {
+      hovertemplate_str <- paste0(
+        "<b>", asset_name, "</b><br>",
+        "Year: %{x}<br>",
+        "Profit: $%{y:,.2f}<br>",
+        "<extra></extra>"
+      )
+    } else {
+      hovertemplate_str <- paste0(
+        "<b>", asset_name, "</b><br>",
+        "Year: %{x}<br>",
+        "Profit: $%{y:,.0f}<br>",
+        "<extra></extra>"
+      )
+    }
     
     p <- p |>
       plotly::add_trace(
@@ -340,13 +316,19 @@ create_profit_plot <- function(data, highlighted_assets, title) {
           color = if (is_highlighted) "#e74c3c" else "#95a5a6"
         ),
         opacity = if (is_highlighted) 1 else 0.3,
-        hovertemplate = paste0(
-          "<b>", asset_name, "</b><br>",
-          "Year: %{x}<br>",
-          "Profit: $%{y:,.0f}<br>",
-          "<extra></extra>"
-        )
+        hovertemplate = hovertemplate_str
       )
+  }
+  
+  # Configure y-axis based on scale type
+  yaxis_config <- list(
+    title = if (log_scale) "Profit ($, log scale)" else "Profit ($)",
+    showgrid = TRUE,
+    gridcolor = "#ecf0f1"
+  )
+  
+  if (log_scale) {
+    yaxis_config$type <- "log"
   }
   
   # Layout
@@ -361,11 +343,7 @@ create_profit_plot <- function(data, highlighted_assets, title) {
         showgrid = TRUE,
         gridcolor = "#ecf0f1"
       ),
-      yaxis = list(
-        title = "Profit ($)",
-        showgrid = TRUE,
-        gridcolor = "#ecf0f1"
-      ),
+      yaxis = yaxis_config,
       hovermode = "closest",
       showlegend = if (length(unique_assets) <= 20) TRUE else FALSE,
       legend = list(
@@ -375,7 +353,7 @@ create_profit_plot <- function(data, highlighted_assets, title) {
         xanchor = "left",
         x = 1.02
       ),
-      margin = list(l = 60, r = 150, t = 50, b = 60)
+      margin = list(l = 80, r = 150, t = 50, b = 60)
     )
   
   p
