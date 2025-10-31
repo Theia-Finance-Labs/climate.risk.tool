@@ -20,6 +20,7 @@ app_server <- function(input, output, session) {
     !is.null(values$results)
   })
   results <- reactive({
+    message("[app_server] results reactive triggered, is.null(values$results): ", is.null(values$results))
     values$results
   })
 
@@ -171,6 +172,11 @@ app_server <- function(input, output, session) {
           discount_rate = 0.05,
           aggregation_method = "mean" # Default aggregation method
         )
+
+        message("[app_server] Setting results, assets_factors nrows: ", nrow(results$assets_factors))
+        message("[app_server] Setting results, companies nrows: ", nrow(results$companies))
+        message("[app_server] Setting results, assets_yearly nrows: ", nrow(results$assets_yearly))
+        message("[app_server] Setting results, companies_yearly nrows: ", nrow(results$companies_yearly))
 
         values$results <- results
         control$set_results(results)

@@ -61,11 +61,25 @@ mod_company_analysis_ui <- function(id) {
 mod_company_analysis_server <- function(id, results_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
+
+    # Track if we have results
+    has_results <- shiny::reactiveVal(FALSE)
+
+    # Observe results changes and trigger updates
+    shiny::observe({
+      results <- results_reactive()
+      new_has_results <- !is.null(results) && !is.null(results$companies)
+      has_results(new_has_results)
+      message("[mod_company_analysis] has_results updated to: ", new_has_results)
+    })
     
     # Expected Loss Change Plot
     output$expected_loss_change_plot <- plotly::renderPlotly({
-      results <- results_reactive()
-      if (is.null(results) || is.null(results$companies)) {
+      message("[mod_company_analysis] Expected loss plot render triggered - has_results: ", has_results())
+
+      # Depend on has_results to trigger re-rendering
+      if (!has_results()) {
+        message("[mod_company_analysis] Returning empty expected loss plot - no results")
         return(
           plotly::plot_ly() |>
             plotly::add_text(
@@ -80,15 +94,19 @@ mod_company_analysis_server <- function(id, results_reactive) {
             )
         )
       }
-      
+
+      results <- results_reactive()
       message("[mod_company_analysis] Rendering expected loss plot, nrows=", nrow(results$companies))
       create_expected_loss_change_plot(results$companies)
     })
     
     # Portfolio Summary Plot
     output$portfolio_summary_plot <- plotly::renderPlotly({
-      results <- results_reactive()
-      if (is.null(results) || is.null(results$companies)) {
+      message("[mod_company_analysis] Portfolio summary plot render triggered - has_results: ", has_results())
+
+      # Depend on has_results to trigger re-rendering
+      if (!has_results()) {
+        message("[mod_company_analysis] Returning empty portfolio plot - no results")
         return(
           plotly::plot_ly() |>
             plotly::add_text(
@@ -103,7 +121,8 @@ mod_company_analysis_server <- function(id, results_reactive) {
             )
         )
       }
-      
+
+      results <- results_reactive()
       message("[mod_company_analysis] Computing portfolio summary")
       summary_data <- compute_portfolio_summary(results$companies)
       message("[mod_company_analysis] Summary data: ", nrow(summary_data), " rows")

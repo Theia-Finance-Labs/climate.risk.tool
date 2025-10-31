@@ -60,12 +60,24 @@ mod_profit_pathways_ui <- function(id) {
 mod_profit_pathways_server <- function(id, results_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
     # Store selected assets
     selected_assets <- shiny::reactiveVal(character(0))
-    
+
+    # Track if we have results
+    has_results <- shiny::reactiveVal(FALSE)
+
+    # Observe results changes and trigger updates
+    shiny::observe({
+      results <- results_reactive()
+      new_has_results <- !is.null(results) && !is.null(results$assets_yearly)
+      has_results(new_has_results)
+      message("[mod_profit_pathways] has_results updated to: ", new_has_results)
+    })
+
     # Prepare baseline profit trajectories
     baseline_data <- shiny::reactive({
+      message("[mod_profit_pathways] baseline_data reactive triggered")
       results <- results_reactive()
       if (is.null(results)) {
         message("[mod_profit_pathways] Results is NULL")
@@ -76,37 +88,40 @@ mod_profit_pathways_server <- function(id, results_reactive) {
         message("[mod_profit_pathways] Available result names: ", paste(names(results), collapse = ", "))
         return(NULL)
       }
-      
+
       message("[mod_profit_pathways] Processing baseline data, nrows=", nrow(results$assets_yearly))
       prepare_profit_trajectories(results$assets_yearly, "baseline")
     })
-    
+
     # Prepare shock profit trajectories (first non-baseline scenario)
     shock_data <- shiny::reactive({
+      message("[mod_profit_pathways] shock_data reactive triggered")
       results <- results_reactive()
       if (is.null(results) || is.null(results$assets_yearly)) {
         return(NULL)
       }
-      
+
       # Get first shock scenario (not baseline)
       scenarios <- unique(results$assets_yearly$scenario)
+      message("[mod_profit_pathways] Available scenarios: ", paste(scenarios, collapse = ", "))
       shock_scenario <- scenarios[scenarios != "baseline"][1]
-      
+
       if (is.na(shock_scenario)) {
+        message("[mod_profit_pathways] No shock scenario found")
         return(NULL)
       }
-      
+
+      message("[mod_profit_pathways] Using shock scenario: ", shock_scenario)
       prepare_profit_trajectories(results$assets_yearly, shock_scenario)
     })
     
     # Create baseline plot
     output$profit_baseline <- plotly::renderPlotly({
-      # Force reactive dependency
-      results <- results_reactive()
-      selected <- selected_assets()
-      
-      data <- baseline_data()
-      if (is.null(data) || nrow(data) == 0) {
+      message("[mod_profit_pathways] Baseline plot render triggered - has_results: ", has_results())
+
+      # Depend on has_results to trigger re-rendering
+      if (!has_results()) {
+        message("[mod_profit_pathways] Returning empty baseline plot - no results")
         return(
           plotly::plot_ly() |>
             plotly::add_text(
@@ -121,18 +136,42 @@ mod_profit_pathways_server <- function(id, results_reactive) {
             )
         )
       }
-      
+
+      # Get results and selected assets
+      results <- results_reactive()
+      selected <- selected_assets()
+
+      message("[mod_profit_pathways] Baseline plot - processing data")
+      data <- prepare_profit_trajectories(results$assets_yearly, "baseline")
+
+      if (is.null(data) || nrow(data) == 0) {
+        message("[mod_profit_pathways] No baseline data to plot")
+        return(
+          plotly::plot_ly() |>
+            plotly::add_text(
+              x = 0.5, y = 0.5,
+              text = "No baseline data available",
+              textposition = "middle center",
+              showlegend = FALSE
+            ) |>
+            plotly::layout(
+              xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
+              yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
+            )
+        )
+      }
+
+      message("[mod_profit_pathways] Creating baseline plot with ", nrow(data), " rows")
       create_profit_plot(data, selected, "Baseline")
     })
     
     # Create shock plot
     output$profit_shock <- plotly::renderPlotly({
-      # Force reactive dependency
-      results <- results_reactive()
-      selected <- selected_assets()
-      
-      data <- shock_data()
-      if (is.null(data) || nrow(data) == 0) {
+      message("[mod_profit_pathways] Shock plot render triggered - has_results: ", has_results())
+
+      # Depend on has_results to trigger re-rendering
+      if (!has_results()) {
+        message("[mod_profit_pathways] Returning empty shock plot - no results")
         return(
           plotly::plot_ly() |>
             plotly::add_text(
@@ -147,7 +186,53 @@ mod_profit_pathways_server <- function(id, results_reactive) {
             )
         )
       }
-      
+
+      # Get results and selected assets
+      results <- results_reactive()
+      selected <- selected_assets()
+
+      # Get shock scenario
+      scenarios <- unique(results$assets_yearly$scenario)
+      shock_scenario <- scenarios[scenarios != "baseline"][1]
+
+      if (is.na(shock_scenario)) {
+        message("[mod_profit_pathways] No shock scenario found")
+        return(
+          plotly::plot_ly() |>
+            plotly::add_text(
+              x = 0.5, y = 0.5,
+              text = "No shock scenario available",
+              textposition = "middle center",
+              showlegend = FALSE
+            ) |>
+            plotly::layout(
+              xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
+              yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
+            )
+        )
+      }
+
+      message("[mod_profit_pathways] Shock plot - processing data for scenario: ", shock_scenario)
+      data <- prepare_profit_trajectories(results$assets_yearly, shock_scenario)
+
+      if (is.null(data) || nrow(data) == 0) {
+        message("[mod_profit_pathways] No shock data to plot")
+        return(
+          plotly::plot_ly() |>
+            plotly::add_text(
+              x = 0.5, y = 0.5,
+              text = "No shock data available",
+              textposition = "middle center",
+              showlegend = FALSE
+            ) |>
+            plotly::layout(
+              xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
+              yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
+            )
+        )
+      }
+
+      message("[mod_profit_pathways] Creating shock plot with ", nrow(data), " rows")
       create_profit_plot(data, selected, "Shock")
     })
     

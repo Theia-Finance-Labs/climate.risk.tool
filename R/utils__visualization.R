@@ -54,20 +54,30 @@ create_color_palette <- function(n_categories, palette_name = "Set3") {
 #' @return Data frame formatted for plotly
 #' @noRd
 prepare_profit_trajectories <- function(assets_yearly, scenario) {
+  message("[prepare_profit_trajectories] Called with scenario: ", scenario)
+  message("[prepare_profit_trajectories] assets_yearly is null: ", is.null(assets_yearly))
+
   if (is.null(assets_yearly) || nrow(assets_yearly) == 0) {
+    message("[prepare_profit_trajectories] Returning empty data")
     return(tibble::tibble(
       asset = character(),
       year = integer(),
       profit = numeric()
     ))
   }
-  
+
+  message("[prepare_profit_trajectories] assets_yearly nrows: ", nrow(assets_yearly))
+  message("[prepare_profit_trajectories] Available scenarios: ", paste(unique(assets_yearly$scenario), collapse = ", "))
+
   # Filter for the specified scenario
   trajectory_data <- assets_yearly |>
     dplyr::filter(.data$scenario == !!scenario) |>
     dplyr::select("asset", "year", "profit") |>
     dplyr::arrange("asset", "year")
-  
+
+  message("[prepare_profit_trajectories] Filtered data nrows: ", nrow(trajectory_data))
+  message("[prepare_profit_trajectories] Unique assets: ", paste(unique(trajectory_data$asset), collapse = ", "))
+
   trajectory_data
 }
 
