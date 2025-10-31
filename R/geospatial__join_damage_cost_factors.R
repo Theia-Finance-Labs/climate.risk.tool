@@ -253,36 +253,47 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     drought_factors_other_both
   )
 
-  # Get list of provinces that exist in damage factors (excluding "Other")
-  available_provinces <- drought_factors |>
-    dplyr::filter(.data$province != "Other") |>
-    dplyr::pull(.data$province) |>
-    unique()
+  # Get list of province+crop combinations that exist (for matching logic)
+  province_crop_combinations <- drought_factors |>
+    dplyr::filter(.data$province != "Other", .data$subtype != "Other") |>
+    dplyr::distinct(.data$province, .data$subtype)
   
-  # Get list of crops that exist in damage factors (excluding "Other")
-  available_crops <- drought_factors |>
-    dplyr::filter(.data$subtype != "Other") |>
-    dplyr::pull(.data$subtype) |>
-    unique()
-  
-  # Prepare assets: map to available provinces/crops or use "Other"
+  # Prepare assets: determine matching keys based on what exists in damage factors
   drought_assets_prepared <- drought_assets |>
     dplyr::mutate(
-      # If subtype is missing or not in available crops, use "Other"
-      subtype_for_match = dplyr::case_when(
-        is.na(.data$asset_subtype) | .data$asset_subtype == "" ~ "Other",
-        !(.data$asset_subtype %in% available_crops) ~ .data$asset_subtype, # Keep original for first try
-        TRUE ~ .data$asset_subtype
+      # Normalize missing/empty values
+      asset_subtype_clean = dplyr::if_else(
+        is.na(.data$asset_subtype) | .data$asset_subtype == "",
+        "Other",
+        .data$asset_subtype
       ),
-      # If province is missing or not in available provinces, use "Other" for matching
-      province_for_match = dplyr::case_when(
-        is.na(.data$province) | .data$province == "" ~ "Other",
-        !(.data$province %in% available_provinces) ~ "Other",  # Use "Other" if province doesn't exist
-        TRUE ~ .data$province
+      province_clean = dplyr::if_else(
+        is.na(.data$province) | .data$province == "",
+        "Other",
+        .data$province
       ),
       # Asset identifier for tracking
       asset_id = dplyr::row_number()
-    )
+    ) |>
+    # Check if province+crop combination exists
+    dplyr::left_join(
+      province_crop_combinations |> dplyr::mutate(combo_exists = TRUE),
+      by = c("province_clean" = "province", "asset_subtype_clean" = "subtype")
+    ) |>
+    dplyr::mutate(
+      combo_exists = !is.na(.data$combo_exists),
+      # Matching logic based on what exists:
+      # - If combo exists: use actual province + actual crop
+      # - If crop exists but not in this province: use "Other" province + actual crop
+      # - If crop doesn't exist at all: use actual province + "Other" crop (will then fallback to "Other" province in join)
+      subtype_for_match = .data$asset_subtype_clean,  # Always use actual crop (or "Other" if missing)
+      province_for_match = dplyr::if_else(
+        .data$combo_exists,
+        .data$province_clean,  # Combo exists, use actual province
+        "Other"  # Combo doesn't exist, use "Other" province
+      )
+    ) |>
+    dplyr::select(-"combo_exists", -"asset_subtype_clean", -"province_clean")
   
   # Handle assets with intensity > -1 (no damage) early
   assets_no_damage <- drought_assets_prepared |>
