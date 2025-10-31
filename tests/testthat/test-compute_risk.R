@@ -121,3 +121,67 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     testthat::expect_true(total_shock <= total_base)
   }
 })
+
+testthat::test_that("compute_risk produces stable snapshot output", {
+  base_dir <- get_test_data_dir()
+  assets <- read_assets(base_dir)
+  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  # Include all hazard sources (TIF, NC, CSV). Compound hazards are provided via CSV.
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+  precomputed_hazards <- read_precomputed_hazards(base_dir)
+  damage_factors <- read_damage_cost_factors(base_dir)
+  inventory <- hazard_data$inventory
+
+  # Mix assets: include one without coordinates to trigger precomputed path
+  assets_mixed <- assets
+  if (nrow(assets_mixed) >= 1) {
+    assets_mixed$latitude[1] <- NA_real_
+    assets_mixed$longitude[1] <- NA_real_
+    assets_mixed$municipality[1] <- "Borba"
+    assets_mixed$province[1] <- "Amazonas"
+  }
+
+  # Events: FloodTIF (acute), Compound (acute), and Drought (acute with season)
+  # Hazard names match the actual available test data:
+  # - FloodTIF: Uses GWL= format with scenario_name (TIF files)
+  # - Compound: Uses GWL= with ensemble (CSV files)
+  # - Drought: Uses GWL= with season and ensemble (NC files)
+  events <- data.frame(
+    hazard_type = c("FloodTIF", "FloodTIF", "FloodTIF", "Compound", "Compound", "Drought", "Drought"),
+    hazard_name = c(
+      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+      "FloodTIF__Flood Height__GWL=RCP8.5__RP=100",
+      "Compound__HI__GWL=present__RP=10__ensemble=mean",
+      "Compound__HI__GWL=2__RP=10__ensemble=mean",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
+    ),
+    scenario_name = c("CurrentClimate", "CurrentClimate", "RCP8.5", "present", "2", "present", "1.5"),
+    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
+    hazard_return_period = c(10, 10, 100, 10, 10, 10, 10),
+    event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L),
+    season = c(NA, NA, NA, NA, NA, "Summer", "Winter"), # Season only for Drought
+    stringsAsFactors = FALSE
+  )
+
+  res <- compute_risk(
+    assets = assets_mixed,
+    companies = companies,
+    events = events,
+    hazards = hazards,
+    hazards_inventory = inventory,
+    precomputed_hazards = precomputed_hazards,
+    damage_factors = damage_factors,
+    growth_rate = 0.02,
+    net_profit_margin = 0.1,
+    discount_rate = 0.05
+  )
+
+  # Snapshot test of each dataframe
+  testthat::expect_snapshot_value(res$assets_factors, style = "deparse", cran = FALSE)
+  testthat::expect_snapshot_value(res$companies, style = "deparse", cran = FALSE)
+  testthat::expect_snapshot_value(res$assets_yearly, style = "deparse", cran = FALSE)
+  testthat::expect_snapshot_value(res$companies_yearly, style = "deparse", cran = FALSE)
+})
