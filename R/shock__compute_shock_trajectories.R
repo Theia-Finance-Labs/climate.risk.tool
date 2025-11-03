@@ -3,13 +3,13 @@
 #' @title Compute Shock Yearly Trajectories
 #' @description Applies climate shocks to baseline yearly trajectories through a clear sequence:
 #'   1. Apply acute revenue shocks
-#'   2. Compute profits from shocked revenue
+#'   2. Compute profits from shocked revenue using company-specific net profit margins
 #'   3. Apply acute profit shocks
 #'   Returns a single dataframe with shock scenarios ready for downstream analysis.
 #' @param yearly_baseline_profits tibble with columns: asset, company, year, revenue, profit
 #' @param assets_with_factors tibble with hazard data and damage/cost factors
 #' @param events tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA)
-#' @param net_profit_margin numeric. Net profit margin for computing profits from shocked revenue (default: 0.1)
+#' @param companies tibble with columns: company, net_profit_margin
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @return tibble with columns: asset, company, year, revenue, profit
 #' @examples
@@ -30,14 +30,15 @@
 #'   hazard_name = "flood__global_rcp85_h100glob_brazil",
 #'   event_year = 2030
 #' )
-#' result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
+#' companies <- data.frame(company = "C1", net_profit_margin = 0.1)
+#' result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, companies)
 #' }
 #' @export
 compute_shock_trajectories <- function(
   yearly_baseline_profits,
   assets_with_factors,
   events,
-  net_profit_margin = 0.1,
+  companies,
   start_year = 2025
 ) {
   # Filter assets_with_factors to only the hazards referenced in events
@@ -73,10 +74,10 @@ compute_shock_trajectories <- function(
       dplyr::select("asset", "company", "year", "revenue")
   }
 
-  # STEP 2: Compute profits from shocked revenue
+  # STEP 2: Compute profits from shocked revenue using company-specific net profit margins
   current_trajectories <- compute_profits_from_revenue(
     current_trajectories,
-    net_profit_margin = net_profit_margin
+    companies
   )
   # At this point: current_trajectories has columns: asset, company, year, revenue, profit
 

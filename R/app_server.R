@@ -140,7 +140,6 @@ app_server <- function(input, output, session) {
           adm2_boundaries = adm2_boundaries,
           validate_inputs = TRUE,
           growth_rate = 0.02,
-          net_profit_margin = 0.1,
           discount_rate = 0.05,
           aggregation_method = "mean" # Default aggregation method
         )

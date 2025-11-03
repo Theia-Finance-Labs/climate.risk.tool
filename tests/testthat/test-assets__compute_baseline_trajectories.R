@@ -9,12 +9,13 @@ testthat::test_that("compute_baseline_trajectories integrates baseline revenue a
 
   companies <- data.frame(
     company = "C1",
-    revenues = 1000
+    revenues = 1000,
+    net_profit_margin = 0.1
   )
 
   result <- compute_baseline_trajectories(
     baseline_assets, companies,
-    growth_rate = 0.02, net_profit_margin = 0.1,
+    growth_rate = 0.02,
     start_year = 2025, end_year = 2027
   )
 

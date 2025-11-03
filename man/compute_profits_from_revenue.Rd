@@ -4,19 +4,19 @@
 \alias{compute_profits_from_revenue}
 \title{Compute Profit from Revenue}
 \usage{
-compute_profits_from_revenue(yearly_revenue_df, net_profit_margin = 0.1)
+compute_profits_from_revenue(yearly_revenue_df, companies)
 }
 \arguments{
-\item{yearly_revenue_df}{tibble containing revenue data}
+\item{yearly_revenue_df}{tibble containing revenue data with \code{company} column}
 
-\item{net_profit_margin}{numeric. Net profit margin to apply (default: 0.1)}
+\item{companies}{tibble containing company data with \code{company} and \code{net_profit_margin} columns}
 }
 \value{
 tibble with added profit column
 }
 \description{
-Generic function to compute profit from revenue by applying net profit margin.
-Formula: profit = revenue * net_profit_margin
+Generic function to compute profit from revenue by applying company-specific net profit margin.
+Formula: profit = revenue * net_profit_margin (from company data)
 }
 \details{
 Compute Profit from Revenue (Scenario-Agnostic)
@@ -30,9 +30,13 @@ baseline_revenue <- data.frame(
   year = c(2025, 2026),
   revenue = c(1000, 1020)
 )
-result <- compute_profits_from_revenue(
-  revenue,
+companies <- data.frame(
+  company = "C1",
   net_profit_margin = 0.1
+)
+result <- compute_profits_from_revenue(
+  baseline_revenue,
+  companies
 )
 
 # With shocked columns
@@ -44,7 +48,7 @@ shocked_revenue <- data.frame(
 )
 result <- compute_profits_from_revenue(
   shocked_revenue,
-  net_profit_margin = 0.15
+  companies
 )
 }
 }

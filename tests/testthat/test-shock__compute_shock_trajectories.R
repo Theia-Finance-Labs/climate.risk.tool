@@ -27,7 +27,12 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
     stringsAsFactors = FALSE
   )
 
-  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
+  companies <- data.frame(
+    company = "C1",
+    net_profit_margin = 0.1
+  )
+
+  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, companies)
 
   # Should return shocked trajectories (no baseline, no scenario column)
   expected_cols <- c("asset", "company", "year", "revenue", "profit")
@@ -70,7 +75,12 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
     event_year = 2030L
   )
 
-  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, net_profit_margin = 0.1)
+  companies <- data.frame(
+    company = "C1",
+    net_profit_margin = 0.1
+  )
+
+  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, companies)
 
   # Should return shocked trajectories only (no baseline)
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))

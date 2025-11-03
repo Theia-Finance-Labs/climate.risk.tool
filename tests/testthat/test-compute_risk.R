@@ -51,7 +51,6 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors,
     growth_rate = 0.02,
-    net_profit_margin = 0.1,
     discount_rate = 0.05
   )
 
@@ -175,7 +174,6 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     precomputed_hazards = precomputed_hazards,
     damage_factors = damage_factors,
     growth_rate = 0.02,
-    net_profit_margin = 0.1,
     discount_rate = 0.05
   )
 

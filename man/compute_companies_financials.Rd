@@ -8,7 +8,8 @@ compute_companies_financials(
   companies,
   company_yearly_trajectories,
   assets_discounted_yearly,
-  discount_rate = 0.05
+  discount_rate = 0.05,
+  risk_free_rate = 0.02
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ compute_companies_financials(
 \item{assets_discounted_yearly}{tibble with yearly asset data for asset-level results}
 
 \item{discount_rate}{numeric. Discount rate (used for consistency, but discounting already applied)}
+
+\item{risk_free_rate}{numeric. Risk-free rate for Merton model (default: 0.02)}
 }
 \value{
 tibble with company financial results
