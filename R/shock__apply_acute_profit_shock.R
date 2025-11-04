@@ -69,14 +69,18 @@ apply_acute_profit_shock <- function(
       }
     } else if (hazard_type == "Fire") {
       # Fire events: building destruction for commercial/industrial buildings
-      # damage_factor already includes: land_cover_risk × damage_factor(FWI) × (days/365) × cost_factor
+      # Fire damage = land_cover_risk × damage_factor(FWI) × (days_danger_total/365) × cost_factor
       # Only apply to commercial building and industrial building (NOT agriculture)
       assets_fire <- assets_factors |>
         dplyr::filter(.data$hazard_type == "Fire") |>
         dplyr::filter(.data$hazard_name == event$hazard_name) |>
         dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
         dplyr::mutate(
-          acute_damage = as.numeric(.data$damage_factor)
+          # Calculate full fire damage formula using components
+          acute_damage = as.numeric(.data$land_cover_risk) * 
+                        as.numeric(.data$damage_factor) * 
+                        (as.numeric(.data$days_danger_total) / 365) * 
+                        as.numeric(.data$cost_factor)
         )
 
       # Create shock data for this event

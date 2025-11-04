@@ -600,33 +600,20 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
   
   message("  Joined FWI-based damage factors")
   
-  # Step 6: Calculate final Fire damage
-  # Formula: land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
-  # For commercial/industrial: multiply by cost_factor (building destruction)
-  # For agriculture: no cost_factor (revenue impact only)
-  
+  # Step 6: Ensure days_danger_total is coalesced (for use in shock functions)
+  # Note: Full fire damage calculation happens in shock functions, not here
+  # The damage_factor column should contain the base value from CSV (e.g., 0.15)
   fire_wide <- fire_wide |>
     dplyr::mutate(
-      days_danger_total = dplyr::coalesce(.data$days_danger_total, 0),
-      # Base fire damage (without cost_factor)
-      fire_damage_base = .data$land_cover_risk * .data$damage_factor * (.data$days_danger_total / 365),
-      # Final damage depends on asset category
-      damage_factor_final = dplyr::case_when(
-        .data$asset_category %in% c("commercial building", "industrial building") ~ 
-          .data$fire_damage_base * .data$cost_factor,
-        .data$asset_category == "agriculture" ~ 
-          .data$fire_damage_base,
-        TRUE ~ .data$fire_damage_base
-      )
+      days_danger_total = dplyr::coalesce(.data$days_danger_total, 0)
     )
   
-  message("  Calculated Fire damage: land_cover_risk × damage_factor(FWI) × (days/365) [× cost_factor for buildings]")
+  message("  Keeping base damage_factor from CSV (full calculation in shock functions)")
   
   # Step 7: Prepare output with traceability columns
   fire_result <- fire_wide |>
     dplyr::mutate(
-      # Replace damage_factor with the final calculated value
-      damage_factor = .data$damage_factor_final,
+      # Keep the original damage_factor from CSV lookup (base value like 0.15)
       # Set business_disruption to NA (not used for Fire)
       business_disruption = NA_real_,
       # Keep traceability columns

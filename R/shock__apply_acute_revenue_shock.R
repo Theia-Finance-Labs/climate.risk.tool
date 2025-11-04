@@ -276,10 +276,8 @@ apply_drought_shock <- function(yearly_trajectories, event, assets_factors) {
 #'
 #' @description
 #' Fire affects agriculture revenues using the formula:
-#' revenue_shocked = revenue × (1 - damage_factor)
-#'
-#' Where damage_factor is already computed in join_fire_damage_factors as:
-#' land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
+#' Fire Damage = land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
+#' revenue_shocked = revenue × (1 - Fire Damage)
 #'
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue
 #' @param event Single event row with event_id, event_year, hazard_type
@@ -300,25 +298,30 @@ apply_fire_revenue_shock <- function(yearly_trajectories, event, assets_factors)
     return(yearly_trajectories)
   }
 
-  # Create damage map: asset → damage_factor
+  # Calculate full fire damage formula using components
+  # Fire Damage = land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
   fire_damage_map <- fire_assets |>
-    dplyr::select("asset", "damage_factor") |>
+    dplyr::select("asset", "land_cover_risk", "damage_factor", "days_danger_total") |>
     dplyr::mutate(
       year = event$event_year,
-      damage_factor = as.numeric(.data$damage_factor)
-    )
+      # Calculate fire damage percentage
+      fire_damage_pct = as.numeric(.data$land_cover_risk) * 
+                       as.numeric(.data$damage_factor) * 
+                       (as.numeric(.data$days_danger_total) / 365)
+    ) |>
+    dplyr::select("asset", "year", "fire_damage_pct")
 
-  # Join and apply: revenue * (1 - damage_factor)
+  # Join and apply: revenue * (1 - fire_damage_pct)
   # Ensure revenue stays >= 0
   result <- dplyr::left_join(yearly_trajectories, fire_damage_map, by = c("asset", "year")) |>
     dplyr::mutate(
       revenue = dplyr::if_else(
-        is.na(.data$damage_factor),
+        is.na(.data$fire_damage_pct),
         .data$revenue,
-        pmax(0, as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor)))
+        pmax(0, as.numeric(.data$revenue) * (1 - as.numeric(.data$fire_damage_pct)))
       )
     ) |>
-    dplyr::select(-"damage_factor")
+    dplyr::select(-"fire_damage_pct")
 
   return(result)
 }
