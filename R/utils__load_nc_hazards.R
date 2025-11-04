@@ -81,7 +81,9 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
       message("  Loading NetCDF file: ", basename(f))
     }
 
-    # Path parsing: {hazards_dir}/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
+    # Path parsing: Support both:
+    # - 4-part: {hazards_dir}/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
+    # - 3-part: {hazards_dir}/{hazard_type}/{hazard_indicator}/{file}.nc (e.g., Fire)
     # Use relative path from hazards_dir for more robust parsing
     hazards_dir_norm <- normalizePath(hazards_dir, winslash = "/")
     f_norm <- normalizePath(f, winslash = "/")
@@ -94,12 +96,20 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
       model_type <- parts[length(parts) - 1]
       hazard_indicator <- parts[length(parts) - 2]
       hazard_type <- parts[length(parts) - 3]
+    } else if (length(parts) == 3) {
+      # hazards/{hazard_type}/{hazard_indicator}/{file}.nc
+      file_name <- parts[length(parts)]
+      model_type <- "ensemble" # Infer ensemble as default model type
+      hazard_type <- parts[length(parts) - 2]      # First folder = hazard_type
+      hazard_indicator <- parts[length(parts) - 1] # Second folder = hazard_indicator
+      message("  3-part path detected for ", hazard_type, "/", hazard_indicator, " - assuming model_type='ensemble'")
     } else {
       # Fallbacks (ideal-path assumption per user instruction)
       file_name <- basename(f)
       model_type <- "ensemble"
       hazard_indicator <- "indicator"
       hazard_type <- "unknown"
+      message("  Warning: Unexpected path structure, using fallback values for: ", f)
     }
 
     # Open NetCDF and discover structure

@@ -111,7 +111,14 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       "p10" = function(x) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
       "p90" = function(x) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
       "p95" = function(x) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
-      "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7))
+      "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7)),
+      "mode" = function(x) {
+        # Get most common value (for categorical data like land cover)
+        x_clean <- x[!is.na(x)]
+        if (length(x_clean) == 0) return(NA_real_)
+        ux <- unique(x_clean)
+        ux[which.max(tabulate(match(x_clean, ux)))]
+      }
     )
     # Validate aggregation method for TIF sources
     if (!aggregation_method %in% names(aggregation_functions)) {
@@ -119,13 +126,6 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         "Invalid aggregation_method '", aggregation_method, "' for TIF extraction. ",
         "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
       )
-    }
-
-    # Get the aggregation function for TIF
-    agg_func <- if (aggregation_method %in% names(aggregation_functions)) {
-      aggregation_functions[[aggregation_method]]
-    } else {
-      stop("Invalid aggregation method: ", aggregation_method)
     }
 
     # Create geometries for assets (shared by both NC and TIF)
@@ -162,8 +162,19 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       hazard_return_period <- hazard_meta$hazard_return_period
       hazard_scenario_code <- hazard_meta$scenario_code
       hazard_scenario_name <- hazard_meta$scenario_name
+      
+      # Special handling for Fire land_cover: force mode aggregation (categorical data)
+      effective_aggregation_method <- aggregation_method
+      if (hazard_type == "Fire" && hazard_indicator == "land_cover") {
+        effective_aggregation_method <- "mode"
+        message("      Fire land_cover detected - forcing 'mode' aggregation for categorical data")
+      }
+      
+      # Get the aggregation function based on effective method
+      agg_func <- aggregation_functions[[effective_aggregation_method]]
+      
       # Add extraction_method suffix for output
-      hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
+      hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", effective_aggregation_method)
 
       message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
 

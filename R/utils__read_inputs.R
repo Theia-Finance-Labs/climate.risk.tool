@@ -518,3 +518,55 @@ read_hazards_mapping <- function(mapping_path) {
 
   return(mapping)
 }
+
+#' Read Land Cover Legend and Risk Metrics
+#'
+#' @title Read Land Cover Legend
+#' @description Reads the land cover legend Excel file that maps land cover codes
+#'   to risk metrics. Used for Fire hazard to translate land cover extraction
+#'   results into fire risk percentages.
+#' @param base_dir Character. Base directory path containing land_cover_legend_and_index.xlsx
+#' @return Tibble with columns: land_cover_code (numeric), land_cover_class (character),
+#'   land_cover_category (numeric), land_cover_risk (numeric between 0 and 1)
+#' @examples
+#' \dontrun{
+#' legend <- read_land_cover_legend("workspace/demo_inputs")
+#' # Returns tibble with columns: land_cover_code, land_cover_class, land_cover_category, land_cover_risk
+#' }
+#' @export
+read_land_cover_legend <- function(base_dir) {
+  file_path <- file.path(base_dir, "land_cover_legend_and_index.xlsx")
+  
+  if (!file.exists(file_path)) {
+    stop("Land cover legend file not found: ", file_path)
+  }
+  
+  message("[read_land_cover_legend] Reading land cover legend from: ", file_path)
+  
+  # Read Excel file
+  legend_df <- readxl::read_excel(file_path)
+  
+  # Validate required columns
+  required_cols <- c("Code", "Class", "Category", "Risk")
+  missing_cols <- setdiff(required_cols, names(legend_df))
+  if (length(missing_cols) > 0) {
+    stop("Land cover legend file missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+  
+  # Rename and clean
+  legend_clean <- legend_df |>
+    dplyr::select(
+      land_cover_code = "Code",
+      land_cover_class = "Class",
+      land_cover_category = "Category",
+      land_cover_risk = "Risk"
+    ) |>
+    dplyr::mutate(
+      land_cover_code = as.numeric(.data$land_cover_code),
+      land_cover_risk = as.numeric(.data$land_cover_risk)
+    )
+  
+  message("[read_land_cover_legend] Loaded ", nrow(legend_clean), " land cover categories")
+  
+  return(legend_clean)
+}

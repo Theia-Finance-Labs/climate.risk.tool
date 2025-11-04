@@ -13,6 +13,7 @@
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
 #' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())
+#' @param land_cover_legend Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())
 #' @param adm1_boundaries Optional sf object with ADM1 (province) boundaries for province assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
@@ -98,6 +99,7 @@ compute_risk <- function(assets,
                          precomputed_hazards,
                          damage_factors,
                          cnae_exposure = NULL,
+                         land_cover_legend = NULL,
                          adm1_boundaries = NULL,
                          adm2_boundaries = NULL,
                          validate_inputs = TRUE,
@@ -185,6 +187,12 @@ compute_risk <- function(assets,
     events <- events |>
       dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
   }
+  
+  # Expand multi-indicator hazard events
+  # Some hazards (e.g., Fire) require multiple indicators for damage calculation
+  # When user selects a multi-indicator hazard, the system automatically expands it
+  # into multiple internal events (one per required indicator)
+  events <- expand_multi_indicator_events(events, hazards_inventory)
 
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
@@ -229,8 +237,8 @@ compute_risk <- function(assets,
       by = "hazard_name", relationship = "many-to-many"
     )
 
-  # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards)
-  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure)
+  # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards, land_cover_legend for Fire)
+  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure, land_cover_legend)
 
 
   # ============================================================================

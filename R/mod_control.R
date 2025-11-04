@@ -148,6 +148,7 @@ mod_control_server <- function(id, base_dir_reactive) {
       }),
       hazards_inventory = hazards_inventory,
       get_hazards_at_factor = get_hazards_at_factor,
+      hazards_and_inventory = hazards_and_inventory,
       set_results = function(results) {
         values$results <- results
         values$results_ready <- !is.null(results)

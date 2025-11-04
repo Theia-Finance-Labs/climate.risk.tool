@@ -67,6 +67,26 @@ apply_acute_profit_shock <- function(
 
         shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
       }
+    } else if (hazard_type == "Fire") {
+      # Fire events: building destruction for commercial/industrial buildings
+      # damage_factor already includes: land_cover_risk × damage_factor(FWI) × (days/365) × cost_factor
+      # Only apply to commercial building and industrial building (NOT agriculture)
+      assets_fire <- assets_factors |>
+        dplyr::filter(.data$hazard_type == "Fire") |>
+        dplyr::filter(.data$hazard_name == event$hazard_name) |>
+        dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
+        dplyr::mutate(
+          acute_damage = as.numeric(.data$damage_factor)
+        )
+
+      # Create shock data for this event
+      if (nrow(assets_fire) > 0) {
+        fire_shocks <- assets_fire |>
+          dplyr::select("asset", "acute_damage") |>
+          dplyr::mutate(event_year = event_year)
+
+        shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, fire_shocks)
+      }
     } else if (hazard_type == "Drought") {
       # Drought events: TODO - implement drought-specific logic
       # For now, no damage applied for drought events

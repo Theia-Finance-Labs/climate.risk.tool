@@ -9,7 +9,17 @@ app_server <- function(input, output, session) {
   values <- reactiveValues(
     data_loaded = FALSE,
     results = NULL,
-    status = "Ready to load data"
+    status = "Ready to load data",
+    # Store all loaded data files
+    assets = NULL,
+    hazards = NULL,
+    hazards_inventory = NULL,
+    precomputed_hazards = NULL,
+    damage_factors = NULL,
+    cnae_exposure = NULL,
+    land_cover_legend = NULL,
+    adm1_boundaries = NULL,
+    adm2_boundaries = NULL
   )
 
   # Create the reactive variables expected by tests
@@ -55,11 +65,62 @@ app_server <- function(input, output, session) {
   mod_results_assets_server("results_assets", results_reactive = results)
   mod_results_companies_server("results_companies", results_reactive = results)
 
-  # Check data directory on startup
+  # Load all static data files (everything except companies which comes from file upload)
+  # Reuses hazards already loaded by control module to avoid duplicate loading
+  load_all_static_files <- function(base_dir) {
+    tryCatch(
+      {
+        values$status <- "Loading data files..."
+        
+        # Load all input files
+        values$assets <- read_assets(base_dir)
+        
+        # Reuse hazards and inventory from control module (already loaded for UI)
+        hazards_result <- try(control$hazards_and_inventory(), silent = TRUE)
+        if (inherits(hazards_result, "try-error") || is.null(hazards_result)) {
+          stop("Hazards could not be loaded from control module")
+        }
+        values$hazards <- c(hazards_result$hazards$tif, hazards_result$hazards$nc, hazards_result$hazards$csv)
+        values$hazards_inventory <- hazards_result$inventory
+        
+        # Load supporting data files
+        values$precomputed_hazards <- read_precomputed_hazards(base_dir)
+        values$damage_factors <- read_damage_cost_factors(base_dir)
+        values$cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+        values$land_cover_legend <- read_land_cover_legend(base_dir)
+        
+        # Load ADM1 and ADM2 boundaries for province assignment and validation
+        province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+        municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+        values$adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
+        values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
+        
+        values$status <- "Data files loaded. Ready to run analysis."
+        values$data_loaded <- TRUE
+      },
+      error = function(e) {
+        log_error_to_console(e, "Loading static data files")
+        values$status <- paste0("Error loading data files: ", conditionMessage(e))
+        values$data_loaded <- FALSE
+      }
+    )
+  }
+
+  # Load all static files when base_dir is set and hazards are available from control module
+  # This loads all files immediately when the app starts with a valid base_dir
   observe({
     base_dir <- get_base_dir()
-    if (!is.null(base_dir) && base_dir != "") {
-      values$status <- "Ready to run analysis."
+    hazards_result <- try(control$hazards_and_inventory(), silent = TRUE)
+    
+    if (!is.null(base_dir) && base_dir != "" && 
+        !inherits(hazards_result, "try-error") && 
+        !is.null(hazards_result)) {
+      # Only load if we haven't loaded yet or if base_dir changed
+      if (!values$data_loaded || is.null(values$hazards)) {
+        load_all_static_files(base_dir)
+      }
+    } else if (!is.null(base_dir) && base_dir != "") {
+      values$status <- "Loading hazards..."
     } else {
       values$status <- "Please set base directory to get started."
     }
@@ -79,32 +140,17 @@ app_server <- function(input, output, session) {
       values$status <- "Error: Please upload a company.xlsx file before running the analysis."
       return()
     }
+    if (!values$data_loaded || is.null(values$hazards) || length(values$hazards) == 0) {
+      values$status <- "Error: Data files not loaded. Please wait for data to finish loading."
+      return()
+    }
 
-    values$status <- "Loading data..."
+    values$status <- "Running analysis..."
 
     tryCatch(
       {
-        # Load inputs
-        assets <- read_assets(base_dir)
+        # Load companies file (only file that needs to be loaded at runtime)
         companies <- read_companies(company_file$datapath)
-
-        hazards <- control$get_hazards_at_factor()
-        if (is.null(hazards) || length(hazards) == 0) stop("Hazards could not be loaded")
-
-        precomputed_hazards <- read_precomputed_hazards(base_dir)
-        damage_factors <- read_damage_cost_factors(base_dir)
-        cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
-
-        # Load ADM1 and ADM2 boundaries for province assignment and validation
-        province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
-        municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
-
-        adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
-
-        adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
-
-        values$data_loaded <- TRUE
-        values$status <- "Data loaded. Running analysis..."
 
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)
@@ -117,7 +163,7 @@ app_server <- function(input, output, session) {
         # For TIF: inventory.hazard_name matches event.hazard_name (new format)
         # For NC: inventory.hazard_name matches event.hazard_name (base event without ensemble)
         if ("hazard_name" %in% names(ev_df)) {
-          inventory_hazard_names <- control$hazards_inventory()$hazard_name
+          inventory_hazard_names <- values$hazards_inventory$hazard_name
           keep <- ev_df$hazard_name %in% inventory_hazard_names
           if (any(!keep)) {
             missing <- unique(ev_df$hazard_name[!keep])
@@ -126,18 +172,19 @@ app_server <- function(input, output, session) {
           ev_df <- ev_df[keep, , drop = FALSE]
         }
 
-        # Run the complete climate risk analysis
+        # Run the complete climate risk analysis using pre-loaded data
         results <- compute_risk(
-          assets = assets,
+          assets = values$assets,
           companies = companies,
           events = ev_df,
-          hazards = hazards,
-          hazards_inventory = control$hazards_inventory(),
-          precomputed_hazards = precomputed_hazards,
-          damage_factors = damage_factors,
-          cnae_exposure = cnae_exposure,
-          adm1_boundaries = adm1_boundaries,
-          adm2_boundaries = adm2_boundaries,
+          hazards = values$hazards,
+          hazards_inventory = values$hazards_inventory,
+          precomputed_hazards = values$precomputed_hazards,
+          damage_factors = values$damage_factors,
+          cnae_exposure = values$cnae_exposure,
+          land_cover_legend = values$land_cover_legend,
+          adm1_boundaries = values$adm1_boundaries,
+          adm2_boundaries = values$adm2_boundaries,
           validate_inputs = TRUE,
           growth_rate = 0.02,
           net_profit_margin = 0.1,

@@ -50,6 +50,8 @@ apply_acute_revenue_shock <- function(
       result <- apply_compound_shock(result, event, assets_factors)
     } else if (hazard_type == "Drought") {
       result <- apply_drought_shock(result, event, assets_factors)
+    } else if (hazard_type == "Fire") {
+      result <- apply_fire_revenue_shock(result, event, assets_factors)
     }
     # Other hazard types: no action (extend later as needed)
   }
@@ -263,6 +265,57 @@ apply_drought_shock <- function(yearly_trajectories, event, assets_factors) {
         is.na(.data$damage_factor),
         .data$revenue,
         as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor))
+      )
+    ) |>
+    dplyr::select(-"damage_factor")
+
+  return(result)
+}
+
+#' Apply Fire shock to revenue trajectories (agriculture only) (internal function)
+#'
+#' @description
+#' Fire affects agriculture revenues using the formula:
+#' revenue_shocked = revenue × (1 - damage_factor)
+#'
+#' Where damage_factor is already computed in join_fire_damage_factors as:
+#' land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
+#'
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue
+#' @param event Single event row with event_id, event_year, hazard_type
+#' @param assets_factors tibble with hazard data and damage factors
+#' @return tibble with revenue adjusted for Fire damage to agriculture
+#' @noRd
+apply_fire_revenue_shock <- function(yearly_trajectories, event, assets_factors) {
+  # Filter Fire assets for agriculture only
+  # Fire affects agriculture through revenue shock
+  fire_assets <- assets_factors |>
+    dplyr::filter(
+      .data$hazard_type == "Fire",
+      .data$event_id == event$event_id,
+      .data$asset_category == "agriculture"
+    )
+
+  if (nrow(fire_assets) == 0) {
+    return(yearly_trajectories)
+  }
+
+  # Create damage map: asset → damage_factor
+  fire_damage_map <- fire_assets |>
+    dplyr::select("asset", "damage_factor") |>
+    dplyr::mutate(
+      year = event$event_year,
+      damage_factor = as.numeric(.data$damage_factor)
+    )
+
+  # Join and apply: revenue * (1 - damage_factor)
+  # Ensure revenue stays >= 0
+  result <- dplyr::left_join(yearly_trajectories, fire_damage_map, by = c("asset", "year")) |>
+    dplyr::mutate(
+      revenue = dplyr::if_else(
+        is.na(.data$damage_factor),
+        .data$revenue,
+        pmax(0, as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor)))
       )
     ) |>
     dplyr::select(-"damage_factor")

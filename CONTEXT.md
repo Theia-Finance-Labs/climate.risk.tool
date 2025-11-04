@@ -40,6 +40,102 @@ Assets are assigned hazard values using this priority:
 
 This is handled automatically by `extract_hazard_statistics()`.
 
+### Hazard Configuration System
+
+The tool uses a **unified hazard configuration architecture** that supports both single-indicator and multi-indicator hazards transparently.
+
+#### Hazard Types
+
+**Single-Indicator Hazards** (1 data source per hazard):
+- **FloodTIF**: Flood depth (cm)
+- **Compound**: Compound climate index
+- **Drought**: Drought index (seasonal)
+
+**Multi-Indicator Hazards** (multiple data sources combined):
+- **Fire**: Combines 3 indicators:
+  - `land_cover`: Static land cover classification (TIF)
+  - `FWI`: Fire Weather Index max value (NetCDF)
+  - `days_danger_total`: Days with significant fire weather (NetCDF)
+
+#### Configuration Registry
+
+Defined in `R/config__hazard_types.R`:
+
+```r
+get_hazard_type_config() → list(
+  Fire = list(
+    indicators = c("land_cover", "FWI", "days_danger_total"),
+    primary_indicator = "FWI",  # Drives UI dropdowns
+    description = "..."
+  ),
+  FloodTIF = list(...),
+  ...
+)
+```
+
+Helper functions:
+- `is_multi_indicator_hazard(hazard_type)` → TRUE/FALSE
+- `get_primary_indicator(hazard_type)` → indicator name
+- `get_required_indicators(hazard_type)` → vector of indicators
+
+#### UI Inventory Filtering
+
+The UI only shows:
+- **Hazard Type** (e.g., "Fire", "FloodTIF")
+- **Scenario** (e.g., "SSP2-4.5", "CurrentClimate")
+- **Return Period** (e.g., 10, 50, 100 years)
+
+The `hazard_indicator` dimension is **completely hidden** from users.
+
+Implementation:
+1. `load_hazards_and_inventory()` loads full inventory (all indicators)
+2. `filter_inventory_for_ui()` filters to only primary indicators
+3. UI dropdowns populated from filtered inventory
+4. Multi-indicator complexity handled internally
+
+#### Event Expansion
+
+When users select a multi-indicator hazard (e.g., Fire), the system automatically expands it:
+
+**User Selection:**
+```
+Event: Fire, SSP2-4.5, RP=10, year=2030
+```
+
+**Internal Expansion (by `expand_multi_indicator_events()`):**
+```
+Event 1: Fire/land_cover,  present,   RP=0,  year=2030
+Event 2: Fire/FWI,         SSP2-4.5,  RP=10, year=2030
+Event 3: Fire/days_danger_total, SSP2-4.5, RP=10, year=2030
+```
+
+All three events:
+- Share same `event_id` and `event_year`
+- Each has correct `hazard_name` from inventory
+- Static indicators (land_cover) use their own scenario/RP
+- Dynamic indicators (FWI, days_danger_total) use user-selected scenario/RP
+
+This expansion happens in `compute_risk()` before hazard extraction.
+
+#### Adding New Hazard Types
+
+To add a new hazard type:
+
+1. **Add data files** to `{base_dir}/hazards/{hazard_type}/`
+2. **Update metadata:**
+   - For TIF: Add to `hazards_metadata.csv`
+   - For NC: Auto-discovered by `load_nc_hazards_with_metadata()`
+3. **Update configuration** in `R/config__hazard_types.R`:
+   ```r
+   NewHazard = list(
+     indicators = c("indicator1", "indicator2"),
+     primary_indicator = "indicator1",
+     description = "..."
+   )
+   ```
+4. **Add damage calculation** in `R/geospatial__join_damage_cost_factors.R` if needed
+5. **Add shock application** in `R/shock__apply_acute_*.R` if needed
+
 ## Data Requirements
 
 ### Directory Structure
@@ -636,6 +732,99 @@ Assets output now includes drought metadata:
   - `hazard_type = "drought"`, `hazard_indicator = "SPI3"`, `metric = "mean"`
   - Columns: `province`, `subtype`, `season`, `damage_factor`, `off_window`
 - Events must include `season` column (Summer/Autumn/Winter/Spring)
+
+### Fire for Buildings and Agriculture
+
+**Overview**: Fire impacts use a compound indicator approach combining land cover risk, maximum Fire Weather Index (FWI), and days with significant fire weather. Fire affects both buildings (profit shock) and agriculture (revenue shock).
+
+**Hazard Indicators** (all three used simultaneously - unique multi-indicator approach):
+- `land_cover`: Categorical raster (2024_brazil_land_cover.tif), extracted using mode (most common value)
+- `FWI`: Fire Weather Index maximum value from `FWI/ensemble_return_period.nc`, capped at 50
+- `days_danger_total`: Number of days per year with significant fire risk from `days_danger_total/ensemble_return_period.nc`
+
+**Note**: Fire is unique in requiring three hazard indicators to compute a single damage value. Unlike other hazards (Flood, Drought, Compound) which use one indicator per hazard type, Fire combines all three indicators in its damage calculation.
+
+**Damage Formula**:
+- **Commercial/Industrial buildings** (profit shock):
+  ```
+  Fire Damage = land_cover_risk × damage_factor(FWI) × (days_danger_total / 365) × cost_factor
+  Profit_shocked = Profit - Fire Damage
+  ```
+- **Agriculture assets** (revenue shock):
+  ```
+  Fire Damage = land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
+  Revenue_shocked = Revenue × (1 - Fire Damage)
+  ```
+
+**Land Cover Risk Determination**:
+- Assets **with coordinates**: Extract mode (most common) land cover code from raster within asset buffer
+- Join extracted code with `land_cover_legend_and_index.xlsx` to get risk metric (0.25, 0.50, 0.75, or 1.00)
+- Assets **without coordinates**: Default to 0.50 (50% risk)
+- Land cover categories: Forest (0.50), Grassland (1.00), Urban Area (0.25), Agriculture (0.50-0.75), etc.
+
+**FWI Capping**: FWI values are capped at maximum 50 before damage factor lookup. Higher values use the damage factor for FWI=50.
+
+**Shock Application Order**:
+- **Revenue shock phase** (agriculture): Applied in event_id order alongside Drought and Compound shocks
+- **Profit shock phase** (buildings): Applied in event_id order alongside Flood shocks
+- Profits can become negative from Fire damage (as with other profit shocks)
+
+**Implementation Files**:
+- Data loading: `R/utils__read_inputs.R` - `read_land_cover_legend()`
+- Extraction: `R/geospatial__extract_hazard_statistics.R` - mode aggregation for categorical land cover
+- Damage factors: `R/geospatial__join_damage_cost_factors.R` - `join_fire_damage_factors()`
+- Revenue shock: `R/shock__apply_acute_revenue_shock.R` - `apply_fire_revenue_shock()`
+- Profit shock: `R/shock__apply_acute_profit_shock.R` - Fire case in event loop
+
+**Data Requirements**:
+- `damage_and_cost_factors.csv` must include rows with:
+  - `hazard_type = "Fire"`, `hazard_indicator = "FWI"`, `hazard_intensity` = 0 to 50
+  - Columns: `asset_category` (commercial building/industrial building/agriculture), `damage_factor`, `cost_factor`
+- `land_cover_legend_and_index.xlsx` with columns: `Code`, `Class`, `Category`, `Risk`
+- Hazard files:
+  - `hazards/Fire/land_cover/2024_brazil_land_cover.tif`
+  - `hazards/Fire/FWI/ensemble_return_period.nc`
+  - `hazards/Fire/days_danger_total/ensemble_return_period.nc`
+
+**Multi-Indicator Architecture**:
+Fire is unique in requiring three hazard indicators simultaneously. The existing hazard loading system supports this naturally through the folder structure. During damage factor calculation, the three indicators are pivoted from long format (3 rows per asset) to wide format (1 row with 3 columns) for the combined damage calculation.
+
+**Unified Hazard Behavior**:
+The system supports both single-indicator and multi-indicator hazards through a unified interface where **hazard_indicator is completely hidden from the user**:
+
+**User Interface (UI)**:
+- User selects: Hazard Type → Scenario → Return Period
+- NO hazard_indicator dropdown visible
+- For all hazards (Flood, Drought, Compound, Fire), the selection process is identical
+
+**Internal System Behavior**:
+
+1. **Single-Indicator Hazards** (Flood, Drought, Compound):
+   - User selects: FloodTIF + CurrentClimate + 100 years
+   - System internally finds: 1 indicator (depth(cm))
+   - Extracts: That 1 indicator
+   - Damage calculation: Uses that indicator directly
+
+2. **Multi-Indicator Hazards** (Fire):
+   - User selects: Fire + GWL=2.0 + 50 years
+   - System internally finds: Representative indicator (e.g., FWI)
+   - `expand_fire_events()` creates 3 events: land_cover, FWI, days_danger_total
+   - Extracts: ALL 3 indicators
+   - Damage calculation: Combines all 3 indicators into single damage value
+
+**Implementation Details**:
+- **UI Module** (`mod_hazards_events`): Completely removed hazard_indicator dropdown; cascading is now hazard_type → scenario → return_period
+- **Event Creation**: Internally stores hazard_indicator but user never sees it
+- **Event Expansion**: `expand_fire_events()` detects Fire and creates 3 internal events from 1 user selection
+- **Extraction**: Each indicator extracted separately, identified by hazard_type + hazard_indicator + scenario + return_period
+- **Damage Joining**: Fire-specific logic (`join_fire_damage_factors()`) pivots 3 indicators to wide format and combines them
+- **Shock Application**: Final damage_factor column works identically for all hazards
+
+**Key Benefits**:
+- **UI Simplicity**: User interface is identical for all hazards - no special Fire handling visible
+- **Internal Flexibility**: System handles 1-to-N indicator mapping transparently
+- **Extensibility**: Future multi-indicator hazards follow the same pattern
+- **Backward Compatibility**: Existing single-indicator hazards work exactly as before, just without visible indicator selection
 
 ## Recent Changes
 

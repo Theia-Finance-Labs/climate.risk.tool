@@ -13,6 +13,7 @@ compute_risk(
   precomputed_hazards,
   damage_factors,
   cnae_exposure = NULL,
+  land_cover_legend = NULL,
   adm1_boundaries = NULL,
   adm2_boundaries = NULL,
   validate_inputs = TRUE,
@@ -39,6 +40,8 @@ The \code{event_id} column is auto-generated internally if not provided.}
 \item{damage_factors}{Data frame with damage and cost factors (from read_damage_cost_factors())}
 
 \item{cnae_exposure}{Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())}
+
+\item{land_cover_legend}{Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())}
 
 \item{adm1_boundaries}{Optional sf object with ADM1 (province) boundaries for province assignment and validation}
 
