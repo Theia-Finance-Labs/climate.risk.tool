@@ -977,6 +977,18 @@ def main():
 
     all_results = []
 
+    # Process GeoTIFF files (opens each file once for all ADM levels)
+    if tif_files:
+        print(f"\n📁 Processing {len(tif_files)} GeoTIFF file(s)...")
+        for i, tif_path in enumerate(tif_files, 1):
+            print(
+                f"\n[{i}/{len(tif_files)}] Processing GeoTIFF: {os.path.basename(tif_path)}"
+            )
+            print("  📊 Aggregating over all ADM levels...")
+            result = process_tif_hazard(tif_path, adm_gdfs, FLOOD_SCENARIOS)
+            all_results.append(result)
+            print(f"    ✅ Success: {len(result)} records")
+
     # Process CSV files
     if csv_files:
         print(f"\n📁 Processing {len(csv_files)} CSV file(s)...")
@@ -1005,18 +1017,6 @@ def main():
                 result = process_nc_hazard(nc_path, adm_gdf, adm_level, ENSEMBLE_FILTER)
                 all_results.append(result)
                 print(f"    ✅ Success: {len(result)} records")
-
-    # Process GeoTIFF files (opens each file once for all ADM levels)
-    if tif_files:
-        print(f"\n📁 Processing {len(tif_files)} GeoTIFF file(s)...")
-        for i, tif_path in enumerate(tif_files, 1):
-            print(
-                f"\n[{i}/{len(tif_files)}] Processing GeoTIFF: {os.path.basename(tif_path)}"
-            )
-            print("  📊 Aggregating over all ADM levels...")
-            result = process_tif_hazard(tif_path, adm_gdfs, FLOOD_SCENARIOS)
-            all_results.append(result)
-            print(f"    ✅ Success: {len(result)} records")
 
     # ========================================================================
     # COMBINE AND SAVE RESULTS
