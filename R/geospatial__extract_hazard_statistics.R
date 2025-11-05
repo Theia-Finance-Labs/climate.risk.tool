@@ -287,6 +287,19 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   # Precomputed data should have correct hazard indicators already
   message("    Using precomputed hazard indicators directly from data")
 
+  # Define scenario name normalization function (used throughout)
+  normalize_scenario_name <- function(sname) {
+    sname <- tolower(as.character(sname))
+    # Map common variations
+    sname <- gsub("rcp8.5", "rcp85", sname, fixed = TRUE)
+    sname <- gsub("rcp2.6", "rcp26", sname, fixed = TRUE)
+    sname <- gsub("rcp4.5", "rcp45", sname, fixed = TRUE)
+    sname <- gsub("currentclimate", "pc", sname, fixed = TRUE)
+    sname <- gsub("current climate", "pc", sname, fixed = TRUE)
+    sname <- gsub(" ", "", sname, fixed = TRUE)
+    return(sname)
+  }
+
   required_hazards <- hazards_inventory
 
 
@@ -335,39 +348,21 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     }
 
     # FILTER: Only keep hazards that match the required hazards from inventory
-    # Match by hazard_type, scenario_name, and hazard_return_period
-    # Normalize scenario names to handle format differences (e.g., "rcp85" vs "RCP8.5")
-    normalize_scenario_name <- function(sname) {
-      sname <- tolower(as.character(sname))
-      # Map common variations
-      sname <- gsub("rcp8.5", "rcp85", sname, fixed = TRUE)
-      sname <- gsub("rcp2.6", "rcp26", sname, fixed = TRUE)
-      sname <- gsub("rcp4.5", "rcp45", sname, fixed = TRUE)
-      sname <- gsub("currentclimate", "pc", sname, fixed = TRUE)
-      sname <- gsub("current climate", "pc", sname, fixed = TRUE)
-      sname <- gsub(" ", "", sname, fixed = TRUE)
-      return(sname)
-    }
+    # Match by hazard_name + season (for drought with season column)
     
-    required_hazards_char <- required_hazards |>
-      dplyr::mutate(
-        scenario_name = as.character(.data$scenario_name),
-        scenario_name_norm = normalize_scenario_name(.data$scenario_name)
-      ) |>
-      dplyr::select("hazard_type", "hazard_indicator", "scenario_name", "scenario_name_norm", "hazard_return_period", "source")
-
+    # Separate fire/land_cover (handled specially - no precomputed lookup)
+    fire_land_cover <- required_hazards |>
+      dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover")
+    
+    required_hazards_other <- required_hazards |>
+      dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
+    
+    # Get list of required hazard_names
+    required_hazard_names <- required_hazards_other |> dplyr::pull(.data$hazard_name)
+    
+    # Filter by hazard_name first
     matched_data <- matched_data |>
-      dplyr::mutate(
-        scenario_name = as.character(.data$scenario_name),
-        scenario_name_norm = normalize_scenario_name(.data$scenario_name)
-      ) |>
-      dplyr::inner_join(
-        required_hazards_char,
-        by = c("hazard_type", "hazard_indicator", "scenario_name_norm", "hazard_return_period")
-      ) |>
-      # Use the scenario_name from required_hazards (the canonical one from inventory)
-      dplyr::select(-"scenario_name_norm", -"scenario_name.x") |>
-      dplyr::rename(scenario_name = "scenario_name.y")
+      dplyr::filter(.data$hazard_name %in% required_hazard_names)
 
     # Check if we got all required hazards
     found_combos <- matched_data |>
@@ -390,6 +385,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         hazard_intensity = .data$hazard_value,
         hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
+        source = "precomputed",  # Add source column (matched_data doesn't have it)
         # Add asset information to each hazard row
         asset = asset_row$asset,
         company = asset_row$company,
@@ -409,6 +405,44 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
+    
+    # Add fire/land_cover rows with default value 0.5 (not precomputed)
+    if (nrow(fire_land_cover) > 0) {
+      # Get the first matched row to extract metadata (for constructing hazard_name)
+      # We need to find the corresponding hazard_name from inventory for land_cover
+      land_cover_meta <- hazards_inventory |>
+        dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover") |>
+        dplyr::slice(1)
+      
+      if (nrow(land_cover_meta) > 0) {
+        # Create synthetic land_cover rows with default value 0.5
+        land_cover_rows <- tibble::tibble(
+          asset = asset_row$asset,
+          company = asset_row$company,
+          latitude = asset_row$latitude,
+          longitude = asset_row$longitude,
+          municipality = asset_row$municipality,
+          province = asset_row$province,
+          asset_category = asset_row$asset_category,
+          asset_subtype = asset_row$asset_subtype,
+          size_in_m2 = asset_row$size_in_m2,
+          share_of_economic_activity = asset_row$share_of_economic_activity,
+          cnae = asset_row$cnae,
+          hazard_name = paste0(land_cover_meta$hazard_name[1], "__extraction_method=mode"),
+          hazard_type = "Fire",
+          hazard_indicator = "land_cover",
+          hazard_return_period = land_cover_meta$hazard_return_period[1],
+          scenario_name = land_cover_meta$scenario_name[1],
+          source = if ("source" %in% names(land_cover_meta)) land_cover_meta$source[1] else "tif",
+          hazard_intensity = 0.5,  # Default land_cover_risk value
+          matching_method = match_level
+        )
+        
+        # Combine with other hazard data
+        asset_hazard_data <- dplyr::bind_rows(asset_hazard_data, land_cover_rows)
+        message("      Added fire/land_cover with default value 0.5 for asset ", asset_name)
+      }
+    }
 
     precomp_results_list[[length(precomp_results_list) + 1]] <- asset_hazard_data
   }

@@ -432,19 +432,19 @@ read_precomputed_hazards <- function(base_dir) {
   precomputed_df <- readr::read_csv(precomputed_path, show_col_types = FALSE) |>
     tibble::as_tibble()
 
-  # Ensure numeric columns are numeric
-  numeric_cols <- c(
-    "hazard_return_period", "min", "max", "mean", "median",
-    "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y"
-  )
+  # # Ensure numeric columns are numeric
+  # numeric_cols <- c(
+  #   "hazard_return_period", "min", "max", "mean", "median",
+  #   "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y"
+  # )
 
-  precomputed_df <- precomputed_df |>
-    dplyr::mutate(
-      dplyr::across(
-        dplyr::any_of(numeric_cols),
-        ~ as.numeric(.)
-      )
-    )
+  # precomputed_df <- precomputed_df |>
+  #   dplyr::mutate(
+  #     dplyr::across(
+  #       dplyr::any_of(numeric_cols),
+  #       ~ as.numeric(.)
+  #     )
+  #   )
 
   # Validate adm_level values
   valid_adm_levels <- c("ADM1", "ADM2")
@@ -467,18 +467,46 @@ read_precomputed_hazards <- function(base_dir) {
 
   for (summ_col in summary_cols) {
     # Create rows for this ensemble
-    ensemble_data <- precomputed_df |>
-      dplyr::mutate(
-        # Unified hazard_name WITHOUT ensemble suffix
-        hazard_name = paste0(
-          .data$hazard_type, "__", .data$hazard_indicator,
-          "__GWL=", .data$scenario_name,
-          "__RP=", .data$hazard_return_period,
-          ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
-        ),
-        aggregation_method = summ_col,
-        hazard_value = .data[[summ_col]]
-      )
+    # Check if season column exists for drought hazards
+    has_season <- "season" %in% names(precomputed_df)
+    
+    if (has_season) {
+      ensemble_data <- precomputed_df |>
+        dplyr::mutate(
+          # Unified hazard_name - include season for drought (like NC files do)
+          hazard_name = dplyr::if_else(
+            .data$hazard_type == "Drought" & !is.na(.data$season),
+            paste0(
+              .data$hazard_type, "__", .data$hazard_indicator,
+              "__GWL=", .data$scenario_name,
+              "__RP=", .data$hazard_return_period,
+              "__season=", .data$season,
+              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+            ),
+            paste0(
+              .data$hazard_type, "__", .data$hazard_indicator,
+              "__GWL=", .data$scenario_name,
+              "__RP=", .data$hazard_return_period,
+              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+            )
+          ),
+          aggregation_method = summ_col,
+          hazard_value = .data[[summ_col]]
+        )
+    } else {
+      ensemble_data <- precomputed_df |>
+        dplyr::mutate(
+          # Unified hazard_name WITHOUT season
+          hazard_name = paste0(
+            .data$hazard_type, "__", .data$hazard_indicator,
+            "__GWL=", .data$scenario_name,
+            "__RP=", .data$hazard_return_period,
+            ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+          ),
+          aggregation_method = summ_col,
+          hazard_value = .data[[summ_col]]
+        )
+    }
 
     transformed_list[[summ_col]] <- ensemble_data
   }
@@ -486,11 +514,23 @@ read_precomputed_hazards <- function(base_dir) {
   # Combine all ensemble variants
   precomputed_final <- dplyr::bind_rows(transformed_list)
 
-  precomputed_final <- precomputed_final |>
-    dplyr::mutate(
-      region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
-      scenario_name = as.character(.data$scenario_name)
-    )
+  # Preserve season column if it exists (for drought hazards)
+  if ("season" %in% names(precomputed_final)) {
+    precomputed_final <- precomputed_final |>
+      dplyr::mutate(
+        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
+        scenario_name = as.character(.data$scenario_name),
+        season = as.character(.data$season)
+      )
+    season_count <- sum(!is.na(precomputed_final$season))
+    message("  Season column preserved with ", season_count, " non-NA values")
+  } else {
+    precomputed_final <- precomputed_final |>
+      dplyr::mutate(
+        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
+        scenario_name = as.character(.data$scenario_name)
+      )
+  }
 
   message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
 

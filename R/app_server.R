@@ -171,8 +171,9 @@ app_server <- function(input, output, session) {
 
     tryCatch(
       {
-        # Load companies file (only file that needs to be loaded at runtime)
-        companies <- read_companies(company_file$datapath)
+        # Load companies file from the uploaded file
+        company_file_path <- company_file$datapath
+        companies <- read_companies(company_file_path)
 
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)

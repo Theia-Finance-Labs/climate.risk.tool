@@ -42,7 +42,16 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
   mapping_path <- file.path(parent_dir, "hazards_metadata.csv")
 
   tif_list <- list()
-  tif_inventory <- tibble::tibble()
+  tif_inventory <- tibble::tibble(
+    hazard_type = character(),
+    hazard_indicator = character(),
+    scenario_name = character(),
+    hazard_return_period = numeric(),
+    hazard_name = character(),
+    ensemble = character(),
+    season = character(),
+    source = character()
+  )
 
   if (file.exists(mapping_path)) {
     message("  Found TIF mapping at: ", mapping_path)
@@ -72,6 +81,7 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
             "__RP=", .data$hazard_return_period
           ),
           ensemble = NA_character_, # TIF has no pre-computed ensemble
+          season = NA_character_,    # TIF has no season dimension
           source = "tif"
         ) |>
         dplyr::select(
@@ -81,6 +91,7 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
           "hazard_return_period",
           "hazard_name",
           "ensemble",
+          "season",
           "source"
         )
     }

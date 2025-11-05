@@ -120,12 +120,36 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       } else {
         NA_character_
       }
+      
+      # For drought with season, refine hazard_name lookup to match the selected season
+      # The inventory (from CSV loader) now includes season in hazard_name
+      if (haz_type == "Drought" && !is.na(event_season)) {
+        full_inv <- try(hazards_inventory(), silent = TRUE)
+        if (!inherits(full_inv, "try-error") && nrow(full_inv) > 0) {
+          # Check if season column exists in inventory
+          if ("season" %in% names(full_inv)) {
+            # Look for hazard_name WITH the selected season
+            season_matched <- full_inv |>
+              dplyr::filter(
+                .data$hazard_type == haz_type,
+                .data$hazard_indicator == hazard_indicator_val,
+                .data$scenario_name == scenario,
+                .data$hazard_return_period == return_period,
+                .data$season == event_season
+              )
+            
+            if (nrow(season_matched) > 0) {
+              hazard_name_val <- season_matched$hazard_name[1]
+            }
+          }
+        }
+      }
 
       new_row <- tibble::tibble(
         event_id = paste0("ev", nrow(events_rv()) + 1L),
         hazard_type = haz_type,
         hazard_indicator = hazard_indicator_val,  # Primary indicator
-        hazard_name = hazard_name_val,            # Primary indicator's hazard_name
+        hazard_name = hazard_name_val,            # Primary indicator's hazard_name (with season for drought)
         scenario_name = scenario,
         hazard_return_period = as.numeric(return_period),
         event_year = as.integer(input[[paste0("year_", k)]]),

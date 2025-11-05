@@ -408,7 +408,16 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
   inventory <- if (length(inventory_rows) > 0) {
     dplyr::bind_rows(inventory_rows)
   } else {
-    tibble::tibble()
+    tibble::tibble(
+      hazard_type = character(),
+      hazard_indicator = character(),
+      scenario_name = character(),
+      hazard_return_period = numeric(),
+      hazard_name = character(),
+      ensemble = character(),
+      season = character(),
+      source = character()
+    )
   }
 
   return(list(
