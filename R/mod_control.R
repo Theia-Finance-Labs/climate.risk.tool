@@ -137,6 +137,7 @@ mod_control_server <- function(id, base_dir_reactive) {
         input$company_file
       }),
       events = hz_mod$events,
+      delete_event = hz_mod$delete_event,
       run_trigger = shiny::reactive({
         input$run_analysis
       }),

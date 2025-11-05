@@ -58,12 +58,24 @@ app_server <- function(input, output, session) {
     status_reactive = reactive({
       values$status
     }),
-    events_reactive = control$events
+    events_reactive = control$events,
+    delete_event_callback = control$delete_event
   )
 
   # Initialize results modules
   mod_results_assets_server("results_assets", results_reactive = results)
   mod_results_companies_server("results_companies", results_reactive = results)
+
+  # Initialize plot modules
+  mod_profit_pathways_server(
+    "profit_pathways",
+    results_reactive = results
+  )
+
+  mod_company_analysis_server(
+    "company_analysis",
+    results_reactive = results
+  )
 
   # Load all static data files (everything except companies which comes from file upload)
   # Reuses hazards already loaded by control module to avoid duplicate loading
@@ -188,15 +200,15 @@ app_server <- function(input, output, session) {
           validate_inputs = TRUE,
           growth_rate = 0.02,
           discount_rate = 0.05,
-          aggregation_method = "mean" # Default aggregation method
+          aggregation_method = "median" # Default aggregation method
         )
 
         values$results <- results
         control$set_results(results)
-        values$status <- "Analysis complete. Check the Asset and Company Analysis tabs for detailed results."
+        values$status <- "Analysis complete. Check the Profit Pathways and Company Analysis tabs for detailed results."
 
-        # Switch to results tab after completion
-        updateTabsetPanel(session, "main_tabs", selected = "assets")
+        # Switch to pathways tab after completion
+        updateTabsetPanel(session, "main_tabs", selected = "pathways")
       },
       error = function(e) {
         log_error_to_console(e, "Main app analysis")

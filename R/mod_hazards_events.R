@@ -239,7 +239,22 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       })
     })
 
+    # Delete event function
+    delete_event <- function(event_id) {
+      cur <- events_rv()
+      if (is.null(cur) || nrow(cur) == 0) {
+        return()
+      }
+      # Filter out the event with matching event_id
+      updated <- cur |>
+        dplyr::filter(.data$event_id != !!event_id)
+      events_rv(updated)
+    }
+
     # Return
-    return(list(events = events_rv))
+    return(list(
+      events = events_rv,
+      delete_event = delete_event
+    ))
   })
 }
