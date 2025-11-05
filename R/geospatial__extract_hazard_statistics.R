@@ -117,12 +117,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         x_clean <- x[!is.na(x)]
         if (length(x_clean) == 0) return(NA_real_)
         ux <- unique(x_clean)
-        mode_value <- ux[which.max(tabulate(match(x_clean, ux)))]
-        # Convert to integer for categorical codes (land cover codes are integers)
-        if (!is.na(mode_value) && is.numeric(mode_value)) {
-          return(as.integer(mode_value))
-        }
-        return(mode_value)
+        ux[which.max(tabulate(match(x_clean, ux)))]
       }
     )
     # Validate aggregation method for TIF sources
@@ -223,6 +218,12 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
             if (length(vals) > 0) {
               # Apply the chosen aggregation method
               intensity_val <- agg_func(vals)
+              
+              # For Fire land_cover (categorical codes), round to nearest integer
+              # Aggregated rasters may have fractional values, but land_cover codes are whole numbers
+              if (hazard_type == "Fire" && hazard_indicator == "land_cover" && !is.na(intensity_val)) {
+                intensity_val <- round(intensity_val)
+              }
 
               # Update hazard_intensity
               stats_df <- stats_df |>

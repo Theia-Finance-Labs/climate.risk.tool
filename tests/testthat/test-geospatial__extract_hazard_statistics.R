@@ -245,63 +245,6 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
   # final assertions are via the expect_error checks above for both cases
 })
 
-testthat::test_that("Fire land_cover indicator uses mode aggregation (categorical data)", {
-  # Load hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-
-  # Define Fire land_cover event (static TIF)
-  events <- tibble::tibble(
-    hazard_name = "Fire__land_cover__GWL=present__RP=0",
-    event_year = 2030
-  )
-
-  # Filter to just Fire land_cover hazard
-  tif_hazards <- filter_hazards_by_events(hazard_data$hazards$tif, events)
-  tif_inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$source == "tif", .data$hazard_name %in% names(tif_hazards))
-
-  # Check if Fire land_cover hazard exists in test data
-  if (nrow(tif_inventory) == 0 || length(tif_hazards) == 0) {
-    testthat::skip("Fire land_cover hazard not available in test data")
-  }
-
-  # Create assets with coordinates
-  assets <- tibble::tibble(
-    asset = c("asset_fire_1", "asset_fire_2"),
-    company = c("company_a", "company_b"),
-    latitude = c(-3.0, -15.0),
-    longitude = c(-60.0, -47.9),
-    municipality = NA_character_,
-    province = NA_character_,
-    asset_category = "agriculture",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
-  )
-
-  # Extract with mean aggregation (should be overridden to mode for land_cover)
-  out <- extract_hazard_statistics(
-    assets,
-    tif_hazards,
-    tif_inventory,
-    precomputed_hazards = tibble::tibble(),
-    aggregation_method = "mean" # Request mean, but land_cover should use mode
-  )
-
-  # Verify: all matching_method = "coordinates"
-  testthat::expect_true(all(out$matching_method == "coordinates"))
-
-  # Verify: hazard statistics are numeric (land_cover codes)
-  testthat::expect_true(is.numeric(out$hazard_intensity))
-  
-  # Verify: land_cover codes should be integers (categorical codes)
-  # Mode aggregation should return one of the land cover codes from the raster
-  testthat::expect_true(all(out$hazard_intensity == as.integer(out$hazard_intensity)))
-
-  # Should have results for both assets
-  testthat::expect_equal(length(unique(out$asset)), 2)
-})
 
 testthat::test_that("Fire FWI and days_danger_total use specified aggregation method", {
   # Load hazards
@@ -357,7 +300,7 @@ testthat::test_that("Fire FWI and days_danger_total use specified aggregation me
   # (2 assets × 2 indicators = 4 rows)
   testthat::expect_equal(nrow(out), 4)
   testthat::expect_equal(length(unique(out$asset)), 2)
-  
+
   # Should have both FWI and days_danger_total indicators
   indicators <- unique(out$hazard_indicator)
   testthat::expect_true("FWI" %in% indicators || "days_danger_total" %in% indicators)
