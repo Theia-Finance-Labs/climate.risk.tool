@@ -18,8 +18,8 @@
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
-#' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
+#' @param risk_free_rate Numeric. Risk-free rate for Merton model (default: 0.02)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
 #'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
 #'   For TIF files: uses terra::extract with the specified function.
@@ -44,7 +44,7 @@
 #' 8. Compute asset impact: Update share_of_economic_activity with all impacts
 #' 9. Build scenarios: Create baseline vs shock scenario data
 #' 10. Compute asset revenue: Allocate company revenue to assets
-#' 11. Compute asset profits: Apply net profit margins
+#' 11. Compute asset profits: Apply company-specific net profit margins from company file
 #' 12. Discount net profits: Apply present value discounting
 #' 13. Compute company NPV: Aggregate asset profits to company level
 #' 14. Compute company PD: Calculate probability of default using Merton model
@@ -80,8 +80,8 @@
 #'   damage_factors = damage_factors,
 #'   cnae_exposure = cnae_exposure,
 #'   growth_rate = 0.02,
-#'   net_profit_margin = 0.1,
-#'   discount_rate = 0.05
+#'   discount_rate = 0.05,
+#'   risk_free_rate = 0.02
 #' )
 #'
 #' # Access final results
@@ -104,8 +104,8 @@ compute_risk <- function(assets,
                          adm2_boundaries = NULL,
                          validate_inputs = TRUE,
                          growth_rate = 0.02,
-                         net_profit_margin = 0.1,
                          discount_rate = 0.05,
+                         risk_free_rate = 0.02,
                          aggregation_method = "mean") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
@@ -241,8 +241,7 @@ compute_risk <- function(assets,
   yearly_baseline <- compute_baseline_trajectories(
     baseline_assets = assets,
     companies = companies,
-    growth_rate = growth_rate,
-    net_profit_margin = net_profit_margin
+    growth_rate = growth_rate
   )
 
   # Step 3.2: Compute shocked trajectories and concatenate with baseline
@@ -251,7 +250,7 @@ compute_risk <- function(assets,
     yearly_baseline_profits = yearly_baseline,
     assets_with_factors = assets_factors,
     events = events,
-    net_profit_margin = net_profit_margin
+    companies = companies
   )
 
   yearly_scenarios <- concatenate_baseline_and_shock(yearly_baseline, yearly_shock)
@@ -272,7 +271,7 @@ compute_risk <- function(assets,
   company_yearly_trajectories <- aggregate_assets_to_company(assets_discounted_yearly)
 
   # Use companies financials function that works with yearly data
-  companies_result <- compute_companies_financials(companies, company_yearly_trajectories, assets_discounted_yearly, discount_rate)
+  companies_result <- compute_companies_financials(companies, company_yearly_trajectories, assets_discounted_yearly, discount_rate, risk_free_rate)
 
 
   # ============================================================================
