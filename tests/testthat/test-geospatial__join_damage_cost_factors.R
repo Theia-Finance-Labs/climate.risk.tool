@@ -251,7 +251,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
   base_dir <- get_test_data_dir()
 
   # Test Sugarcane in Alagoas which has 2 growing seasons: Winter (37%, off=30%) and Autumn (35%, off=30%)
-  # User selects Winter - should match Winter season exactly
+  # User selects Winter via season in hazard name - should match Winter season exactly
   assets_long <- data.frame(
     asset = c("A1"),
     company = c("C1"),
@@ -263,14 +263,13 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
     share_of_economic_activity = c(0.5),
-    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_name = c("Drought__SPI3__GWL=present__RP=10__season=Winter__ensemble=mean__extraction_method=mean"),
     hazard_type = c("Drought"),
     hazard_indicator = c("SPI3"),
     hazard_intensity = c(-3.0),
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    season = c("Winter"), # Matches one of the growing seasons
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -297,7 +296,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
 testthat::test_that("join_drought_damage_factors handles multi-season crops - off-season averages", {
   base_dir <- get_test_data_dir()
 
-  # Test Sugarcane in Alagoas with Summer (not a growing season)
+  # Test Sugarcane in Alagoas with Summer (not a growing season) in hazard name
   # Has Winter (37%, off=30%) and Autumn (35%, off=30%)
   # Should average: damage = (37+35)/2 = 36%, off_window = (30+30)/2 = 30%
   # Final damage_factor = 36% * 30% = 10.8%
@@ -312,14 +311,13 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
     share_of_economic_activity = c(0.5),
-    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_name = c("Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean__extraction_method=mean"),
     hazard_type = c("Drought"),
     hazard_indicator = c("SPI3"),
     hazard_intensity = c(-3.0),
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    season = c("Summer"), # Not a growing season - should average
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -350,7 +348,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
 testthat::test_that("join_drought_damage_factors handles multi-season crops - autumn match", {
   base_dir <- get_test_data_dir()
 
-  # Test Sugarcane in Alagoas with Autumn selected
+  # Test Sugarcane in Alagoas with Autumn season in hazard name
   # Should match Autumn season (35%, off=30%)
   assets_long <- data.frame(
     asset = c("A1"),
@@ -363,14 +361,13 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - au
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
     share_of_economic_activity = c(0.5),
-    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_name = c("Drought__SPI3__GWL=present__RP=10__season=Autumn__ensemble=mean__extraction_method=mean"),
     hazard_type = c("Drought"),
     hazard_indicator = c("SPI3"),
     hazard_intensity = c(-3.0),
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    season = c("Autumn"), # Matches one of the growing seasons
     cnae = NA,
     stringsAsFactors = FALSE
   )

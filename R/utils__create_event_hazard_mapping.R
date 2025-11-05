@@ -82,7 +82,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
     dplyr::mutate(
       hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
     ) |>
-    dplyr::select("hazard_name", "event_id", "event_year", "season")
+    dplyr::select("hazard_name", "event_id", "event_year")
 
   # Process multi-indicator events (expand to all indicators)
   multi_events <- events |>
@@ -139,8 +139,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
       tibble::tibble(
         hazard_name = hazard_name_with_suffix,
         event_id = event$event_id,
-        event_year = event$event_year,
-        season = event$season
+        event_year = event$event_year
       )
     })
   })

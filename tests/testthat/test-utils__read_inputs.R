@@ -141,9 +141,9 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
 
   # Should have required columns
   required_cols <- c(
-    "region", "adm_level", "scenario_code", "scenario_name",
-    "hazard_return_period", "hazard_type", "min", "max", "mean",
-    "median", "p2_5", "p5", "p95", "p97_5"
+    "region", "adm_level", "scenario_name",
+    "hazard_return_period", "hazard_type", "hazard_name",
+    "aggregation_method", "hazard_value"
   )
   testthat::expect_true(all(required_cols %in% names(precomputed)))
 

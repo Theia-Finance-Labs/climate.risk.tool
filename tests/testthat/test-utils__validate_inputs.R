@@ -306,7 +306,7 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
 testthat::test_that("validate_companies_against_assets detects companies with no assets", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company_small.xlsx"))
+  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
 
   # Inject a fake company with no assets
   companies <- dplyr::bind_rows(

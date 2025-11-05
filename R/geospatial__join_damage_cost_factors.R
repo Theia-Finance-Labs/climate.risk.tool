@@ -253,6 +253,10 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
   # Prepare assets: determine matching keys based on what exists in damage factors
   drought_assets_prepared <- drought_assets |>
     dplyr::mutate(
+      # Extract season from hazard_name (format: ...__season=SeasonName__...)
+      season = stringr::str_extract(.data$hazard_name, "__season=([^_]+)__") |>
+        stringr::str_remove("__season=") |>
+        stringr::str_remove("__"),
       # Normalize missing/empty values
       asset_subtype_clean = dplyr::if_else(
         is.na(.data$asset_subtype) | .data$asset_subtype == "",

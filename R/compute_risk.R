@@ -225,7 +225,7 @@ compute_risk <- function(assets,
   
   assets_with_events <- assets_long |>
     dplyr::inner_join(
-      events_expanded_for_join |> dplyr::select("hazard_name", "event_id", "event_year", "season"),
+      events_expanded_for_join |> dplyr::select("hazard_name", "event_id", "event_year"),
       by = "hazard_name", relationship = "many-to-many"
     )
 
