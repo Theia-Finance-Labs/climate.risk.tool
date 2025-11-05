@@ -13,7 +13,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     data.frame(
       key = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       hazard_type = c("flood", "flood"),
-      hazard_indicator = c("Flood Height", "Flood Height"),
+      hazard_indicator = c("depth(cm)", "depth(cm)"),
       scenario_name = c("RCP8.5", "RCP8.5"),
       hazard_return_period = c(100, 10),
       scenario_code = c("rcp85", "rcp85"),
@@ -29,7 +29,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 
     # Provide selections for the first event (including hazard_indicator)
     session$setInputs("hazard_type_1" = "flood")
-    session$setInputs("hazard_indicator_1" = "Flood Height")
+    session$setInputs("hazard_indicator_1" = "depth(cm)")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
     session$setInputs("year_1" = 2030)
@@ -42,7 +42,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 
     # Add a second event
     session$setInputs("hazard_type_2" = "flood")
-    session$setInputs("hazard_indicator_2" = "Flood Height")
+    session$setInputs("hazard_indicator_2" = "depth(cm)")
     session$setInputs("scenario_name_2" = "RCP8.5")
     session$setInputs("return_period_2" = 10)
     session$setInputs("year_2" = 2035)
@@ -64,7 +64,7 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
     data.frame(
       key = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
       hazard_type = c("flood", "flood"),
-      hazard_indicator = c("Flood Height", "Flood Height"),
+      hazard_indicator = c("depth(cm)", "depth(cm)"),
       scenario_name = c("RCP8.5", "RCP8.5"),
       hazard_return_period = c(100, 10),
       scenario_code = c("rcp85", "rcp85"),
@@ -79,7 +79,7 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
 
     # Add first event
     session$setInputs("hazard_type_1" = "flood")
-    session$setInputs("hazard_indicator_1" = "Flood Height")
+    session$setInputs("hazard_indicator_1" = "depth(cm)")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
     session$setInputs("year_1" = 2030)
@@ -132,7 +132,7 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
     data.frame(
       key = c("flood__rcp85_h100glob"),
       hazard_type = c("flood"),
-      hazard_indicator = c("Flood Height"),
+      hazard_indicator = c("depth(cm)"),
       scenario_name = c("RCP8.5"),
       hazard_return_period = c(100),
       hazard_name = c("flood__rcp85_h100glob"),
@@ -141,7 +141,7 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
   })), {
     # Set up flood event (no season should be captured)
     session$setInputs("hazard_type_1" = "flood")
-    session$setInputs("hazard_indicator_1" = "Flood Height")
+    session$setInputs("hazard_indicator_1" = "depth(cm)")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
     session$setInputs("year_1" = 2030)
