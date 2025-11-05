@@ -24,21 +24,22 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   # - Compound: Uses GWL= with ensemble (CSV files)
   # - Drought: Uses GWL= with season and ensemble (NC files)
   events <- data.frame(
-    hazard_type = c("FloodTIF", "FloodTIF", "FloodTIF", "Compound", "Compound", "Drought", "Drought"),
+    hazard_type = c("FloodTIF", "FloodTIF", "FloodTIF", "Compound", "Compound", "Drought", "Drought", "Fire"),
     hazard_name = c(
-      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-      "FloodTIF__Flood Height__GWL=RCP8.5__RP=100",
+      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
+      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
+      "FloodTIF__depth(cm)__GWL=RCP8.5__RP=100",
       "Compound__HI__GWL=present__RP=10__ensemble=mean",
       "Compound__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
-      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean",
+      "Fire__FWI__GWL=3__RP=50__ensemble=mean"
     ),
-    scenario_name = c("CurrentClimate", "CurrentClimate", "RCP8.5", "present", "2", "present", "1.5"),
-    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
-    hazard_return_period = c(10, 10, 100, 10, 10, 10, 10),
-    event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L),
-    season = c(NA, NA, NA, NA, NA, "Summer", "Winter"), # Season only for Drought
+    scenario_name = c("CurrentClimate", "CurrentClimate", "RCP8.5", "present", "2", "present", "1.5", "3"),
+    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5", "3"),
+    hazard_return_period = c(10, 10, 100, 10, 10, 10, 10, 50),
+    event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L, 2030L),
+    season = c(NA, NA, NA, NA, NA, "Summer", "Winter", NA), # Season only for Drought
     stringsAsFactors = FALSE
   )
 
@@ -150,9 +151,9 @@ testthat::test_that("compute_risk produces stable snapshot output", {
   events <- data.frame(
     hazard_type = c("FloodTIF", "FloodTIF", "FloodTIF", "Compound", "Compound", "Drought", "Drought"),
     hazard_name = c(
-      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-      "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
-      "FloodTIF__Flood Height__GWL=RCP8.5__RP=100",
+      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
+      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
+      "FloodTIF__depth(cm)__GWL=RCP8.5__RP=100",
       "Compound__HI__GWL=present__RP=10__ensemble=mean",
       "Compound__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",

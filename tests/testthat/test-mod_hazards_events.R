@@ -12,7 +12,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     # Minimal fake inventory with required columns including hazard_indicator
     data.frame(
       key = c("flood__rcp85_h100glob", "flood__rcp85_h10glob"),
-      hazard_type = c("flood", "flood"),
+      hazard_type = c("FloodTIF", "FloodTIF"),
       hazard_indicator = c("depth(cm)", "depth(cm)"),
       scenario_name = c("RCP8.5", "RCP8.5"),
       hazard_return_period = c(100, 10),
@@ -28,8 +28,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     testthat::expect_equal(nrow(events_rv()), 0)
 
     # Provide selections for the first event (including hazard_indicator)
-    session$setInputs("hazard_type_1" = "flood")
-    session$setInputs("hazard_indicator_1" = "depth(cm)")
+    session$setInputs("hazard_type_1" = "FloodTIF")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
     session$setInputs("year_1" = 2030)
@@ -41,8 +40,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
     testthat::expect_equal(counter(), 2L)
 
     # Add a second event
-    session$setInputs("hazard_type_2" = "flood")
-    session$setInputs("hazard_indicator_2" = "depth(cm)")
+    session$setInputs("hazard_type_2" = "FloodTIF")
     session$setInputs("scenario_name_2" = "RCP8.5")
     session$setInputs("return_period_2" = 10)
     session$setInputs("year_2" = 2035)
@@ -102,6 +100,7 @@ testthat::test_that("mod_hazards_events_server captures season for Drought event
       hazard_type = c("Drought"),
       hazard_indicator = c("SPI3"),
       scenario_name = c("present"),
+      scenario_code = c("present"),
       hazard_return_period = c(10),
       hazard_name = c("Drought__SPI3__GWL=present__RP=10__ensemble=mean"),
       stringsAsFactors = FALSE
@@ -131,17 +130,17 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
     # Inventory with FloodTIF hazard
     data.frame(
       key = c("flood__rcp85_h100glob"),
-      hazard_type = c("flood"),
+      hazard_type = c("FloodTIF"),
       hazard_indicator = c("depth(cm)"),
       scenario_name = c("RCP8.5"),
+      scenario_code = c("rcp85"),
       hazard_return_period = c(100),
       hazard_name = c("flood__rcp85_h100glob"),
       stringsAsFactors = FALSE
     )
   })), {
     # Set up flood event (no season should be captured)
-    session$setInputs("hazard_type_1" = "flood")
-    session$setInputs("hazard_indicator_1" = "depth(cm)")
+    session$setInputs("hazard_type_1" = "FloodTIF")
     session$setInputs("scenario_name_1" = "RCP8.5")
     session$setInputs("return_period_1" = 100)
     session$setInputs("year_1" = 2030)
@@ -151,6 +150,6 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
     ev <- events_rv()
     testthat::expect_equal(nrow(ev), 1)
     testthat::expect_true(is.na(ev$season[1]))
-    testthat::expect_equal(ev$hazard_type[1], "flood")
+    testthat::expect_equal(ev$hazard_type[1], "FloodTIF")
   })
 })

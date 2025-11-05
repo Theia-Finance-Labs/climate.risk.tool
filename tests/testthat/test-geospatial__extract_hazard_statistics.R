@@ -2,9 +2,9 @@ testthat::test_that("geolocated assets extract from TIF files", {
   # Load all hazards
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
 
-  # Define events with just 1 TIF hazard for focused testing (using new unified format)
+  # Define events with just 1 TIF hazard for focused testing (using formatted hazard name)
   events <- tibble::tibble(
-    hazard_name = "FloodTIF__Flood Height__GWL=RCP8.5__RP=10",
+    hazard_name = "FloodTIF__depth(cm)__GWL=RCP8.5__RP=10",
     event_year = 2030,
   )
 
@@ -109,7 +109,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
   events <- tibble::tibble(
     hazard_name = c(
-      "FloodTIF__Flood Height__GWL=RCP8.5__RP=10", # TIF hazard
+      "FloodTIF__depth(cm)__GWL=RCP8.5__RP=10", # TIF hazard
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
     ),
     event_year = 2030,
@@ -224,7 +224,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     share_of_economic_activity = 0.5
   )
   events2 <- tibble::tibble(
-    hazard_name = "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+    hazard_name = "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
     event_year = 2030,
   )
   all_hazards2 <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)

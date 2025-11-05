@@ -170,6 +170,7 @@ compute_risk <- function(assets,
 
     validate_input_coherence(
       assets_df = assets,
+      companies_df = companies,
       damage_factors_df = damage_factors,
       precomputed_hazards_df = precomputed_hazards,
       cnae_exposure_df = cnae_exposure,
