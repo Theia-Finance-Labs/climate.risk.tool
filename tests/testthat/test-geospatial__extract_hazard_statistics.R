@@ -4,7 +4,7 @@ testthat::test_that("geolocated assets extract from TIF files", {
 
   # Define events with just 1 TIF hazard for focused testing (using formatted hazard name)
   events <- tibble::tibble(
-    hazard_name = "Flood__depth(cm)__GWL=RCP8.5__RP=10",
+    hazard_name = "Flood__depth(cm)__GWL=rcp85__RP=10",
     event_year = 2030,
   )
 
@@ -36,10 +36,6 @@ testthat::test_that("geolocated assets extract from TIF files", {
     precomputed_hazards = tibble::tibble()
   )
 
-  # Skip test if no hazard data found at test coordinates
-  if (nrow(out) == 0) {
-    testthat::skip("No hazard data found at test coordinates")
-  }
 
   # Verify: all matching_method = "coordinates"
   testthat::expect_true(all(out$matching_method == "coordinates"))
@@ -114,7 +110,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
   events <- tibble::tibble(
     hazard_name = c(
-      "Flood__depth(cm)__GWL=RCP8.5__RP=10", # TIF hazard
+      "Flood__depth(cm)__GWL=rcp85__RP=10", # TIF hazard
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
     ),
     event_year = 2030,
@@ -242,51 +238,43 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     regexp = "Cannot determine|not found|NonExistent"
   )
 
-  # If case 1 is not runnable (all hazards present), skip that part
-  if (!ran_case1) {
-    testthat::skip("No missing hazard combinations available for testing (case 1)")
-  }
 
   # final assertions are via the expect_error checks above for both cases
 })
 
 
-testthat::test_that("Fire FWI and days_danger_total use specified aggregation method", {
+testthat::test_that("CSV hazards use specified aggregation method", {
   # Load hazards
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
 
-  # Define Fire FWI and days_danger_total events (CSV files)
+  # Define Compound HI events (CSV files available in test data)
+  # Include ensemble suffix for CSV hazards
   events <- tibble::tibble(
-    hazard_name = c("Fire__FWI__GWL=present__RP=10", "Fire__days_danger_total__GWL=present__RP=10"),
+    hazard_name = c("Compound__HI__GWL=present__RP=10__ensemble=mean", "Compound__HI__GWL=present__RP=5__ensemble=mean"),
     event_year = c(2030, 2030)
   )
 
-  # Filter to Fire CSV hazards
+  # Filter to CSV hazards
   csv_hazards <- filter_hazards_by_events(hazard_data$hazards$csv, events)
   csv_inventory <- hazard_data$inventory |>
     dplyr::filter(.data$source == "csv", .data$hazard_name %in% names(csv_hazards))
 
-  # Check if Fire CSV hazards exist in test data
-  if (nrow(csv_inventory) == 0 || length(csv_hazards) == 0) {
-    testthat::skip("Fire FWI/days_danger_total hazards not available in test data")
-  }
-
   # Create assets with coordinates
   assets <- tibble::tibble(
-    asset = c("asset_fire_1", "asset_fire_2"),
+    asset = c("asset_csv_1", "asset_csv_2"),
     company = c("company_a", "company_b"),
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
     municipality = NA_character_,
     province = NA_character_,
-    asset_category = "agriculture",
+    asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
     share_of_economic_activity = 0.5,
     cnae = NA_real_
   )
 
-  # Extract with mean aggregation (should use mean for FWI and days_danger_total)
+  # Extract with mean aggregation
   out <- extract_hazard_statistics(
     assets,
     csv_hazards,
@@ -301,12 +289,12 @@ testthat::test_that("Fire FWI and days_danger_total use specified aggregation me
   # Verify: hazard statistics are numeric
   testthat::expect_true(is.numeric(out$hazard_intensity))
 
-  # Should have results for both assets and both indicators
-  # (2 assets × 2 indicators = 4 rows)
+  # Should have results for both assets and both return periods
+  # (2 assets × 2 events = 4 rows)
   testthat::expect_equal(nrow(out), 4)
   testthat::expect_equal(length(unique(out$asset)), 2)
 
-  # Should have both FWI and days_danger_total indicators
+  # Should have Compound HI indicator
   indicators <- unique(out$hazard_indicator)
-  testthat::expect_true("FWI" %in% indicators || "days_danger_total" %in% indicators)
+  testthat::expect_true("HI" %in% indicators)
 })
