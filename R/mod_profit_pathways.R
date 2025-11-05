@@ -291,14 +291,14 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
       hovertemplate_str <- paste0(
         "<b>", asset_name, "</b><br>",
         "Year: %{x}<br>",
-        "Profit: $%{y:,.2f}<br>",
+        "Profit: R$%{y:,.2f}<br>",
         "<extra></extra>"
       )
     } else {
       hovertemplate_str <- paste0(
         "<b>", asset_name, "</b><br>",
         "Year: %{x}<br>",
-        "Profit: $%{y:,.0f}<br>",
+        "Profit: R$%{y:,.0f}<br>",
         "<extra></extra>"
       )
     }
@@ -322,7 +322,7 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
   
   # Configure y-axis based on scale type
   yaxis_config <- list(
-    title = if (log_scale) "Profit ($, log scale)" else "Profit ($)",
+    title = if (log_scale) "Profit (R$, log scale)" else "Profit (R$)",
     showgrid = TRUE,
     gridcolor = "#ecf0f1"
   )

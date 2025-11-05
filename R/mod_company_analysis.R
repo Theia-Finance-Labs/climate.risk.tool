@@ -152,7 +152,7 @@ mod_company_analysis_server <- function(id, results_reactive) {
             companies_display[[col]] <- paste0(sprintf("%.4f", companies_display[[col]] * 100), "%")
           } else if (grepl("npv|loss", col, ignore.case = TRUE)) {
             # NPV and loss columns (currency format)
-            companies_display[[col]] <- paste0("$", format(round(companies_display[[col]]), big.mark = ","))
+            companies_display[[col]] <- paste0("R$", format(round(companies_display[[col]]), big.mark = ","))
           }
         }
       }
@@ -265,7 +265,7 @@ create_portfolio_summary_plot <- function(summary_data) {
     marker = list(color = colors_vec),
     hovertemplate = paste0(
       "<b>%{x}</b><br>",
-      "Total Expected Loss: $%{y:,.0f}<br>",
+      "Total Expected Loss: R$%{y:,.0f}<br>",
       "<extra></extra>"
     )
   ) |>
@@ -276,7 +276,7 @@ create_portfolio_summary_plot <- function(summary_data) {
         categoryarray = c("Baseline", "Shock", "Difference")
       ),
       yaxis = list(
-        title = "Total Expected Loss ($)",
+        title = "Total Expected Loss (R$)",
         showgrid = TRUE,
         gridcolor = "#ecf0f1"
       ),
