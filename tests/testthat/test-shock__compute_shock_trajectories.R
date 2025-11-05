@@ -13,6 +13,7 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
     asset = "A1",
     hazard_type = "flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
+    event_id = "e1",
     business_disruption = 10,
     damage_factor = 0.5,
     cost_factor = 100,
@@ -58,6 +59,7 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
     asset = "A1",
     hazard_type = "flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
+    event_id = "e1",
     business_disruption = 10,
     damage_factor = 0.5,
     cost_factor = 100

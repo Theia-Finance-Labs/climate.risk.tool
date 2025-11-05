@@ -14,6 +14,7 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
     asset = c("A1", "A2"),
     hazard_type = c("FloodTIF", "FloodTIF"),
     hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=100"),
+    event_id = c("e1", "e1"),
     damage_factor = c(0.5, 0.4),
     cost_factor = c(200, 200),
     asset_category = c("industrial building", "commercial building")
@@ -67,6 +68,7 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
     asset = c("A1", "A1"),
     hazard_type = c("FloodTIF", "FloodTIF"),
     hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=50"),
+    event_id = c("event_z", "event_a"),
     damage_factor = c(0.5, 0.3),
     cost_factor = c(200, 150),
     asset_category = c("industrial building", "industrial building")
@@ -104,6 +106,7 @@ testthat::test_that("apply_acute_profit_shock excludes agriculture assets", {
     asset = c("AG1", "COM1"),
     hazard_type = c("FloodTIF", "FloodTIF"),
     hazard_name = c("flood1", "flood1"),
+    event_id = c("event_1", "event_1"),
     damage_factor = c(0.3, 0.3),
     cost_factor = c(100, 100),
     asset_category = c("agriculture", "commercial building")
@@ -139,6 +142,7 @@ testthat::test_that("apply_acute_profit_shock applies to industrial buildings wi
     asset = "IND1",
     hazard_type = "FloodTIF",
     hazard_name = "flood1",
+    event_id = "event_1",
     damage_factor = 0.4,
     cost_factor = 250, # Industrial-specific cost factor
     asset_category = "industrial building"
@@ -172,6 +176,7 @@ testthat::test_that("apply_acute_profit_shock handles commercial building separa
     asset = c("COM1", "IND1"),
     hazard_type = c("FloodTIF", "FloodTIF"),
     hazard_name = c("flood1", "flood1"),
+    event_id = c("event_1", "event_1"),
     damage_factor = c(0.3, 0.4),
     cost_factor = c(150, 250), # Different cost factors
     asset_category = c("commercial building", "industrial building")

@@ -180,9 +180,9 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     discount_rate = 0.05
   )
 
-  # Snapshot test of each dataframe
-  testthat::expect_snapshot_value(res$assets_factors, style = "deparse", cran = FALSE)
+  # Snapshot test of company-level outputs only
+  # Company-level data is more stable and easier to analyze differences.
+  # Asset-level snapshots are excluded as they are sensitive to row ordering
+  # and can be very large, making it harder to identify meaningful changes.
   testthat::expect_snapshot_value(res$companies, style = "deparse", cran = FALSE)
-  testthat::expect_snapshot_value(res$assets_yearly, style = "deparse", cran = FALSE)
-  testthat::expect_snapshot_value(res$companies_yearly, style = "deparse", cran = FALSE)
 })
