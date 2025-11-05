@@ -209,8 +209,9 @@ app_server <- function(input, output, session) {
           adm1_boundaries = values$adm1_boundaries,
           adm2_boundaries = values$adm2_boundaries,
           validate_inputs = TRUE,
-          growth_rate = 0.02,
-          discount_rate = 0.05,
+          growth_rate = control$growth_rate(),
+          discount_rate = control$discount_rate(),
+          risk_free_rate = control$risk_free_rate(),
           aggregation_method = "median" # Default aggregation method
         )
 

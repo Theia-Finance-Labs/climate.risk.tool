@@ -196,7 +196,16 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         shiny::uiOutput(ns(paste0("scenario_name_ui_", k))),
         shiny::uiOutput(ns(paste0("return_period_ui_", k))),
         shiny::uiOutput(ns(paste0("season_ui_", k))),
-        shiny::numericInput(ns(paste0("year_", k)), label = "Shock year", value = 2030, min = 2025, max = 2100, step = 1)
+        shiny::sliderInput(
+          ns(paste0("year_", k)),
+          label = "Shock Year:",
+          value = 2030,
+          min = 2025,
+          max = 2049,
+          step = 1,
+          sep = "",
+          ticks = TRUE
+        )
       )
     })
 
