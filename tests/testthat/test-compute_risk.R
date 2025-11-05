@@ -18,17 +18,17 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     assets_mixed$province[1] <- "Amazonas"
   }
 
-  # Events: FloodTIF (acute), Compound (acute), and Drought (acute with season)
+  # Events: Flood (acute), Compound (acute), and Drought (acute with season)
   # Hazard names match the actual available test data:
-  # - FloodTIF: Uses GWL= format with scenario_name (TIF files)
+  # - Flood: Uses GWL= format with scenario_name (TIF files)
   # - Compound: Uses GWL= with ensemble (CSV files)
   # - Drought: Uses GWL= with season and ensemble (NC files)
   events <- data.frame(
-    hazard_type = c("FloodTIF", "FloodTIF", "FloodTIF", "Compound", "Compound", "Drought", "Drought", "Fire"),
+    hazard_type = c("Flood", "Flood", "Flood", "Compound", "Compound", "Drought", "Drought", "Fire"),
     hazard_name = c(
-      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
-      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
-      "FloodTIF__depth(cm)__GWL=RCP8.5__RP=100",
+      "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
+      "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
+      "Flood__depth(cm)__GWL=RCP8.5__RP=100",
       "Compound__HI__GWL=present__RP=10__ensemble=mean",
       "Compound__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
@@ -82,7 +82,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   testthat::expect_true(any(grepl("^event_", unique_ids)))
 
   # Hazards coverage: Flood, Compound, Drought, and Fire present
-  testthat::expect_true(any(grepl("FloodTIF", res$assets_factors$hazard_name)))
+  testthat::expect_true(any(grepl("Flood", res$assets_factors$hazard_name)))
   testthat::expect_true(any(grepl("Compound", res$assets_factors$hazard_name)))
 
   # Drought should be present only for agriculture assets
@@ -107,11 +107,11 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     testthat::expect_true(any(fire_asset_categories %in% c("agriculture", "commercial building", "industrial building")))
   }
 
-  # Coverage by matching method: each matching_method should include FloodTIF, Compound, and Fire
+  # Coverage by matching method: each matching_method should include Flood, Compound, and Fire
   mm_cov <- res$assets_factors |>
     dplyr::group_by(.data$matching_method) |>
     dplyr::summarise(
-      has_flood = any(grepl("FloodTIF", .data$hazard_name)),
+      has_flood = any(grepl("Flood", .data$hazard_name)),
       has_compound = any(grepl("Compound", .data$hazard_name)),
       has_fire = any(grepl("Fire", .data$hazard_name)),
       .groups = "drop"
@@ -162,17 +162,17 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     assets_mixed$province[1] <- "Amazonas"
   }
 
-  # Events: FloodTIF (acute), Compound (acute), and Drought (acute with season)
+  # Events: Flood (acute), Compound (acute), and Drought (acute with season)
   # Hazard names match the actual available test data:
-  # - FloodTIF: Uses GWL= format with scenario_name (TIF files)
+  # - Flood: Uses GWL= format with scenario_name (TIF files)
   # - Compound: Uses GWL= with ensemble (CSV files)
   # - Drought: Uses GWL= with season and ensemble (NC files)
   events <- data.frame(
-    hazard_type = c("FloodTIF", "FloodTIF", "FloodTIF", "Compound", "Compound", "Drought", "Drought"),
+    hazard_type = c("Flood", "Flood", "Flood", "Compound", "Compound", "Drought", "Drought"),
     hazard_name = c(
-      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
-      "FloodTIF__depth(cm)__GWL=CurrentClimate__RP=10",
-      "FloodTIF__depth(cm)__GWL=RCP8.5__RP=100",
+      "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
+      "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
+      "Flood__depth(cm)__GWL=RCP8.5__RP=100",
       "Compound__HI__GWL=present__RP=10__ensemble=mean",
       "Compound__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",

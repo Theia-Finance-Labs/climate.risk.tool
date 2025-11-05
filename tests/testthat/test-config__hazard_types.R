@@ -22,7 +22,7 @@ testthat::test_that("get_hazard_type_config returns Fire configuration with 3 in
 
 testthat::test_that("is_multi_indicator_hazard correctly identifies Fire as multi-indicator", {
   testthat::expect_true(is_multi_indicator_hazard("Fire"))
-  testthat::expect_false(is_multi_indicator_hazard("FloodTIF"))
+  testthat::expect_false(is_multi_indicator_hazard("Flood"))
   testthat::expect_false(is_multi_indicator_hazard("Compound"))
   testthat::expect_false(is_multi_indicator_hazard("Drought"))
 })
@@ -33,7 +33,7 @@ testthat::test_that("get_primary_indicator returns FWI for Fire", {
 })
 
 testthat::test_that("get_primary_indicator returns correct primary indicator for single-indicator hazards", {
-  testthat::expect_equal(get_primary_indicator("FloodTIF"), "depth(cm)")
+  testthat::expect_equal(get_primary_indicator("Flood"), "depth(cm)")
   testthat::expect_equal(get_primary_indicator("Compound"), "HI")
   testthat::expect_equal(get_primary_indicator("Drought"), "SPI3")
 })
@@ -48,7 +48,7 @@ testthat::test_that("get_required_indicators returns all 3 indicators for Fire",
 })
 
 testthat::test_that("get_required_indicators returns single indicator for single-indicator hazards", {
-  flood_indicators <- get_required_indicators("FloodTIF")
+  flood_indicators <- get_required_indicators("Flood")
   testthat::expect_equal(length(flood_indicators), 1)
   testthat::expect_equal(flood_indicators, "depth(cm)")
 

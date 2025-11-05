@@ -11,7 +11,7 @@
 join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cnae_exposure = NULL, land_cover_legend = NULL) {
   # Separate assets by hazard type
   flood_assets <- assets_with_hazards |>
-    dplyr::filter(.data$hazard_type == "FloodTIF")
+    dplyr::filter(.data$hazard_type == "Flood")
   compound_assets <- assets_with_hazards |>
     dplyr::filter(.data$hazard_type == "Compound")
   drought_assets <- assets_with_hazards |>
@@ -57,16 +57,16 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cna
   return(merged)
 }
 
-#' Join FloodTIF damage factors using closest intensity matching (internal function)
+#' Join Flood damage factors using closest intensity matching (internal function)
 #'
-#' @param flood_assets Data frame with FloodTIF hazard assets
+#' @param flood_assets Data frame with Flood hazard assets
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
 #' @return Data frame with damage_factor, cost_factor, and business_disruption columns
 #' @noRd
 join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
   # Filter flood damage factors
   flood_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "FloodTIF") |>
+    dplyr::filter(.data$hazard_type == "Flood") |>
     dplyr::mutate(
       hazard_intensity_num = as.numeric(.data$hazard_intensity)
     ) |>

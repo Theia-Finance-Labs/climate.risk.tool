@@ -2,16 +2,16 @@
 
 # Contract:
 # - join_damage_cost_factors(assets_with_hazards, damage_factors_df)
-# - FloodTIF: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
+# - Flood: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
 # - Compound: Joins on hazard_type, province, and scenario_name (GWL)
 # - Expects long format input with hazard_type, hazard_indicator, hazard_intensity, scenario_name columns
 # - Adds numeric columns damage_factor, cost_factor, business_disruption
 
 
-testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-based matching", {
+testthat::test_that("join_damage_cost_factors handles Flood with intensity-based matching", {
   base_dir <- get_test_data_dir()
 
-  # Create FloodTIF test data
+  # Create Flood test data
   assets_long <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C2"),
@@ -23,7 +23,7 @@ testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-ba
     size_in_m2 = c(1000, 800),
     share_of_economic_activity = c(0.5, 0.3),
     hazard_name = c("flood__extraction_method=mean", "flood__extraction_method=mean"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_type = c("Flood", "Flood"),
     hazard_indicator = c("depth(cm)", "depth(cm)"),
     hazard_intensity = c(12.4, 2.1),
     scenario_name = c("rcp85", "rcp85"),
@@ -44,7 +44,7 @@ testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-ba
   testthat::expect_true(is.numeric(out$business_disruption))
   testthat::expect_equal(nrow(out), nrow(assets_long))
 
-  # FloodTIF should have non-NA values for all three factors
+  # Flood should have non-NA values for all three factors
   testthat::expect_true(all(!is.na(out$damage_factor)))
   testthat::expect_true(all(!is.na(out$cost_factor)))
   testthat::expect_true(all(!is.na(out$business_disruption)))
@@ -443,7 +443,7 @@ testthat::test_that("join_drought_damage_factors filters to agriculture only", {
     size_in_m2 = c(10000, 8000, 5000),
     share_of_economic_activity = c(0.5, 0.3, 0.2),
     hazard_name = c("SPI3__extraction_method=mean", "SPI3__extraction_method=mean", "flood__extraction_method=mean"),
-    hazard_type = c("Drought", "Drought", "FloodTIF"),
+    hazard_type = c("Drought", "Drought", "Flood"),
     hazard_indicator = c("SPI3", "SPI3", "depth(cm)"),
     hazard_intensity = c(-2.5, -2.5, 10),
     scenario_name = c("present", "present", "rcp85"),

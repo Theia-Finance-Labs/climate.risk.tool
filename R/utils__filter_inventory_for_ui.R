@@ -5,7 +5,7 @@
 #'   hiding the multi-indicator complexity from users.
 #'
 #' @details
-#' For single-indicator hazards (FloodTIF, Compound, Drought):
+#' For single-indicator hazards (Flood, Compound, Drought):
 #'   - Returns all rows as-is since primary = only indicator
 #'
 #' For multi-indicator hazards (Fire with land_cover, FWI, days_danger_total):

@@ -1,6 +1,6 @@
 # Tests for apply_acute_revenue_shock
 
-testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly", {
+testthat::test_that("apply_acute_revenue_shock applies Flood shocks correctly", {
   yearly_baseline <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
@@ -10,7 +10,7 @@ testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly
 
   assets_factors <- data.frame(
     asset = c("A1", "A2"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_type = c("Flood", "Flood"),
     event_id = c("event_1", "event_1"),
     business_disruption = c(10, 20),
     asset_category = c("commercial building", "commercial building")
@@ -18,7 +18,7 @@ testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -93,7 +93,7 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
 
   assets_factors <- data.frame(
     asset = c("A1", "A1"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_type = c("Flood", "Flood"),
     event_id = c("event_z", "event_a"), # Non-alphabetical order
     business_disruption = c(10, 20),
     asset_category = c("commercial building", "commercial building")
@@ -102,7 +102,7 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
   # Events in non-alphabetical order
   acute_events <- data.frame(
     event_id = c("event_z", "event_a"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_type = c("Flood", "Flood"),
     event_year = c(2030L, 2030L),
     stringsAsFactors = FALSE
   )
@@ -127,7 +127,7 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
 
   assets_factors <- data.frame(
     asset = "AG1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.3, # 30% damage
     business_disruption = 10, # 10 days
@@ -136,7 +136,7 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -162,7 +162,7 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
 
   assets_factors <- data.frame(
     asset = "AG1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.95, # 95% damage
     business_disruption = 350, # 350 days (almost full year)
@@ -171,7 +171,7 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -195,7 +195,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   assets_factors <- data.frame(
     asset = "COM1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.3, # This should NOT be applied for commercial
     business_disruption = 10,
@@ -204,7 +204,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -226,7 +226,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   assets_factors <- data.frame(
     asset = "IND1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.3, # This should NOT be applied for industrial
     business_disruption = 15,
@@ -235,7 +235,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 

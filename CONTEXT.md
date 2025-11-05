@@ -47,7 +47,7 @@ The tool uses a **unified hazard configuration architecture** that supports both
 #### Hazard Types
 
 **Single-Indicator Hazards** (1 data source per hazard):
-- **FloodTIF**: Flood depth (cm)
+- **Flood**: Flood depth (cm)
 - **Compound**: Compound climate index
 - **Drought**: Drought index (seasonal)
 
@@ -68,7 +68,7 @@ get_hazard_type_config() → list(
     primary_indicator = "FWI",  # Drives UI dropdowns
     description = "..."
   ),
-  FloodTIF = list(...),
+  Flood = list(...),
   ...
 )
 ```
@@ -81,7 +81,7 @@ Helper functions:
 #### UI Inventory Filtering
 
 The UI only shows:
-- **Hazard Type** (e.g., "Fire", "FloodTIF")
+- **Hazard Type** (e.g., "Fire", "Flood")
 - **Scenario** (e.g., "SSP2-4.5", "CurrentClimate")
 - **Return Period** (e.g., 10, 50, 100 years)
 
@@ -377,7 +377,7 @@ inventory <- hazard_data$inventory
 
 **`join_damage_cost_factors(assets_long_format, damage_factors_df, cnae_exposure = NULL)`** → data.frame
 - Joins damage and cost factors based on hazard type:
-  - **FloodTIF**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
+  - **Flood**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
   - **Compound**: Joins on hazard_type, province, scenario_name (GWL), and metric (sector-based from CNAE exposure)
   - **Drought**: Joins on province, crop subtype, season, and closest hazard_intensity match
 - Optional `cnae_exposure` parameter used for Compound hazards to determine metric (high/median/low) based on sector CNAE codes
@@ -800,7 +800,7 @@ The system supports both single-indicator and multi-indicator hazards through a 
 **Internal System Behavior**:
 
 1. **Single-Indicator Hazards** (Flood, Drought, Compound):
-   - User selects: FloodTIF + CurrentClimate + 100 years
+   - User selects: Flood + CurrentClimate + 100 years
    - System internally finds: 1 indicator (depth(cm))
    - Extracts: That 1 indicator
    - Damage calculation: Uses that indicator directly

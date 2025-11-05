@@ -87,12 +87,12 @@ testthat::test_that("expand_multi_indicator_events passes through single-indicat
   hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
   hazards_inventory <- hazards_data$inventory
 
-  # Create single-indicator hazards (FloodTIF, Compound, Drought)
+  # Create single-indicator hazards (Flood, Compound, Drought)
   events <- tibble::tibble(
     event_id = c("event_flood_1", "event_compound_1", "event_drought_1"),
-    hazard_type = c("FloodTIF", "Compound", "Drought"),
+    hazard_type = c("Flood", "Compound", "Drought"),
     hazard_indicator = c("depth(cm)", "HI", "SPI3"),
-    hazard_name = c("FloodTIF__depth(cm)__GWL=RCP8.5__RP=10", "Compound__HI__GWL=present__RP=10", "Drought__SPI3__GWL=present__RP=10"),
+    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=10", "Compound__HI__GWL=present__RP=10", "Drought__SPI3__GWL=present__RP=10"),
     scenario_name = c("RCP8.5", "present", "present"),
     scenario_code = c("rcp85", "present", "present"),
     hazard_return_period = c(10, 10, 10),
@@ -145,12 +145,12 @@ testthat::test_that("expand_multi_indicator_events handles mixed multi and singl
   hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
   hazards_inventory <- hazards_data$inventory
 
-  # Mix of Fire (multi) and FloodTIF (single)
+  # Mix of Fire (multi) and Flood (single)
   events <- tibble::tibble(
     event_id = c("event_fire_1", "event_flood_1"),
-    hazard_type = c("Fire", "FloodTIF"),
+    hazard_type = c("Fire", "Flood"),
     hazard_indicator = c("FWI", "depth(cm)"),
-    hazard_name = c("Fire__FWI__GWL=present__RP=10", "FloodTIF__depth(cm)__GWL=RCP8.5__RP=10"),
+    hazard_name = c("Fire__FWI__GWL=present__RP=10", "Flood__depth(cm)__GWL=RCP8.5__RP=10"),
     scenario_name = c("present", "RCP8.5"),
     scenario_code = c("present", "rcp85"),
     hazard_return_period = c(10, 10),
@@ -160,15 +160,15 @@ testthat::test_that("expand_multi_indicator_events handles mixed multi and singl
 
   expanded <- expand_multi_indicator_events(events, hazards_inventory)
 
-  # Should have 3 Fire events + 1 FloodTIF = 4 total
+  # Should have 3 Fire events + 1 Flood = 4 total
   testthat::expect_equal(nrow(expanded), 4)
 
   # Fire should be expanded to 3 indicators
   fire_events <- expanded |> dplyr::filter(.data$hazard_type == "Fire")
   testthat::expect_equal(nrow(fire_events), 3)
 
-  # FloodTIF should remain as 1
-  flood_events <- expanded |> dplyr::filter(.data$hazard_type == "FloodTIF")
+  # Flood should remain as 1
+  flood_events <- expanded |> dplyr::filter(.data$hazard_type == "Flood")
   testthat::expect_equal(nrow(flood_events), 1)
 })
 

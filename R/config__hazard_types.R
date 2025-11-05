@@ -5,7 +5,7 @@
 #'
 #' @details
 #' This configuration enables the system to handle both single-indicator hazards
-#' (FloodTIF, Compound, Drought) and multi-indicator hazards (Fire) uniformly.
+#' (Flood, Compound, Drought) and multi-indicator hazards (Fire) uniformly.
 #'
 #' For multi-indicator hazards like Fire:
 #' - Users select only: Hazard Type, Scenario, Return Period
@@ -33,7 +33,7 @@ get_hazard_type_config <- function() {
       primary_indicator = "FWI",  # FWI and days_danger_total share same scenario/RP
       description = "Fire risk combining land cover, fire weather index, and danger days"
     ),
-    FloodTIF = list(
+    Flood = list(
       indicators = c("depth(cm)"),
       primary_indicator = "depth(cm)",
       description = "Flood depth in centimeters"
@@ -56,7 +56,7 @@ get_hazard_type_config <- function() {
 #' @description Determines if a hazard type requires multiple indicators for
 #'   damage calculation (e.g., Fire needs 3 indicators).
 #'
-#' @param hazard_type Character. Hazard type name (e.g., "Fire", "FloodTIF")
+#' @param hazard_type Character. Hazard type name (e.g., "Fire", "Flood")
 #' @return Logical. TRUE if hazard requires multiple indicators, FALSE otherwise
 #'
 #' @noRd
