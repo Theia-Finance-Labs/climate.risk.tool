@@ -8,11 +8,12 @@
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
 #'   For NC sources: selects which ensemble raster to extract. For TIF sources: determines which statistic
 #'   to compute from extracted pixel values. Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
+#' @param damage_factors_df Optional data frame with damage factors for drought growing season matching in precomputed extraction
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean") {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean", damage_factors_df = NULL) {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
 
   # Separate assets into coordinate-based and administrative-based
@@ -46,7 +47,8 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
       assets_without_coords,
       precomputed_hazards,
       hazards_inventory,
-      aggregation_method
+      aggregation_method,
+      damage_factors_df = damage_factors_df
     )
   }
 
@@ -279,8 +281,9 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 }
 
 #' Extract statistics from precomputed administrative data (municipality/province lookup)
+#' @param damage_factors_df Optional data frame with damage factors for drought growing season matching
 #' @noRd
-extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean") {
+extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean", damage_factors_df = NULL) {
   message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
   message("    Using aggregation method: ", aggregation_method)
 
@@ -374,6 +377,70 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         "No data found for asset ", i, " (", asset_name, "). No match found in precomputed data for municipality='", municipality,
         "' or province='", province, "' for the required hazards."
       )
+    }
+
+    # Special handling for drought hazards with agriculture assets: check growing season matching
+    # This applies the same logic as the coordinate-based extraction
+    if (!is.null(damage_factors_df) && 
+        asset_row$asset_category == "agriculture" &&
+        any(matched_data$hazard_type == "Drought", na.rm = TRUE)) {
+      
+      # Get the crop type (default to "Other"/Soybean if missing)
+      asset_subtype_clean <- dplyr::if_else(
+        is.na(asset_row$asset_subtype) | asset_row$asset_subtype == "",
+        "Other",
+        as.character(asset_row$asset_subtype)
+      )
+      
+      # Get province for matching (use actual province, fallback to "Other" handled in join_drought_damage_factors)
+      province_clean <- dplyr::if_else(
+        is.na(asset_row$province) | asset_row$province == "",
+        "Other",
+        as.character(asset_row$province)
+      )
+      
+      # Get crop's growing seasons from damage factors
+      # When asset_subtype_clean is "Other", use Soybean's growing seasons (as "Other" defaults to Soybean)
+      crop_subtype_for_lookup <- if (asset_subtype_clean == "Other") "Soybean" else asset_subtype_clean
+      
+      crop_growing_seasons <- damage_factors_df |>
+        dplyr::filter(
+          .data$hazard_type == "Drought",
+          .data$hazard_indicator == "SPI3",
+          .data$subtype == crop_subtype_for_lookup,
+          .data$province == province_clean | .data$province == "Other"
+        ) |>
+        dplyr::distinct(.data$season) |>
+        dplyr::pull(.data$season)
+      
+      # If no specific province match, try "Other" province
+      if (length(crop_growing_seasons) == 0 && province_clean != "Other") {
+        crop_growing_seasons <- damage_factors_df |>
+          dplyr::filter(
+            .data$hazard_type == "Drought",
+            .data$hazard_indicator == "SPI3",
+            .data$subtype == crop_subtype_for_lookup,
+            .data$province == "Other"
+          ) |>
+          dplyr::distinct(.data$season) |>
+          dplyr::pull(.data$season)
+      }
+      
+      # For drought hazards, we validate that we have the crop's growing seasons available
+      # The actual season matching and off-window logic is handled in join_drought_damage_factors
+      # This ensures consistency with the coordinate-based extraction path
+      # Note: We keep the requested season's data (from hazard_name), and join_drought_damage_factors
+      # will check if it matches the crop's growing season and apply off-window logic if needed
+      
+      if (length(crop_growing_seasons) == 0) {
+        # No growing seasons found for this crop - this will be handled in join_drought_damage_factors
+        message("      Warning: No growing seasons found for crop '", asset_subtype_clean, 
+                "' in province '", province_clean, "' for asset ", asset_name)
+      } else {
+        # Log the growing seasons for debugging
+        message("      Crop '", asset_subtype_clean, "' growing seasons: ", 
+                paste(crop_growing_seasons, collapse = ", "))
+      }
     }
 
     # Transform precomputed data to match expected output format

@@ -215,7 +215,8 @@ compute_risk <- function(assets,
     hazards = hazards,
     hazards_inventory = filtered_inventory,
     precomputed_hazards = precomputed_hazards,
-    aggregation_method = aggregation_method
+    aggregation_method = aggregation_method,
+    damage_factors_df = damage_factors
   )
 
   # Step 2.3: Join event information (event_year, scenario_name) from events
