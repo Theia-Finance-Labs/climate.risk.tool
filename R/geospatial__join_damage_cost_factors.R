@@ -487,7 +487,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
 #' @param land_cover_legend Optional tibble with land cover legend (columns: land_cover_code, land_cover_risk).
 #'   If NULL, all assets get default 0.50 risk.
 #' @return Data frame with columns: damage_factor, cost_factor, business_disruption, land_cover_risk,
-#'   FWI_max, days_danger_total (for traceability)
+#'   hazard_intensity (FWI value), days_danger_total (for traceability)
 #' @noRd
 join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_legend = NULL) {
   message("[join_fire_damage_factors] Processing Fire hazard with multi-indicator approach...")
@@ -631,7 +631,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       # Set business_disruption to NA (not used for Fire)
       business_disruption = NA_real_,
       # Keep traceability columns
-      FWI_max = .data$FWI,
+      hazard_intensity = .data$FWI,  # Use standard hazard_intensity column (contains FWI value)
       # hazard_name is already the FWI hazard_name (from the join above)
       # Set hazard_indicator to FWI (primary indicator for Fire)
       hazard_indicator = "FWI"
@@ -642,7 +642,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       "cnae", "hazard_name", "hazard_type", "hazard_indicator", "hazard_return_period",
       "scenario_code", "scenario_name", "source", "matching_method", "event_id", "event_year",
       "damage_factor", "cost_factor", "business_disruption",
-      "land_cover_risk", "FWI_max", "days_danger_total"
+      "land_cover_risk", "hazard_intensity", "days_danger_total"
     )
   
   message("  Fire damage factors joined for ", nrow(fire_result), " assets")

@@ -40,16 +40,17 @@ compute_shock_trajectories <- function(
   net_profit_margin = 0.1,
   start_year = 2025
 ) {
-  # Filter assets_with_factors to only the hazards referenced in events
-  relevant_hazards <- events |>
-    dplyr::distinct(.data$hazard_name) |>
-    dplyr::pull(.data$hazard_name)
+  # Filter assets_with_factors to only the events referenced
+  # Use event_id for matching (more reliable than hazard_name, especially for multi-indicator hazards like Fire)
+  relevant_event_ids <- events |>
+    dplyr::distinct(.data$event_id) |>
+    dplyr::pull(.data$event_id)
 
   filtered_assets <- assets_with_factors |>
-    dplyr::filter(.data$hazard_name %in% relevant_hazards)
+    dplyr::filter(.data$event_id %in% relevant_event_ids)
 
   if (nrow(filtered_assets) == 0) {
-    stop("No matching hazard_name entries found in assets_with_factors for provided events")
+    stop("No matching event_id entries found in assets_with_factors for provided events")
   }
 
   # ============================================================================

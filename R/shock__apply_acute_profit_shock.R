@@ -53,7 +53,7 @@ apply_acute_profit_shock <- function(
       # Only apply to commercial building and industrial building (NOT agriculture)
       assets_flood <- assets_factors |>
         dplyr::filter(.data$hazard_type %in% c("FloodTIF", "Flood")) |>
-        dplyr::filter(.data$hazard_name == event$hazard_name) |>
+        dplyr::filter(.data$event_id == event$event_id) |>
         dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
         dplyr::mutate(
           acute_damage = as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor)
@@ -73,7 +73,7 @@ apply_acute_profit_shock <- function(
       # Only apply to commercial building and industrial building (NOT agriculture)
       assets_fire <- assets_factors |>
         dplyr::filter(.data$hazard_type == "Fire") |>
-        dplyr::filter(.data$hazard_name == event$hazard_name) |>
+        dplyr::filter(.data$event_id == event$event_id) |>
         dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
         dplyr::mutate(
           # Calculate full fire damage formula using components

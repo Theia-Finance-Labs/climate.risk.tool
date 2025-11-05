@@ -189,18 +189,13 @@ compute_risk <- function(assets,
       dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
   }
   
-  # Expand multi-indicator hazard events
-  # Some hazards (e.g., Fire) require multiple indicators for damage calculation
-  # When user selects a multi-indicator hazard, the system automatically expands it
-  # into multiple internal events (one per required indicator)
-  events <- expand_multi_indicator_events(events, hazards_inventory)
-
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
 
   # Filter hazards to only those referenced by events
+  # Note: For multi-indicator hazards (Fire), this will internally expand to load all required indicators
   # Note: For NC hazards, only the mean ensemble is loaded by default
-  hazards <- filter_hazards_by_events(hazards, events)
+  hazards <- filter_hazards_by_events(hazards, events, hazards_inventory)
 
 
   # ============================================================================
@@ -224,25 +219,13 @@ compute_risk <- function(assets,
   )
 
   # Step 2.3: Join event information (event_year, scenario_name) from events
-  # Select only the columns we need from events to avoid duplication
-  # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
-  # Don't use distinct() here - we want one row per event even if they share the same hazard_name
-  # Use inner_join to only keep assets with hazards that are in the events
-  # Special handling: Fire land_cover uses "mode" aggregation (categorical data), not the general aggregation_method
-  events <- events |>
-    dplyr::mutate(
-      # Determine the correct extraction method for each indicator
-      effective_extraction_method = dplyr::if_else(
-        .data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover",
-        "mode",  # Fire land_cover always uses mode (categorical data)
-        aggregation_method  # All other hazards use the general aggregation method
-      ),
-      hazard_name = paste0(.data$hazard_name, "__extraction_method=", .data$effective_extraction_method)
-    ) |>
-    dplyr::select(-"effective_extraction_method")  # Remove temporary column
+  # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
+  # For single-indicator hazards, use hazard_name directly
+  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, aggregation_method)
+  
   assets_with_events <- assets_long |>
     dplyr::inner_join(
-      events |> dplyr::select("hazard_name", "event_id", "event_year", "season"),
+      events_expanded_for_join |> dplyr::select("hazard_name", "event_id", "event_year", "season"),
       by = "hazard_name", relationship = "many-to-many"
     )
 

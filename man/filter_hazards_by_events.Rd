@@ -4,12 +4,14 @@
 \alias{filter_hazards_by_events}
 \title{Filter hazard rasters to match event requirements}
 \usage{
-filter_hazards_by_events(hazards, events)
+filter_hazards_by_events(hazards, events, hazards_inventory = NULL)
 }
 \arguments{
 \item{hazards}{Named list of SpatRaster objects (from load_hazards_and_inventory())}
 
 \item{events}{Data frame with event specifications including hazard_name column}
+
+\item{hazards_inventory}{Optional. Hazard inventory for multi-indicator expansion. If NULL, assumes single-indicator only.}
 }
 \value{
 Named list of filtered SpatRaster objects
@@ -18,6 +20,7 @@ Named list of filtered SpatRaster objects
 Filters a list of hazard rasters to only those referenced by events.
 For NC hazards, only the 'mean' ensemble is loaded by default, so filtering
 matches the base hazard name without ensemble suffix.
+For multi-indicator hazards (Fire), internally expands to load all required indicators.
 }
 \details{
 Filter hazards by events with NC ensemble handling

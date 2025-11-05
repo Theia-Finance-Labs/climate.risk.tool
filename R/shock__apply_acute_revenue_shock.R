@@ -285,6 +285,7 @@ apply_drought_shock <- function(yearly_trajectories, event, assets_factors) {
 #' @return tibble with revenue adjusted for Fire damage to agriculture
 #' @noRd
 apply_fire_revenue_shock <- function(yearly_trajectories, event, assets_factors) {
+
   # Filter Fire assets for agriculture only
   # Fire affects agriculture through revenue shock
   fire_assets <- assets_factors |>
