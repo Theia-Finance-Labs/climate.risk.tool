@@ -62,8 +62,8 @@ results <- compute_risk(
   precomputed_hazards = precomputed_hazards,
   damage_factors = damage_factors,
   growth_rate = 0.02,
-  net_profit_margin = 0.1,
-  discount_rate = 0.05
+  discount_rate = 0.05,
+  risk_free_rate = 0.02
 )
 
 # Access results

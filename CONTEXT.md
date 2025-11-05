@@ -242,11 +242,12 @@ Examples:
 
 ### Main Orchestrator
 
-**`compute_risk(assets, companies, events, hazards, precomputed_hazards, damage_factors, growth_rate, net_profit_margin, discount_rate)`**
+**`compute_risk(assets, companies, events, hazards, precomputed_hazards, damage_factors, growth_rate, discount_rate)`**
 - Returns: `list(assets, companies, assets_yearly, companies_yearly)`
 - Orchestrates entire pipeline from raw inputs to final risk metrics
 - Filters assets to only those with matching companies
 - Uses priority cascade for hazard assignment
+- Uses company-specific net profit margins from the companies data frame
 
 ### Input Data Validation
 
@@ -387,11 +388,13 @@ inventory <- hazard_data$inventory
 **`filter_assets_by_companies(assets, companies)`** → filtered assets
 - Filters assets to only include those with companies in companies data
 
-**`compute_baseline_trajectories(baseline_assets, companies, growth_rate, net_profit_margin)`** → yearly baseline
+**`compute_baseline_trajectories(baseline_assets, companies, growth_rate)`** → yearly baseline
 - Computes baseline revenue and profit trajectories over time
+- Uses company-specific net profit margins from the companies data frame
 
-**`compute_shock_trajectories(yearly_baseline, assets_with_factors, events)`** → shocked yearly
+**`compute_shock_trajectories(yearly_baseline, assets_with_factors, events, companies)`** → shocked yearly
 - Applies acute shocks to revenue and profits
+- Uses company-specific net profit margins from the companies data frame
 
 **`concatenate_baseline_and_shock(baseline_yearly, shocked_yearly)`** → combined scenarios
 - Concatenates baseline and shock trajectories
