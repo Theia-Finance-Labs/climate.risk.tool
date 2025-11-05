@@ -117,7 +117,12 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         x_clean <- x[!is.na(x)]
         if (length(x_clean) == 0) return(NA_real_)
         ux <- unique(x_clean)
-        ux[which.max(tabulate(match(x_clean, ux)))]
+        mode_value <- ux[which.max(tabulate(match(x_clean, ux)))]
+        # Convert to integer for categorical codes (land cover codes are integers)
+        if (!is.na(mode_value) && is.numeric(mode_value)) {
+          return(as.integer(mode_value))
+        }
+        return(mode_value)
       }
     )
     # Validate aggregation method for TIF sources
