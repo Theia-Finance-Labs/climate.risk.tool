@@ -492,20 +492,28 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
 join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_legend = NULL) {
   message("[join_fire_damage_factors] Processing Fire hazard with multi-indicator approach...")
   
-  # Save the FWI hazard_name before pivoting (we'll use FWI as the primary indicator)
-  fwi_hazard_names <- fire_assets |>
+  # Save the FWI metadata before pivoting (we'll use FWI as the primary indicator)
+  # FWI is the primary indicator, so we use its scenario/RP/hazard_name for the consolidated row
+  fwi_metadata <- fire_assets |>
     dplyr::filter(.data$hazard_indicator == "FWI") |>
-    dplyr::select("asset", "event_id", fwi_hazard_name = "hazard_name")
+    dplyr::select(
+      "asset", "event_id", 
+      fwi_hazard_name = "hazard_name",
+      fwi_hazard_return_period = "hazard_return_period",
+      fwi_scenario_code = "scenario_code",
+      fwi_scenario_name = "scenario_name",
+      fwi_source = "source"
+    )
   
   # Pivot from long to wide format to get all three indicators per asset
   # Each asset should have 3 rows: land_cover, FWI, days_danger_total
+  # IMPORTANT: Don't include scenario/RP columns before pivoting, as they vary by indicator
   fire_wide <- fire_assets |>
     dplyr::select(
       "asset", "company", "latitude", "longitude", "municipality", "province",
       "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
       "cnae", "hazard_type", "hazard_indicator", "hazard_intensity",
-      "hazard_return_period", "scenario_code", "scenario_name", "source", "matching_method",
-      "event_id", "event_year"
+      "matching_method", "event_id", "event_year"
     ) |>
     # Pivot wider to get columns: land_cover, FWI, days_danger_total
     tidyr::pivot_wider(
@@ -513,9 +521,15 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       values_from = "hazard_intensity",
       values_fn = mean  # In case of duplicates, take mean
     ) |>
-    # Join back the FWI hazard_name
-    dplyr::left_join(fwi_hazard_names, by = c("asset", "event_id")) |>
-    dplyr::rename(hazard_name = "fwi_hazard_name")
+    # Join back the FWI metadata (hazard_name, scenario, RP, source)
+    dplyr::left_join(fwi_metadata, by = c("asset", "event_id")) |>
+    dplyr::rename(
+      hazard_name = "fwi_hazard_name",
+      hazard_return_period = "fwi_hazard_return_period",
+      scenario_code = "fwi_scenario_code",
+      scenario_name = "fwi_scenario_name",
+      source = "fwi_source"
+    )
   
   message("  Pivoted ", nrow(fire_assets), " long-format rows to ", nrow(fire_wide), " wide-format assets")
   

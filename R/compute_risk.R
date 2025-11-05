@@ -228,10 +228,18 @@ compute_risk <- function(assets,
   # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
   # Don't use distinct() here - we want one row per event even if they share the same hazard_name
   # Use inner_join to only keep assets with hazards that are in the events
+  # Special handling: Fire land_cover uses "mode" aggregation (categorical data), not the general aggregation_method
   events <- events |>
     dplyr::mutate(
-      hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
-    )
+      # Determine the correct extraction method for each indicator
+      effective_extraction_method = dplyr::if_else(
+        .data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover",
+        "mode",  # Fire land_cover always uses mode (categorical data)
+        aggregation_method  # All other hazards use the general aggregation method
+      ),
+      hazard_name = paste0(.data$hazard_name, "__extraction_method=", .data$effective_extraction_method)
+    ) |>
+    dplyr::select(-"effective_extraction_method")  # Remove temporary column
   assets_with_events <- assets_long |>
     dplyr::inner_join(
       events |> dplyr::select("hazard_name", "event_id", "event_year", "season"),
