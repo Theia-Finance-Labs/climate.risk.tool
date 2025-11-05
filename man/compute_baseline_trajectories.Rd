@@ -8,7 +8,6 @@ compute_baseline_trajectories(
   baseline_assets,
   companies,
   growth_rate = 0.02,
-  net_profit_margin = 0.1,
   start_year = 2025,
   end_year = 2050
 )
@@ -16,11 +15,9 @@ compute_baseline_trajectories(
 \arguments{
 \item{baseline_assets}{tibble with columns: asset, company, share_of_economic_activity}
 
-\item{companies}{tibble with columns: company, revenues}
+\item{companies}{tibble with columns: company, revenues, net_profit_margin}
 
 \item{growth_rate}{numeric. Annual growth rate for revenue trajectories (default: 0.02)}
-
-\item{net_profit_margin}{numeric. Net profit margin to apply (default: 0.1)}
 
 \item{start_year}{numeric. Starting year for projections (default: 2025)}
 
@@ -44,7 +41,7 @@ baseline_assets <- data.frame(
   company = c("C1", "C1"),
   share_of_economic_activity = c(0.6, 0.4)
 )
-companies <- data.frame(company = "C1", revenues = 1000)
+companies <- data.frame(company = "C1", revenues = 1000, net_profit_margin = 0.1)
 result <- compute_baseline_trajectories(baseline_assets, companies)
 }
 }

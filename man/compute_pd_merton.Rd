@@ -4,10 +4,12 @@
 \alias{compute_pd_merton}
 \title{Compute Company PD (Merton)}
 \usage{
-compute_pd_merton(companies_npv)
+compute_pd_merton(companies_npv, risk_free_rate)
 }
 \arguments{
 \item{companies_npv}{tibble. Company NPV data with company, scenario, npv columns}
+
+\item{risk_free_rate}{numeric. Risk-free rate for Merton model}
 }
 \value{
 tibble with all original columns plus 'merton_pd' column
@@ -26,6 +28,6 @@ Uses company NPV, debt, and volatility data.
 \examples{
 \dontrun{
 companies <- data.frame(company = "A", scenario = "baseline", npv = 1000)
-result <- compute_pd_merton(companies)
+result <- compute_pd_merton(companies, risk_free_rate = 0.02)
 }
 }

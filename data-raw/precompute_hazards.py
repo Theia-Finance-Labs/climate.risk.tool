@@ -71,14 +71,22 @@ def parse_hazard_from_path(path):
 
 def fix_text(text):
     """
-    Fix mojibake and encoding issues in text, converting accented characters.
+    Normalize text by removing accents and converting to ASCII.
+
+    This is equivalent to R's stri_trans_general("Latin-ASCII") and ensures
+    region names from shapefiles are consistently normalized (no accents).
 
     Args:
-        text: Input string
+        text: Input string (typically region names from shapefiles)
 
     Returns:
         str: Cleaned text with accents converted to ASCII
     """
+    if not isinstance(text, str):
+        return text
+
+    # Simply unidecode - this removes accents and converts to ASCII
+    # This matches what R does with stri_trans_general("Latin-ASCII")
     return unidecode(text)
 
 
@@ -99,7 +107,16 @@ def load_adm_shapefile(adm_path):
     if not os.path.exists(adm_path):
         raise FileNotFoundError(f"Shapefile not found: {adm_path}")
 
-    gdf = gpd.read_file(adm_path)
+    # Try reading with UTF-8 encoding first, then latin1 if that fails
+    try:
+        gdf = gpd.read_file(adm_path, encoding="utf-8")
+    except (UnicodeDecodeError, Exception):
+        print(f"  ⚠️  UTF-8 encoding failed, trying latin1 for {adm_path}")
+        try:
+            gdf = gpd.read_file(adm_path, encoding="latin1")
+        except:
+            # Fall back to default encoding
+            gdf = gpd.read_file(adm_path)
 
     # Strict CRS validation - fail if not defined
     if gdf.crs is None:
@@ -119,7 +136,21 @@ def load_adm_shapefile(adm_path):
     if name_col is None:
         raise ValueError(f"No valid region name column found in shapefile: {adm_path}")
 
+    # Apply unidecode to ALL region names to remove accents
+    # This ensures consistent ASCII-only names throughout
+    print(f"  🔧 Applying unidecode to region names from column '{name_col}'...")
+
+    # Show a few examples before/after
+    sample_originals = gdf[name_col].head(5).tolist()
     gdf["region"] = gdf[name_col].apply(fix_text)
+    sample_fixed = gdf["region"].head(5).tolist()
+
+    print(f"  📝 Sample region name transformations:")
+    for orig, fixed in zip(sample_originals, sample_fixed):
+        if orig != fixed:
+            print(f"     '{orig}' → '{fixed}'")
+        else:
+            print(f"     '{orig}' (unchanged)")
 
     return gdf
 
@@ -872,6 +903,288 @@ def process_tif_hazard(tif_path, adm_gdfs_dict, scenario_map):
 
 
 # ============================================================================
+# INCREMENTAL PROCESSING HELPERS
+# ============================================================================
+
+
+def load_existing_precomputed(output_path):
+    """
+    Load existing precomputed file if it exists.
+
+    Args:
+        output_path: Path to precomputed CSV file
+
+    Returns:
+        pd.DataFrame: Existing data, or empty DataFrame if file doesn't exist
+    """
+    if not os.path.exists(output_path):
+        print(f"  📄 No existing precomputed file found at {output_path}")
+        return pd.DataFrame()
+
+    print(f"  📄 Loading existing precomputed file: {output_path}")
+    try:
+        df = pd.read_csv(output_path, encoding="utf-8-sig", low_memory=False)
+        print(f"  ✅ Loaded {len(df)} existing records")
+        return df
+    except Exception as e:
+        print(f"  ⚠️  Error loading existing file: {e}")
+        print(f"  📝 Will create new file")
+        return pd.DataFrame()
+
+
+def get_file_signature(file_path, file_type, adm_levels, ensemble_filter, scenario_map):
+    """
+    Get the signature of what combinations a file would produce without processing it.
+
+    This function peeks into the file to determine what combinations of
+    (hazard_type, hazard_indicator, scenario_name, hazard_return_period, adm_level, ensemble, extra_dims)
+    would be produced if the file were processed.
+
+    Args:
+        file_path: Path to hazard file
+        file_type: Type of file ('csv', 'nc', 'tif')
+        adm_levels: List of ADM level names that would be processed
+        ensemble_filter: Ensemble filter value
+        scenario_map: Dictionary mapping scenario codes to names (for TIF files)
+
+    Returns:
+        list: List of dictionaries, each representing a combination that would be produced
+    """
+    hazard_type, hazard_indicator = parse_hazard_from_path(file_path)
+    signatures = []
+
+    if file_type == "tif":
+        # For TIF files, parse scenario and return period from filename
+        basename = os.path.basename(file_path)
+        match = re.match(
+            r"(?:global|flood)_(\w+)[_h](\d+)[_h]?(?:_glob|glob).*\.tif", basename
+        )
+        if not match:
+            return []
+
+        scenario_code = match.group(1)
+        return_period = int(match.group(2))
+        scenario_code_map = {"pc": "pc", "rcp26": "rcp26", "rcp85": "rcp85"}
+        scenario_name = scenario_code_map.get(scenario_code, scenario_code)
+
+        # TIF files produce one combination per ADM level
+        for adm_level in adm_levels:
+            signatures.append(
+                {
+                    "hazard_type": "Flood",
+                    "hazard_indicator": "depth(cm)",
+                    "scenario_name": scenario_name,
+                    "hazard_return_period": return_period,
+                    "adm_level": adm_level,
+                    "ensemble": np.nan,
+                }
+            )
+
+    elif file_type == "csv":
+        # For CSV files, peek at unique combinations
+        # Read only the key columns to be efficient
+        try:
+            # First, read just a sample to see what columns exist
+            sample_df = pd.read_csv(
+                file_path, encoding="utf-8", low_memory=False, nrows=10
+            )
+
+            # Check for required columns
+            if (
+                "GWL" not in sample_df.columns
+                or "return_period" not in sample_df.columns
+            ):
+                return []
+
+            # Determine which columns to read
+            cols_to_read = ["GWL", "return_period"]
+            if "ensemble" in sample_df.columns:
+                cols_to_read.append("ensemble")
+
+            # Check for extra dimensions
+            known_extra_dimensions = ["season"]
+            extra_dims_present = [
+                col for col in known_extra_dimensions if col in sample_df.columns
+            ]
+            cols_to_read.extend(extra_dims_present)
+
+            # Read only the columns we need (much faster than reading entire file)
+            df = pd.read_csv(
+                file_path, encoding="utf-8", low_memory=False, usecols=cols_to_read
+            )
+
+            # Filter to specified ensemble
+            if "ensemble" in df.columns:
+                df = df[df["ensemble"] == ensemble_filter]
+                if len(df) == 0:
+                    return []
+
+            # Get unique combinations
+            unique_combos = df[
+                ["GWL", "return_period"] + extra_dims_present
+            ].drop_duplicates()
+
+            for _, row in unique_combos.iterrows():
+                for adm_level in adm_levels:
+                    sig = {
+                        "hazard_type": hazard_type,
+                        "hazard_indicator": hazard_indicator,
+                        "scenario_name": str(row["GWL"]),
+                        "hazard_return_period": int(row["return_period"]),
+                        "adm_level": adm_level,
+                        "ensemble": ensemble_filter,
+                    }
+                    # Add extra dimensions if present
+                    for dim in extra_dims_present:
+                        sig[dim] = row[dim] if pd.notna(row[dim]) else np.nan
+                    signatures.append(sig)
+
+        except Exception as e:
+            print(f"      ⚠️  Error peeking into CSV file: {e}")
+            return []
+
+    elif file_type == "nc":
+        # For NC files, peek at dimensions
+        try:
+            ds = xr.open_dataset(file_path)
+            var_names = list(ds.data_vars.keys())
+            if not var_names:
+                ds.close()
+                return []
+
+            var_name = var_names[0]
+            da = ds[var_name]
+
+            # Get scenario dimension
+            scenario_dim = None
+            for dim in ["scenario", "GWL", "gwl"]:
+                if dim in da.dims:
+                    scenario_dim = dim
+                    break
+
+            if scenario_dim is None or "return_period" not in da.dims:
+                ds.close()
+                return []
+
+            # Get unique values
+            scenarios = da[scenario_dim].values
+            return_periods = da["return_period"].values
+
+            # Check for extra dimensions
+            known_extra_dimensions = ["season"]
+            extra_dims_present = [
+                dim for dim in known_extra_dimensions if dim in da.dims
+            ]
+
+            for scenario in scenarios:
+                for rp in return_periods:
+                    for adm_level in adm_levels:
+                        sig = {
+                            "hazard_type": hazard_type,
+                            "hazard_indicator": hazard_indicator,
+                            "scenario_name": str(scenario),
+                            "hazard_return_period": int(rp),
+                            "adm_level": adm_level,
+                            "ensemble": ensemble_filter,
+                        }
+                        # For extra dimensions, we'd need to iterate through all values
+                        # For now, we'll mark them as potentially present
+                        for dim in extra_dims_present:
+                            sig[dim] = (
+                                np.nan
+                            )  # We'll check for any value in this dimension
+                        signatures.append(sig)
+
+            ds.close()
+
+        except Exception as e:
+            print(f"      ⚠️  Error peeking into NetCDF file: {e}")
+            return []
+
+    return signatures
+
+
+def is_already_processed(
+    file_path, file_type, existing_df, adm_levels, ensemble_filter, scenario_map
+):
+    """
+    Check if a file has already been processed based on existing precomputed data.
+
+    Args:
+        file_path: Path to hazard file
+        file_type: Type of file ('csv', 'nc', 'tif')
+        existing_df: DataFrame with existing precomputed data
+        adm_levels: List of ADM level names
+        ensemble_filter: Ensemble filter value
+        scenario_map: Dictionary mapping scenario codes to names
+
+    Returns:
+        bool: True if file appears to be already processed, False otherwise
+    """
+    if len(existing_df) == 0:
+        return False
+
+    # Get signatures this file would produce
+    signatures = get_file_signature(
+        file_path, file_type, adm_levels, ensemble_filter, scenario_map
+    )
+
+    if len(signatures) == 0:
+        # Can't determine signature, assume not processed
+        return False
+
+    # Convert signatures to DataFrame for comparison
+    sigs_df = pd.DataFrame(signatures)
+
+    # Key columns to match on
+    key_cols = [
+        "hazard_type",
+        "hazard_indicator",
+        "scenario_name",
+        "hazard_return_period",
+        "adm_level",
+    ]
+
+    # Check for extra dimensions that might exist in both
+    extra_dims = ["season"]
+    for dim in extra_dims:
+        if dim in sigs_df.columns and dim in existing_df.columns:
+            key_cols.append(dim)
+
+    # Handle ensemble column separately (it might be NaN in existing data)
+    sigs_df_copy = sigs_df.copy()
+    if "ensemble" in sigs_df.columns:
+        # For ensemble, we need to handle NaN values specially
+        sigs_df_copy["ensemble"] = sigs_df_copy["ensemble"].fillna("__NA__")
+        if "ensemble" in existing_df.columns:
+            existing_df_copy = existing_df.copy()
+            existing_df_copy["ensemble"] = existing_df_copy["ensemble"].fillna("__NA__")
+            key_cols.append("ensemble")
+        else:
+            # Existing data doesn't have ensemble, but we're looking for it
+            # This is a mismatch, so assume not processed
+            return False
+    else:
+        existing_df_copy = existing_df.copy()
+        # If existing has ensemble but sigs doesn't, that's OK - just don't include it in key_cols
+
+    # Check if all signatures exist in existing data
+    # Use merge to find matches
+    merged = pd.merge(
+        sigs_df_copy[key_cols],
+        existing_df_copy[key_cols],
+        on=key_cols,
+        how="left",
+        indicator=True,
+    )
+
+    # Check if all signatures were found
+    all_found = (merged["_merge"] == "both").all()
+
+    return all_found
+
+
+# ============================================================================
 # MAIN EXECUTION
 # ============================================================================
 
@@ -898,19 +1211,30 @@ def main():
     FLOOD_SCENARIOS = {"pc": "CurrentClimate", "rcp26": "RCP2.6", "rcp85": "RCP8.5"}
 
     # ========================================================================
+    # LOAD EXISTING PRECOMPUTED DATA
+    # ========================================================================
+
+    print("\n" + "=" * 60)
+    print("CHECKING FOR EXISTING PRECOMPUTED DATA")
+    print("=" * 60)
+    existing_df = load_existing_precomputed(OUTPUT_PATH)
+
+    # ========================================================================
     # LOAD ADMINISTRATIVE BOUNDARIES
     # ========================================================================
 
-    print("Loading administrative boundaries...")
+    print("\nLoading administrative boundaries...")
     adm_levels = [
         ("ADM1", ADM1_PATH),
         ("ADM2", ADM2_PATH),
     ]
 
     adm_gdfs = {}
+    adm_level_names = []
     for adm_level, adm_path in adm_levels:
         print(f"  Loading {adm_level}: {adm_path}")
         adm_gdfs[adm_level] = load_adm_shapefile(adm_path)
+        adm_level_names.append(adm_level)
 
     # ========================================================================
     # FIND ALL HAZARD FILES
@@ -968,21 +1292,117 @@ def main():
         raise FileNotFoundError(f"No hazard files found in {HAZARDS_DIR}")
 
     # ========================================================================
-    # PROCESS ALL FILES
+    # FILTER FILES - SKIP ALREADY PROCESSED
+    # ========================================================================
+
+    print("\n" + "=" * 60)
+    print("CHECKING WHICH FILES NEED PROCESSING")
+    print("=" * 60)
+
+    # Filter files that are already processed
+    tif_files_to_process = []
+    csv_files_to_process = []
+    nc_regular_files_to_process = []
+
+    if tif_files:
+        print(f"\n📁 Checking {len(tif_files)} GeoTIFF file(s)...")
+        for tif_path in tif_files:
+            if is_already_processed(
+                tif_path,
+                "tif",
+                existing_df,
+                adm_level_names,
+                ENSEMBLE_FILTER,
+                FLOOD_SCENARIOS,
+            ):
+                print(
+                    f"  ⏭️  Skipping (already processed): {os.path.basename(tif_path)}"
+                )
+            else:
+                print(f"  ✅ Will process: {os.path.basename(tif_path)}")
+                tif_files_to_process.append(tif_path)
+
+    if csv_files:
+        print(f"\n📁 Checking {len(csv_files)} CSV file(s)...")
+        for csv_path in csv_files:
+            # Extract hazard info for better logging
+            try:
+                hazard_type, hazard_indicator = parse_hazard_from_path(csv_path)
+                file_label = (
+                    f"{hazard_type}/{hazard_indicator} - {os.path.basename(csv_path)}"
+                )
+            except:
+                file_label = os.path.basename(csv_path)
+
+            if is_already_processed(
+                csv_path,
+                "csv",
+                existing_df,
+                adm_level_names,
+                ENSEMBLE_FILTER,
+                FLOOD_SCENARIOS,
+            ):
+                print(f"  ⏭️  Skipping (already processed): {file_label}")
+            else:
+                print(f"  ✅ Will process: {file_label}")
+                csv_files_to_process.append(csv_path)
+
+    if nc_regular_files:
+        print(f"\n📁 Checking {len(nc_regular_files)} regular NetCDF file(s)...")
+        for nc_path in nc_regular_files:
+            # Extract hazard info for better logging
+            try:
+                hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
+                file_label = (
+                    f"{hazard_type}/{hazard_indicator} - {os.path.basename(nc_path)}"
+                )
+            except:
+                file_label = os.path.basename(nc_path)
+
+            if is_already_processed(
+                nc_path,
+                "nc",
+                existing_df,
+                adm_level_names,
+                ENSEMBLE_FILTER,
+                FLOOD_SCENARIOS,
+            ):
+                print(f"  ⏭️  Skipping (already processed): {file_label}")
+            else:
+                print(f"  ✅ Will process: {file_label}")
+                nc_regular_files_to_process.append(nc_path)
+
+    total_files_to_process = (
+        len(tif_files_to_process)
+        + len(csv_files_to_process)
+        + len(nc_regular_files_to_process)
+    )
+    if total_files_to_process == 0:
+        print("\n" + "=" * 60)
+        print("✅ ALL FILES ALREADY PROCESSED - NO WORK TO DO")
+        print("=" * 60)
+        if len(existing_df) > 0:
+            print(f"\nExisting precomputed file has {len(existing_df)} records.")
+            print(f"Output file: {OUTPUT_PATH}")
+        return existing_df
+
+    # ========================================================================
+    # PROCESS NEW FILES
     # ========================================================================
 
     print("\n" + "=" * 60)
     print("STARTING FILE PROCESSING")
     print("=" * 60)
+    print(f"Processing {total_files_to_process} new file(s)...")
 
     all_results = []
 
     # Process GeoTIFF files (opens each file once for all ADM levels)
-    if tif_files:
-        print(f"\n📁 Processing {len(tif_files)} GeoTIFF file(s)...")
-        for i, tif_path in enumerate(tif_files, 1):
+    if tif_files_to_process:
+        print(f"\n📁 Processing {len(tif_files_to_process)} GeoTIFF file(s)...")
+        for i, tif_path in enumerate(tif_files_to_process, 1):
             print(
-                f"\n[{i}/{len(tif_files)}] Processing GeoTIFF: {os.path.basename(tif_path)}"
+                f"\n[{i}/{len(tif_files_to_process)}] Processing GeoTIFF: {os.path.basename(tif_path)}"
             )
             print("  📊 Aggregating over all ADM levels...")
             result = process_tif_hazard(tif_path, adm_gdfs, FLOOD_SCENARIOS)
@@ -990,42 +1410,106 @@ def main():
             print(f"    ✅ Success: {len(result)} records")
 
     # Process CSV files
-    if csv_files:
-        print(f"\n📁 Processing {len(csv_files)} CSV file(s)...")
-        for i, csv_path in enumerate(csv_files, 1):
-            print(
-                f"\n[{i}/{len(csv_files)}] Processing CSV: {os.path.basename(csv_path)}"
-            )
+    if csv_files_to_process:
+        print(f"\n📁 Processing {len(csv_files_to_process)} CSV file(s)...")
+        for i, csv_path in enumerate(csv_files_to_process, 1):
+            # Extract hazard info for better logging
+            try:
+                hazard_type, hazard_indicator = parse_hazard_from_path(csv_path)
+                file_label = (
+                    f"{hazard_type}/{hazard_indicator} - {os.path.basename(csv_path)}"
+                )
+            except:
+                file_label = os.path.basename(csv_path)
+
+            print(f"\n[{i}/{len(csv_files_to_process)}] Processing CSV: {file_label}")
+
             for adm_level, adm_gdf in adm_gdfs.items():
-                print(f"  📊 Aggregating over {adm_level}...")
+                print(
+                    f"  📊 Aggregating {hazard_type}/{hazard_indicator} over {adm_level} ({len(adm_gdf)} regions)..."
+                )
 
                 result = process_csv_hazard(
                     csv_path, adm_gdf, adm_level, ENSEMBLE_FILTER
                 )
                 all_results.append(result)
-                print(f"    ✅ Success: {len(result)} records")
+                print(f"    ✅ {adm_level}: {len(result)} records created")
 
     # Process regular NetCDF files
-    if nc_regular_files:
-        print(f"\n📁 Processing {len(nc_regular_files)} regular NetCDF file(s)...")
-        for i, nc_path in enumerate(nc_regular_files, 1):
+    if nc_regular_files_to_process:
+        print(
+            f"\n📁 Processing {len(nc_regular_files_to_process)} regular NetCDF file(s)..."
+        )
+        for i, nc_path in enumerate(nc_regular_files_to_process, 1):
+            # Extract hazard info for better logging
+            try:
+                hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
+                file_label = (
+                    f"{hazard_type}/{hazard_indicator} - {os.path.basename(nc_path)}"
+                )
+            except:
+                file_label = os.path.basename(nc_path)
+
             print(
-                f"\n[{i}/{len(nc_regular_files)}] Processing NetCDF: {os.path.basename(nc_path)}"
+                f"\n[{i}/{len(nc_regular_files_to_process)}] Processing NetCDF: {file_label}"
             )
+
             for adm_level, adm_gdf in adm_gdfs.items():
-                print(f"  📊 Aggregating over {adm_level}...")
+                print(
+                    f"  📊 Aggregating {hazard_type}/{hazard_indicator} over {adm_level} ({len(adm_gdf)} regions)..."
+                )
                 result = process_nc_hazard(nc_path, adm_gdf, adm_level, ENSEMBLE_FILTER)
                 all_results.append(result)
-                print(f"    ✅ Success: {len(result)} records")
+                print(f"    ✅ {adm_level}: {len(result)} records created")
 
     # ========================================================================
     # COMBINE AND SAVE RESULTS
     # ========================================================================
 
-    print("\nCombining all results...")
-    final_df = pd.concat(all_results, ignore_index=True)
+    print("\n" + "=" * 60)
+    print("COMBINING AND SAVING RESULTS")
+    print("=" * 60)
 
-    print(f"Total records: {len(final_df)}")
+    if len(all_results) == 0:
+        print("\n⚠️  No new results to add")
+        if len(existing_df) > 0:
+            print(f"Existing precomputed file has {len(existing_df)} records.")
+            print(f"Output file: {OUTPUT_PATH}")
+        return existing_df
+
+    print("\nCombining new results...")
+    new_df = pd.concat(all_results, ignore_index=True)
+    print(f"New records: {len(new_df)}")
+
+    # Append to existing data if it exists
+    if len(existing_df) > 0:
+        print(f"Appending to existing {len(existing_df)} records...")
+        # Ensure column order matches
+        # Get all columns from both dataframes
+        all_cols = list(set(existing_df.columns) | set(new_df.columns))
+
+        # Reorder to match existing order if possible, then add any new columns
+        existing_cols = list(existing_df.columns)
+        new_cols = [col for col in all_cols if col not in existing_cols]
+        ordered_cols = existing_cols + new_cols
+
+        # Ensure both dataframes have the same columns (fill missing with NaN)
+        for col in ordered_cols:
+            if col not in existing_df.columns:
+                existing_df[col] = np.nan
+            if col not in new_df.columns:
+                new_df[col] = np.nan
+
+        # Combine dataframes
+        final_df = pd.concat(
+            [existing_df[ordered_cols], new_df[ordered_cols]], ignore_index=True
+        )
+        print(
+            f"Total records: {len(final_df)} (existing: {len(existing_df)}, new: {len(new_df)})"
+        )
+    else:
+        final_df = new_df
+        print(f"Total records: {len(final_df)} (all new)")
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)

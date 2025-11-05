@@ -8,7 +8,7 @@ compute_shock_trajectories(
   yearly_baseline_profits,
   assets_with_factors,
   events,
-  net_profit_margin = 0.1,
+  companies,
   start_year = 2025
 )
 }
@@ -19,7 +19,7 @@ compute_shock_trajectories(
 
 \item{events}{tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA)}
 
-\item{net_profit_margin}{numeric. Net profit margin for computing profits from shocked revenue (default: 0.1)}
+\item{companies}{tibble with columns: company, net_profit_margin}
 
 \item{start_year}{numeric. Starting year for projections (default: 2025)}
 }
@@ -30,7 +30,7 @@ tibble with columns: asset, company, year, revenue, profit
 Applies climate shocks to baseline yearly trajectories through a clear sequence:
 \enumerate{
 \item Apply acute revenue shocks
-\item Compute profits from shocked revenue
+\item Compute profits from shocked revenue using company-specific net profit margins
 \item Apply acute profit shocks
 Returns a single dataframe with shock scenarios ready for downstream analysis.
 }
@@ -56,6 +56,7 @@ events <- data.frame(
   hazard_name = "flood__global_rcp85_h100glob_brazil",
   event_year = 2030
 )
-result <- compute_shock_trajectories(yearly_baseline, assets_factors, events)
+companies <- data.frame(company = "C1", net_profit_margin = 0.1)
+result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, companies)
 }
 }
