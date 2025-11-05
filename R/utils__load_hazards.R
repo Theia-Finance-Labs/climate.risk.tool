@@ -15,7 +15,7 @@
 #' @return A list with three elements:
 #'   - `hazards`: Nested list with `tif`, `nc`, and `csv` keys
 #'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
-#'     hazard_return_period, scenario_code, hazard_name (unified format),
+#'     hazard_return_period, hazard_name (unified format),
 #'     ensemble (ensemble variant or NA for TIF), source ("tif", "nc", or "csv")
 #' @examples
 #' \dontrun{
@@ -79,7 +79,6 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
           "hazard_indicator",
           "scenario_name",
           "hazard_return_period",
-          "scenario_code",
           "hazard_name",
           "ensemble",
           "source"

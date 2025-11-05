@@ -33,7 +33,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       hazard_indicator = character(),
       hazard_name = character(),
       scenario_name = character(),
-      scenario_code = character(),
       hazard_return_period = numeric(),
       event_year = integer(),
       season = character()
@@ -74,10 +73,9 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         return()
       }
 
-      # Find hazard_name and scenario_code from UI inventory
+      # Find hazard_name from UI inventory
       ui_inv <- try(ui_inventory(), silent = TRUE)
       hazard_name_val <- NA_character_
-      scenario_code_val <- NA_character_
       
       if (!inherits(ui_inv, "try-error") && (tibble::is_tibble(ui_inv) || is.data.frame(ui_inv)) && nrow(ui_inv) > 0) {
         matched <- ui_inv |>
@@ -88,8 +86,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           )
         
         if (nrow(matched) > 0) {
-          scenario_code_val <- matched$scenario_code[1]
-          
           # Get hazard_name from full inventory for the primary indicator
           full_inv <- try(hazards_inventory(), silent = TRUE)
           if (!inherits(full_inv, "try-error") && nrow(full_inv) > 0) {
@@ -108,9 +104,9 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         }
       }
 
-      if (is.na(hazard_name_val) || is.na(scenario_code_val)) {
+      if (is.na(hazard_name_val)) {
         message(
-          "[mod_hazards_events] Could not determine hazard_name/scenario_code for: ",
+          "[mod_hazards_events] Could not determine hazard_name for: ",
           haz_type, ", ", scenario, ", ", return_period
         )
         counter(k + 1L)
@@ -131,7 +127,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         hazard_indicator = hazard_indicator_val,  # Primary indicator
         hazard_name = hazard_name_val,            # Primary indicator's hazard_name
         scenario_name = scenario,
-        scenario_code = scenario_code_val,
         hazard_return_period = as.numeric(return_period),
         event_year = as.integer(input[[paste0("year_", k)]]),
         season = event_season

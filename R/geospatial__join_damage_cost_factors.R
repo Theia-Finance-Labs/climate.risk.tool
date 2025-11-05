@@ -500,7 +500,6 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       "asset", "event_id", 
       fwi_hazard_name = "hazard_name",
       fwi_hazard_return_period = "hazard_return_period",
-      fwi_scenario_code = "scenario_code",
       fwi_scenario_name = "scenario_name",
       fwi_source = "source"
     )
@@ -526,7 +525,6 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
     dplyr::rename(
       hazard_name = "fwi_hazard_name",
       hazard_return_period = "fwi_hazard_return_period",
-      scenario_code = "fwi_scenario_code",
       scenario_name = "fwi_scenario_name",
       source = "fwi_source"
     )
@@ -640,7 +638,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       "asset", "company", "latitude", "longitude", "municipality", "province",
       "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
       "cnae", "hazard_name", "hazard_type", "hazard_indicator", "hazard_return_period",
-      "scenario_code", "scenario_name", "source", "matching_method", "event_id", "event_year",
+      "scenario_name", "source", "matching_method", "event_id", "event_year",
       "damage_factor", "cost_factor", "business_disruption",
       "land_cover_risk", "hazard_intensity", "days_danger_total"
     )

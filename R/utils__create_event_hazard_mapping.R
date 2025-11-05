@@ -25,7 +25,7 @@
 #'
 #' @param hazards_inventory Tibble. Full inventory from load_hazards_and_inventory()
 #'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, hazard_name, scenario_code
+#'   hazard_return_period, hazard_name
 #'
 #' @param aggregation_method Character. Extraction method for assets (e.g., "mean")
 #'

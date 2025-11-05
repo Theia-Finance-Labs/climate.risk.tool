@@ -160,7 +160,6 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       hazard_type <- hazard_meta$hazard_type
       hazard_indicator <- hazard_meta$hazard_indicator
       hazard_return_period <- hazard_meta$hazard_return_period
-      hazard_scenario_code <- hazard_meta$scenario_code
       hazard_scenario_name <- hazard_meta$scenario_name
       
       # Special handling for Fire land_cover: force mode aggregation (categorical data)
@@ -244,7 +243,6 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
           # Use hazard_name with ensemble suffix added
           hazard_name = hazard_name_with_ensemble,
           hazard_type = hazard_type,
-          scenario_code = hazard_scenario_code,
           scenario_name = hazard_scenario_name,
           hazard_indicator = hazard_indicator,
           hazard_return_period = hazard_return_period,
@@ -257,7 +255,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
           "asset", "company", "latitude", "longitude",
           "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
           "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-          "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+          "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
         )
 
       results_list[[i]] <- df_i
@@ -337,24 +335,43 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     }
 
     # FILTER: Only keep hazards that match the required hazards from inventory
-    # Match by hazard_type, scenario_code, and hazard_return_period
-    # Convert scenario_code to character for both datasets to handle type mismatches
-    matched_data <- matched_data |>
-      dplyr::mutate(scenario_code = as.character(.data$scenario_code))
-
+    # Match by hazard_type, scenario_name, and hazard_return_period
+    # Normalize scenario names to handle format differences (e.g., "rcp85" vs "RCP8.5")
+    normalize_scenario_name <- function(sname) {
+      sname <- tolower(as.character(sname))
+      # Map common variations
+      sname <- gsub("rcp8.5", "rcp85", sname, fixed = TRUE)
+      sname <- gsub("rcp2.6", "rcp26", sname, fixed = TRUE)
+      sname <- gsub("rcp4.5", "rcp45", sname, fixed = TRUE)
+      sname <- gsub("currentclimate", "pc", sname, fixed = TRUE)
+      sname <- gsub("current climate", "pc", sname, fixed = TRUE)
+      sname <- gsub(" ", "", sname, fixed = TRUE)
+      return(sname)
+    }
+    
     required_hazards_char <- required_hazards |>
-      dplyr::mutate(scenario_code = as.character(.data$scenario_code)) |>
-      dplyr::select("hazard_type", "hazard_indicator", "scenario_name", "scenario_code", "hazard_return_period", "source")
+      dplyr::mutate(
+        scenario_name = as.character(.data$scenario_name),
+        scenario_name_norm = normalize_scenario_name(.data$scenario_name)
+      ) |>
+      dplyr::select("hazard_type", "hazard_indicator", "scenario_name", "scenario_name_norm", "hazard_return_period", "source")
 
     matched_data <- matched_data |>
+      dplyr::mutate(
+        scenario_name = as.character(.data$scenario_name),
+        scenario_name_norm = normalize_scenario_name(.data$scenario_name)
+      ) |>
       dplyr::inner_join(
         required_hazards_char,
-        by = c("hazard_type", "hazard_indicator", "scenario_name", "scenario_code", "hazard_return_period")
-      )
+        by = c("hazard_type", "hazard_indicator", "scenario_name_norm", "hazard_return_period")
+      ) |>
+      # Use the scenario_name from required_hazards (the canonical one from inventory)
+      dplyr::select(-"scenario_name_norm", -"scenario_name.x") |>
+      dplyr::rename(scenario_name = "scenario_name.y")
 
     # Check if we got all required hazards
     found_combos <- matched_data |>
-      dplyr::distinct(.data$hazard_type, .data$hazard_indicator, .data$scenario_name, .data$scenario_code, .data$hazard_return_period)
+      dplyr::distinct(.data$hazard_type, .data$hazard_indicator, .data$scenario_name, .data$hazard_return_period)
 
     # If matched_data is empty and we're not strictly validating, skip this asset
     if (nrow(matched_data) == 0) {
@@ -390,7 +407,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
     precomp_results_list[[length(precomp_results_list) + 1]] <- asset_hazard_data
@@ -431,7 +448,6 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
     hazard_type <- hazard_meta$hazard_type
     hazard_indicator <- hazard_meta$hazard_indicator
     hazard_return_period <- hazard_meta$hazard_return_period
-    hazard_scenario_code <- hazard_meta$scenario_code
     hazard_scenario_name <- hazard_meta$scenario_name
 
     # Add extraction_method suffix for output consistency
@@ -466,7 +482,6 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
         hazard_intensity = asset_intensities,
         hazard_name = hazard_name_with_ensemble,
         hazard_type = hazard_type,
-        scenario_code = hazard_scenario_code,
         scenario_name = hazard_scenario_name,
         hazard_indicator = hazard_indicator,
         hazard_return_period = hazard_return_period,
@@ -477,7 +492,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
     results_list[[i]] <- df_i

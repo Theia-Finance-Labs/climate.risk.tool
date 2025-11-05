@@ -19,7 +19,8 @@ app_server <- function(input, output, session) {
     cnae_exposure = NULL,
     land_cover_legend = NULL,
     adm1_boundaries = NULL,
-    adm2_boundaries = NULL
+    adm2_boundaries = NULL,
+    region_name_mapping = NULL
   )
 
   # Create the reactive variables expected by tests
@@ -63,7 +64,13 @@ app_server <- function(input, output, session) {
   )
 
   # Initialize results modules
-  mod_results_assets_server("results_assets", results_reactive = results)
+  mod_results_assets_server(
+    "results_assets",
+    results_reactive = results,
+    name_mapping_reactive = reactive({
+      values$region_name_mapping
+    })
+  )
   mod_results_companies_server("results_companies", results_reactive = results)
 
   # Initialize plot modules
@@ -106,6 +113,9 @@ app_server <- function(input, output, session) {
         municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
         values$adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
+        
+        # Load region name mapping for displaying original names in frontend
+        values$region_name_mapping <- load_region_name_mapping(base_dir)
         
         values$status <- "Data files loaded. Ready to run analysis."
         values$data_loaded <- TRUE

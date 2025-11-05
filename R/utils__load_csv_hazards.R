@@ -140,7 +140,6 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
         hazard_indicator = hazard_indicator,
         scenario_name = as.character(gwl_val),
         hazard_return_period = rp_numeric,
-        scenario_code = as.character(gwl_val),
         hazard_name = hazard_name,
         ensemble = as.character(ens_val),
         source = "csv"
