@@ -1,13 +1,14 @@
+
 .DS_Store
 tests/tests_data/hazards/Drought/SPI3/ensemble/ensemble_return_period.csv
 __pycache__
 tests/tests_data/hazards/Flood/depth/ensemble_return_period.nc
 tests/tests_data/areas/municipality/geoBoundaries-BRA-ADM2.shp
 tests/tests_data/areas/province/geoBoundaries-BRA-ADM1.shp
-
-tests/tests_data/hazards/FloodTIF/global_pc_h10glob.tif
-tests/tests_data/hazards/FloodTIF/global_rcp85_h10glob.tif
-tests/tests_data/hazards/FloodTIF/global_rcp85_h100glob.tif
+tests/tests_data/hazards/Fire/land_cover/2024_brazil_land_cover.tif
+tests/tests_data/hazards/FloodTIF/depth(cm)/global_pc_h10glob.tif
+tests/tests_data/hazards/FloodTIF/depth(cm)/global_rcp85_h10glob.tif
+tests/tests_data/hazards/FloodTIF/depth(cm)/global_rcp85_h100glob.tif
 
 .env
 .venv/
