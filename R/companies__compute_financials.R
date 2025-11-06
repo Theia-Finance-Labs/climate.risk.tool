@@ -8,6 +8,7 @@
 #' @param company_yearly_trajectories tibble with columns: company, year, scenario, total_revenue, total_profit, total_discounted_profit, total_discounted_net_profit
 #' @param assets_discounted_yearly tibble with yearly asset data for asset-level results
 #' @param discount_rate numeric. Discount rate (used for consistency, but discounting already applied)
+#' @param risk_free_rate numeric. Risk-free rate for Merton model (default: 0.02)
 #' @return tibble with company financial results
 #' @examples
 #' \dontrun{
@@ -37,14 +38,15 @@ compute_companies_financials <- function(
   companies,
   company_yearly_trajectories,
   assets_discounted_yearly,
-  discount_rate = 0.05
+  discount_rate = 0.05,
+  risk_free_rate = 0.02
 ) {
   # Step 1: Compute company NPV from yearly trajectories
   companies_npv <- compute_company_npv(company_yearly_trajectories)
   companies_with_financial_data <- dplyr::left_join(companies, companies_npv, by = "company")
 
   # Step 3: Apply company-level risk models
-  companies_pd <- compute_pd_merton(companies_with_financial_data)
+  companies_pd <- compute_pd_merton(companies_with_financial_data, risk_free_rate)
   companies_el <- compute_expected_loss(companies_pd)
 
   # Step 4: Format final results
@@ -123,15 +125,16 @@ compute_company_npv <- function(company_yearly_data) {
 #'   Uses company NPV as proxy for asset value, along with debt and volatility.
 #'   Returns PD values in the range 0 to 1.
 #' @param companies_npv tibble. Company NPV data with company, scenario, npv columns
+#' @param risk_free_rate numeric. Risk-free rate for Merton model
 #' @return tibble with all original columns plus 'merton_pd' column
 #' @examples
 #' \dontrun{
 #' companies <- data.frame(company = "A", scenario = "baseline", npv = 1000)
-#' result <- compute_pd_merton(companies)
+#' result <- compute_pd_merton(companies, risk_free_rate = 0.02)
 #' }
 #' @importFrom stats pnorm
 #' @export
-compute_pd_merton <- function(companies_npv) {
+compute_pd_merton <- function(companies_npv, risk_free_rate) {
   # Make a copy to avoid modifying the input
   result_with_financials <- companies_npv
 
@@ -142,7 +145,7 @@ compute_pd_merton <- function(companies_npv) {
       D = pmax(.data$debt, 1), # avoid non-positive
       sigma = pmax(.data$volatility, 1e-8), # avoid zero
       T = pmax(.data$term, 1), # default Term = 1
-      r = 0.02, # Risk-free rate hard-coded at 2%
+      r = risk_free_rate, # Risk-free rate parameter
       # Excel-equivalent:
       # d1 = ( ln(V/D) + (r + 0.5*sigma^2)*T ) / (sigma*sqrt(T))
       # PD = N( -(d1 - sigma*sqrt(T)) )

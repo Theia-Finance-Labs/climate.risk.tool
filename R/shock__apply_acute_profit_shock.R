@@ -48,11 +48,11 @@ apply_acute_profit_shock <- function(
     hazard_type <- event$hazard_type
     event_year <- event$event_year
 
-    if (hazard_type %in% c("FloodTIF", "Flood")) {
+    if (hazard_type %in% c("Flood", "Flood")) {
       # Flood events: calculate acute damage as damage_factor * cost_factor
       # Only apply to commercial building and industrial building (NOT agriculture)
       assets_flood <- assets_factors |>
-        dplyr::filter(.data$hazard_type %in% c("FloodTIF", "Flood")) |>
+        dplyr::filter(.data$hazard_type %in% c("Flood", "Flood")) |>
         dplyr::filter(.data$event_id == event$event_id) |>
         dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
         dplyr::mutate(

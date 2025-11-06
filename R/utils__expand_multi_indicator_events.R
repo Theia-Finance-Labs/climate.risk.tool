@@ -6,7 +6,7 @@
 #'   internal events, one per required indicator.
 #'
 #' @details
-#' Single-indicator hazards (FloodTIF, Compound, Drought):
+#' Single-indicator hazards (Flood, Compound, Drought):
 #'   - Pass through unchanged
 #'   - Already have correct hazard_indicator set
 #'
@@ -21,13 +21,13 @@
 #'
 #' @param events Tibble. User-configured events from mod_hazards_events_server.
 #'   Expected columns: event_id, hazard_type, hazard_indicator (primary),
-#'   hazard_name (primary), scenario_name, scenario_code, hazard_return_period,
+#'   hazard_name (primary), scenario_name, hazard_return_period,
 #'   event_year, season
 #'
 #' @param hazards_inventory Tibble. Full inventory with all indicators from
 #'   load_hazards_and_inventory()$inventory.
 #'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, scenario_code, hazard_name, ensemble, source
+#'   hazard_return_period, hazard_name, ensemble, source
 #'
 #' @return Tibble. Expanded events with same structure as input. Multi-indicator
 #'   events will have multiple rows per event_id (one per indicator).
@@ -101,7 +101,6 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
         # Use the scenario/RP from inventory for this static indicator
         new_event$scenario_name <- matched$scenario_name[1]
         new_event$hazard_return_period <- as.numeric(matched$hazard_return_period[1])
-        new_event$scenario_code <- matched$scenario_code[1]
         new_event$hazard_name <- matched$hazard_name[1]
 
         message(

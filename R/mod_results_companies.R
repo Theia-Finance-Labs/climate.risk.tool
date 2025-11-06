@@ -43,7 +43,7 @@ mod_results_companies_server <- function(id, results_reactive) {
             companies[[col]] <- paste0(sprintf("%.4f", companies[[col]] * 100), "%")
           } else if (grepl("npv|loss", col, ignore.case = TRUE)) {
             # NPV and loss columns (currency format)
-            companies[[col]] <- paste0("$", format(round(companies[[col]]), big.mark = ","))
+            companies[[col]] <- paste0("R$", format(round(companies[[col]]), big.mark = ","))
           }
         }
       }

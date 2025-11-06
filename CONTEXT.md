@@ -47,7 +47,7 @@ The tool uses a **unified hazard configuration architecture** that supports both
 #### Hazard Types
 
 **Single-Indicator Hazards** (1 data source per hazard):
-- **FloodTIF**: Flood depth (cm)
+- **Flood**: Flood depth (cm)
 - **Compound**: Compound climate index
 - **Drought**: Drought index (seasonal)
 
@@ -68,7 +68,7 @@ get_hazard_type_config() → list(
     primary_indicator = "FWI",  # Drives UI dropdowns
     description = "..."
   ),
-  FloodTIF = list(...),
+  Flood = list(...),
   ...
 )
 ```
@@ -81,7 +81,7 @@ Helper functions:
 #### UI Inventory Filtering
 
 The UI only shows:
-- **Hazard Type** (e.g., "Fire", "FloodTIF")
+- **Hazard Type** (e.g., "Fire", "Flood")
 - **Scenario** (e.g., "SSP2-4.5", "CurrentClimate")
 - **Return Period** (e.g., 10, 50, 100 years)
 
@@ -242,11 +242,12 @@ Examples:
 
 ### Main Orchestrator
 
-**`compute_risk(assets, companies, events, hazards, precomputed_hazards, damage_factors, growth_rate, net_profit_margin, discount_rate)`**
+**`compute_risk(assets, companies, events, hazards, precomputed_hazards, damage_factors, growth_rate, discount_rate)`**
 - Returns: `list(assets, companies, assets_yearly, companies_yearly)`
 - Orchestrates entire pipeline from raw inputs to final risk metrics
 - Filters assets to only those with matching companies
 - Uses priority cascade for hazard assignment
+- Uses company-specific net profit margins from the companies data frame
 
 ### Input Data Validation
 
@@ -377,7 +378,7 @@ inventory <- hazard_data$inventory
 
 **`join_damage_cost_factors(assets_long_format, damage_factors_df, cnae_exposure = NULL)`** → data.frame
 - Joins damage and cost factors based on hazard type:
-  - **FloodTIF**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
+  - **Flood**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
   - **Compound**: Joins on hazard_type, province, scenario_name (GWL), and metric (sector-based from CNAE exposure)
   - **Drought**: Joins on province, crop subtype, season, and closest hazard_intensity match
 - Optional `cnae_exposure` parameter used for Compound hazards to determine metric (high/median/low) based on sector CNAE codes
@@ -387,11 +388,13 @@ inventory <- hazard_data$inventory
 **`filter_assets_by_companies(assets, companies)`** → filtered assets
 - Filters assets to only include those with companies in companies data
 
-**`compute_baseline_trajectories(baseline_assets, companies, growth_rate, net_profit_margin)`** → yearly baseline
+**`compute_baseline_trajectories(baseline_assets, companies, growth_rate)`** → yearly baseline
 - Computes baseline revenue and profit trajectories over time
+- Uses company-specific net profit margins from the companies data frame
 
-**`compute_shock_trajectories(yearly_baseline, assets_with_factors, events)`** → shocked yearly
+**`compute_shock_trajectories(yearly_baseline, assets_with_factors, events, companies)`** → shocked yearly
 - Applies acute shocks to revenue and profits
+- Uses company-specific net profit margins from the companies data frame
 
 **`concatenate_baseline_and_shock(baseline_yearly, shocked_yearly)`** → combined scenarios
 - Concatenates baseline and shock trajectories
@@ -800,7 +803,7 @@ The system supports both single-indicator and multi-indicator hazards through a 
 **Internal System Behavior**:
 
 1. **Single-Indicator Hazards** (Flood, Drought, Compound):
-   - User selects: FloodTIF + CurrentClimate + 100 years
+   - User selects: Flood + CurrentClimate + 100 years
    - System internally finds: 1 indicator (depth(cm))
    - Extracts: That 1 indicator
    - Damage calculation: Uses that indicator directly

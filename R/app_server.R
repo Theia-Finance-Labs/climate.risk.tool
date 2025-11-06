@@ -19,7 +19,8 @@ app_server <- function(input, output, session) {
     cnae_exposure = NULL,
     land_cover_legend = NULL,
     adm1_boundaries = NULL,
-    adm2_boundaries = NULL
+    adm2_boundaries = NULL,
+    region_name_mapping = NULL
   )
 
   # Create the reactive variables expected by tests
@@ -58,12 +59,30 @@ app_server <- function(input, output, session) {
     status_reactive = reactive({
       values$status
     }),
-    events_reactive = control$events
+    events_reactive = control$events,
+    delete_event_callback = control$delete_event
   )
 
   # Initialize results modules
-  mod_results_assets_server("results_assets", results_reactive = results)
+  mod_results_assets_server(
+    "results_assets",
+    results_reactive = results,
+    name_mapping_reactive = reactive({
+      values$region_name_mapping
+    })
+  )
   mod_results_companies_server("results_companies", results_reactive = results)
+
+  # Initialize plot modules
+  mod_profit_pathways_server(
+    "profit_pathways",
+    results_reactive = results
+  )
+
+  mod_company_analysis_server(
+    "company_analysis",
+    results_reactive = results
+  )
 
   # Load all static data files (everything except companies which comes from file upload)
   # Reuses hazards already loaded by control module to avoid duplicate loading
@@ -94,6 +113,9 @@ app_server <- function(input, output, session) {
         municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
         values$adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
+        
+        # Load region name mapping for displaying original names in frontend
+        values$region_name_mapping <- load_region_name_mapping(base_dir)
         
         values$status <- "Data files loaded. Ready to run analysis."
         values$data_loaded <- TRUE
@@ -149,8 +171,9 @@ app_server <- function(input, output, session) {
 
     tryCatch(
       {
-        # Load companies file (only file that needs to be loaded at runtime)
-        companies <- read_companies(company_file$datapath)
+        # Load companies file from the uploaded file
+        company_file_path <- company_file$datapath
+        companies <- read_companies(company_file_path)
 
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)
@@ -186,18 +209,18 @@ app_server <- function(input, output, session) {
           adm1_boundaries = values$adm1_boundaries,
           adm2_boundaries = values$adm2_boundaries,
           validate_inputs = TRUE,
-          growth_rate = 0.02,
-          net_profit_margin = 0.1,
-          discount_rate = 0.05,
-          aggregation_method = "mean" # Default aggregation method
+          growth_rate = control$growth_rate(),
+          discount_rate = control$discount_rate(),
+          risk_free_rate = control$risk_free_rate(),
+          aggregation_method = "median" # Default aggregation method
         )
 
         values$results <- results
         control$set_results(results)
-        values$status <- "Analysis complete. Check the Asset and Company Analysis tabs for detailed results."
+        values$status <- "Analysis complete. Check the Profit Pathways and Company Analysis tabs for detailed results."
 
-        # Switch to results tab after completion
-        updateTabsetPanel(session, "main_tabs", selected = "assets")
+        # Switch to pathways tab after completion
+        updateTabsetPanel(session, "main_tabs", selected = "pathways")
       },
       error = function(e) {
         log_error_to_console(e, "Main app analysis")

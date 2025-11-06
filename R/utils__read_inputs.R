@@ -327,7 +327,13 @@ read_damage_cost_factors <- function(base_dir) {
 
   # Read the damage and cost factors CSV
   # The CSV uses comma as decimal separator and quotes around numbers
-  factors_df <- readr::read_csv(factors_path, show_col_types = FALSE) |>
+  # GWL column can contain both numeric values (e.g., "1.5") and text values (e.g., "present"),
+  # so we must read it as character to preserve both
+  factors_df <- readr::read_csv(
+    factors_path,
+    col_types = readr::cols(GWL = readr::col_character()),
+    show_col_types = FALSE
+  ) |>
     tibble::as_tibble() |>
     dplyr::mutate(
       # Clean up the numeric columns that have comma decimal separators and quotes
@@ -399,8 +405,9 @@ read_cnae_labor_productivity_exposure <- function(base_dir) {
 #'   values for assets without coordinates but with province or municipality information.
 #' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
-#'   scenario_code, scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
+#'   scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
 #'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
+#'   Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
 #' @examples
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
@@ -425,19 +432,19 @@ read_precomputed_hazards <- function(base_dir) {
   precomputed_df <- readr::read_csv(precomputed_path, show_col_types = FALSE) |>
     tibble::as_tibble()
 
-  # Ensure numeric columns are numeric
-  numeric_cols <- c(
-    "hazard_return_period", "min", "max", "mean", "median",
-    "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y"
-  )
+  # # Ensure numeric columns are numeric
+  # numeric_cols <- c(
+  #   "hazard_return_period", "min", "max", "mean", "median",
+  #   "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y"
+  # )
 
-  precomputed_df <- precomputed_df |>
-    dplyr::mutate(
-      dplyr::across(
-        dplyr::any_of(numeric_cols),
-        ~ as.numeric(.)
-      )
-    )
+  # precomputed_df <- precomputed_df |>
+  #   dplyr::mutate(
+  #     dplyr::across(
+  #       dplyr::any_of(numeric_cols),
+  #       ~ as.numeric(.)
+  #     )
+  #   )
 
   # Validate adm_level values
   valid_adm_levels <- c("ADM1", "ADM2")
@@ -460,18 +467,46 @@ read_precomputed_hazards <- function(base_dir) {
 
   for (summ_col in summary_cols) {
     # Create rows for this ensemble
-    ensemble_data <- precomputed_df |>
-      dplyr::mutate(
-        # Unified hazard_name WITHOUT ensemble suffix
-        hazard_name = paste0(
-          .data$hazard_type, "__", .data$hazard_indicator,
-          "__GWL=", .data$scenario_name,
-          "__RP=", .data$hazard_return_period,
-          ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
-        ),
-        aggregation_method = summ_col,
-        hazard_value = .data[[summ_col]]
-      )
+    # Check if season column exists for drought hazards
+    has_season <- "season" %in% names(precomputed_df)
+    
+    if (has_season) {
+      ensemble_data <- precomputed_df |>
+        dplyr::mutate(
+          # Unified hazard_name - include season for drought (like NC files do)
+          hazard_name = dplyr::if_else(
+            .data$hazard_type == "Drought" & !is.na(.data$season),
+            paste0(
+              .data$hazard_type, "__", .data$hazard_indicator,
+              "__GWL=", .data$scenario_name,
+              "__RP=", .data$hazard_return_period,
+              "__season=", .data$season,
+              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+            ),
+            paste0(
+              .data$hazard_type, "__", .data$hazard_indicator,
+              "__GWL=", .data$scenario_name,
+              "__RP=", .data$hazard_return_period,
+              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+            )
+          ),
+          aggregation_method = summ_col,
+          hazard_value = .data[[summ_col]]
+        )
+    } else {
+      ensemble_data <- precomputed_df |>
+        dplyr::mutate(
+          # Unified hazard_name WITHOUT season
+          hazard_name = paste0(
+            .data$hazard_type, "__", .data$hazard_indicator,
+            "__GWL=", .data$scenario_name,
+            "__RP=", .data$hazard_return_period,
+            ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+          ),
+          aggregation_method = summ_col,
+          hazard_value = .data[[summ_col]]
+        )
+    }
 
     transformed_list[[summ_col]] <- ensemble_data
   }
@@ -479,10 +514,23 @@ read_precomputed_hazards <- function(base_dir) {
   # Combine all ensemble variants
   precomputed_final <- dplyr::bind_rows(transformed_list)
 
-  precomputed_final <- precomputed_final |>
-    dplyr::mutate(
-      region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII")
-    )
+  # Preserve season column if it exists (for drought hazards)
+  if ("season" %in% names(precomputed_final)) {
+    precomputed_final <- precomputed_final |>
+      dplyr::mutate(
+        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
+        scenario_name = as.character(.data$scenario_name),
+        season = as.character(.data$season)
+      )
+    season_count <- sum(!is.na(precomputed_final$season))
+    message("  Season column preserved with ", season_count, " non-NA values")
+  } else {
+    precomputed_final <- precomputed_final |>
+      dplyr::mutate(
+        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
+        scenario_name = as.character(.data$scenario_name)
+      )
+  }
 
   message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
 
@@ -496,7 +544,7 @@ read_precomputed_hazards <- function(base_dir) {
 #'   contains all required columns including hazard_indicator.
 #' @param mapping_path Character path to the CSV mapping file
 #' @return Tibble with columns: hazard_file, hazard_type, hazard_indicator,
-#'   scenario_code, scenario_name, hazard_return_period
+#'   scenario_name, hazard_return_period (scenario_code may be present but is not used)
 #' @noRd
 read_hazards_mapping <- function(mapping_path) {
   if (!file.exists(mapping_path)) {
@@ -508,7 +556,7 @@ read_hazards_mapping <- function(mapping_path) {
 
   # Validate required columns
   required_cols <- c(
-    "hazard_file", "hazard_type", "hazard_indicator", "scenario_code",
+    "hazard_file", "hazard_type", "hazard_indicator",
     "scenario_name", "hazard_return_period"
   )
   missing_cols <- setdiff(required_cols, names(mapping))
@@ -569,4 +617,67 @@ read_land_cover_legend <- function(base_dir) {
   message("[read_land_cover_legend] Loaded ", nrow(legend_clean), " land cover categories")
   
   return(legend_clean)
+}
+
+#' Load region name mapping dictionary
+#'
+#' @title Load mapping from normalized names to original names
+#' @description Creates a dictionary mapping normalized (ASCII) region names to their original
+#'   names with special characters. This is used to display original names in the frontend
+#'   while keeping normalized names for internal processing.
+#' @param base_dir Base directory containing areas subdirectory
+#' @return Named list with two elements:
+#'   - province: Named character vector mapping normalized province names to original names
+#'   - municipality: Named character vector mapping normalized municipality names to original names
+#' @examples
+#' \dontrun{
+#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
+#' name_mapping <- load_region_name_mapping(base_dir)
+#' # Access original name: name_mapping$province["Sao Paulo"] returns "São Paulo"
+#' }
+#' @export
+load_region_name_mapping <- function(base_dir) {
+  # Initialize result list
+  mapping <- list(province = character(0), municipality = character(0))
+  
+  # Load province (ADM1) names
+  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+  if (file.exists(province_path)) {
+    provinces_sf <- sf::st_read(province_path, quiet = TRUE)
+    
+    if ("shapeName" %in% names(provinces_sf)) {
+      # Get original names
+      original_names <- as.character(provinces_sf$shapeName)
+      
+      # Get normalized names (same way as used throughout the codebase)
+      normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
+      
+      # Create mapping: normalized -> original
+      mapping$province <- original_names
+      names(mapping$province) <- normalized_names
+    }
+  }
+  
+  # Load municipality (ADM2) names
+  municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+  if (file.exists(municipality_path)) {
+    municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE)
+    
+    if ("shapeName" %in% names(municipalities_sf)) {
+      # Get original names
+      original_names <- as.character(municipalities_sf$shapeName)
+      
+      # Get normalized names (same way as used throughout the codebase)
+      normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
+      
+      # Create mapping: normalized -> original
+      mapping$municipality <- original_names
+      names(mapping$municipality) <- normalized_names
+    }
+  }
+  
+  message("[load_region_name_mapping] Loaded ", length(mapping$province), " province names and ", 
+          length(mapping$municipality), " municipality names")
+  
+  return(mapping)
 }

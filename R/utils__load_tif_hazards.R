@@ -2,10 +2,10 @@
 #'
 #' @description Internal function used by load_hazards_and_inventory().
 #'   Loads hazard rasters based on a mapping dataframe that defines
-#'   hazard_file, hazard_type, scenario_code, scenario_name, and hazard_return_period.
+#'   hazard_file, hazard_type, scenario_name, and hazard_return_period.
 #'   Validates that all files exist and that there are no duplicates on the filtering
 #'   columns (hazard_type, scenario_name, hazard_return_period).
-#' @param mapping_df Data frame with columns: hazard_file, hazard_type, scenario_code,
+#' @param mapping_df Data frame with columns: hazard_file, hazard_type,
 #'   scenario_name, hazard_return_period
 #' @param hazards_dir Character path to the directory containing hazard files (will search subdirectories)
 #' @param aggregate_factor Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)

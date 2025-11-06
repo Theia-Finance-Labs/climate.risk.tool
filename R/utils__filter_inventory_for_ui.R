@@ -5,7 +5,7 @@
 #'   hiding the multi-indicator complexity from users.
 #'
 #' @details
-#' For single-indicator hazards (FloodTIF, Compound, Drought):
+#' For single-indicator hazards (Flood, Compound, Drought):
 #'   - Returns all rows as-is since primary = only indicator
 #'
 #' For multi-indicator hazards (Fire with land_cover, FWI, days_danger_total):
@@ -15,10 +15,10 @@
 #'
 #' @param inventory Tibble. Full inventory from load_hazards_and_inventory()$inventory
 #'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, scenario_code, hazard_name, ensemble, source
+#'   hazard_return_period, hazard_name, ensemble, source
 #'
 #' @return Tibble with columns: hazard_type, hazard_indicator (primary only),
-#'   scenario_name, hazard_return_period, scenario_code
+#'   scenario_name, hazard_return_period
 #'   Rows are deduplicated to show unique combinations.
 #'
 #' @noRd
@@ -28,8 +28,7 @@ filter_inventory_for_ui <- function(inventory) {
       hazard_type = character(),
       hazard_indicator = character(),
       scenario_name = character(),
-      hazard_return_period = numeric(),
-      scenario_code = character()
+      hazard_return_period = numeric()
     ))
   }
 
@@ -47,8 +46,7 @@ filter_inventory_for_ui <- function(inventory) {
       hazard_type = character(),
       hazard_indicator = character(),
       scenario_name = character(),
-      hazard_return_period = numeric(),
-      scenario_code = character()
+      hazard_return_period = numeric()
     ))
   }
 
@@ -68,8 +66,7 @@ filter_inventory_for_ui <- function(inventory) {
         "hazard_type",
         "hazard_indicator",
         "scenario_name",
-        "hazard_return_period",
-        "scenario_code"
+        "hazard_return_period"
       ) |>
       dplyr::distinct()
   })

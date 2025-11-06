@@ -10,7 +10,7 @@
 #' between extracted assets (which have indicator-specific hazard_names) and
 #' user-defined events (which have one row per event, not per indicator).
 #'
-#' For single-indicator hazards (FloodTIF, Compound, Drought):
+#' For single-indicator hazards (Flood, Compound, Drought):
 #'   - Appends extraction_method suffix to hazard_name
 #'   - Returns one row per event
 #'
@@ -25,7 +25,7 @@
 #'
 #' @param hazards_inventory Tibble. Full inventory from load_hazards_and_inventory()
 #'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, hazard_name, scenario_code
+#'   hazard_return_period, hazard_name
 #'
 #' @param aggregation_method Character. Extraction method for assets (e.g., "mean")
 #'
@@ -82,7 +82,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
     dplyr::mutate(
       hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
     ) |>
-    dplyr::select("hazard_name", "event_id", "event_year", "season")
+    dplyr::select("hazard_name", "event_id", "event_year")
 
   # Process multi-indicator events (expand to all indicators)
   multi_events <- events |>
@@ -139,8 +139,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
       tibble::tibble(
         hazard_name = hazard_name_with_suffix,
         event_id = event$event_id,
-        event_year = event$event_year,
-        season = event$season
+        event_year = event$event_year
       )
     })
   })

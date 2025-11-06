@@ -2,7 +2,7 @@
 #'
 #' @title Apply Acute Revenue Shock
 #' @description Applies revenue shocks from acute climate events in event_id order.
-#'   Supports FloodTIF (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
+#'   Supports Flood (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
 #'   and Drought (crop damage for agriculture). Multiple shocks in the same year are applied sequentially by event_id.
 #'   NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue
@@ -18,11 +18,11 @@
 #'   revenue = c(1000, 1200)
 #' )
 #' assets_factors <- data.frame(
-#'   asset = "A1", hazard_type = "FloodTIF", event_id = "event_1",
+#'   asset = "A1", hazard_type = "Flood", event_id = "event_1",
 #'   damage_factor = 0.1, business_disruption = 10
 #' )
 #' acute_events <- data.frame(
-#'   event_id = "event_1", hazard_type = "FloodTIF", event_year = 2030
+#'   event_id = "event_1", hazard_type = "Flood", event_year = 2030
 #' )
 #' result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 #' }
@@ -44,7 +44,7 @@ apply_acute_revenue_shock <- function(
     event <- acute_events[i, ]
     hazard_type <- as.character(event$hazard_type)
 
-    if (hazard_type == "FloodTIF") {
+    if (hazard_type == "Flood") {
       result <- apply_flood_shock(result, event, assets_factors)
     } else if (hazard_type == "Compound") {
       result <- apply_compound_shock(result, event, assets_factors)
@@ -59,18 +59,18 @@ apply_acute_revenue_shock <- function(
   return(result)
 }
 
-#' Apply FloodTIF shock to revenue trajectories (internal function)
+#' Apply Flood shock to revenue trajectories (internal function)
 #'
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue
 #' @param event Single event row with event_id, event_year, hazard_type
 #' @param assets_factors tibble with hazard data and damage factors
-#' @return tibble with revenue adjusted for FloodTIF business disruption
+#' @return tibble with revenue adjusted for Flood business disruption
 #' @noRd
 apply_flood_shock <- function(yearly_trajectories, event, assets_factors) {
-  # Filter FloodTIF assets for this specific event (by event_id)
+  # Filter Flood assets for this specific event (by event_id)
   flood_assets <- assets_factors |>
     dplyr::filter(
-      .data$hazard_type == "FloodTIF",
+      .data$hazard_type == "Flood",
       .data$event_id == event$event_id
     )
 

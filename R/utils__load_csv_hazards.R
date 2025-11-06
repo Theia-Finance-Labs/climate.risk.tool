@@ -92,6 +92,9 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
     # Convert to tibble for easier manipulation
     csv_data <- tibble::as_tibble(csv_data)
 
+    # Check if season column exists (for drought hazards)
+    has_season <- "season" %in% names(csv_data)
+
     # Filter to only 'mean' ensemble
     csv_data_mean <- csv_data |>
       dplyr::filter(.data$ensemble == "mean")
@@ -101,9 +104,14 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
       next
     }
 
-    # Get unique combinations of (GWL, return_period, ensemble)
-    unique_combos <- csv_data_mean |>
-      dplyr::distinct(.data$GWL, .data$return_period, .data$ensemble)
+    # Get unique combinations of (GWL, return_period, ensemble, season)
+    if (has_season) {
+      unique_combos <- csv_data_mean |>
+        dplyr::distinct(.data$GWL, .data$return_period, .data$ensemble, .data$season)
+    } else {
+      unique_combos <- csv_data_mean |>
+        dplyr::distinct(.data$GWL, .data$return_period, .data$ensemble)
+    }
 
     # Create a separate data frame for each combination
     for (i in seq_len(nrow(unique_combos))) {
@@ -111,22 +119,43 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
       gwl_val <- combo$GWL
       rp_val <- combo$return_period
       ens_val <- combo$ensemble
+      season_val <- if (has_season) combo$season else NA_character_
 
       # Filter data for this combination
-      hazard_data <- csv_data_mean |>
-        dplyr::filter(
-          .data$GWL == gwl_val,
-          .data$return_period == rp_val,
-          .data$ensemble == ens_val
-        )
+      if (has_season && !is.na(season_val)) {
+        hazard_data <- csv_data_mean |>
+          dplyr::filter(
+            .data$GWL == gwl_val,
+            .data$return_period == rp_val,
+            .data$ensemble == ens_val,
+            .data$season == season_val
+          )
+      } else {
+        hazard_data <- csv_data_mean |>
+          dplyr::filter(
+            .data$GWL == gwl_val,
+            .data$return_period == rp_val,
+            .data$ensemble == ens_val
+          )
+      }
 
-      # Create hazard name (unified format with ensemble suffix)
-      hazard_name <- paste0(
-        hazard_type, "__", hazard_indicator,
-        "__GWL=", gwl_val,
-        "__RP=", rp_val,
-        "__ensemble=", ens_val
-      )
+      # Create hazard name (unified format with ensemble suffix, include season if present)
+      if (has_season && !is.na(season_val)) {
+        hazard_name <- paste0(
+          hazard_type, "__", hazard_indicator,
+          "__GWL=", gwl_val,
+          "__RP=", rp_val,
+          "__season=", season_val,
+          "__ensemble=", ens_val
+        )
+      } else {
+        hazard_name <- paste0(
+          hazard_type, "__", hazard_indicator,
+          "__GWL=", gwl_val,
+          "__RP=", rp_val,
+          "__ensemble=", ens_val
+        )
+      }
 
       # Store the data frame
       results[[hazard_name]] <- hazard_data
@@ -135,16 +164,30 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
       rp_numeric <- suppressWarnings(as.numeric(rp_val))
       if (is.na(rp_numeric)) rp_numeric <- i
 
-      inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
-        hazard_type = hazard_type,
-        hazard_indicator = hazard_indicator,
-        scenario_name = as.character(gwl_val),
-        hazard_return_period = rp_numeric,
-        scenario_code = as.character(gwl_val),
-        hazard_name = hazard_name,
-        ensemble = as.character(ens_val),
-        source = "csv"
-      )
+      # Include season column in inventory if present
+      if (has_season && !is.na(season_val)) {
+        inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
+          hazard_type = hazard_type,
+          hazard_indicator = hazard_indicator,
+          scenario_name = as.character(gwl_val),
+          hazard_return_period = rp_numeric,
+          hazard_name = hazard_name,
+          ensemble = as.character(ens_val),
+          season = as.character(season_val),
+          source = "csv"
+        )
+      } else {
+        inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
+          hazard_type = hazard_type,
+          hazard_indicator = hazard_indicator,
+          scenario_name = as.character(gwl_val),
+          hazard_return_period = rp_numeric,
+          hazard_name = hazard_name,
+          ensemble = as.character(ens_val),
+          season = NA_character_,
+          source = "csv"
+        )
+      }
     }
   }
 
@@ -152,7 +195,16 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
   inventory <- if (length(inventory_rows) > 0) {
     dplyr::bind_rows(inventory_rows)
   } else {
-    tibble::tibble()
+    tibble::tibble(
+      hazard_type = character(),
+      hazard_indicator = character(),
+      scenario_name = character(),
+      hazard_return_period = numeric(),
+      hazard_name = character(),
+      ensemble = character(),
+      season = character(),
+      source = character()
+    )
   }
 
   message("[load_csv_hazards_with_metadata] Loaded ", length(results), " CSV hazard datasets")

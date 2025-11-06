@@ -4,12 +4,14 @@
 \alias{mod_results_assets_server}
 \title{results_assets Server Functions}
 \usage{
-mod_results_assets_server(id, results_reactive)
+mod_results_assets_server(id, results_reactive, name_mapping_reactive = NULL)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
 
 \item{results_reactive}{reactive containing analysis results}
+
+\item{name_mapping_reactive}{reactive containing region name mapping dictionary}
 }
 \description{
 results_assets Server Functions

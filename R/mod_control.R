@@ -21,6 +21,38 @@ mod_control_ui <- function(id) {
       mod_hazards_events_ui(ns("hazards"), title = "Hazard Events")
     ),
     shiny::div(
+      class = "control-section",
+      shiny::h4("Financial Parameters", class = "section-header"),
+      shiny::p("Adjust these rates to reflect your financial assumptions:", class = "text-muted", style = "font-size: 0.9em; margin-bottom: 10px;"),
+      shiny::sliderInput(
+        ns("growth_rate"),
+        "Annual Revenue Growth Rate (%):",
+        value = 2.0,
+        min = 0,
+        max = 10,
+        step = 0.1,
+        ticks = FALSE
+      ),
+      shiny::sliderInput(
+        ns("discount_rate"),
+        "Discount Rate (%):",
+        value = 5.0,
+        min = 0,
+        max = 15,
+        step = 0.1,
+        ticks = FALSE
+      ),
+      shiny::sliderInput(
+        ns("risk_free_rate"),
+        "Risk-Free Rate (%):",
+        value = 2.0,
+        min = 0,
+        max = 10,
+        step = 0.1,
+        ticks = FALSE
+      )
+    ),
+    shiny::div(
       class = "control-section run-section",
       shiny::actionButton(
         ns("run_analysis"),
@@ -49,7 +81,7 @@ mod_control_ui <- function(id) {
 #'
 #' @param id Internal parameter for shiny
 #' @param base_dir_reactive reactive containing base directory path
-#' @return list with reactive values for company_file, events, run_trigger, results_ready, and get_hazards_at_factor
+#' @return list with reactive values for company_file, events, run_trigger, growth_rate, discount_rate, risk_free_rate, results_ready, and get_hazards_at_factor
 #' @export
 mod_control_server <- function(id, base_dir_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -137,8 +169,21 @@ mod_control_server <- function(id, base_dir_reactive) {
         input$company_file
       }),
       events = hz_mod$events,
+      delete_event = hz_mod$delete_event,
       run_trigger = shiny::reactive({
         input$run_analysis
+      }),
+      growth_rate = shiny::reactive({
+        # Convert percentage to decimal (e.g., 2.0% -> 0.02)
+        input$growth_rate / 100
+      }),
+      discount_rate = shiny::reactive({
+        # Convert percentage to decimal (e.g., 5.0% -> 0.05)
+        input$discount_rate / 100
+      }),
+      risk_free_rate = shiny::reactive({
+        # Convert percentage to decimal (e.g., 2.0% -> 0.02)
+        input$risk_free_rate / 100
       }),
       results_ready = shiny::reactive({
         values$results_ready

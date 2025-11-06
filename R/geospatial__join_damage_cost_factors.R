@@ -11,7 +11,7 @@
 join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cnae_exposure = NULL, land_cover_legend = NULL) {
   # Separate assets by hazard type
   flood_assets <- assets_with_hazards |>
-    dplyr::filter(.data$hazard_type == "FloodTIF")
+    dplyr::filter(.data$hazard_type == "Flood")
   compound_assets <- assets_with_hazards |>
     dplyr::filter(.data$hazard_type == "Compound")
   drought_assets <- assets_with_hazards |>
@@ -57,16 +57,16 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cna
   return(merged)
 }
 
-#' Join FloodTIF damage factors using closest intensity matching (internal function)
+#' Join Flood damage factors using closest intensity matching (internal function)
 #'
-#' @param flood_assets Data frame with FloodTIF hazard assets
+#' @param flood_assets Data frame with Flood hazard assets
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
 #' @return Data frame with damage_factor, cost_factor, and business_disruption columns
 #' @noRd
 join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
   # Filter flood damage factors
   flood_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "FloodTIF") |>
+    dplyr::filter(.data$hazard_type == "Flood") |>
     dplyr::mutate(
       hazard_intensity_num = as.numeric(.data$hazard_intensity)
     ) |>
@@ -253,6 +253,10 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
   # Prepare assets: determine matching keys based on what exists in damage factors
   drought_assets_prepared <- drought_assets |>
     dplyr::mutate(
+      # Extract season from hazard_name (format: ...__season=SeasonName__...)
+      season = stringr::str_extract(.data$hazard_name, "__season=([^_]+)__") |>
+        stringr::str_remove("__season=") |>
+        stringr::str_remove("__"),
       # Normalize missing/empty values
       asset_subtype_clean = dplyr::if_else(
         is.na(.data$asset_subtype) | .data$asset_subtype == "",
@@ -500,7 +504,6 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       "asset", "event_id", 
       fwi_hazard_name = "hazard_name",
       fwi_hazard_return_period = "hazard_return_period",
-      fwi_scenario_code = "scenario_code",
       fwi_scenario_name = "scenario_name",
       fwi_source = "source"
     )
@@ -526,7 +529,6 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
     dplyr::rename(
       hazard_name = "fwi_hazard_name",
       hazard_return_period = "fwi_hazard_return_period",
-      scenario_code = "fwi_scenario_code",
       scenario_name = "fwi_scenario_name",
       source = "fwi_source"
     )
@@ -640,7 +642,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       "asset", "company", "latitude", "longitude", "municipality", "province",
       "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
       "cnae", "hazard_name", "hazard_type", "hazard_indicator", "hazard_return_period",
-      "scenario_code", "scenario_name", "source", "matching_method", "event_id", "event_year",
+      "scenario_name", "source", "matching_method", "event_id", "event_year",
       "damage_factor", "cost_factor", "business_disruption",
       "land_cover_risk", "hazard_intensity", "days_danger_total"
     )

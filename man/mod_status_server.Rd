@@ -4,7 +4,12 @@
 \alias{mod_status_server}
 \title{status Server Functions}
 \usage{
-mod_status_server(id, status_reactive, events_reactive)
+mod_status_server(
+  id,
+  status_reactive,
+  events_reactive,
+  delete_event_callback = NULL
+)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
@@ -12,6 +17,8 @@ mod_status_server(id, status_reactive, events_reactive)
 \item{status_reactive}{reactive containing current status message}
 
 \item{events_reactive}{reactive containing configured events}
+
+\item{delete_event_callback}{function to delete an event by event_id}
 }
 \description{
 status Server Functions

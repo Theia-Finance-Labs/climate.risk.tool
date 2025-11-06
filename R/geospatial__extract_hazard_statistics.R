@@ -8,11 +8,12 @@
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
 #'   For NC sources: selects which ensemble raster to extract. For TIF sources: determines which statistic
 #'   to compute from extracted pixel values. Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
+#' @param damage_factors_df Optional data frame with damage factors for drought growing season matching in precomputed extraction
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, province, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean") {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean", damage_factors_df = NULL) {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
 
   # Separate assets into coordinate-based and administrative-based
@@ -46,7 +47,8 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
       assets_without_coords,
       precomputed_hazards,
       hazards_inventory,
-      aggregation_method
+      aggregation_method,
+      damage_factors_df = damage_factors_df
     )
   }
 
@@ -160,7 +162,6 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       hazard_type <- hazard_meta$hazard_type
       hazard_indicator <- hazard_meta$hazard_indicator
       hazard_return_period <- hazard_meta$hazard_return_period
-      hazard_scenario_code <- hazard_meta$scenario_code
       hazard_scenario_name <- hazard_meta$scenario_name
       
       # Special handling for Fire land_cover: force mode aggregation (categorical data)
@@ -244,7 +245,6 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
           # Use hazard_name with ensemble suffix added
           hazard_name = hazard_name_with_ensemble,
           hazard_type = hazard_type,
-          scenario_code = hazard_scenario_code,
           scenario_name = hazard_scenario_name,
           hazard_indicator = hazard_indicator,
           hazard_return_period = hazard_return_period,
@@ -257,7 +257,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
           "asset", "company", "latitude", "longitude",
           "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
           "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-          "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+          "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
         )
 
       results_list[[i]] <- df_i
@@ -281,13 +281,27 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 }
 
 #' Extract statistics from precomputed administrative data (municipality/province lookup)
+#' @param damage_factors_df Optional data frame with damage factors for drought growing season matching
 #' @noRd
-extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean") {
+extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean", damage_factors_df = NULL) {
   message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
   message("    Using aggregation method: ", aggregation_method)
 
   # Precomputed data should have correct hazard indicators already
   message("    Using precomputed hazard indicators directly from data")
+
+  # Define scenario name normalization function (used throughout)
+  normalize_scenario_name <- function(sname) {
+    sname <- tolower(as.character(sname))
+    # Map common variations
+    sname <- gsub("rcp8.5", "rcp85", sname, fixed = TRUE)
+    sname <- gsub("rcp2.6", "rcp26", sname, fixed = TRUE)
+    sname <- gsub("rcp4.5", "rcp45", sname, fixed = TRUE)
+    sname <- gsub("currentclimate", "pc", sname, fixed = TRUE)
+    sname <- gsub("current climate", "pc", sname, fixed = TRUE)
+    sname <- gsub(" ", "", sname, fixed = TRUE)
+    return(sname)
+  }
 
   required_hazards <- hazards_inventory
 
@@ -337,24 +351,25 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     }
 
     # FILTER: Only keep hazards that match the required hazards from inventory
-    # Match by hazard_type, scenario_code, and hazard_return_period
-    # Convert scenario_code to character for both datasets to handle type mismatches
+    # Match by hazard_name + season (for drought with season column)
+    
+    # Separate fire/land_cover (handled specially - no precomputed lookup)
+    fire_land_cover <- required_hazards |>
+      dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover")
+    
+    required_hazards_other <- required_hazards |>
+      dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
+    
+    # Get list of required hazard_names
+    required_hazard_names <- required_hazards_other |> dplyr::pull(.data$hazard_name)
+    
+    # Filter by hazard_name first
     matched_data <- matched_data |>
-      dplyr::mutate(scenario_code = as.character(.data$scenario_code))
-
-    required_hazards_char <- required_hazards |>
-      dplyr::mutate(scenario_code = as.character(.data$scenario_code)) |>
-      dplyr::select("hazard_type", "hazard_indicator", "scenario_name", "scenario_code", "hazard_return_period", "source")
-
-    matched_data <- matched_data |>
-      dplyr::inner_join(
-        required_hazards_char,
-        by = c("hazard_type", "hazard_indicator", "scenario_name", "scenario_code", "hazard_return_period")
-      )
+      dplyr::filter(.data$hazard_name %in% required_hazard_names)
 
     # Check if we got all required hazards
     found_combos <- matched_data |>
-      dplyr::distinct(.data$hazard_type, .data$hazard_indicator, .data$scenario_name, .data$scenario_code, .data$hazard_return_period)
+      dplyr::distinct(.data$hazard_type, .data$hazard_indicator, .data$scenario_name, .data$hazard_return_period)
 
     # If matched_data is empty and we're not strictly validating, skip this asset
     if (nrow(matched_data) == 0) {
@@ -362,6 +377,70 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         "No data found for asset ", i, " (", asset_name, "). No match found in precomputed data for municipality='", municipality,
         "' or province='", province, "' for the required hazards."
       )
+    }
+
+    # Special handling for drought hazards with agriculture assets: check growing season matching
+    # This applies the same logic as the coordinate-based extraction
+    if (!is.null(damage_factors_df) && 
+        asset_row$asset_category == "agriculture" &&
+        any(matched_data$hazard_type == "Drought", na.rm = TRUE)) {
+      
+      # Get the crop type (default to "Other"/Soybean if missing)
+      asset_subtype_clean <- dplyr::if_else(
+        is.na(asset_row$asset_subtype) | asset_row$asset_subtype == "",
+        "Other",
+        as.character(asset_row$asset_subtype)
+      )
+      
+      # Get province for matching (use actual province, fallback to "Other" handled in join_drought_damage_factors)
+      province_clean <- dplyr::if_else(
+        is.na(asset_row$province) | asset_row$province == "",
+        "Other",
+        as.character(asset_row$province)
+      )
+      
+      # Get crop's growing seasons from damage factors
+      # When asset_subtype_clean is "Other", use Soybean's growing seasons (as "Other" defaults to Soybean)
+      crop_subtype_for_lookup <- if (asset_subtype_clean == "Other") "Soybean" else asset_subtype_clean
+      
+      crop_growing_seasons <- damage_factors_df |>
+        dplyr::filter(
+          .data$hazard_type == "Drought",
+          .data$hazard_indicator == "SPI3",
+          .data$subtype == crop_subtype_for_lookup,
+          .data$province == province_clean | .data$province == "Other"
+        ) |>
+        dplyr::distinct(.data$season) |>
+        dplyr::pull(.data$season)
+      
+      # If no specific province match, try "Other" province
+      if (length(crop_growing_seasons) == 0 && province_clean != "Other") {
+        crop_growing_seasons <- damage_factors_df |>
+          dplyr::filter(
+            .data$hazard_type == "Drought",
+            .data$hazard_indicator == "SPI3",
+            .data$subtype == crop_subtype_for_lookup,
+            .data$province == "Other"
+          ) |>
+          dplyr::distinct(.data$season) |>
+          dplyr::pull(.data$season)
+      }
+      
+      # For drought hazards, we validate that we have the crop's growing seasons available
+      # The actual season matching and off-window logic is handled in join_drought_damage_factors
+      # This ensures consistency with the coordinate-based extraction path
+      # Note: We keep the requested season's data (from hazard_name), and join_drought_damage_factors
+      # will check if it matches the crop's growing season and apply off-window logic if needed
+      
+      if (length(crop_growing_seasons) == 0) {
+        # No growing seasons found for this crop - this will be handled in join_drought_damage_factors
+        message("      Warning: No growing seasons found for crop '", asset_subtype_clean, 
+                "' in province '", province_clean, "' for asset ", asset_name)
+      } else {
+        # Log the growing seasons for debugging
+        message("      Crop '", asset_subtype_clean, "' growing seasons: ", 
+                paste(crop_growing_seasons, collapse = ", "))
+      }
     }
 
     # Transform precomputed data to match expected output format
@@ -373,6 +452,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         hazard_intensity = .data$hazard_value,
         hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
+        source = "precomputed",  # Add source column (matched_data doesn't have it)
         # Add asset information to each hazard row
         asset = asset_row$asset,
         company = asset_row$company,
@@ -390,8 +470,46 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
+    
+    # Add fire/land_cover rows with default value 0.5 (not precomputed)
+    if (nrow(fire_land_cover) > 0) {
+      # Get the first matched row to extract metadata (for constructing hazard_name)
+      # We need to find the corresponding hazard_name from inventory for land_cover
+      land_cover_meta <- hazards_inventory |>
+        dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover") |>
+        dplyr::slice(1)
+      
+      if (nrow(land_cover_meta) > 0) {
+        # Create synthetic land_cover rows with default value 0.5
+        land_cover_rows <- tibble::tibble(
+          asset = asset_row$asset,
+          company = asset_row$company,
+          latitude = asset_row$latitude,
+          longitude = asset_row$longitude,
+          municipality = asset_row$municipality,
+          province = asset_row$province,
+          asset_category = asset_row$asset_category,
+          asset_subtype = asset_row$asset_subtype,
+          size_in_m2 = asset_row$size_in_m2,
+          share_of_economic_activity = asset_row$share_of_economic_activity,
+          cnae = asset_row$cnae,
+          hazard_name = paste0(land_cover_meta$hazard_name[1], "__extraction_method=mode"),
+          hazard_type = "Fire",
+          hazard_indicator = "land_cover",
+          hazard_return_period = land_cover_meta$hazard_return_period[1],
+          scenario_name = land_cover_meta$scenario_name[1],
+          source = if ("source" %in% names(land_cover_meta)) land_cover_meta$source[1] else "tif",
+          hazard_intensity = 0.5,  # Default land_cover_risk value
+          matching_method = match_level
+        )
+        
+        # Combine with other hazard data
+        asset_hazard_data <- dplyr::bind_rows(asset_hazard_data, land_cover_rows)
+        message("      Added fire/land_cover with default value 0.5 for asset ", asset_name)
+      }
+    }
 
     precomp_results_list[[length(precomp_results_list) + 1]] <- asset_hazard_data
   }
@@ -431,7 +549,6 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
     hazard_type <- hazard_meta$hazard_type
     hazard_indicator <- hazard_meta$hazard_indicator
     hazard_return_period <- hazard_meta$hazard_return_period
-    hazard_scenario_code <- hazard_meta$scenario_code
     hazard_scenario_name <- hazard_meta$scenario_name
 
     # Add extraction_method suffix for output consistency
@@ -466,7 +583,6 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
         hazard_intensity = asset_intensities,
         hazard_name = hazard_name_with_ensemble,
         hazard_type = hazard_type,
-        scenario_code = hazard_scenario_code,
         scenario_name = hazard_scenario_name,
         hazard_indicator = hazard_indicator,
         hazard_return_period = hazard_return_period,
@@ -477,7 +593,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
         "asset", "company", "latitude", "longitude",
         "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_code", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
 
     results_list[[i]] <- df_i
