@@ -50,7 +50,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       cnae_exposure_reactive()
     }
 
-    format_assets_table <- function(assets_df, name_mapping, cnae_exposure) {
+    format_assets_table <- function(assets_df, name_mapping, cnae_exposure, include_sector_name = TRUE) {
       if (is.null(assets_df) || nrow(assets_df) == 0) {
         return(assets_df)
       }
@@ -121,6 +121,11 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
       assets_df <- assets_df |>
         dplyr::select(-dplyr::any_of("cnae"))
+
+      if (!include_sector_name) {
+        assets_df <- assets_df |>
+          dplyr::select(-dplyr::any_of("sector_name"))
+      }
 
       priority_cols <- c("asset", "company", "sector", "sector_name", "sector_code", "share_of_economic_activity", "event_id", "hazard_name", "hazard_type", "matching_method", "hazard_return_period", "event_year")
       existing_priority <- intersect(priority_cols, names(assets_df))
@@ -221,7 +226,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
           name_mapping <- if (!is.null(name_mapping_reactive)) name_mapping_reactive() else NULL
           cnae_exposure <- resolve_cnae_exposure()
-          formatted_assets <- format_assets_table(current_assets, name_mapping, cnae_exposure)
+          formatted_assets <- format_assets_table(current_assets, name_mapping, cnae_exposure, include_sector_name = FALSE)
 
           if (is.null(formatted_assets) || nrow(formatted_assets) == 0) {
             session$userData$hazard_tables_data[[idx]] <- NULL

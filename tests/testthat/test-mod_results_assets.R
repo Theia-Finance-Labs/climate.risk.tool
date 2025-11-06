@@ -62,12 +62,19 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     testthat::expect_true(all(unique(table_two$hazard_name) == "Fire__RP50"))
     testthat::expect_true("sector" %in% colnames(table_one))
     testthat::expect_true(all(table_one$sector == "06"))
-    testthat::expect_true("sector_name" %in% colnames(table_one))
-    testthat::expect_true(all(table_one$sector_name == "Oil and Gas Extraction"))
+    testthat::expect_false("sector_name" %in% colnames(table_one))
     testthat::expect_true("sector_code" %in% colnames(table_one))
     testthat::expect_true(all(table_one$sector_code == "06"))
     testthat::expect_true("share_of_economic_activity" %in% colnames(table_one))
     testthat::expect_true(all(table_one$share_of_economic_activity == "60.0%"))
+
+    download_data <- assets_download_data()
+    testthat::expect_s3_class(download_data, "data.frame")
+    testthat::expect_true("sector_name" %in% colnames(download_data))
+    testthat::expect_setequal(
+      unique(download_data$sector_name),
+      c("Oil and Gas Extraction", "Hydropower Generation")
+    )
   })
 })
 
