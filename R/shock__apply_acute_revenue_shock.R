@@ -2,7 +2,7 @@
 #'
 #' @title Apply Acute Revenue Shock
 #' @description Applies revenue shocks from acute climate events in event_id order.
-#'   Supports FloodTIF (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
+#'   Supports Flood (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
 #'   and Drought (crop damage for agriculture). Multiple shocks in the same year are applied sequentially by event_id.
 #'   NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue
@@ -18,11 +18,11 @@
 #'   revenue = c(1000, 1200)
 #' )
 #' assets_factors <- data.frame(
-#'   asset = "A1", hazard_type = "FloodTIF", event_id = "event_1",
+#'   asset = "A1", hazard_type = "Flood", event_id = "event_1",
 #'   damage_factor = 0.1, business_disruption = 10
 #' )
 #' acute_events <- data.frame(
-#'   event_id = "event_1", hazard_type = "FloodTIF", event_year = 2030
+#'   event_id = "event_1", hazard_type = "Flood", event_year = 2030
 #' )
 #' result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 #' }
@@ -44,12 +44,14 @@ apply_acute_revenue_shock <- function(
     event <- acute_events[i, ]
     hazard_type <- as.character(event$hazard_type)
 
-    if (hazard_type == "FloodTIF") {
+    if (hazard_type == "Flood") {
       result <- apply_flood_shock(result, event, assets_factors)
     } else if (hazard_type == "Compound") {
       result <- apply_compound_shock(result, event, assets_factors)
     } else if (hazard_type == "Drought") {
       result <- apply_drought_shock(result, event, assets_factors)
+    } else if (hazard_type == "Fire") {
+      result <- apply_fire_revenue_shock(result, event, assets_factors)
     }
     # Other hazard types: no action (extend later as needed)
   }
@@ -57,18 +59,18 @@ apply_acute_revenue_shock <- function(
   return(result)
 }
 
-#' Apply FloodTIF shock to revenue trajectories (internal function)
+#' Apply Flood shock to revenue trajectories (internal function)
 #'
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue
 #' @param event Single event row with event_id, event_year, hazard_type
 #' @param assets_factors tibble with hazard data and damage factors
-#' @return tibble with revenue adjusted for FloodTIF business disruption
+#' @return tibble with revenue adjusted for Flood business disruption
 #' @noRd
 apply_flood_shock <- function(yearly_trajectories, event, assets_factors) {
-  # Filter FloodTIF assets for this specific event (by event_id)
+  # Filter Flood assets for this specific event (by event_id)
   flood_assets <- assets_factors |>
     dplyr::filter(
-      .data$hazard_type == "FloodTIF",
+      .data$hazard_type == "Flood",
       .data$event_id == event$event_id
     )
 
@@ -266,6 +268,61 @@ apply_drought_shock <- function(yearly_trajectories, event, assets_factors) {
       )
     ) |>
     dplyr::select(-"damage_factor")
+
+  return(result)
+}
+
+#' Apply Fire shock to revenue trajectories (agriculture only) (internal function)
+#'
+#' @description
+#' Fire affects agriculture revenues using the formula:
+#' Fire Damage = land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
+#' revenue_shocked = revenue × (1 - Fire Damage)
+#'
+#' @param yearly_trajectories tibble with columns: asset, company, year, revenue
+#' @param event Single event row with event_id, event_year, hazard_type
+#' @param assets_factors tibble with hazard data and damage factors
+#' @return tibble with revenue adjusted for Fire damage to agriculture
+#' @noRd
+apply_fire_revenue_shock <- function(yearly_trajectories, event, assets_factors) {
+
+  # Filter Fire assets for agriculture only
+  # Fire affects agriculture through revenue shock
+  fire_assets <- assets_factors |>
+    dplyr::filter(
+      .data$hazard_type == "Fire",
+      .data$event_id == event$event_id,
+      .data$asset_category == "agriculture"
+    )
+
+  if (nrow(fire_assets) == 0) {
+    return(yearly_trajectories)
+  }
+
+  # Calculate full fire damage formula using components
+  # Fire Damage = land_cover_risk × damage_factor(FWI) × (days_danger_total / 365)
+  fire_damage_map <- fire_assets |>
+    dplyr::select("asset", "land_cover_risk", "damage_factor", "days_danger_total") |>
+    dplyr::mutate(
+      year = event$event_year,
+      # Calculate fire damage percentage
+      fire_damage_pct = as.numeric(.data$land_cover_risk) * 
+                       as.numeric(.data$damage_factor) * 
+                       (as.numeric(.data$days_danger_total) / 365)
+    ) |>
+    dplyr::select("asset", "year", "fire_damage_pct")
+
+  # Join and apply: revenue * (1 - fire_damage_pct)
+  # Ensure revenue stays >= 0
+  result <- dplyr::left_join(yearly_trajectories, fire_damage_map, by = c("asset", "year")) |>
+    dplyr::mutate(
+      revenue = dplyr::if_else(
+        is.na(.data$fire_damage_pct),
+        .data$revenue,
+        pmax(0, as.numeric(.data$revenue) * (1 - as.numeric(.data$fire_damage_pct)))
+      )
+    ) |>
+    dplyr::select(-"fire_damage_pct")
 
   return(result)
 }

@@ -101,8 +101,8 @@ testthat::test_that("validate_damage_factors_required_fields flags missing requi
   base_dir <- get_test_data_dir()
   damage_factors <- read_damage_cost_factors(base_dir)
 
-  # Pick a hazard_type present in reference data, e.g., FloodTIF, and blank a required col
-  idx <- which(damage_factors$hazard_type == "FloodTIF")[1]
+  # Pick a hazard_type present in reference data, e.g., Flood, and blank a required col
+  idx <- which(damage_factors$hazard_type == "Flood")[1]
   testthat::skip_if(length(idx) == 0)
 
   damage_factors_bad <- damage_factors
@@ -306,7 +306,7 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
 testthat::test_that("validate_companies_against_assets detects companies with no assets", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company_small.xlsx"))
+  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
 
   # Inject a fake company with no assets
   companies <- dplyr::bind_rows(

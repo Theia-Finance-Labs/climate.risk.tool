@@ -48,12 +48,12 @@ apply_acute_profit_shock <- function(
     hazard_type <- event$hazard_type
     event_year <- event$event_year
 
-    if (hazard_type %in% c("FloodTIF", "Flood")) {
+    if (hazard_type %in% c("Flood", "Flood")) {
       # Flood events: calculate acute damage as damage_factor * cost_factor
       # Only apply to commercial building and industrial building (NOT agriculture)
       assets_flood <- assets_factors |>
-        dplyr::filter(.data$hazard_type %in% c("FloodTIF", "Flood")) |>
-        dplyr::filter(.data$hazard_name == event$hazard_name) |>
+        dplyr::filter(.data$hazard_type %in% c("Flood", "Flood")) |>
+        dplyr::filter(.data$event_id == event$event_id) |>
         dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
         dplyr::mutate(
           acute_damage = as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor)
@@ -66,6 +66,30 @@ apply_acute_profit_shock <- function(
           dplyr::mutate(event_year = event_year)
 
         shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
+      }
+    } else if (hazard_type == "Fire") {
+      # Fire events: building destruction for commercial/industrial buildings
+      # Fire damage = land_cover_risk × damage_factor(FWI) × (days_danger_total/365) × cost_factor
+      # Only apply to commercial building and industrial building (NOT agriculture)
+      assets_fire <- assets_factors |>
+        dplyr::filter(.data$hazard_type == "Fire") |>
+        dplyr::filter(.data$event_id == event$event_id) |>
+        dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
+        dplyr::mutate(
+          # Calculate full fire damage formula using components
+          acute_damage = as.numeric(.data$land_cover_risk) * 
+                        as.numeric(.data$damage_factor) * 
+                        (as.numeric(.data$days_danger_total) / 365) * 
+                        as.numeric(.data$cost_factor)
+        )
+
+      # Create shock data for this event
+      if (nrow(assets_fire) > 0) {
+        fire_shocks <- assets_fire |>
+          dplyr::select("asset", "acute_damage") |>
+          dplyr::mutate(event_year = event_year)
+
+        shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, fire_shocks)
       }
     } else if (hazard_type == "Drought") {
       # Drought events: TODO - implement drought-specific logic

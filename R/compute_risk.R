@@ -13,12 +13,13 @@
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
 #' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())
+#' @param land_cover_legend Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())
 #' @param adm1_boundaries Optional sf object with ADM1 (province) boundaries for province assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
-#' @param net_profit_margin Numeric. Net profit margin assumption (default: 0.1)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
+#' @param risk_free_rate Numeric. Risk-free rate for Merton model (default: 0.02)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
 #'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
 #'   For TIF files: uses terra::extract with the specified function.
@@ -43,7 +44,7 @@
 #' 8. Compute asset impact: Update share_of_economic_activity with all impacts
 #' 9. Build scenarios: Create baseline vs shock scenario data
 #' 10. Compute asset revenue: Allocate company revenue to assets
-#' 11. Compute asset profits: Apply net profit margins
+#' 11. Compute asset profits: Apply company-specific net profit margins from company file
 #' 12. Discount net profits: Apply present value discounting
 #' 13. Compute company NPV: Aggregate asset profits to company level
 #' 14. Compute company PD: Calculate probability of default using Merton model
@@ -79,8 +80,8 @@
 #'   damage_factors = damage_factors,
 #'   cnae_exposure = cnae_exposure,
 #'   growth_rate = 0.02,
-#'   net_profit_margin = 0.1,
-#'   discount_rate = 0.05
+#'   discount_rate = 0.05,
+#'   risk_free_rate = 0.02
 #' )
 #'
 #' # Access final results
@@ -98,12 +99,13 @@ compute_risk <- function(assets,
                          precomputed_hazards,
                          damage_factors,
                          cnae_exposure = NULL,
+                         land_cover_legend = NULL,
                          adm1_boundaries = NULL,
                          adm2_boundaries = NULL,
                          validate_inputs = TRUE,
                          growth_rate = 0.02,
-                         net_profit_margin = 0.1,
                          discount_rate = 0.05,
+                         risk_free_rate = 0.02,
                          aggregation_method = "mean") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
@@ -168,6 +170,7 @@ compute_risk <- function(assets,
 
     validate_input_coherence(
       assets_df = assets,
+      companies_df = companies,
       damage_factors_df = damage_factors,
       precomputed_hazards_df = precomputed_hazards,
       cnae_exposure_df = cnae_exposure,
@@ -185,13 +188,14 @@ compute_risk <- function(assets,
     events <- events |>
       dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
   }
-
+  
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
 
   # Filter hazards to only those referenced by events
+  # Note: For multi-indicator hazards (Fire), this will internally expand to load all required indicators
   # Note: For NC hazards, only the mean ensemble is loaded by default
-  hazards <- filter_hazards_by_events(hazards, events)
+  hazards <- filter_hazards_by_events(hazards, events, hazards_inventory)
 
 
   # ============================================================================
@@ -211,26 +215,23 @@ compute_risk <- function(assets,
     hazards = hazards,
     hazards_inventory = filtered_inventory,
     precomputed_hazards = precomputed_hazards,
-    aggregation_method = aggregation_method
+    aggregation_method = aggregation_method,
+    damage_factors_df = damage_factors
   )
 
   # Step 2.3: Join event information (event_year, scenario_name) from events
-  # Select only the columns we need from events to avoid duplication
-  # Note: If multiple events use the same hazard_name, this will create a many-to-many relationship
-  # Don't use distinct() here - we want one row per event even if they share the same hazard_name
-  # Use inner_join to only keep assets with hazards that are in the events
-  events <- events |>
-    dplyr::mutate(
-      hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
-    )
+  # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
+  # For single-indicator hazards, use hazard_name directly
+  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, aggregation_method)
+  
   assets_with_events <- assets_long |>
     dplyr::inner_join(
-      events |> dplyr::select("hazard_name", "event_id", "event_year", "season"),
+      events_expanded_for_join |> dplyr::select("hazard_name", "event_id", "event_year"),
       by = "hazard_name", relationship = "many-to-many"
     )
 
-  # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards)
-  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure)
+  # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards, land_cover_legend for Fire)
+  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure, land_cover_legend)
 
 
   # ============================================================================
@@ -241,8 +242,7 @@ compute_risk <- function(assets,
   yearly_baseline <- compute_baseline_trajectories(
     baseline_assets = assets,
     companies = companies,
-    growth_rate = growth_rate,
-    net_profit_margin = net_profit_margin
+    growth_rate = growth_rate
   )
 
   # Step 3.2: Compute shocked trajectories and concatenate with baseline
@@ -251,7 +251,7 @@ compute_risk <- function(assets,
     yearly_baseline_profits = yearly_baseline,
     assets_with_factors = assets_factors,
     events = events,
-    net_profit_margin = net_profit_margin
+    companies = companies
   )
 
   yearly_scenarios <- concatenate_baseline_and_shock(yearly_baseline, yearly_shock)
@@ -272,7 +272,7 @@ compute_risk <- function(assets,
   company_yearly_trajectories <- aggregate_assets_to_company(assets_discounted_yearly)
 
   # Use companies financials function that works with yearly data
-  companies_result <- compute_companies_financials(companies, company_yearly_trajectories, assets_discounted_yearly, discount_rate)
+  companies_result <- compute_companies_financials(companies, company_yearly_trajectories, assets_discounted_yearly, discount_rate, risk_free_rate)
 
 
   # ============================================================================

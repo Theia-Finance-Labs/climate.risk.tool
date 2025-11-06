@@ -11,7 +11,7 @@ testthat::test_that("compute_pd_merton adds merton_pd (0..1)", {
     term = c(5, 5)
   )
 
-  out <- compute_pd_merton(company_npv)
+  out <- compute_pd_merton(company_npv, risk_free_rate = 0.02)
   testthat::expect_true("merton_pd" %in% names(out))
   testthat::expect_true(all(out$merton_pd >= 0 & out$merton_pd <= 1, na.rm = TRUE))
 })
@@ -36,8 +36,8 @@ testthat::test_that("compute_pd_merton sensitivity tests", {
     term = c(5, 5)
   )
 
-  out_high <- compute_pd_merton(company_npv_high)
-  out_low <- compute_pd_merton(company_npv_low)
+  out_high <- compute_pd_merton(company_npv_high, risk_free_rate = 0.02)
+  out_low <- compute_pd_merton(company_npv_low, risk_free_rate = 0.02)
 
   # Both should have valid PD values
   testthat::expect_true(all(out_high$merton_pd >= 0 & out_high$merton_pd <= 1))

@@ -13,12 +13,13 @@ compute_risk(
   precomputed_hazards,
   damage_factors,
   cnae_exposure = NULL,
+  land_cover_legend = NULL,
   adm1_boundaries = NULL,
   adm2_boundaries = NULL,
   validate_inputs = TRUE,
   growth_rate = 0.02,
-  net_profit_margin = 0.1,
   discount_rate = 0.05,
+  risk_free_rate = 0.02,
   aggregation_method = "mean"
 )
 }
@@ -40,6 +41,8 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{cnae_exposure}{Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())}
 
+\item{land_cover_legend}{Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())}
+
 \item{adm1_boundaries}{Optional sf object with ADM1 (province) boundaries for province assignment and validation}
 
 \item{adm2_boundaries}{Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup}
@@ -48,9 +51,9 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{growth_rate}{Numeric. Revenue growth rate assumption (default: 0.02)}
 
-\item{net_profit_margin}{Numeric. Net profit margin assumption (default: 0.1)}
-
 \item{discount_rate}{Numeric. Discount rate for NPV calculation (default: 0.05)}
+
+\item{risk_free_rate}{Numeric. Risk-free rate for Merton model (default: 0.02)}
 
 \item{aggregation_method}{Character. Statistical aggregation method for hazard extraction (default: "mean").
 Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
@@ -87,7 +90,7 @@ The function executes the following 16-step pipeline:
 \item Compute asset impact: Update share_of_economic_activity with all impacts
 \item Build scenarios: Create baseline vs shock scenario data
 \item Compute asset revenue: Allocate company revenue to assets
-\item Compute asset profits: Apply net profit margins
+\item Compute asset profits: Apply company-specific net profit margins from company file
 \item Discount net profits: Apply present value discounting
 \item Compute company NPV: Aggregate asset profits to company level
 \item Compute company PD: Calculate probability of default using Merton model
@@ -124,8 +127,8 @@ results <- compute_risk(
   damage_factors = damage_factors,
   cnae_exposure = cnae_exposure,
   growth_rate = 0.02,
-  net_profit_margin = 0.1,
-  discount_rate = 0.05
+  discount_rate = 0.05,
+  risk_free_rate = 0.02
 )
 
 # Access final results

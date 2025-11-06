@@ -18,7 +18,7 @@ tibble with columns: asset, company, year, revenue (with shocks applied)
 }
 \description{
 Applies revenue shocks from acute climate events in event_id order.
-Supports FloodTIF (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
+Supports Flood (business disruption), Compound/heat (labor productivity loss via Cobb-Douglas),
 and Drought (crop damage for agriculture). Multiple shocks in the same year are applied sequentially by event_id.
 NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 }
@@ -34,11 +34,11 @@ yearly_trajectories <- data.frame(
   revenue = c(1000, 1200)
 )
 assets_factors <- data.frame(
-  asset = "A1", hazard_type = "FloodTIF", event_id = "event_1",
+  asset = "A1", hazard_type = "Flood", event_id = "event_1",
   damage_factor = 0.1, business_disruption = 10
 )
 acute_events <- data.frame(
-  event_id = "event_1", hazard_type = "FloodTIF", event_year = 2030
+  event_id = "event_1", hazard_type = "Flood", event_year = 2030
 )
 result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
 }

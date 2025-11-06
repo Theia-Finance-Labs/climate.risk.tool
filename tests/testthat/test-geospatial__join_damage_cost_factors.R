@@ -2,16 +2,16 @@
 
 # Contract:
 # - join_damage_cost_factors(assets_with_hazards, damage_factors_df)
-# - FloodTIF: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
+# - Flood: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
 # - Compound: Joins on hazard_type, province, and scenario_name (GWL)
 # - Expects long format input with hazard_type, hazard_indicator, hazard_intensity, scenario_name columns
 # - Adds numeric columns damage_factor, cost_factor, business_disruption
 
 
-testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-based matching", {
+testthat::test_that("join_damage_cost_factors handles Flood with intensity-based matching", {
   base_dir <- get_test_data_dir()
 
-  # Create FloodTIF test data
+  # Create Flood test data
   assets_long <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C2"),
@@ -23,8 +23,8 @@ testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-ba
     size_in_m2 = c(1000, 800),
     share_of_economic_activity = c(0.5, 0.3),
     hazard_name = c("flood__extraction_method=mean", "flood__extraction_method=mean"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
-    hazard_indicator = c("Flood Height", "Flood Height"),
+    hazard_type = c("Flood", "Flood"),
+    hazard_indicator = c("depth(cm)", "depth(cm)"),
     hazard_intensity = c(12.4, 2.1),
     scenario_name = c("rcp85", "rcp85"),
     event_id = c("event_1", "event_1"),
@@ -44,7 +44,7 @@ testthat::test_that("join_damage_cost_factors handles FloodTIF with intensity-ba
   testthat::expect_true(is.numeric(out$business_disruption))
   testthat::expect_equal(nrow(out), nrow(assets_long))
 
-  # FloodTIF should have non-NA values for all three factors
+  # Flood should have non-NA values for all three factors
   testthat::expect_true(all(!is.na(out$damage_factor)))
   testthat::expect_true(all(!is.na(out$cost_factor)))
   testthat::expect_true(all(!is.na(out$business_disruption)))
@@ -251,7 +251,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
   base_dir <- get_test_data_dir()
 
   # Test Sugarcane in Alagoas which has 2 growing seasons: Winter (37%, off=30%) and Autumn (35%, off=30%)
-  # User selects Winter - should match Winter season exactly
+  # User selects Winter via season in hazard name - should match Winter season exactly
   assets_long <- data.frame(
     asset = c("A1"),
     company = c("C1"),
@@ -263,14 +263,13 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
     share_of_economic_activity = c(0.5),
-    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_name = c("Drought__SPI3__GWL=present__RP=10__season=Winter__ensemble=mean__extraction_method=mean"),
     hazard_type = c("Drought"),
     hazard_indicator = c("SPI3"),
     hazard_intensity = c(-3.0),
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    season = c("Winter"), # Matches one of the growing seasons
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -297,7 +296,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
 testthat::test_that("join_drought_damage_factors handles multi-season crops - off-season averages", {
   base_dir <- get_test_data_dir()
 
-  # Test Sugarcane in Alagoas with Summer (not a growing season)
+  # Test Sugarcane in Alagoas with Summer (not a growing season) in hazard name
   # Has Winter (37%, off=30%) and Autumn (35%, off=30%)
   # Should average: damage = (37+35)/2 = 36%, off_window = (30+30)/2 = 30%
   # Final damage_factor = 36% * 30% = 10.8%
@@ -312,14 +311,13 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
     share_of_economic_activity = c(0.5),
-    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_name = c("Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean__extraction_method=mean"),
     hazard_type = c("Drought"),
     hazard_indicator = c("SPI3"),
     hazard_intensity = c(-3.0),
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    season = c("Summer"), # Not a growing season - should average
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -350,7 +348,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
 testthat::test_that("join_drought_damage_factors handles multi-season crops - autumn match", {
   base_dir <- get_test_data_dir()
 
-  # Test Sugarcane in Alagoas with Autumn selected
+  # Test Sugarcane in Alagoas with Autumn season in hazard name
   # Should match Autumn season (35%, off=30%)
   assets_long <- data.frame(
     asset = c("A1"),
@@ -363,14 +361,13 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - au
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
     share_of_economic_activity = c(0.5),
-    hazard_name = c("SPI3__extraction_method=mean"),
+    hazard_name = c("Drought__SPI3__GWL=present__RP=10__season=Autumn__ensemble=mean__extraction_method=mean"),
     hazard_type = c("Drought"),
     hazard_indicator = c("SPI3"),
     hazard_intensity = c(-3.0),
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    season = c("Autumn"), # Matches one of the growing seasons
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -443,8 +440,8 @@ testthat::test_that("join_drought_damage_factors filters to agriculture only", {
     size_in_m2 = c(10000, 8000, 5000),
     share_of_economic_activity = c(0.5, 0.3, 0.2),
     hazard_name = c("SPI3__extraction_method=mean", "SPI3__extraction_method=mean", "flood__extraction_method=mean"),
-    hazard_type = c("Drought", "Drought", "FloodTIF"),
-    hazard_indicator = c("SPI3", "SPI3", "Flood Height"),
+    hazard_type = c("Drought", "Drought", "Flood"),
+    hazard_indicator = c("SPI3", "SPI3", "depth(cm)"),
     hazard_intensity = c(-2.5, -2.5, 10),
     scenario_name = c("present", "present", "rcp85"),
     event_id = c("event_1", "event_1", "event_2"),

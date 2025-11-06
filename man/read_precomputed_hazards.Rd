@@ -11,8 +11,9 @@ read_precomputed_hazards(base_dir)
 }
 \value{
 tibble with precomputed hazard statistics including columns: region, adm_level,
-scenario_code, scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
+scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
 p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
+Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
 }
 \description{
 Reads precomputed hazard statistics from CSV file containing hazard data

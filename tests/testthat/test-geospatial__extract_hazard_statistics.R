@@ -2,9 +2,9 @@ testthat::test_that("geolocated assets extract from TIF files", {
   # Load all hazards
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
 
-  # Define events with just 1 TIF hazard for focused testing (using new unified format)
+  # Define events with just 1 TIF hazard for focused testing (using formatted hazard name)
   events <- tibble::tibble(
-    hazard_name = "FloodTIF__Flood Height__GWL=RCP8.5__RP=10",
+    hazard_name = "Flood__depth(cm)__GWL=rcp85__RP=10",
     event_year = 2030,
   )
 
@@ -35,6 +35,7 @@ testthat::test_that("geolocated assets extract from TIF files", {
     tif_inventory,
     precomputed_hazards = tibble::tibble()
   )
+
 
   # Verify: all matching_method = "coordinates"
   testthat::expect_true(all(out$matching_method == "coordinates"))
@@ -109,7 +110,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
   events <- tibble::tibble(
     hazard_name = c(
-      "FloodTIF__Flood Height__GWL=RCP8.5__RP=10", # TIF hazard
+      "Flood__depth(cm)__GWL=rcp85__RP=10", # TIF hazard
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
     ),
     event_year = 2030,
@@ -180,12 +181,12 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
   # Find a hazard combo in inventory NOT in precomputed for Amazonas
   precomputed_combos <- precomputed |>
     dplyr::filter(.data$region == "Amazonas", .data$adm_level == "ADM1") |>
-    dplyr::distinct(.data$hazard_type, .data$scenario_code, .data$hazard_return_period)
+    dplyr::distinct(.data$hazard_type, .data$scenario_name, .data$hazard_return_period)
 
   missing_hazard <- hazard_data$inventory |>
     dplyr::anti_join(
       precomputed_combos,
-      by = c("hazard_type", "scenario_code", "hazard_return_period")
+      by = c("hazard_type", "scenario_name", "hazard_return_period")
     )
 
   ran_case1 <- FALSE
@@ -224,7 +225,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     share_of_economic_activity = 0.5
   )
   events2 <- tibble::tibble(
-    hazard_name = "FloodTIF__Flood Height__GWL=CurrentClimate__RP=10",
+    hazard_name = "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
     event_year = 2030,
   )
   all_hazards2 <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
@@ -237,10 +238,63 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     regexp = "Cannot determine|not found|NonExistent"
   )
 
-  # If case 1 is not runnable (all hazards present), skip that part
-  if (!ran_case1) {
-    testthat::skip("No missing hazard combinations available for testing (case 1)")
-  }
 
   # final assertions are via the expect_error checks above for both cases
+})
+
+
+testthat::test_that("CSV hazards use specified aggregation method", {
+  # Load hazards
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+
+  # Define Compound HI events (CSV files available in test data)
+  # Include ensemble suffix for CSV hazards
+  events <- tibble::tibble(
+    hazard_name = c("Compound__HI__GWL=present__RP=10__ensemble=mean", "Compound__HI__GWL=present__RP=5__ensemble=mean"),
+    event_year = c(2030, 2030)
+  )
+
+  # Filter to CSV hazards
+  csv_hazards <- filter_hazards_by_events(hazard_data$hazards$csv, events)
+  csv_inventory <- hazard_data$inventory |>
+    dplyr::filter(.data$source == "csv", .data$hazard_name %in% names(csv_hazards))
+
+  # Create assets with coordinates
+  assets <- tibble::tibble(
+    asset = c("asset_csv_1", "asset_csv_2"),
+    company = c("company_a", "company_b"),
+    latitude = c(-3.0, -15.0),
+    longitude = c(-60.0, -47.9),
+    municipality = NA_character_,
+    province = NA_character_,
+    asset_category = "office",
+    asset_subtype = NA_character_,
+    size_in_m2 = 1000,
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
+  )
+
+  # Extract with mean aggregation
+  out <- extract_hazard_statistics(
+    assets,
+    csv_hazards,
+    csv_inventory,
+    precomputed_hazards = tibble::tibble(),
+    aggregation_method = "mean"
+  )
+
+  # Verify: all matching_method = "coordinates"
+  testthat::expect_true(all(out$matching_method == "coordinates"))
+
+  # Verify: hazard statistics are numeric
+  testthat::expect_true(is.numeric(out$hazard_intensity))
+
+  # Should have results for both assets and both return periods
+  # (2 assets × 2 events = 4 rows)
+  testthat::expect_equal(nrow(out), 4)
+  testthat::expect_equal(length(unique(out$asset)), 2)
+
+  # Should have Compound HI indicator
+  indicators <- unique(out$hazard_indicator)
+  testthat::expect_true("HI" %in% indicators)
 })

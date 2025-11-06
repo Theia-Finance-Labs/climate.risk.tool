@@ -230,7 +230,7 @@ validate_damage_factors_provinces <- function(damage_factors_df, adm1_names, val
 #' Validate required non-NA fields per hazard type in damage factors (HARDCODED)
 #'
 #' Enforces specific required columns per `hazard_type`:
-#' - FloodTIF: hazard_intensity, hazard_unit, asset_category, damage_factor,
+#' - Flood: hazard_intensity, hazard_unit, asset_category, damage_factor,
 #'             cost_factor, hazard_indicator, business_disruption
 #' - Drought:  hazard_intensity, hazard_unit, asset_category, damage_factor,
 #'             hazard_indicator, province, subtype, season, off_window
@@ -251,7 +251,7 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
 
   # Hardcoded mapping of hazard_type -> required columns
   required_by_hazard <- list(
-    FloodTIF = c(
+    Flood = c(
       "hazard_intensity", "hazard_unit", "asset_category", "damage_factor",
       "cost_factor", "hazard_indicator", "business_disruption"
     ),
@@ -289,8 +289,8 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
       col_vals <- hz_rows[[col_name]]
       is_missing <- is.na(col_vals) | (!is.na(col_vals) & !nzchar(trimws(as.character(col_vals))))
 
-      # Exception: For FloodTIF, cost_factor is not required when asset_category == "agriculture"
-      if (hz == "FloodTIF" && col_name == "cost_factor" && "asset_category" %in% names(hz_rows)) {
+      # Exception: For Flood, cost_factor is not required when asset_category == "agriculture"
+      if (hz == "Flood" && col_name == "cost_factor" && "asset_category" %in% names(hz_rows)) {
         exempt_idx <- which(tolower(as.character(hz_rows$asset_category)) == "agriculture")
         if (length(exempt_idx) > 0) {
           # Do not count missing on exempt rows

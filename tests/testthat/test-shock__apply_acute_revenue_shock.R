@@ -1,6 +1,6 @@
 # Tests for apply_acute_revenue_shock
 
-testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly", {
+testthat::test_that("apply_acute_revenue_shock applies Flood shocks correctly", {
   yearly_baseline <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
@@ -10,7 +10,7 @@ testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly
 
   assets_factors <- data.frame(
     asset = c("A1", "A2"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_type = c("Flood", "Flood"),
     event_id = c("event_1", "event_1"),
     business_disruption = c(10, 20),
     asset_category = c("commercial building", "commercial building")
@@ -18,7 +18,7 @@ testthat::test_that("apply_acute_revenue_shock applies FloodTIF shocks correctly
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -93,7 +93,7 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
 
   assets_factors <- data.frame(
     asset = c("A1", "A1"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_type = c("Flood", "Flood"),
     event_id = c("event_z", "event_a"), # Non-alphabetical order
     business_disruption = c(10, 20),
     asset_category = c("commercial building", "commercial building")
@@ -102,7 +102,7 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
   # Events in non-alphabetical order
   acute_events <- data.frame(
     event_id = c("event_z", "event_a"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
+    hazard_type = c("Flood", "Flood"),
     event_year = c(2030L, 2030L),
     stringsAsFactors = FALSE
   )
@@ -127,7 +127,7 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
 
   assets_factors <- data.frame(
     asset = "AG1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.3, # 30% damage
     business_disruption = 10, # 10 days
@@ -136,7 +136,7 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -162,7 +162,7 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
 
   assets_factors <- data.frame(
     asset = "AG1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.95, # 95% damage
     business_disruption = 350, # 350 days (almost full year)
@@ -171,7 +171,7 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -195,7 +195,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   assets_factors <- data.frame(
     asset = "COM1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.3, # This should NOT be applied for commercial
     business_disruption = 10,
@@ -204,7 +204,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -226,7 +226,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   assets_factors <- data.frame(
     asset = "IND1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_id = "event_1",
     damage_factor = 0.3, # This should NOT be applied for industrial
     business_disruption = 15,
@@ -235,7 +235,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
 
   acute_events <- data.frame(
     event_id = "event_1",
-    hazard_type = "FloodTIF",
+    hazard_type = "Flood",
     event_year = 2030L
   )
 
@@ -344,4 +344,215 @@ testthat::test_that("apply_acute_revenue_shock handles multiple droughts in same
   # After event_2: 840 * (1 - 0.2) = 672
   expected_revenue <- 1200 * (1 - 0.3) * (1 - 0.2)
   testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
+})
+
+testthat::test_that("apply_acute_revenue_shock applies Fire revenue shock to agriculture assets correctly", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1", "A2", "A2"),
+    company = c("C1", "C1", "C1", "C1"),
+    year = c(2025, 2030, 2025, 2030),
+    revenue = c(1000, 1200, 800, 960)
+  )
+
+  # Fire damage formula: land_cover_risk * damage_factor * (days_danger_total / 365)
+  # A1: land_cover_risk=0.5, damage_factor=0.15, days=30
+  # Fire damage = 0.5 * 0.15 * (30/365) = 0.006164
+  # A2: land_cover_risk=0.75, damage_factor=0.20, days=45
+  # Fire damage = 0.75 * 0.20 * (45/365) = 0.018493
+  assets_factors <- data.frame(
+    asset = c("A1", "A2"),
+    hazard_type = c("Fire", "Fire"),
+    event_id = c("event_1", "event_1"),
+    land_cover_risk = c(0.5, 0.75),
+    damage_factor = c(0.15, 0.20),
+    days_danger_total = c(30, 45),
+    asset_category = c("agriculture", "agriculture")
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Fire",
+    event_year = 2030L
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  testthat::expect_equal(nrow(result), nrow(yearly_baseline))
+
+  # A1: 1200 * (1 - 0.006164) = 1192.6
+  expected_revenue_A1 <- 1200 * (1 - 0.5 * 0.15 * (30 / 365))
+  testthat::expect_equal(result$revenue[result$asset == "A1" & result$year == 2030], expected_revenue_A1, tolerance = 0.1)
+
+  # A2: 960 * (1 - 0.018493) = 942.2
+  expected_revenue_A2 <- 960 * (1 - 0.75 * 0.20 * (45 / 365))
+  testthat::expect_equal(result$revenue[result$asset == "A2" & result$year == 2030], expected_revenue_A2, tolerance = 0.1)
+
+  # 2025 revenues should be unchanged
+  testthat::expect_equal(result$revenue[result$year == 2025], yearly_baseline$revenue[yearly_baseline$year == 2025])
+})
+
+testthat::test_that("apply_acute_revenue_shock applies Fire with default land_cover_risk 0.50 for assets without coordinates", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  # Asset without coordinates uses default land_cover_risk = 0.50
+  assets_factors <- data.frame(
+    asset = "A1",
+    hazard_type = "Fire",
+    event_id = "event_1",
+    land_cover_risk = 0.5, # Default for assets without coordinates
+    damage_factor = 0.15,
+    days_danger_total = 30,
+    asset_category = "agriculture"
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Fire",
+    event_year = 2030L
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  expected_revenue <- 1200 * (1 - 0.5 * 0.15 * (30 / 365))
+  testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
+})
+
+testthat::test_that("apply_acute_revenue_shock handles missing days_danger_total (defaults to 0)", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  # Missing days_danger_total should default to 0 (no damage)
+  assets_factors <- data.frame(
+    asset = "A1",
+    hazard_type = "Fire",
+    event_id = "event_1",
+    land_cover_risk = 0.5,
+    damage_factor = 0.15,
+    days_danger_total = 0, # No danger days
+    asset_category = "agriculture"
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Fire",
+    event_year = 2030L
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  # With days_danger_total = 0, fire damage = 0, so revenue unchanged
+  testthat::expect_equal(result$revenue[result$year == 2030], 1200)
+})
+
+testthat::test_that("apply_acute_revenue_shock prevents Fire revenue from going below zero", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  # Extreme fire damage that would make revenue negative
+  # land_cover_risk=1.0, damage_factor=0.5, days=365 (full year)
+  # Fire damage = 1.0 * 0.5 * (365/365) = 0.5
+  # But if damage were > 1.0, revenue should be capped at 0
+  assets_factors <- data.frame(
+    asset = "A1",
+    hazard_type = "Fire",
+    event_id = "event_1",
+    land_cover_risk = 1.0,
+    damage_factor = 0.5,
+    days_danger_total = 365, # Full year
+    asset_category = "agriculture"
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Fire",
+    event_year = 2030L
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  # Revenue should be >= 0
+  testthat::expect_true(result$revenue[result$year == 2030] >= 0)
+  # With these parameters: 1200 * (1 - 1.0 * 0.5 * 1.0) = 600
+  expected_revenue <- 1200 * (1 - 1.0 * 0.5 * 1.0)
+  testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
+})
+
+testthat::test_that("apply_acute_revenue_shock processes Fire events in event_id order", {
+  yearly_trajectories <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  # Two Fire events affecting same asset
+  assets_factors <- data.frame(
+    asset = c("A1", "A1"),
+    hazard_type = c("Fire", "Fire"),
+    event_id = c("event_z", "event_a"), # Non-alphabetical order
+    land_cover_risk = c(0.5, 0.5),
+    damage_factor = c(0.15, 0.10),
+    days_danger_total = c(30, 20),
+    asset_category = c("agriculture", "agriculture")
+  )
+
+  acute_events <- data.frame(
+    event_id = c("event_z", "event_a"),
+    hazard_type = c("Fire", "Fire"),
+    event_year = c(2030L, 2030L),
+    stringsAsFactors = FALSE
+  )
+
+  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+
+  # Should process event_a first (alphabetically), then event_z
+  # event_a: damage = 0.5 * 0.10 * (20/365) = 0.00274, revenue = 1200 * (1 - 0.00274) = 1196.71
+  # event_z: damage = 0.5 * 0.15 * (30/365) = 0.00616, revenue = 1196.71 * (1 - 0.00616) = 1193.33
+  step1 <- 1200 * (1 - 0.5 * 0.10 * (20 / 365))
+  step2 <- step1 * (1 - 0.5 * 0.15 * (30 / 365))
+  testthat::expect_equal(result$revenue[result$year == 2030], step2, tolerance = 0.1)
+})
+
+testthat::test_that("apply_acute_revenue_shock ignores Fire for non-agriculture assets", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  # Fire on commercial building should be ignored in revenue phase
+  assets_factors <- data.frame(
+    asset = "A1",
+    hazard_type = "Fire",
+    event_id = "event_1",
+    land_cover_risk = 0.5,
+    damage_factor = 0.15,
+    days_danger_total = 30,
+    asset_category = "commercial building"
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Fire",
+    event_year = 2030L
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  # Revenue should be unchanged (Fire revenue shock only affects agriculture)
+  testthat::expect_equal(result$revenue, yearly_baseline$revenue)
 })

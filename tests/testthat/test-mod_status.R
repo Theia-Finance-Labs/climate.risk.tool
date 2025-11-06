@@ -18,8 +18,8 @@ testthat::test_that("mod_status_server displays events with event_id", {
   # Create test events with event_id
   test_events <- data.frame(
     event_id = c("ev1", "ev2"),
-    hazard_type = c("FloodTIF", "FloodTIF"),
-    hazard_name = c("FloodTIF__Flood Height__GWL=RCP8.5__RP=100", "FloodTIF__Flood Height__GWL=RCP8.5__RP=50"),
+    hazard_type = c("Flood", "Flood"),
+    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=100", "Flood__depth(cm)__GWL=RCP8.5__RP=50"),
     scenario_name = c("RCP8.5", "RCP8.5"),
     hazard_return_period = c(100, 50),
     event_year = c(2030L, 2035L),
