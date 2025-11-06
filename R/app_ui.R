@@ -82,7 +82,7 @@ app_ui <- function(request) {
             class = "partner-logo giz-logo"
           ),
           tags$img(
-            src = "www/Theia-Finance-Labs-Logo-Gold-_-Light-Blue.png",
+            src = "www/TFL.png",
             alt = "Theia Finance Labs logo",
             class = "partner-logo tfl-logo"
           )
