@@ -21,53 +21,56 @@ app_ui <- function(request) {
           p("Physical risk assessment for financial portfolios in Brazil", class = "app-subtitle")
         )
       ),
-      sidebarLayout(
-        # Sidebar with controls
-        sidebarPanel(
-          class = "app-sidebar",
-          width = 3,
-          mod_control_ui("control")
-        ),
+      div(
+        class = "app-body",
+        sidebarLayout(
+          # Sidebar with controls
+          sidebarPanel(
+            class = "app-sidebar",
+            width = 3,
+            mod_control_ui("control")
+          ),
 
-        # Main content with tabs
-        mainPanel(
-          class = "app-main",
-          width = 9,
-          tabsetPanel(
-            id = "main_tabs",
-            type = "pills",
-            selected = "status",
+          # Main content with tabs
+          mainPanel(
+            class = "app-main",
+            width = 9,
+            tabsetPanel(
+              id = "main_tabs",
+              type = "pills",
+              selected = "status",
 
-            # Tab 1: Parameters and Status
-            tabPanel(
-              title = "Parameters & Status",
-              value = "status",
-              icon = icon("cog"),
-              mod_status_ui("status")
-            ),
+              # Tab 1: Parameters and Status
+              tabPanel(
+                title = "Parameters & Status",
+                value = "status",
+                icon = icon("cog"),
+                mod_status_ui("status")
+              ),
 
-            # Tab 2: Asset Results (shown only after results)
-            tabPanel(
-              title = "Asset Analysis",
-              value = "assets",
-              icon = icon("table"),
-              mod_results_assets_ui("results_assets")
-            ),
+              # Tab 2: Asset Results (shown only after results)
+              tabPanel(
+                title = "Asset Analysis",
+                value = "assets",
+                icon = icon("table"),
+                mod_results_assets_ui("results_assets")
+              ),
 
-            # Tab 3: Asset Profit Pathways
-            tabPanel(
-              title = "Profit Pathways",
-              value = "pathways",
-              icon = icon("chart-line"),
-              mod_profit_pathways_ui("profit_pathways")
-            ),
+              # Tab 3: Asset Profit Pathways
+              tabPanel(
+                title = "Profit Pathways",
+                value = "pathways",
+                icon = icon("chart-line"),
+                mod_profit_pathways_ui("profit_pathways")
+              ),
 
-            # Tab 4: Company Analysis
-            tabPanel(
-              title = "Company Analysis",
-              value = "companies",
-              icon = icon("building"),
-              mod_company_analysis_ui("company_analysis")
+              # Tab 4: Company Analysis
+              tabPanel(
+                title = "Company Analysis",
+                value = "companies",
+                icon = icon("building"),
+                mod_company_analysis_ui("company_analysis")
+              )
             )
           )
         )
