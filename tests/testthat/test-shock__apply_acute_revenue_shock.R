@@ -285,6 +285,34 @@ testthat::test_that("apply_acute_revenue_shock applies Drought shocks to agricul
   testthat::expect_equal(result$revenue[result$year == 2025], yearly_baseline$revenue[yearly_baseline$year == 2025])
 })
 
+testthat::test_that("apply_acute_revenue_shock floors Drought-shocked revenue at zero", {
+  yearly_baseline <- data.frame(
+    asset = c("A1", "A1"),
+    company = c("C1", "C1"),
+    year = c(2025, 2030),
+    revenue = c(1000, 1200)
+  )
+
+  assets_factors <- data.frame(
+    asset = "A1",
+    hazard_type = "Drought",
+    event_id = "event_1",
+    damage_factor = 1.5, # 150% damage should floor revenue at 0
+    asset_category = "agriculture"
+  )
+
+  acute_events <- data.frame(
+    event_id = "event_1",
+    hazard_type = "Drought",
+    event_year = 2030L
+  )
+
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+
+  testthat::expect_equal(result$revenue[result$year == 2030], 0)
+  testthat::expect_equal(result$revenue[result$year == 2025], 1000)
+})
+
 testthat::test_that("apply_acute_revenue_shock ignores Drought for non-agriculture assets", {
   yearly_baseline <- data.frame(
     asset = c("A1", "A1"),

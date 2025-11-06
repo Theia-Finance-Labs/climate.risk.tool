@@ -107,7 +107,7 @@ apply_flood_shock <- function(yearly_trajectories, event, assets_factors) {
         revenue = dplyr::if_else(
           is.na(.data$disruption_days),
           .data$revenue,
-          as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365)
+          pmax(0, as.numeric(.data$revenue) * (1 - as.numeric(.data$disruption_days) / 365))
         )
       ) |>
       dplyr::select(-dplyr::any_of(c("disruption_days", "business_disruption")))
@@ -220,7 +220,7 @@ apply_compound_shock <- function(yearly_trajectories, event, assets_factors) {
       revenue = dplyr::if_else(
         is.na(.data$change),
         .data$revenue,
-        as.numeric(.data$revenue) * (1 + as.numeric(.data$change))
+        pmax(0, as.numeric(.data$revenue) * (1 + as.numeric(.data$change)))
       )
     ) |>
     dplyr::select(-"change")
@@ -264,7 +264,7 @@ apply_drought_shock <- function(yearly_trajectories, event, assets_factors) {
       revenue = dplyr::if_else(
         is.na(.data$damage_factor),
         .data$revenue,
-        as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor))
+        pmax(0, as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor)))
       )
     ) |>
     dplyr::select(-"damage_factor")
