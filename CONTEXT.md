@@ -773,7 +773,7 @@ Assets output now includes drought metadata:
 **Shock Application Order**:
 - **Revenue shock phase** (agriculture): Applied in event_id order alongside Drought and Compound shocks
 - **Profit shock phase** (buildings): Applied in event_id order alongside Flood shocks
-- Profits can become negative from Fire damage (as with other profit shocks)
+- Revenue and profit values are allowed to become negative when damage exceeds baseline revenue; no flooring is applied
 
 **Implementation Files**:
 - Data loading: `R/utils__read_inputs.R` - `read_land_cover_legend()`
@@ -839,7 +839,7 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - Refined `mod_results_assets` to present hazard-specific asset tables via collapsible panels, restore original province/municipality names, surface company/sector metadata (using CNAE descriptions for sector names and retaining sector codes), expose `event_id` with formatted economic share values, and add CSV/XLSX downloads for the full asset dataset; supporting coverage added in `tests/testthat/test-mod_results_assets.R`.
 - Enriched profit pathway analytics by merging company, sector, and economic-share metadata into trajectory data, preferring sector names in the selection table, and exposing CSV/XLSX downloads (`download_profit_pathways_csv`, `download_profit_pathways_excel`); validated in the new `tests/testthat/test-mod_profit_pathways.R`.
  - Enriched profit pathway analytics by merging company, sector, and economic-share metadata into trajectory data, preferring sector names in the selection table, exposing CSV/XLSX downloads (`download_profit_pathways_csv`, `download_profit_pathways_excel`), and documenting the log-scale handling of zero/negative profits directly in the UI; validated in the new `tests/testthat/test-mod_profit_pathways.R`.
-- Ensured sector displays consistently use CNAE labor descriptions across asset and profit pathway views by joining against the preloaded CNAE exposure lookup when only numeric sector codes are available; tightened coverage in `tests/testthat/test-mod_results_assets.R` and `tests/testthat/test-mod_profit_pathways.R`.
+- Ensured Profit Pathways renders sector names using CNAE labor descriptions while the asset results continue to surface numeric sector codes alongside the resolved descriptions, leveraging the preloaded CNAE exposure lookup; tightened coverage in `tests/testthat/test-mod_results_assets.R` and `tests/testthat/test-mod_profit_pathways.R`.
 - Relocated company financial results into the `mod_company_analysis` module (removing the standalone Company Results tab), added CSV/XLSX downloads, and refreshed table/chart styling to use the Brazil palette.
 - Updated the status view to show Event IDs directly in the configured hazard list, validated by the strengthened checks in `tests/testthat/test-mod_status.R`.
 - Applied a Brazil-themed palette (green, yellow, blue, white) across CSS, plotly visuals, and helper utilities to align the UI and charts with the national identity.

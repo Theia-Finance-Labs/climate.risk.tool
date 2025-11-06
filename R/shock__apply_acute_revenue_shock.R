@@ -131,7 +131,6 @@ apply_flood_shock <- function(yearly_trajectories, event, assets_factors) {
     # Join and apply:
     # Step 1: Apply damage factor: revenue * (1 - damage_factor)
     # Step 2: Apply business disruption: revenue * (1 - disruption_days/365)
-    # Step 3: Ensure revenue >= 0
     result <- dplyr::left_join(result, agriculture_map, by = c("asset", "year")) |>
       dplyr::mutate(
         revenue = dplyr::if_else(
@@ -142,8 +141,7 @@ apply_flood_shock <- function(yearly_trajectories, event, assets_factors) {
             rev_after_damage <- as.numeric(.data$revenue) * (1 - as.numeric(.data$damage_factor))
             # Step 2: Apply business disruption
             rev_after_disruption <- rev_after_damage * (1 - as.numeric(.data$disruption_days) / 365)
-            # Step 3: Ensure non-negative
-            pmax(0, rev_after_disruption)
+            rev_after_disruption
           }
         )
       ) |>
@@ -313,13 +311,12 @@ apply_fire_revenue_shock <- function(yearly_trajectories, event, assets_factors)
     dplyr::select("asset", "year", "fire_damage_pct")
 
   # Join and apply: revenue * (1 - fire_damage_pct)
-  # Ensure revenue stays >= 0
   result <- dplyr::left_join(yearly_trajectories, fire_damage_map, by = c("asset", "year")) |>
     dplyr::mutate(
       revenue = dplyr::if_else(
         is.na(.data$fire_damage_pct),
         .data$revenue,
-        pmax(0, as.numeric(.data$revenue) * (1 - as.numeric(.data$fire_damage_pct)))
+        as.numeric(.data$revenue) * (1 - as.numeric(.data$fire_damage_pct))
       )
     ) |>
     dplyr::select(-"fire_damage_pct")
