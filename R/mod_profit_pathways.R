@@ -15,6 +15,20 @@ mod_profit_pathways_ui <- function(id) {
         class = "text-muted",
         style = "margin-bottom: 1rem;"
       ),
+
+      shiny::div(
+        class = "pathways-actions",
+        shiny::downloadButton(
+          ns("download_profit_pathways_csv"),
+          "Download Profit Pathways (CSV)",
+          class = "btn btn-info"
+        ),
+        shiny::downloadButton(
+          ns("download_profit_pathways_excel"),
+          "Download Profit Pathways (Excel)",
+          class = "btn btn-info"
+        )
+      ),
       
       # Controls: Log scale toggle
       shiny::div(
@@ -24,6 +38,12 @@ mod_profit_pathways_ui <- function(id) {
           "Use logarithmic scale for Y-axis",
           value = FALSE
         )
+      ),
+      shiny::div(
+        id = ns("log_scale_note"),
+        class = "text-muted",
+        style = "margin-top: -1rem; margin-bottom: 2.5rem; font-size: 0.85em;",
+        "Log scale requires positive profits. Zero or negative profits are displayed just above zero; hover to see the original value."
       ),
       
       # Asset selection table at top
@@ -61,13 +81,58 @@ mod_profit_pathways_ui <- function(id) {
 #'
 #' @param id Internal parameter for shiny
 #' @param results_reactive reactive containing analysis results
+#' @param cnae_exposure_reactive reactive returning CNAE exposure lookup table
 #' @export
-mod_profit_pathways_server <- function(id, results_reactive) {
+mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     # Store selected assets
     selected_assets <- shiny::reactiveVal(character(0))
+
+    resolve_cnae_exposure <- function() {
+      if (is.null(cnae_exposure_reactive)) {
+        return(NULL)
+      }
+      cnae_exposure_reactive()
+    }
+
+    # Asset metadata with sector names and share of economic activity
+    asset_metadata <- shiny::reactive({
+      results <- results_reactive()
+      if (is.null(results) || is.null(results$assets_factors)) {
+        return(tibble::tibble())
+      }
+
+      metadata <- results$assets_factors |>
+        dplyr::select(
+          dplyr::any_of(c(
+            "asset",
+            "company",
+            "share_of_economic_activity",
+            "asset_category",
+            "asset_subtype",
+            "cnae",
+            "sector"
+          ))
+        ) |>
+        attach_sector_metadata(resolve_cnae_exposure())
+
+      metadata |>
+        dplyr::select(
+          dplyr::any_of(c(
+            "asset",
+            "company",
+            "share_of_economic_activity",
+            "asset_category",
+            "asset_subtype",
+            "sector_name",
+            "sector_code"
+          ))
+        ) |>
+        dplyr::distinct() |>
+        dplyr::arrange(.data$asset)
+    })
 
     # Prepare baseline profit trajectories
     baseline_data <- shiny::reactive({
@@ -75,7 +140,11 @@ mod_profit_pathways_server <- function(id, results_reactive) {
       if (is.null(results) || is.null(results$assets_yearly)) {
         return(NULL)
       }
-      prepare_profit_trajectories(results$assets_yearly, "baseline")
+      prepare_profit_trajectories(
+        results$assets_yearly,
+        "baseline",
+        asset_metadata()
+      )
     })
 
     # Prepare shock profit trajectories (first non-baseline scenario)
@@ -93,8 +162,65 @@ mod_profit_pathways_server <- function(id, results_reactive) {
         return(NULL)
       }
 
-      prepare_profit_trajectories(results$assets_yearly, shock_scenario)
+      prepare_profit_trajectories(
+        results$assets_yearly,
+        shock_scenario,
+        asset_metadata()
+      )
     })
+
+    download_data <- shiny::reactive({
+      results <- results_reactive()
+      metadata <- asset_metadata()
+      if (is.null(results) || is.null(results$assets_yearly) || nrow(results$assets_yearly) == 0) {
+        return(NULL)
+      }
+
+      join_columns <- metadata |>
+        dplyr::select(
+          dplyr::any_of(c(
+            "asset",
+            "share_of_economic_activity",
+            "sector_name",
+            "sector_code",
+            "asset_category",
+            "asset_subtype"
+          ))
+        )
+
+      results$assets_yearly |>
+        dplyr::left_join(join_columns, by = "asset")
+    })
+
+    session$userData$download_profit_pathways_data <- download_data
+
+    output$download_profit_pathways_csv <- shiny::downloadHandler(
+      filename = function() {
+        paste0("profit_pathways_", Sys.Date(), ".csv")
+      },
+      content = function(file) {
+        data <- download_data()
+        if (is.null(data) || nrow(data) == 0) {
+          utils::write.csv(data.frame(message = "No profit pathways available"), file, row.names = FALSE)
+        } else {
+          utils::write.csv(as.data.frame(data), file, row.names = FALSE)
+        }
+      }
+    )
+
+    output$download_profit_pathways_excel <- shiny::downloadHandler(
+      filename = function() {
+        paste0("profit_pathways_", Sys.Date(), ".xlsx")
+      },
+      content = function(file) {
+        data <- download_data()
+        if (is.null(data) || nrow(data) == 0) {
+          writexl::write_xlsx(data.frame(message = "No profit pathways available"), path = file)
+        } else {
+          writexl::write_xlsx(as.data.frame(data), path = file)
+        }
+      }
+    )
     
     # Create baseline plot
     output$profit_baseline <- plotly::renderPlotly({
@@ -152,47 +278,51 @@ mod_profit_pathways_server <- function(id, results_reactive) {
     
     # Asset selection table - unique assets with metadata
     output$assets_selection_table <- DT::renderDataTable({
-      results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors)) {
+      metadata <- asset_metadata()
+      if (nrow(metadata) == 0) {
+        session$userData$profit_pathways_assets_table <- NULL
         return(NULL)
       }
       
-      # Get unique assets with their metadata
-      # Check which columns exist before selecting
-      available_cols <- names(results$assets_factors)
-      cols_to_select <- c("asset", "asset_category")
-      
-      # Add optional columns if they exist
-      if ("asset_subtype" %in% available_cols) {
-        cols_to_select <- c(cols_to_select, "asset_subtype")
+      display <- metadata |>
+        dplyr::mutate(
+          share_pct = dplyr::if_else(
+            !is.na(.data$share_of_economic_activity),
+            sprintf("%.1f%%", .data$share_of_economic_activity * 100),
+            NA_character_
+          )
+        ) |>
+        dplyr::select(
+          asset,
+          company,
+          sector_name,
+          share_pct,
+          dplyr::any_of(c("asset_category", "asset_subtype"))
+        ) |>
+        dplyr::rename(
+          Asset = asset,
+          Company = company,
+          Sector = sector_name,
+          `Share of economic activity` = share_pct
+        )
+
+      if ("asset_category" %in% names(display)) {
+        display <- display |>
+          dplyr::rename(Category = asset_category)
       }
-      if ("cnae" %in% available_cols) {
-        cols_to_select <- c(cols_to_select, "cnae")
-      } else if ("sector" %in% available_cols) {
-        cols_to_select <- c(cols_to_select, "sector")
+
+      if ("asset_subtype" %in% names(display)) {
+        display <- display |>
+          dplyr::rename(Subtype = asset_subtype)
       }
       
-      assets_unique <- results$assets_factors |>
-        dplyr::select(dplyr::all_of(cols_to_select)) |>
-        dplyr::distinct() |>
-        dplyr::arrange(.data$asset)
-      
-      # Rename columns for display
-      display_names <- c("Asset", "Category")
-      if ("asset_subtype" %in% cols_to_select) {
-        display_names <- c(display_names, "Subtype")
-      }
-      if ("cnae" %in% cols_to_select || "sector" %in% cols_to_select) {
-        display_names <- c(display_names, "CNAE/Sector")
-      }
-      colnames(assets_unique) <- display_names
-      
+      session$userData$profit_pathways_assets_table <- display
+
       DT::datatable(
-        assets_unique,
+        display,
         options = list(
           pageLength = 15,
-          scrollX = TRUE,
-          dom = "ftp"
+          scrollX = TRUE
         ),
         rownames = FALSE,
         selection = "multiple"
@@ -201,8 +331,8 @@ mod_profit_pathways_server <- function(id, results_reactive) {
     
     # Update selected assets when table rows are clicked
     shiny::observeEvent(input$assets_selection_table_rows_selected, {
-      results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors)) {
+      metadata <- asset_metadata()
+      if (nrow(metadata) == 0) {
         return()
       }
       
@@ -210,24 +340,7 @@ mod_profit_pathways_server <- function(id, results_reactive) {
       if (length(selected_rows) == 0) {
         selected_assets(character(0))
       } else {
-        # Get unique assets from the selection table
-        available_cols <- names(results$assets_factors)
-        cols_to_select <- c("asset")
-        if ("asset_subtype" %in% available_cols) {
-          cols_to_select <- c(cols_to_select, "asset_subtype")
-        }
-        if ("cnae" %in% available_cols) {
-          cols_to_select <- c(cols_to_select, "cnae")
-        } else if ("sector" %in% available_cols) {
-          cols_to_select <- c(cols_to_select, "sector")
-        }
-        
-        assets_unique <- results$assets_factors |>
-          dplyr::select(dplyr::all_of(cols_to_select)) |>
-          dplyr::distinct() |>
-          dplyr::arrange(.data$asset)
-        
-        selected <- assets_unique$asset[selected_rows]
+        selected <- metadata$asset[selected_rows]
         selected_assets(selected)
       }
     })
@@ -250,11 +363,20 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
   # Get unique assets
   unique_assets <- unique(data$asset)
   
-  # Handle log scale: filter out non-positive values
+  # Prepare columns used for plotting and hovering
+  data <- data |>
+    dplyr::mutate(
+      profit_plot = .data$profit,
+      profit_for_hover = .data$profit,
+      profit_clipped_text = ""
+    )
+  
+  # Handle log scale: clip non-positive values while keeping hover information
   if (log_scale) {
-    data <- data |>
-      dplyr::filter(.data$profit > 0)
-    if (nrow(data) == 0) {
+    positive_values <- data |>
+      dplyr::filter(!is.na(.data$profit) & .data$profit > 0)
+
+    if (nrow(positive_values) == 0) {
       return(
         plotly::plot_ly() |>
           plotly::add_text(
@@ -269,8 +391,29 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
           )
       )
     }
+
+    min_positive <- min(positive_values$profit, na.rm = TRUE)
+    replacement_value <- min_positive / 10
+
+    data <- data |>
+      dplyr::mutate(
+        profit_plot = dplyr::if_else(
+          !is.na(.data$profit) & .data$profit > 0,
+          .data$profit,
+          replacement_value
+        ),
+        profit_for_hover = .data$profit,
+        profit_clipped_text = ""
+      )
   }
   
+  palette_brazil <- list(
+    green = "#009C3B",
+    yellow = "#FFDF00",
+    blue = "#002776",
+    white = "#FFFFFF"
+  )
+
   # Create base plot
   p <- plotly::plot_ly()
   
@@ -285,37 +428,54 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
     
     # Determine if this asset is highlighted
     is_highlighted <- asset_name %in% highlighted_assets
-    
+
+    company_label <- if ("company" %in% names(asset_data)) asset_data$company[1] else NULL
+    company_label <- dplyr::coalesce(company_label, "")
+
+    sector_label <- if ("sector_name" %in% names(asset_data)) asset_data$sector_name[1] else NULL
+    sector_label <- dplyr::coalesce(sector_label, "")
+
+    share_value <- if ("share_of_economic_activity" %in% names(asset_data)) asset_data$share_of_economic_activity[1] else NA_real_
+    share_text <- if (!is.na(share_value)) sprintf("Share: %.1f%%<br>", share_value * 100) else ""
+
     # Format hover template based on scale
     if (log_scale) {
       hovertemplate_str <- paste0(
         "<b>", asset_name, "</b><br>",
+        if (nzchar(company_label)) paste0("Company: ", company_label, "<br>") else "",
+        if (nzchar(sector_label)) paste0("Sector: ", sector_label, "<br>") else "",
+        share_text,
         "Year: %{x}<br>",
-        "Profit: R$%{y:,.2f}<br>",
+        "Profit: R$%{customdata:,.2f}%{text}",
         "<extra></extra>"
       )
     } else {
       hovertemplate_str <- paste0(
         "<b>", asset_name, "</b><br>",
+        if (nzchar(company_label)) paste0("Company: ", company_label, "<br>") else "",
+        if (nzchar(sector_label)) paste0("Sector: ", sector_label, "<br>") else "",
+        share_text,
         "Year: %{x}<br>",
-        "Profit: R$%{y:,.0f}<br>",
+        "Profit: R$%{customdata:,.0f}<br>",
         "<extra></extra>"
       )
     }
-    
+
     p <- p |>
       plotly::add_trace(
         data = asset_data,
         x = ~year,
-        y = ~profit,
+        y = ~profit_plot,
         type = "scatter",
         mode = "lines",
         name = asset_name,
         line = list(
           width = if (is_highlighted) 4 else 1,
-          color = if (is_highlighted) "#e74c3c" else "#95a5a6"
+          color = if (is_highlighted) palette_brazil$yellow else palette_brazil$blue
         ),
-        opacity = if (is_highlighted) 1 else 0.3,
+        opacity = if (is_highlighted) 1 else 0.35,
+        customdata = ~profit_for_hover,
+        text = ~profit_clipped_text,
         hovertemplate = hovertemplate_str
       )
   }
@@ -324,7 +484,7 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
   yaxis_config <- list(
     title = if (log_scale) "Profit (R$, log scale)" else "Profit (R$)",
     showgrid = TRUE,
-    gridcolor = "#ecf0f1"
+    gridcolor = "#DDE5EC"
   )
   
   if (log_scale) {
@@ -336,12 +496,12 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
     plotly::layout(
       title = list(
         text = title,
-        font = list(size = 16, color = "#2c3e50")
+        font = list(size = 16, color = palette_brazil$blue)
       ),
       xaxis = list(
         title = "Year",
         showgrid = TRUE,
-        gridcolor = "#ecf0f1"
+        gridcolor = "#DDE5EC"
       ),
       yaxis = yaxis_config,
       hovermode = "closest",

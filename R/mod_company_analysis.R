@@ -10,6 +10,25 @@ mod_company_analysis_ui <- function(id) {
       class = "company-analysis-container",
       shiny::h3("Company Financial Analysis", class = "results-title"),
       
+      # Company Results Table
+      shiny::div(
+        class = "results-section",
+        shiny::div(
+          class = "results-downloads",
+          shiny::downloadButton(
+            ns("download_companies_csv"),
+            "Download Companies (CSV)",
+            class = "btn btn-info"
+          ),
+          shiny::downloadButton(
+            ns("download_companies_excel"),
+            "Download Companies (Excel)",
+            class = "btn btn-info"
+          )
+        ),
+        DT::dataTableOutput(ns("companies_table"))
+      ),
+
       # Expected Loss Change Plot
       shiny::div(
         class = "chart-section",
@@ -40,14 +59,6 @@ mod_company_analysis_ui <- function(id) {
           class = "chart-container",
           plotly::plotlyOutput(ns("portfolio_summary_plot"), height = "400px")
         )
-      ),
-      
-      # Company Results Table
-      shiny::div(
-        class = "results-section",
-        style = "margin-top: 3rem;",
-        shiny::h4("Company Financial Details", class = "section-header"),
-        DT::dataTableOutput(ns("companies_table"))
       )
     )
   )
@@ -161,14 +172,48 @@ mod_company_analysis_server <- function(id, results_reactive) {
         companies_display,
         options = list(
           pageLength = 25,
-          scrollX = TRUE,
-          dom = "Bfrtip",
-          buttons = c("copy", "csv", "excel")
+          scrollX = TRUE
         ),
-        extensions = "Buttons",
         rownames = FALSE
       )
     })
+
+    companies_download_data <- shiny::reactive({
+      results <- results_reactive()
+      if (is.null(results) || is.null(results$companies) || nrow(results$companies) == 0) {
+        return(NULL)
+      }
+
+      results$companies
+    })
+
+    output$download_companies_csv <- shiny::downloadHandler(
+      filename = function() {
+        paste0("company_results_", Sys.Date(), ".csv")
+      },
+      content = function(file) {
+        data <- companies_download_data()
+        if (is.null(data) || nrow(data) == 0) {
+          utils::write.csv(data.frame(message = "No company results available"), file, row.names = FALSE)
+        } else {
+          utils::write.csv(as.data.frame(data), file, row.names = FALSE)
+        }
+      }
+    )
+
+    output$download_companies_excel <- shiny::downloadHandler(
+      filename = function() {
+        paste0("company_results_", Sys.Date(), ".xlsx")
+      },
+      content = function(file) {
+        data <- companies_download_data()
+        if (is.null(data) || nrow(data) == 0) {
+          writexl::write_xlsx(data.frame(message = "No company results available"), path = file)
+        } else {
+          writexl::write_xlsx(as.data.frame(data), path = file)
+        }
+      }
+    )
   })
 }
 
@@ -204,8 +249,14 @@ create_expected_loss_change_plot <- function(companies_df) {
     dplyr::arrange(dplyr::desc(.data$Expected_loss_change_pct)) |>
     dplyr::mutate(company = factor(.data$company, levels = .data$company))
   
-  # Determine bar colors (red for positive change, green for negative)
-  bar_colors <- ifelse(plot_data$Expected_loss_change_pct > 0, "#e74c3c", "#27ae60")
+  palette_brazil <- list(
+    green = "#009C3B",
+    yellow = "#FFDF00",
+    blue = "#002776"
+  )
+
+  # Determine bar colors (yellow for increase, green for decrease)
+  bar_colors <- ifelse(plot_data$Expected_loss_change_pct > 0, palette_brazil$yellow, palette_brazil$green)
   
   # Create plot
   p <- plotly::plot_ly(
@@ -228,7 +279,7 @@ create_expected_loss_change_plot <- function(companies_df) {
       yaxis = list(
         title = "Expected Loss Change (%)",
         showgrid = TRUE,
-        gridcolor = "#ecf0f1"
+        gridcolor = "#DDE5EC"
       ),
       hovermode = "closest",
       margin = list(l = 60, r = 20, t = 40, b = 120)
@@ -248,10 +299,16 @@ create_portfolio_summary_plot <- function(summary_data) {
   }
   
   # Define colors for each metric
+  palette_brazil <- list(
+    green = "#009C3B",
+    yellow = "#FFDF00",
+    blue = "#002776"
+  )
+
   bar_colors <- c(
-    "Baseline" = "#3498db",
-    "Shock" = "#e74c3c",
-    "Difference" = "#f39c12"
+    "Baseline" = palette_brazil$blue,
+    "Shock" = palette_brazil$green,
+    "Difference" = palette_brazil$yellow
   )
   
   colors_vec <- sapply(summary_data$metric, function(m) bar_colors[m])
@@ -278,7 +335,7 @@ create_portfolio_summary_plot <- function(summary_data) {
       yaxis = list(
         title = "Total Expected Loss (R$)",
         showgrid = TRUE,
-        gridcolor = "#ecf0f1"
+        gridcolor = "#DDE5EC"
       ),
       hovermode = "closest",
       margin = list(l = 80, r = 20, t = 40, b = 60)

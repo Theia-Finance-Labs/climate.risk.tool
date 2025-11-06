@@ -87,10 +87,10 @@ testthat::test_that("expand_multi_indicator_events passes through single-indicat
   hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
   hazards_inventory <- hazards_data$inventory
 
-  # Create single-indicator hazards (Flood, Compound, Drought)
+  # Create single-indicator hazards (Flood, Heat, Drought)
   events <- tibble::tibble(
     event_id = c("event_flood_1", "event_compound_1", "event_drought_1"),
-    hazard_type = c("Flood", "Compound", "Drought"),
+    hazard_type = c("Flood", "Heat", "Drought"),
     hazard_indicator = c("depth(cm)", "HI", "SPI3"),
     hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=10", "Compound__HI__GWL=present__RP=10", "Drought__SPI3__GWL=present__RP=10"),
     scenario_name = c("RCP8.5", "present", "present"),

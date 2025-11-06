@@ -10,7 +10,7 @@
 #' between extracted assets (which have indicator-specific hazard_names) and
 #' user-defined events (which have one row per event, not per indicator).
 #'
-#' For single-indicator hazards (Flood, Compound, Drought):
+#' For single-indicator hazards (Flood, Heat, Drought):
 #'   - Appends extraction_method suffix to hazard_name
 #'   - Returns one row per event
 #'

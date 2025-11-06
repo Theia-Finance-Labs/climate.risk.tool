@@ -39,8 +39,8 @@ testthat::test_that("read_damage_cost_factors normalizes province names", {
 
   testthat::expect_true("province" %in% names(damage_factors))
 
-  # Check that Compound rows have normalized province names (no accents)
-  compound_rows <- damage_factors |> dplyr::filter(.data$hazard_type == "Compound")
+  # Check that Heat rows have normalized province names (no accents)
+  compound_rows <- damage_factors |> dplyr::filter(.data$hazard_type == "Heat")
 
   if (nrow(compound_rows) > 0) {
     # Get non-dash provinces

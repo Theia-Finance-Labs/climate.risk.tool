@@ -230,7 +230,7 @@ compute_risk <- function(assets,
       by = "hazard_name", relationship = "many-to-many"
     )
 
-  # Step 2.4: Join damage cost factors (needs scenario_name for Compound hazards, land_cover_legend for Fire)
+  # Step 2.4: Join damage cost factors (needs scenario_name for Heat hazards, land_cover_legend for Fire)
   assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure, land_cover_legend)
 
 

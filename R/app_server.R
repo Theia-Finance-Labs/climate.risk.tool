@@ -69,14 +69,18 @@ app_server <- function(input, output, session) {
     results_reactive = results,
     name_mapping_reactive = reactive({
       values$region_name_mapping
+    }),
+    cnae_exposure_reactive = reactive({
+      values$cnae_exposure
     })
   )
-  mod_results_companies_server("results_companies", results_reactive = results)
-
   # Initialize plot modules
   mod_profit_pathways_server(
     "profit_pathways",
-    results_reactive = results
+    results_reactive = results,
+    cnae_exposure_reactive = reactive({
+      values$cnae_exposure
+    })
   )
 
   mod_company_analysis_server(
@@ -220,7 +224,7 @@ app_server <- function(input, output, session) {
         values$status <- "Analysis complete. Check the Profit Pathways and Company Analysis tabs for detailed results."
 
         # Switch to pathways tab after completion
-        updateTabsetPanel(session, "main_tabs", selected = "pathways")
+        updateTabsetPanel(session, "main_tabs", selected = "assets")
       },
       error = function(e) {
         log_error_to_console(e, "Main app analysis")

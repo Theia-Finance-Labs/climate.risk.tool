@@ -32,10 +32,14 @@ testthat::test_that("mod_status_server displays events with event_id", {
     events_reactive = shiny::reactive(test_events)
   ), {
     # Get the output
-    events_output <- output$events_table
+    session$flushReact()
+    events_output <- session$userData$status_events_table
 
     # The output should exist
     testthat::expect_true(!is.null(events_output))
+
+    testthat::expect_true("Event ID" %in% colnames(events_output))
+    testthat::expect_equal(events_output$`Event ID`, c("ev1", "ev2"))
   })
 })
 

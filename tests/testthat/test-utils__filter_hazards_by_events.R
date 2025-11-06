@@ -123,7 +123,7 @@ testthat::test_that("filter_hazards_by_events handles multiple NC events correct
   expect_false("Heat__Frost__GWL=2__RP=10__ensemble=p10" %in% names(result))
   expect_false("Heat__Frost__GWL=2__RP=10__ensemble=p90" %in% names(result))
 
-  # Compound should not be included
+  # Heat should not be included
   expect_false(any(grepl("Compound__FWI", names(result))))
 })
 

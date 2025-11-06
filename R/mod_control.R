@@ -26,7 +26,7 @@ mod_control_ui <- function(id) {
       shiny::p("Adjust these rates to reflect your financial assumptions:", class = "text-muted", style = "font-size: 0.9em; margin-bottom: 10px;"),
       shiny::sliderInput(
         ns("growth_rate"),
-        "Annual Revenue Growth Rate (%):",
+        "Growth Rate (%):",
         value = 2.0,
         min = 0,
         max = 10,
@@ -59,19 +59,6 @@ mod_control_ui <- function(id) {
         "Run Climate Risk Analysis",
         class = "btn-primary btn-lg btn-block",
         icon = shiny::icon("play")
-      )
-    ),
-    shiny::div(
-      class = "control-section download-section",
-      shiny::conditionalPanel(
-        condition = "output.results_ready",
-        ns = ns,
-        shiny::downloadButton(
-          ns("download_results"),
-          "Download Results",
-          class = "btn-success btn-block",
-          icon = shiny::icon("download")
-        )
       )
     )
   )

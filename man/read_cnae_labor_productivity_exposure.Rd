@@ -14,7 +14,7 @@ tibble with columns: cnae (numeric), description, lp_exposure (character: "high"
 }
 \description{
 Reads CNAE sector codes and their labor productivity exposure classification
-from Excel file. Used to determine metric (high/median/low) for Compound hazard damage factors.
+from Excel file. Used to determine metric (high/median/low) for Heat hazard damage factors.
 }
 \details{
 Read CNAE Labor Productivity Exposure data from Excel file

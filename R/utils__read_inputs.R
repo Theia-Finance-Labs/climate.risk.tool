@@ -361,7 +361,7 @@ read_damage_cost_factors <- function(base_dir) {
 #'
 #' @title Read CNAE Labor Productivity Exposure lookup table
 #' @description Reads CNAE sector codes and their labor productivity exposure classification
-#'   from Excel file. Used to determine metric (high/median/low) for Compound hazard damage factors.
+#'   from Excel file. Used to determine metric (high/median/low) for Heat hazard damage factors.
 #' @param base_dir Character string specifying the base directory containing cnae_labor_productivity_exposure.xlsx
 #' @return tibble with columns: cnae (numeric), description, lp_exposure (character: "high", "median", "low")
 #' @examples

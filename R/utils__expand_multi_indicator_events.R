@@ -6,7 +6,7 @@
 #'   internal events, one per required indicator.
 #'
 #' @details
-#' Single-indicator hazards (Flood, Compound, Drought):
+#' Single-indicator hazards (Flood, Heat, Drought):
 #'   - Pass through unchanged
 #'   - Already have correct hazard_indicator set
 #'

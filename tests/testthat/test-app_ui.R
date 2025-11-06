@@ -5,5 +5,5 @@ testthat::test_that("app_ui exposes upload, run, download controls", {
   # Namespaced module IDs
   testthat::expect_true(grepl("control-company_file", html))
   testthat::expect_true(grepl("control-run_analysis", html))
-  testthat::expect_true(grepl("control-download_results", html))
+  testthat::expect_true(grepl("profit_pathways-download_profit_pathways_csv", html))
 })
