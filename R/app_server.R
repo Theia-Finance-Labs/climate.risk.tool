@@ -69,14 +69,18 @@ app_server <- function(input, output, session) {
     results_reactive = results,
     name_mapping_reactive = reactive({
       values$region_name_mapping
+    }),
+    cnae_exposure_reactive = reactive({
+      values$cnae_exposure
     })
   )
-  mod_results_companies_server("results_companies", results_reactive = results)
-
   # Initialize plot modules
   mod_profit_pathways_server(
     "profit_pathways",
-    results_reactive = results
+    results_reactive = results,
+    cnae_exposure_reactive = reactive({
+      values$cnae_exposure
+    })
   )
 
   mod_company_analysis_server(
@@ -90,10 +94,10 @@ app_server <- function(input, output, session) {
     tryCatch(
       {
         values$status <- "Loading data files..."
-        
+
         # Load all input files
         values$assets <- read_assets(base_dir)
-        
+
         # Reuse hazards and inventory from control module (already loaded for UI)
         hazards_result <- try(control$hazards_and_inventory(), silent = TRUE)
         if (inherits(hazards_result, "try-error") || is.null(hazards_result)) {
@@ -101,22 +105,22 @@ app_server <- function(input, output, session) {
         }
         values$hazards <- c(hazards_result$hazards$tif, hazards_result$hazards$nc, hazards_result$hazards$csv)
         values$hazards_inventory <- hazards_result$inventory
-        
+
         # Load supporting data files
         values$precomputed_hazards <- read_precomputed_hazards(base_dir)
         values$damage_factors <- read_damage_cost_factors(base_dir)
         values$cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
         values$land_cover_legend <- read_land_cover_legend(base_dir)
-        
+
         # Load ADM1 and ADM2 boundaries for province assignment and validation
         province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
         municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
         values$adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
-        
+
         # Load region name mapping for displaying original names in frontend
         values$region_name_mapping <- load_region_name_mapping(base_dir)
-        
+
         values$status <- "Data files loaded. Ready to run analysis."
         values$data_loaded <- TRUE
       },
@@ -133,10 +137,10 @@ app_server <- function(input, output, session) {
   observe({
     base_dir <- get_base_dir()
     hazards_result <- try(control$hazards_and_inventory(), silent = TRUE)
-    
-    if (!is.null(base_dir) && base_dir != "" && 
-        !inherits(hazards_result, "try-error") && 
-        !is.null(hazards_result)) {
+
+    if (!is.null(base_dir) && base_dir != "" &&
+      !inherits(hazards_result, "try-error") &&
+      !is.null(hazards_result)) {
       # Only load if we haven't loaded yet or if base_dir changed
       if (!values$data_loaded || is.null(values$hazards)) {
         load_all_static_files(base_dir)
@@ -220,7 +224,7 @@ app_server <- function(input, output, session) {
         values$status <- "Analysis complete. Check the Profit Pathways and Company Analysis tabs for detailed results."
 
         # Switch to pathways tab after completion
-        updateTabsetPanel(session, "main_tabs", selected = "pathways")
+        updateTabsetPanel(session, "main_tabs", selected = "assets")
       },
       error = function(e) {
         log_error_to_console(e, "Main app analysis")

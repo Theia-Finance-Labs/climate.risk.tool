@@ -81,7 +81,7 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
             "__RP=", .data$hazard_return_period
           ),
           ensemble = NA_character_, # TIF has no pre-computed ensemble
-          season = NA_character_,    # TIF has no season dimension
+          season = NA_character_, # TIF has no season dimension
           source = "tif"
         ) |>
         dplyr::select(

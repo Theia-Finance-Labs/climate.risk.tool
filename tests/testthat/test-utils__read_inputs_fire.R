@@ -51,7 +51,7 @@ testthat::test_that("read_land_cover_legend handles missing required columns", {
   # This test would require creating a test file with missing columns
   # For now, we verify the function validates required columns exist
   base_dir <- get_test_data_dir()
-  
+
   # If file exists, it should have required columns
   if (file.exists(file.path(base_dir, "land_cover_legend_and_index.xlsx"))) {
     legend <- read_land_cover_legend(base_dir)
@@ -61,4 +61,3 @@ testthat::test_that("read_land_cover_legend handles missing required columns", {
     testthat::skip("Test data file not available")
   }
 })
-

@@ -13,7 +13,7 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cna
   flood_assets <- assets_with_hazards |>
     dplyr::filter(.data$hazard_type == "Flood")
   compound_assets <- assets_with_hazards |>
-    dplyr::filter(.data$hazard_type == "Compound")
+    dplyr::filter(.data$hazard_type == "Heat")
   drought_assets <- assets_with_hazards |>
     dplyr::filter(.data$hazard_type == "Drought")
   fire_assets <- assets_with_hazards |>
@@ -37,7 +37,7 @@ join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cna
   } else {
     NULL
   }
-  
+
   fire_merged <- if (nrow(fire_assets) > 0) {
     join_fire_damage_factors(fire_assets, damage_factors_df, land_cover_legend)
   } else {
@@ -142,9 +142,9 @@ join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
   return(flood_merged)
 }
 
-#' Join Compound (heat) damage factors using province, GWL, and sector-based metric matching (internal function)
+#' Join Heat (heat) damage factors using province, GWL, and sector-based metric matching (internal function)
 #'
-#' @param compound_assets Data frame with Compound hazard assets
+#' @param compound_assets Data frame with Heat hazard assets
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
 #' @param cnae_exposure Optional tibble with CNAE exposure data (columns: cnae, lp_exposure). If NULL, uses median metric.
 #' @return Data frame with damage_factor column (cost_factor and business_disruption are NA)
@@ -183,7 +183,7 @@ join_compound_damage_factors <- function(compound_assets, damage_factors_df, cna
 
   # Join with damage factors matching on hazard_type, province, gwl, AND metric
   compound_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "Compound") |>
+    dplyr::filter(.data$hazard_type == "Heat") |>
     dplyr::select("hazard_type", "province", "gwl", "metric", "damage_factor")
 
   compound_merged <- dplyr::left_join(
@@ -238,7 +238,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
   drought_factors_other_crop <- drought_factors |>
     dplyr::filter(.data$subtype == "Soybean") |>
     dplyr::mutate(subtype = "Other")
-  
+
   # Combine original data with "Other" crop type
   drought_factors <- dplyr::bind_rows(
     drought_factors,
@@ -249,7 +249,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
   province_crop_combinations <- drought_factors |>
     dplyr::filter(.data$province != "Other", .data$subtype != "Other") |>
     dplyr::distinct(.data$province, .data$subtype)
-  
+
   # Prepare assets: determine matching keys based on what exists in damage factors
   drought_assets_prepared <- drought_assets |>
     dplyr::mutate(
@@ -282,15 +282,15 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
       # - If combo exists: use actual province + actual crop
       # - If crop exists but not in this province: use "Other" province + actual crop
       # - If crop doesn't exist at all: use actual province + "Other" crop (will then fallback to "Other" province in join)
-      subtype_for_match = .data$asset_subtype_clean,  # Always use actual crop (or "Other" if missing)
+      subtype_for_match = .data$asset_subtype_clean, # Always use actual crop (or "Other" if missing)
       province_for_match = dplyr::if_else(
         .data$combo_exists,
-        .data$province_clean,  # Combo exists, use actual province
-        "Other"  # Combo doesn't exist, use "Other" province
+        .data$province_clean, # Combo exists, use actual province
+        "Other" # Combo doesn't exist, use "Other" province
       )
     ) |>
     dplyr::select(-"combo_exists", -"asset_subtype_clean", -"province_clean")
-  
+
   # Handle assets with intensity > -1 (no damage) early
   assets_no_damage <- drought_assets_prepared |>
     dplyr::filter(.data$hazard_intensity > -1) |>
@@ -302,7 +302,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
       business_disruption = NA_real_
     ) |>
     dplyr::select(-dplyr::any_of(c("subtype_for_match", "province_for_match", "asset_id")))
-  
+
   # Continue with assets that need damage factor lookup (intensity <= -1)
   drought_assets_prepared <- drought_assets_prepared |>
     dplyr::filter(.data$hazard_intensity <= -1)
@@ -393,7 +393,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     # These already have closest intensity from Step 2
     off_season_data <- all_matched |>
       dplyr::filter(.data$match_type == "off_season")
-    
+
     if (nrow(off_season_data) > 0) {
       result_off_season_matches <- off_season_data |>
         dplyr::group_by(.data$asset_id) |>
@@ -495,19 +495,19 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
 #' @noRd
 join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_legend = NULL) {
   message("[join_fire_damage_factors] Processing Fire hazard with multi-indicator approach...")
-  
+
   # Save the FWI metadata before pivoting (we'll use FWI as the primary indicator)
   # FWI is the primary indicator, so we use its scenario/RP/hazard_name for the consolidated row
   fwi_metadata <- fire_assets |>
     dplyr::filter(.data$hazard_indicator == "FWI") |>
     dplyr::select(
-      "asset", "event_id", 
+      "asset", "event_id",
       fwi_hazard_name = "hazard_name",
       fwi_hazard_return_period = "hazard_return_period",
       fwi_scenario_name = "scenario_name",
       fwi_source = "source"
     )
-  
+
   # Pivot from long to wide format to get all three indicators per asset
   # Each asset should have 3 rows: land_cover, FWI, days_danger_total
   # IMPORTANT: Don't include scenario/RP columns before pivoting, as they vary by indicator
@@ -522,7 +522,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
     tidyr::pivot_wider(
       names_from = "hazard_indicator",
       values_from = "hazard_intensity",
-      values_fn = mean  # In case of duplicates, take mean
+      values_fn = mean # In case of duplicates, take mean
     ) |>
     # Join back the FWI metadata (hazard_name, scenario, RP, source)
     dplyr::left_join(fwi_metadata, by = c("asset", "event_id")) |>
@@ -532,9 +532,9 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       scenario_name = "fwi_scenario_name",
       source = "fwi_source"
     )
-  
+
   message("  Pivoted ", nrow(fire_assets), " long-format rows to ", nrow(fire_wide), " wide-format assets")
-  
+
   # Check that we have the expected columns
   if (!all(c("land_cover", "FWI", "days_danger_total") %in% names(fire_wide))) {
     missing_indicators <- setdiff(c("land_cover", "FWI", "days_danger_total"), names(fire_wide))
@@ -544,7 +544,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       fire_wide[[ind]] <- NA_real_
     }
   }
-  
+
   # Step 1: Join land_cover_code with legend to get land_cover_risk
   if (!is.null(land_cover_legend) && nrow(land_cover_legend) > 0) {
     fire_wide <- fire_wide |>
@@ -558,7 +558,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
     fire_wide <- fire_wide |>
       dplyr::mutate(land_cover_risk = NA_real_)
   }
-  
+
   # Step 2: Apply default land_cover_risk = 0.50 for assets without coordinates
   # (they don't have land cover extraction)
   fire_wide <- fire_wide |>
@@ -569,22 +569,22 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
         .data$land_cover_risk
       )
     )
-  
+
   message("  Applied land cover risk (default 0.50 for assets without coordinates)")
-  
+
   # Step 3: Cap FWI at maximum 50
   fire_wide <- fire_wide |>
     dplyr::mutate(
       FWI_capped = pmin(.data$FWI, 50, na.rm = TRUE),
-      FWI_capped = dplyr::coalesce(.data$FWI_capped, 0)  # Replace NA with 0
+      FWI_capped = dplyr::coalesce(.data$FWI_capped, 0) # Replace NA with 0
     )
-  
+
   # Step 4: Round FWI for damage factor lookup
   fire_wide <- fire_wide |>
     dplyr::mutate(
       FWI_rounded = round(.data$FWI_capped)
     )
-  
+
   # Step 5: Join with damage_factors to get FWI-based damage_factor and cost_factor
   fire_factors <- damage_factors_df |>
     dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "FWI") |>
@@ -599,23 +599,23 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       damage_factor = as.numeric(.data$damage_factor),
       cost_factor = as.numeric(.data$cost_factor)
     )
-  
+
   # Join damage factors
   fire_wide <- fire_wide |>
     dplyr::left_join(
       fire_factors,
       by = c("asset_category", "FWI_rounded")
     )
-  
+
   # Handle missing damage factors (set to 0)
   fire_wide <- fire_wide |>
     dplyr::mutate(
       damage_factor = dplyr::coalesce(.data$damage_factor, 0),
       cost_factor = dplyr::coalesce(.data$cost_factor, NA_real_)
     )
-  
+
   message("  Joined FWI-based damage factors")
-  
+
   # Step 6: Ensure days_danger_total is coalesced (for use in shock functions)
   # Note: Full fire damage calculation happens in shock functions, not here
   # The damage_factor column should contain the base value from CSV (e.g., 0.15)
@@ -623,9 +623,9 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
     dplyr::mutate(
       days_danger_total = dplyr::coalesce(.data$days_danger_total, 0)
     )
-  
+
   message("  Keeping base damage_factor from CSV (full calculation in shock functions)")
-  
+
   # Step 7: Prepare output with traceability columns
   fire_result <- fire_wide |>
     dplyr::mutate(
@@ -633,7 +633,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       # Set business_disruption to NA (not used for Fire)
       business_disruption = NA_real_,
       # Keep traceability columns
-      hazard_intensity = .data$FWI,  # Use standard hazard_intensity column (contains FWI value)
+      hazard_intensity = .data$FWI, # Use standard hazard_intensity column (contains FWI value)
       # hazard_name is already the FWI hazard_name (from the join above)
       # Set hazard_indicator to FWI (primary indicator for Fire)
       hazard_indicator = "FWI"
@@ -646,8 +646,8 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       "damage_factor", "cost_factor", "business_disruption",
       "land_cover_risk", "hazard_intensity", "days_danger_total"
     )
-  
+
   message("  Fire damage factors joined for ", nrow(fire_result), " assets")
-  
+
   return(fire_result)
 }

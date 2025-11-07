@@ -69,7 +69,7 @@ testthat::test_that("validate_damage_factors_provinces detects mismatched provin
 
   # Create test damage factors with a non-existent province
   damage_factors <- data.frame(
-    hazard_type = c("Compound", "Compound"),
+    hazard_type = c("Heat", "Heat"),
     province = c("Acre", "FakeProvince"), # "FakeProvince" doesn't exist
     gwl = c("1.5", "1.5"),
     metric = c("median", "median"),

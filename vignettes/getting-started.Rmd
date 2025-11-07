@@ -81,11 +81,11 @@ Define the climate scenarios you want to analyze. You can mix different hazard t
 ```{r}
 # Create events mixing flood and drought hazards
 events <- data.frame(
-  hazard_type = c("Flood", "Flood", "Compound", "Compound"),
+  hazard_type = c("Flood", "Flood", "Heat", "Heat"),
   hazard_name = c(
     "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
     "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
-    # Compound CSV hazards use indicator 'HI' (Heat Index) in our data
+    # Heat CSV hazards use indicator 'HI' (Heat Index) in our data
     "Compound__HI__GWL=present__RP=10__ensemble=mean",
     "Compound__HI__GWL=3__RP=10__ensemble=mean"
   ),

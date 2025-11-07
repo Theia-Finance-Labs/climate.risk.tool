@@ -77,10 +77,10 @@ apply_acute_profit_shock <- function(
         dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
         dplyr::mutate(
           # Calculate full fire damage formula using components
-          acute_damage = as.numeric(.data$land_cover_risk) * 
-                        as.numeric(.data$damage_factor) * 
-                        (as.numeric(.data$days_danger_total) / 365) * 
-                        as.numeric(.data$cost_factor)
+          acute_damage = as.numeric(.data$land_cover_risk) *
+            as.numeric(.data$damage_factor) *
+            (as.numeric(.data$days_danger_total) / 365) *
+            as.numeric(.data$cost_factor)
         )
 
       # Create shock data for this event

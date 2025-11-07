@@ -71,7 +71,7 @@ test_that("load_csv_hazards_with_metadata creates proper inventory", {
   if (nrow(result$inventory) > 0) {
     required_cols <- c(
       "hazard_type", "hazard_indicator", "scenario_name",
-      "hazard_return_period",  "hazard_name",
+      "hazard_return_period", "hazard_name",
       "ensemble", "source"
     )
 

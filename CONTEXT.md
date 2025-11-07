@@ -471,6 +471,10 @@ run_app(base_dir = "path/to/data")
 - Use `devtools::test()` to run all tests
 - Use `devtools::test_file("tests/testthat/test-function_name.R")` for specific tests
 
+### Recent Updates
+- Added `test-mod_profit_pathways.R` to cover log-scale clipping logic for non-positive asset profits so charts remain informative.
+- Added drought zero-flooring regression test in `test-shock__apply_acute_revenue_shock.R` to lock revenue at or above zero for extreme damage factors across hazards.
+
 ### Environment Variables for Testing
 ```bash
 SKIP_SLOW_TESTS=TRUE devtools::test()
@@ -830,6 +834,16 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - **Backward Compatibility**: Existing single-indicator hazards work exactly as before, just without visible indicator selection
 
 ## Recent Changes
+
+### UI & Visualization Enhancements (2025-11-06)
+- Rebranded the interface as the **Physical Risk Analysis Tool**, refreshed the subtitle, reordered the primary analysis tabs (Asset Analysis → Profit Pathways → Company Analysis → Company Results → Parameters & Status), and simplified the growth rate control label in the sidebar.
+- Refined `mod_results_assets` to present hazard-specific asset tables via collapsible panels, restore original province/municipality names, surface company/sector metadata (using CNAE descriptions for sector names and retaining sector codes), expose `event_id` with formatted economic share values, and add CSV/XLSX downloads for the full asset dataset; supporting coverage added in `tests/testthat/test-mod_results_assets.R`.
+- Enriched profit pathway analytics by merging company, sector, and economic-share metadata into trajectory data, preferring sector names in the selection table, and exposing CSV/XLSX downloads (`download_profit_pathways_csv`, `download_profit_pathways_excel`); validated in the new `tests/testthat/test-mod_profit_pathways.R`.
+ - Enriched profit pathway analytics by merging company, sector, and economic-share metadata into trajectory data, preferring sector names in the selection table, exposing CSV/XLSX downloads (`download_profit_pathways_csv`, `download_profit_pathways_excel`), and documenting the log-scale handling of zero/negative profits directly in the UI; validated in the new `tests/testthat/test-mod_profit_pathways.R`.
+- Ensured Profit Pathways renders sector names using CNAE labor descriptions while the asset results continue to surface numeric sector codes alongside the resolved descriptions, leveraging the preloaded CNAE exposure lookup; tightened coverage in `tests/testthat/test-mod_results_assets.R` and `tests/testthat/test-mod_profit_pathways.R`.
+- Relocated company financial results into the `mod_company_analysis` module (removing the standalone Company Results tab), added CSV/XLSX downloads, and refreshed table/chart styling to use the Brazil palette.
+- Updated the status view to show Event IDs directly in the configured hazard list, validated by the strengthened checks in `tests/testthat/test-mod_status.R`.
+- Applied a Brazil-themed palette (green, yellow, blue, white) across CSS, plotly visuals, and helper utilities to align the UI and charts with the national identity.
 
 ### Bug Fixes
 - **Fixed Windows path parsing in hazard loading**: Replaced fragile absolute path parsing with robust cross-platform relative path parsing in `load_nc_hazards_with_metadata()` and `load_csv_hazards_with_metadata()`. Previously, path parsing relied on finding the "hazards" directory in absolute paths, which failed on Windows due to differences in `normalizePath()` behavior and path separators. Now uses `normalizePath(..., winslash = "/")` to ensure consistent forward slashes across platforms, then computes relative paths from the known `hazards_dir` parameter. This ensures hazard_type and hazard_indicator are parsed correctly on all platforms. (2025-10-30)

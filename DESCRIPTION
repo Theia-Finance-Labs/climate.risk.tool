@@ -15,15 +15,19 @@ Imports:
     golem,
     ncdf4,
     purrr,
+    RColorBrewer,
     readr,
     readxl,
     sf,
     shiny,
+    stringr,
     stringi,
     terra,
     tibble,
     tidyr,
-    tools
+    tools,
+    writexl,
+    plotly
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3

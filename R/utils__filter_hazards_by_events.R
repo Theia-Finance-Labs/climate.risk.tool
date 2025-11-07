@@ -51,39 +51,39 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) 
   }
 
   available_names <- names(hazards)
-  
+
   # For multi-indicator hazards, expand internally to get all required hazard_names
   # This doesn't modify the events dataframe - just gets the list of hazard_names to load
   if (!is.null(hazards_inventory) && "hazard_type" %in% names(events)) {
     config <- get_hazard_type_config()
     multi_indicator_types <- names(config)[sapply(names(config), is_multi_indicator_hazard)]
-    
+
     # Get hazard_names for single-indicator events (use as-is)
     single_indicator_names <- events |>
       dplyr::filter(!(.data$hazard_type %in% multi_indicator_types)) |>
       dplyr::pull(.data$hazard_name) |>
       as.character() |>
       unique()
-    
+
     # Get hazard_names for multi-indicator events (expand to all required indicators)
     multi_indicator_events <- events |>
       dplyr::filter(.data$hazard_type %in% multi_indicator_types)
-    
+
     multi_indicator_names <- character()
     if (nrow(multi_indicator_events) > 0) {
       for (i in seq_len(nrow(multi_indicator_events))) {
         event <- multi_indicator_events[i, ]
         required_indicators <- config[[event$hazard_type]]$indicators
-        
+
         for (indicator in required_indicators) {
           matched <- hazards_inventory |>
             dplyr::filter(
               .data$hazard_type == event$hazard_type,
               .data$hazard_indicator == indicator
             )
-          
+
           if (nrow(matched) == 0) next
-          
+
           # Handle static vs dynamic indicators
           if (indicator == "land_cover") {
             hazard_name <- matched$hazard_name[1]
@@ -95,19 +95,19 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) 
                 .data$scenario_name == event$scenario_name,
                 .data$rp_numeric == event_rp_numeric
               )
-            
+
             hazard_name <- if (nrow(exact_match) > 0) {
               exact_match$hazard_name[1]
             } else {
               matched$hazard_name[1]
             }
           }
-          
+
           multi_indicator_names <- c(multi_indicator_names, hazard_name)
         }
       }
     }
-    
+
     desired_names <- unique(c(single_indicator_names, multi_indicator_names))
   } else {
     # Fallback: no inventory provided, use hazard_name as-is

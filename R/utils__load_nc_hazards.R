@@ -100,7 +100,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
       # hazards/{hazard_type}/{hazard_indicator}/{file}.nc
       file_name <- parts[length(parts)]
       model_type <- "ensemble" # Infer ensemble as default model type
-      hazard_type <- parts[length(parts) - 2]      # First folder = hazard_type
+      hazard_type <- parts[length(parts) - 2] # First folder = hazard_type
       hazard_indicator <- parts[length(parts) - 1] # Second folder = hazard_indicator
       message("  3-part path detected for ", hazard_type, "/", hazard_indicator, " - assuming model_type='ensemble'")
     } else {

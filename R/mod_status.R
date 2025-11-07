@@ -87,6 +87,8 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
           )
         }
 
+        session$userData$status_events_table <- NULL
+
         # Return empty table with message
         return(
           DT::datatable(
@@ -117,19 +119,18 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
           # Create button HTML with onclick handler
           paste0(
             '<button class="btn btn-danger btn-sm" onclick="Shiny.setInputValue(\'',
-            ns('delete_event'),
-            '\', \'',
+            ns("delete_event"),
+            "', '",
             event_id,
             '\', {priority: \'event\'});" style="padding: 2px 8px; margin: 0;">',
             '<i class="fa fa-trash"></i>',
-            '</button>'
+            "</button>"
           )
         })
         display_data$Actions <- delete_buttons
       }
 
-      # Find "Event ID" column index in display_data (after renaming)
-      event_id_col_idx <- which(names(display_data) == "Event ID") - 1
+      session$userData$status_events_table <- display_data
 
       DT::datatable(
         display_data,
@@ -138,10 +139,7 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
         options = list(
           pageLength = 10,
           scrollX = TRUE,
-          dom = "ftp",
-          columnDefs = list(
-            list(targets = event_id_col_idx, visible = FALSE)  # Hide Event ID column
-          )
+          dom = "ftp"
         ),
         rownames = FALSE
       )

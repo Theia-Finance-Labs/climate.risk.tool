@@ -11,7 +11,7 @@ testthat::test_that("get_hazard_type_config returns Fire configuration with 3 in
   config <- get_hazard_type_config()
 
   testthat::expect_true("Fire" %in% names(config))
-  
+
   fire_config <- config$Fire
   testthat::expect_equal(length(fire_config$indicators), 3)
   testthat::expect_true("land_cover" %in% fire_config$indicators)
@@ -23,7 +23,7 @@ testthat::test_that("get_hazard_type_config returns Fire configuration with 3 in
 testthat::test_that("is_multi_indicator_hazard correctly identifies Fire as multi-indicator", {
   testthat::expect_true(is_multi_indicator_hazard("Fire"))
   testthat::expect_false(is_multi_indicator_hazard("Flood"))
-  testthat::expect_false(is_multi_indicator_hazard("Compound"))
+  testthat::expect_false(is_multi_indicator_hazard("Heat"))
   testthat::expect_false(is_multi_indicator_hazard("Drought"))
 })
 
@@ -34,13 +34,13 @@ testthat::test_that("get_primary_indicator returns FWI for Fire", {
 
 testthat::test_that("get_primary_indicator returns correct primary indicator for single-indicator hazards", {
   testthat::expect_equal(get_primary_indicator("Flood"), "depth(cm)")
-  testthat::expect_equal(get_primary_indicator("Compound"), "HI")
+  testthat::expect_equal(get_primary_indicator("Heat"), "HI")
   testthat::expect_equal(get_primary_indicator("Drought"), "SPI3")
 })
 
 testthat::test_that("get_required_indicators returns all 3 indicators for Fire", {
   indicators <- get_required_indicators("Fire")
-  
+
   testthat::expect_equal(length(indicators), 3)
   testthat::expect_true("land_cover" %in% indicators)
   testthat::expect_true("FWI" %in% indicators)
@@ -52,7 +52,7 @@ testthat::test_that("get_required_indicators returns single indicator for single
   testthat::expect_equal(length(flood_indicators), 1)
   testthat::expect_equal(flood_indicators, "depth(cm)")
 
-  compound_indicators <- get_required_indicators("Compound")
+  compound_indicators <- get_required_indicators("Heat")
   testthat::expect_equal(length(compound_indicators), 1)
   testthat::expect_equal(compound_indicators, "HI")
 
@@ -74,4 +74,3 @@ testthat::test_that("get_primary_indicator returns NA for unknown hazard type", 
 testthat::test_that("is_multi_indicator_hazard returns FALSE for unknown hazard type", {
   testthat::expect_false(is_multi_indicator_hazard("UnknownHazard"))
 })
-

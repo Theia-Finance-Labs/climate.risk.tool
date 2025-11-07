@@ -3,7 +3,7 @@
 # Contract:
 # - join_damage_cost_factors(assets_with_hazards, damage_factors_df)
 # - Flood: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
-# - Compound: Joins on hazard_type, province, and scenario_name (GWL)
+# - Heat: Joins on hazard_type, province, and scenario_name (GWL)
 # - Expects long format input with hazard_type, hazard_indicator, hazard_intensity, scenario_name columns
 # - Adds numeric columns damage_factor, cost_factor, business_disruption
 
@@ -50,10 +50,10 @@ testthat::test_that("join_damage_cost_factors handles Flood with intensity-based
   testthat::expect_true(all(!is.na(out$business_disruption)))
 })
 
-testthat::test_that("join_damage_cost_factors handles Compound with province and GWL matching", {
+testthat::test_that("join_damage_cost_factors handles Heat with province and GWL matching", {
   base_dir <- get_test_data_dir()
 
-  # Create Compound test data
+  # Create Heat test data
   assets_long <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C2"),
@@ -65,7 +65,7 @@ testthat::test_that("join_damage_cost_factors handles Compound with province and
     size_in_m2 = c(1000, 800),
     share_of_economic_activity = c(0.5, 0.3),
     hazard_name = c("HI__extraction_method=mean", "HI__extraction_method=mean"),
-    hazard_type = c("Compound", "Compound"),
+    hazard_type = c("Heat", "Heat"),
     hazard_indicator = c("HI", "HI"),
     hazard_intensity = c(50, 30), # Days with extreme heat
     scenario_name = c("present", "1.5"), # GWL scenarios
@@ -83,7 +83,7 @@ testthat::test_that("join_damage_cost_factors handles Compound with province and
   testthat::expect_true(all(c("damage_factor", "cost_factor", "business_disruption") %in% names(out)))
   testthat::expect_equal(nrow(out), nrow(assets_long))
 
-  # Compound should have damage_factor but NA for cost_factor and business_disruption
+  # Heat should have damage_factor but NA for cost_factor and business_disruption
   testthat::expect_true(all(!is.na(out$damage_factor)))
   testthat::expect_true(all(is.na(out$cost_factor)))
   testthat::expect_true(all(is.na(out$business_disruption)))
@@ -115,7 +115,7 @@ testthat::test_that("join_compound_damage_factors uses cnae-based metric selecti
   median_exposure <- cnae_exposure$cnae[cnae_exposure$lp_exposure == "median"][1]
   low_exposure <- cnae_exposure$cnae[cnae_exposure$lp_exposure == "low"][1]
 
-  # Create Compound test data with different cnae and missing cases
+  # Create Heat test data with different cnae and missing cases
   assets_long <- data.frame(
     asset = c("A1", "A2", "A3", "A4", "A5"),
     company = c("C1", "C2", "C3", "C4", "C5"),
@@ -128,7 +128,7 @@ testthat::test_that("join_compound_damage_factors uses cnae-based metric selecti
     size_in_m2 = c(1000, 800, 600, 400, 200),
     share_of_economic_activity = c(0.5, 0.3, 0.2, 0.1, 0.05),
     hazard_name = rep("HI__extraction_method=mean", 5),
-    hazard_type = rep("Compound", 5),
+    hazard_type = rep("Heat", 5),
     hazard_indicator = rep("HI", 5),
     hazard_intensity = rep(50, 5),
     scenario_name = rep("present", 5),

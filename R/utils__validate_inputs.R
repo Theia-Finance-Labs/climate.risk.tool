@@ -234,7 +234,7 @@ validate_damage_factors_provinces <- function(damage_factors_df, adm1_names, val
 #'             cost_factor, hazard_indicator, business_disruption
 #' - Drought:  hazard_intensity, hazard_unit, asset_category, damage_factor,
 #'             hazard_indicator, province, subtype, season, off_window
-#' - Compound: gwl, damage_factor, hazard_indicator, province, metric
+#' - Heat: gwl, damage_factor, hazard_indicator, province, metric
 #'
 #' @param damage_factors_df Damage factors data frame
 #' @param validation_results List with errors and warnings vectors
@@ -259,7 +259,7 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
       "hazard_intensity", "hazard_unit", "asset_category", "damage_factor",
       "hazard_indicator", "province", "subtype", "season", "off_window"
     ),
-    Compound = c(
+    Heat = c(
       "gwl", "damage_factor", "hazard_indicator", "province", "metric"
     )
   )
@@ -554,10 +554,10 @@ validate_economic_activity_shares <- function(assets_df, validation_results) {
 
       validation_results$errors <- c(
         validation_results$errors,
-          paste0(
-            "Company '", company_name, "' has ", n_assets, " assets with total share = ",
-            round(total_share, 4), " (should be 1.0 \u00b1 ", tolerance, ")"
-          )
+        paste0(
+          "Company '", company_name, "' has ", n_assets, " assets with total share = ",
+          round(total_share, 4), " (should be 1.0 \u00b1 ", tolerance, ")"
+        )
       )
     }
   }

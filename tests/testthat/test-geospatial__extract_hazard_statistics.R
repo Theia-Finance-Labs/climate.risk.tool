@@ -247,10 +247,10 @@ testthat::test_that("CSV hazards use specified aggregation method", {
   # Load hazards
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
 
-  # Define Compound HI events (CSV files available in test data)
+  # Define Heat HI events (CSV files available in test data)
   # Include ensemble suffix for CSV hazards
   events <- tibble::tibble(
-    hazard_name = c("Compound__HI__GWL=present__RP=10__ensemble=mean", "Compound__HI__GWL=present__RP=5__ensemble=mean"),
+    hazard_name = c("Heat__HI__GWL=present__RP=10__ensemble=mean", "Heat__HI__GWL=present__RP=5__ensemble=mean"),
     event_year = c(2030, 2030)
   )
 
@@ -294,7 +294,7 @@ testthat::test_that("CSV hazards use specified aggregation method", {
   testthat::expect_equal(nrow(out), 4)
   testthat::expect_equal(length(unique(out$asset)), 2)
 
-  # Should have Compound HI indicator
+  # Should have Heat HI indicator
   indicators <- unique(out$hazard_indicator)
   testthat::expect_true("HI" %in% indicators)
 })

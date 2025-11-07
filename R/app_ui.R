@@ -15,64 +15,79 @@ app_ui <- function(request) {
       # Header
       div(
         class = "app-header",
-        h1("Climate Risk Analysis Tool", class = "app-title"),
-        p("Comprehensive climate risk assessment for financial portfolios", class = "app-subtitle")
+        div(
+          class = "app-header-text",
+          h1("Physical Risk Analysis Tool", class = "app-title"),
+          p("Physical risk assessment for financial portfolios in Brazil", class = "app-subtitle")
+        )
       ),
-      sidebarLayout(
-        # Sidebar with controls
-        sidebarPanel(
-          class = "app-sidebar",
-          width = 3,
-          mod_control_ui("control")
-        ),
+      div(
+        class = "app-body",
+        sidebarLayout(
+          # Sidebar with controls
+          sidebarPanel(
+            class = "app-sidebar",
+            width = 3,
+            mod_control_ui("control")
+          ),
 
-        # Main content with tabs
-        mainPanel(
-          class = "app-main",
-          width = 9,
-          tabsetPanel(
-            id = "main_tabs",
-            type = "pills",
+          # Main content with tabs
+          mainPanel(
+            class = "app-main",
+            width = 9,
+            tabsetPanel(
+              id = "main_tabs",
+              type = "pills",
+              selected = "status",
 
-            # Tab 1: Parameters and Status
-            tabPanel(
-              title = "Parameters & Status",
-              value = "status",
-              icon = icon("cog"),
-              mod_status_ui("status")
-            ),
+              # Tab 1: Parameters and Status
+              tabPanel(
+                title = "Parameters & Status",
+                value = "status",
+                icon = icon("cog"),
+                mod_status_ui("status")
+              ),
 
-            # Tab 2: Asset Profit Pathways
-            tabPanel(
-              title = "Profit Pathways",
-              value = "pathways",
-              icon = icon("chart-line"),
-              mod_profit_pathways_ui("profit_pathways")
-            ),
+              # Tab 2: Asset Results (shown only after results)
+              tabPanel(
+                title = "Asset Analysis",
+                value = "assets",
+                icon = icon("table"),
+                mod_results_assets_ui("results_assets")
+              ),
 
-            # Tab 3: Company Analysis
-            tabPanel(
-              title = "Company Analysis",
-              value = "companies",
-              icon = icon("building"),
-              mod_company_analysis_ui("company_analysis")
-            ),
+              # Tab 3: Asset Profit Pathways
+              tabPanel(
+                title = "Profit Pathways",
+                value = "pathways",
+                icon = icon("chart-line"),
+                mod_profit_pathways_ui("profit_pathways")
+              ),
 
-            # Tab 4: Asset Results (shown only after results)
-            tabPanel(
-              title = "Asset Analysis",
-              value = "assets",
-              icon = icon("table"),
-              mod_results_assets_ui("results_assets")
-            ),
-
-            # Tab 5: Company Results (shown only after results)
-            tabPanel(
-              title = "Company Results",
-              value = "company_results",
-              icon = icon("table"),
-              mod_results_companies_ui("results_companies")
+              # Tab 4: Company Analysis
+              tabPanel(
+                title = "Company Analysis",
+                value = "companies",
+                icon = icon("building"),
+                mod_company_analysis_ui("company_analysis")
+              )
             )
+          )
+        )
+      ),
+      div(
+        class = "app-footer",
+        div(
+          class = "app-footer-logos",
+          tags$img(
+            src = "www/GIZ.png",
+            alt = "GIZ logo",
+            class = "partner-logo giz-logo"
+          ),
+          tags$img(
+            src = "www/TFL.png",
+            alt = "Theia Finance Labs logo",
+            class = "partner-logo tfl-logo"
           )
         )
       )

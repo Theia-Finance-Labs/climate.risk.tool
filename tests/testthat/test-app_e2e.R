@@ -66,6 +66,6 @@ climate.risk.tool::run_app(base_dir = "%s")
   testthat::expect_true(has_status_message, info = "App should have status message element")
 
   # Check for download functionality in HTML
-  has_download <- grepl("control-download_results", html_content)
-  testthat::expect_true(has_download, info = "App should expose a download control")
+  has_download <- grepl("profit_pathways-download_profit_pathways_csv", html_content)
+  testthat::expect_true(has_download, info = "App should expose profit pathways download control")
 })

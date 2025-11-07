@@ -4,12 +4,14 @@
 \alias{mod_profit_pathways_server}
 \title{profit_pathways Server Functions}
 \usage{
-mod_profit_pathways_server(id, results_reactive)
+mod_profit_pathways_server(id, results_reactive, cnae_exposure_reactive = NULL)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
 
 \item{results_reactive}{reactive containing analysis results}
+
+\item{cnae_exposure_reactive}{reactive returning CNAE exposure lookup table}
 }
 \description{
 profit_pathways Server Functions
