@@ -54,6 +54,9 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
                                           aggregate_factor = 1L,
                                           cache_aggregated = TRUE,
                                           force_reaggregate = FALSE) {
+  # Normalize hazards_dir to handle double slashes and resolve to absolute path
+  hazards_dir <- normalizePath(hazards_dir, winslash = "/", mustWork = TRUE)
+  
   all_nc_files <- list.files(hazards_dir, pattern = "\\.nc$", full.names = TRUE, recursive = TRUE)
 
   # Filter out aggregated files from the initial scan (they'll be loaded via aggregation logic)
@@ -258,11 +261,34 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
       list(start = as.integer(pick), count = 1L, pos = pos)
     }
 
-    # Iterate over GWL, return_period, season, and ensemble values
+    # Calculate iteration counts
     n_gwl <- if (inherits(gwl_vals, "try-error")) 1L else length(gwl_vals)
     n_rp <- if (inherits(rp_vals, "try-error")) 1L else length(rp_vals)
     n_season <- if (inherits(season_vals, "try-error")) 1L else length(season_vals)
-
+    
+    # Close ncdf4 handle before terra opens the file (prevents file lock conflicts)
+    try(ncdf4::nc_close(nc), silent = TRUE)
+    
+    # Lazy-load the entire NetCDF raster once via terra (keeps data on disk)
+    nc_path <- normalizePath(f, winslash = "/", mustWork = TRUE)
+    gdal_string <- sprintf("NETCDF:%s:%s", nc_path, main_var)
+    
+    r_all <- tryCatch({
+      terra::rast(gdal_string)
+    }, error = function(e) {
+      warning(
+        "[load_nc_hazards_with_metadata] Failed to load NetCDF via terra: ", basename(f),
+        "\n  Error: ", conditionMessage(e),
+        "\n  Skipping this file."
+      )
+      return(NULL)
+    })
+    
+    if (is.null(r_all)) {
+      next
+    }
+    
+    # Iterate over GWL, return_period, season, and ensemble values
     for (ig in seq_len(n_gwl)) {
       for (ir in seq_len(n_rp)) {
         for (is in seq_len(n_season)) {
@@ -293,56 +319,76 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
             start <- vapply(sc_list, function(z) z$start, integer(1))
             count <- vapply(sc_list, function(z) z$count, integer(1))
 
-            # Read the 2D slice
-            slice <- ncdf4::ncvar_get(nc, main_var, start = start, count = count)
+            # Lazy-load raster slice directly from NetCDF via GDAL subdataset syntax
+            r <- terra::rast(sprintf("NETCDF:%s:%s", f_norm, main_var))
 
-            # Normalize lon/lat vectors
-            if (inherits(lon_vals, "try-error")) {
-              # Infer from slice ncol if needed (ideal path assumption)
-              lon_vals <- seq_len(dim(slice)[1])
-            }
-            if (inherits(lat_vals, "try-error")) {
-              lat_vals <- seq_len(dim(slice)[2])
-            }
+            # Determine extra dimensions (beyond lon/lat) in their original order
+            extra_dims <- dim_names[!(dim_names %in% c(lon_dim[1], lat_dim[1]))]
 
-            # Calculate resolution and extent
-            # Coordinates in NC files are cell centers; we need to extend by half-pixel
-            n_lon <- length(lon_vals)
-            n_lat <- length(lat_vals)
-
-            # Resolution: spacing between coordinate centers
-            res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
-            res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
-
-            # Extent: expand by half-pixel on each side to convert centers to edges
-            xmin <- min(lon_vals) - res_lon / 2
-            xmax <- max(lon_vals) + res_lon / 2
-            ymin <- min(lat_vals) - res_lat / 2
-            ymax <- max(lat_vals) + res_lat / 2
-
-            # Ensure correct orientation: rows = lat (descending), cols = lon (ascending)
-            if (length(dim(slice)) == 2L) {
-              if (identical(dim(slice), c(length(lon_vals), length(lat_vals)))) {
-                mat <- t(slice)
-              } else if (identical(dim(slice), c(length(lat_vals), length(lon_vals)))) {
-                mat <- slice
+            # Compute dimension lengths and the index we want from each dimension
+            dim_lengths <- vapply(extra_dims, function(nm) {
+              if (length(ens_dim) > 0 && nm == ens_dim[1]) {
+                if (inherits(ens_vals, "try-error")) 1L else length(ens_vals)
+              } else if (length(gwl_dim) > 0 && nm == gwl_dim[1]) {
+                n_gwl
+              } else if (nm == rp_dim) {
+                n_rp
+              } else if (length(season_dim) > 0 && nm == season_dim[1]) {
+                n_season
               } else {
-                mat <- t(slice)
+                1L
               }
-            } else {
-              mat <- as.matrix(slice)
-            }
-            # Flip rows so that first row is max(lat)
-            mat <- mat[rev(seq_len(nrow(mat))), , drop = FALSE]
+            }, integer(1))
 
-            r <- terra::rast(
-              ncols = n_lon,
-              nrows = n_lat,
-              xmin = xmin, xmax = xmax,
-              ymin = ymin, ymax = ymax,
-              crs = "EPSG:4326"
-            )
-            terra::values(r) <- as.vector(mat)
+            dim_indices <- vapply(extra_dims, function(nm) {
+              if (length(ens_dim) > 0 && nm == ens_dim[1]) {
+                ens_idx
+              } else if (length(gwl_dim) > 0 && nm == gwl_dim[1]) {
+                ig
+              } else if (nm == rp_dim) {
+                ir
+              } else if (length(season_dim) > 0 && nm == season_dim[1]) {
+                is
+              } else {
+                1L
+              }
+            }, integer(1))
+
+            layer_idx <- 1L
+            if (length(extra_dims) > 0) {
+              layer_offset <- 0L
+              stride <- 1L
+              for (j in seq_along(extra_dims)) {
+                layer_offset <- layer_offset + (dim_indices[j] - 1L) * stride
+                stride <- stride * dim_lengths[j]
+              }
+              layer_idx <- layer_offset + 1L
+            }
+
+            if (layer_idx > terra::nlyr(r)) {
+              stop(
+                "Requested layer index ", layer_idx, " exceeds available layers (",
+                terra::nlyr(r), ") in NetCDF variable '", main_var, "'."
+              )
+            }
+
+            r <- r[[layer_idx]]
+
+            # Assign extent if lon/lat vectors are available but missing in GDAL metadata
+            if (!inherits(lon_vals, "try-error") && !inherits(lat_vals, "try-error")) {
+              n_lon <- length(lon_vals)
+              n_lat <- length(lat_vals)
+
+              res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
+              res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
+
+              xmin <- min(lon_vals) - res_lon / 2
+              xmax <- max(lon_vals) + res_lon / 2
+              ymin <- min(lat_vals) - res_lat / 2
+              ymax <- max(lat_vals) + res_lat / 2
+
+              terra::ext(r) <- terra::ext(xmin, xmax, ymin, ymax)
+            }
 
             # Validate that raster is single-band
             if (terra::nlyr(r) != 1) {
@@ -399,9 +445,6 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
         }
       }
     }
-
-    # Close the NetCDF file after processing all slices
-    try(ncdf4::nc_close(nc), silent = TRUE)
   }
 
   # Combine inventory
