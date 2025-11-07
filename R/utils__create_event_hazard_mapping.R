@@ -51,10 +51,10 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
   if (!"hazard_name" %in% names(events)) {
     events_with_hazard_name <- purrr::map_dfr(seq_len(nrow(events)), function(i) {
       event_row <- events[i, ]
-      
+
       # Get primary indicator for this hazard type
       primary_ind <- config[[event_row$hazard_type]]$primary_indicator
-      
+
       # Find matching hazard_name in inventory
       matched <- hazards_inventory |>
         dplyr::filter(
@@ -63,16 +63,16 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
           .data$scenario_name == event_row$scenario_name,
           as.numeric(.data$hazard_return_period) == as.numeric(event_row$hazard_return_period)
         )
-      
+
       event_row$hazard_name <- if (nrow(matched) > 0) {
         matched$hazard_name[1]
       } else {
         NA_character_
       }
-      
+
       event_row
     })
-    
+
     events <- events_with_hazard_name
   }
 
@@ -114,7 +114,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
       if (indicator == "land_cover") {
         # Static indicator: use inventory's scenario/RP
         base_hazard_name <- matched$hazard_name[1]
-        extraction_method <- "mode"  # land_cover uses mode (categorical)
+        extraction_method <- "mode" # land_cover uses mode (categorical)
       } else {
         # Dynamic indicator: match user-selected scenario/RP
         event_rp_numeric <- as.numeric(event$hazard_return_period)
@@ -149,4 +149,3 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
 
   return(result)
 }
-

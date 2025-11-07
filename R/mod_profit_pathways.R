@@ -15,7 +15,6 @@ mod_profit_pathways_ui <- function(id) {
         class = "text-muted",
         style = "margin-bottom: 1rem;"
       ),
-
       shiny::div(
         class = "pathways-actions",
         shiny::downloadButton(
@@ -29,7 +28,7 @@ mod_profit_pathways_ui <- function(id) {
           class = "btn btn-info"
         )
       ),
-      
+
       # Controls: Log scale toggle
       shiny::div(
         style = "margin-bottom: 2rem;",
@@ -45,7 +44,7 @@ mod_profit_pathways_ui <- function(id) {
         style = "margin-top: -1rem; margin-bottom: 2.5rem; font-size: 0.85em;",
         "Log scale requires positive profits. Zero or negative profits are displayed just above zero; hover to see the original value."
       ),
-      
+
       # Asset selection table at top
       shiny::div(
         class = "asset-selection-section",
@@ -58,7 +57,7 @@ mod_profit_pathways_ui <- function(id) {
         ),
         DT::dataTableOutput(ns("assets_selection_table"))
       ),
-      
+
       # Baseline plot on top
       shiny::div(
         class = "chart-container",
@@ -66,7 +65,7 @@ mod_profit_pathways_ui <- function(id) {
         shiny::h4("Baseline Scenario", class = "chart-title"),
         plotly::plotlyOutput(ns("profit_baseline"), height = "500px")
       ),
-      
+
       # Shock plot below
       shiny::div(
         class = "chart-container",
@@ -221,7 +220,7 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
         }
       }
     )
-    
+
     # Create baseline plot
     output$profit_baseline <- plotly::renderPlotly({
       data <- baseline_data()
@@ -240,15 +239,15 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
             )
         )
       }
-      
+
       create_profit_plot(
-        data, 
-        selected_assets(), 
+        data,
+        selected_assets(),
         "Baseline",
         log_scale = input$log_scale
       )
     })
-    
+
     # Create shock plot
     output$profit_shock <- plotly::renderPlotly({
       data <- shock_data()
@@ -267,15 +266,15 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
             )
         )
       }
-      
+
       create_profit_plot(
-        data, 
-        selected_assets(), 
+        data,
+        selected_assets(),
         "Shock",
         log_scale = input$log_scale
       )
     })
-    
+
     # Asset selection table - unique assets with metadata
     output$assets_selection_table <- DT::renderDataTable({
       metadata <- asset_metadata()
@@ -283,7 +282,7 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
         session$userData$profit_pathways_assets_table <- NULL
         return(NULL)
       }
-      
+
       display <- metadata |>
         dplyr::mutate(
           share_pct = dplyr::if_else(
@@ -315,7 +314,7 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
         display <- display |>
           dplyr::rename(Subtype = asset_subtype)
       }
-      
+
       session$userData$profit_pathways_assets_table <- display
 
       DT::datatable(
@@ -328,14 +327,14 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
         selection = "multiple"
       )
     })
-    
+
     # Update selected assets when table rows are clicked
     shiny::observeEvent(input$assets_selection_table_rows_selected, {
       metadata <- asset_metadata()
       if (nrow(metadata) == 0) {
         return()
       }
-      
+
       selected_rows <- input$assets_selection_table_rows_selected
       if (length(selected_rows) == 0) {
         selected_assets(character(0))
@@ -359,10 +358,10 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
   if (is.null(data) || nrow(data) == 0) {
     return(plotly::plot_ly())
   }
-  
+
   # Get unique assets
   unique_assets <- unique(data$asset)
-  
+
   # Prepare columns used for plotting and hovering
   data <- data |>
     dplyr::mutate(
@@ -370,7 +369,7 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
       profit_for_hover = .data$profit,
       profit_clipped_text = ""
     )
-  
+
   # Handle log scale: clip non-positive values while keeping hover information
   if (log_scale) {
     positive_values <- data |>
@@ -406,7 +405,7 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
         profit_clipped_text = ""
       )
   }
-  
+
   palette_brazil <- list(
     green = "#009C3B",
     yellow = "#FFDF00",
@@ -416,16 +415,16 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
 
   # Create base plot
   p <- plotly::plot_ly()
-  
+
   # Add a trace for each asset
   for (asset_name in unique_assets) {
     asset_data <- data |>
       dplyr::filter(.data$asset == !!asset_name)
-    
+
     if (nrow(asset_data) == 0) {
       next
     }
-    
+
     # Determine if this asset is highlighted
     is_highlighted <- asset_name %in% highlighted_assets
 
@@ -479,18 +478,18 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
         hovertemplate = hovertemplate_str
       )
   }
-  
+
   # Configure y-axis based on scale type
   yaxis_config <- list(
     title = if (log_scale) "Profit (R$, log scale)" else "Profit (R$)",
     showgrid = TRUE,
     gridcolor = "#DDE5EC"
   )
-  
+
   if (log_scale) {
     yaxis_config$type <- "log"
   }
-  
+
   # Layout
   p <- p |>
     plotly::layout(
@@ -515,7 +514,6 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
       ),
       margin = list(l = 80, r = 150, t = 50, b = 60)
     )
-  
+
   p
 }
-

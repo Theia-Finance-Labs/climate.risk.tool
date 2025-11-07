@@ -101,4 +101,3 @@ testthat::test_that("create_profit_plot retains non-positive profits on log scal
   testthat::expect_equal(trace_b_custom, -50)
   testthat::expect_true(all(trace_b_text == ""))
 })
-

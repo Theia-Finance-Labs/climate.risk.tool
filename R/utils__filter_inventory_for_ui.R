@@ -52,7 +52,7 @@ filter_inventory_for_ui <- function(inventory) {
 
   # Get unique hazard types actually present in inventory
   present_types <- unique(inventory_configured$hazard_type)
-  
+
   # For each hazard type present in inventory, keep only primary indicator rows
   ui_inventory <- purrr::map_dfr(present_types, function(htype) {
     primary_ind <- config[[htype]]$primary_indicator
@@ -75,4 +75,3 @@ filter_inventory_for_ui <- function(inventory) {
 
   return(ui_inventory)
 }
-

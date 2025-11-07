@@ -261,4 +261,3 @@ testthat::test_that("join_drought_damage_factors: off-season with single growing
   testthat::expect_true(!is.na(out$off_window))
   testthat::expect_true(grepl("Summer", out$growing_season)) # Should reference the actual growing season
 })
-

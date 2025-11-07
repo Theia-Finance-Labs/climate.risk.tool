@@ -554,10 +554,10 @@ validate_economic_activity_shares <- function(assets_df, validation_results) {
 
       validation_results$errors <- c(
         validation_results$errors,
-          paste0(
-            "Company '", company_name, "' has ", n_assets, " assets with total share = ",
-            round(total_share, 4), " (should be 1.0 \u00b1 ", tolerance, ")"
-          )
+        paste0(
+          "Company '", company_name, "' has ", n_assets, " assets with total share = ",
+          round(total_share, 4), " (should be 1.0 \u00b1 ", tolerance, ")"
+        )
       )
     }
   }

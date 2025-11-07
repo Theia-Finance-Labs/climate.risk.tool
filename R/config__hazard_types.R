@@ -30,7 +30,7 @@ get_hazard_type_config <- function() {
   list(
     Fire = list(
       indicators = c("land_cover", "FWI", "days_danger_total"),
-      primary_indicator = "FWI",  # FWI and days_danger_total share same scenario/RP
+      primary_indicator = "FWI", # FWI and days_danger_total share same scenario/RP
       description = "Fire risk combining land cover, fire weather index, and danger days"
     ),
     Flood = list(
@@ -39,12 +39,12 @@ get_hazard_type_config <- function() {
       description = "Flood depth in centimeters"
     ),
     Heat = list(
-      indicators = c("HI"),  # Heat Index from NetCDF
+      indicators = c("HI"), # Heat Index from NetCDF
       primary_indicator = "HI",
       description = "Heat climate hazard"
     ),
     Drought = list(
-      indicators = c("SPI3"),  # Standardized Precipitation Index 3-month from NetCDF
+      indicators = c("SPI3"), # Standardized Precipitation Index 3-month from NetCDF
       primary_indicator = "SPI3",
       description = "Drought hazard"
     )
@@ -62,7 +62,9 @@ get_hazard_type_config <- function() {
 #' @noRd
 is_multi_indicator_hazard <- function(hazard_type) {
   config <- get_hazard_type_config()
-  if (!hazard_type %in% names(config)) return(FALSE)
+  if (!hazard_type %in% names(config)) {
+    return(FALSE)
+  }
   length(config[[hazard_type]]$indicators) > 1
 }
 
@@ -77,7 +79,9 @@ is_multi_indicator_hazard <- function(hazard_type) {
 #' @noRd
 get_primary_indicator <- function(hazard_type) {
   config <- get_hazard_type_config()
-  if (!hazard_type %in% names(config)) return(NA_character_)
+  if (!hazard_type %in% names(config)) {
+    return(NA_character_)
+  }
   config[[hazard_type]]$primary_indicator
 }
 
@@ -91,7 +95,8 @@ get_primary_indicator <- function(hazard_type) {
 #' @noRd
 get_required_indicators <- function(hazard_type) {
   config <- get_hazard_type_config()
-  if (!hazard_type %in% names(config)) return(NULL)
+  if (!hazard_type %in% names(config)) {
+    return(NULL)
+  }
   config[[hazard_type]]$indicators
 }
-

@@ -188,7 +188,7 @@ compute_risk <- function(assets,
     events <- events |>
       dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
   }
-  
+
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
 
@@ -223,7 +223,7 @@ compute_risk <- function(assets,
   # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
   # For single-indicator hazards, use hazard_name directly
   events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, aggregation_method)
-  
+
   assets_with_events <- assets_long |>
     dplyr::inner_join(
       events_expanded_for_join |> dplyr::select("hazard_name", "event_id", "event_year"),

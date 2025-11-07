@@ -41,7 +41,6 @@ compute_profits_from_revenue <- function(
   yearly_revenue_df,
   companies
 ) {
-
   # Join with companies to get company-specific net profit margin
   result <- yearly_revenue_df |>
     dplyr::left_join(
@@ -60,7 +59,7 @@ compute_profits_from_revenue <- function(
   # Formula: profit = revenue * net_profit_margin
   result <- result |>
     dplyr::mutate(profit = .data$revenue * .data$net_profit_margin) |>
-    dplyr::select(-"net_profit_margin")  # Remove the joined column
+    dplyr::select(-"net_profit_margin") # Remove the joined column
 
   return(result)
 }

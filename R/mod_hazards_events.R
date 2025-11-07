@@ -66,7 +66,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
 
       # Get primary indicator for this hazard type (from config)
       hazard_indicator_val <- get_primary_indicator(haz_type)
-      
+
       if (is.na(hazard_indicator_val)) {
         message("[mod_hazards_events] Unknown hazard type: ", haz_type)
         counter(k + 1L)
@@ -76,7 +76,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       # Find hazard_name from UI inventory
       ui_inv <- try(ui_inventory(), silent = TRUE)
       hazard_name_val <- NA_character_
-      
+
       if (!inherits(ui_inv, "try-error") && (tibble::is_tibble(ui_inv) || is.data.frame(ui_inv)) && nrow(ui_inv) > 0) {
         matched <- ui_inv |>
           dplyr::filter(
@@ -84,7 +84,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
             .data$scenario_name == scenario,
             .data$hazard_return_period == return_period
           )
-        
+
         if (nrow(matched) > 0) {
           # Get hazard_name from full inventory for the primary indicator
           full_inv <- try(hazards_inventory(), silent = TRUE)
@@ -96,7 +96,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
                 .data$scenario_name == scenario,
                 .data$hazard_return_period == return_period
               )
-            
+
             if (nrow(full_matched) > 0) {
               hazard_name_val <- full_matched$hazard_name[1]
             }
@@ -120,7 +120,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       } else {
         NA_character_
       }
-      
+
       # For drought with season, refine hazard_name lookup to match the selected season
       # The inventory (from CSV loader) now includes season in hazard_name
       if (haz_type == "Drought" && !is.na(event_season)) {
@@ -137,7 +137,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
                 .data$hazard_return_period == return_period,
                 .data$season == event_season
               )
-            
+
             if (nrow(season_matched) > 0) {
               hazard_name_val <- season_matched$hazard_name[1]
             }
@@ -148,8 +148,8 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       new_row <- tibble::tibble(
         event_id = paste0("ev", nrow(events_rv()) + 1L),
         hazard_type = haz_type,
-        hazard_indicator = hazard_indicator_val,  # Primary indicator
-        hazard_name = hazard_name_val,            # Primary indicator's hazard_name (with season for drought)
+        hazard_indicator = hazard_indicator_val, # Primary indicator
+        hazard_name = hazard_name_val, # Primary indicator's hazard_name (with season for drought)
         scenario_name = scenario,
         hazard_return_period = as.numeric(return_period),
         event_year = as.integer(input[[paste0("year_", k)]]),
@@ -175,7 +175,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           # Get scenarios for first hazard type (primary indicator only)
           first_hazard <- hazard_type_choices[[1]]
           scenario_choices <- unique(ui_inv$scenario_name[ui_inv$hazard_type == first_hazard])
-          
+
           if (length(scenario_choices) > 0) {
             # Get return periods for first hazard type and scenario (primary indicator only)
             first_scenario <- scenario_choices[[1]]

@@ -285,7 +285,6 @@ apply_drought_shock <- function(yearly_trajectories, event, assets_factors) {
 #' @return tibble with revenue adjusted for Fire damage to agriculture
 #' @noRd
 apply_fire_revenue_shock <- function(yearly_trajectories, event, assets_factors) {
-
   # Filter Fire assets for agriculture only
   # Fire affects agriculture through revenue shock
   fire_assets <- assets_factors |>
@@ -306,9 +305,9 @@ apply_fire_revenue_shock <- function(yearly_trajectories, event, assets_factors)
     dplyr::mutate(
       year = event$event_year,
       # Calculate fire damage percentage
-      fire_damage_pct = as.numeric(.data$land_cover_risk) * 
-                       as.numeric(.data$damage_factor) * 
-                       (as.numeric(.data$days_danger_total) / 365)
+      fire_damage_pct = as.numeric(.data$land_cover_risk) *
+        as.numeric(.data$damage_factor) *
+        (as.numeric(.data$days_danger_total) / 365)
     ) |>
     dplyr::select("asset", "year", "fire_damage_pct")
 

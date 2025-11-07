@@ -119,12 +119,12 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
           # Create button HTML with onclick handler
           paste0(
             '<button class="btn btn-danger btn-sm" onclick="Shiny.setInputValue(\'',
-            ns('delete_event'),
-            '\', \'',
+            ns("delete_event"),
+            "', '",
             event_id,
             '\', {priority: \'event\'});" style="padding: 2px 8px; margin: 0;">',
             '<i class="fa fa-trash"></i>',
-            '</button>'
+            "</button>"
           )
         })
         display_data$Actions <- delete_buttons

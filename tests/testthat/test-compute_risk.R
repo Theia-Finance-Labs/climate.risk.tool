@@ -97,10 +97,10 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     # Fire should have all three indicators (land_cover, FWI, days_danger_total)
     fire_indicators <- unique(fire_assets$hazard_indicator)
     testthat::expect_true("land_cover" %in% fire_indicators || "FWI" %in% fire_indicators || "days_danger_total" %in% fire_indicators)
-    
+
     # Fire should have land_cover_risk column from join_fire_damage_factors
     testthat::expect_true("land_cover_risk" %in% names(res$assets_factors))
-    
+
     # Fire should affect both agriculture (revenue) and buildings (profit)
     fire_asset_categories <- unique(fire_assets$asset_category)
     testthat::expect_true(any(fire_asset_categories %in% c("agriculture", "commercial building", "industrial building")))

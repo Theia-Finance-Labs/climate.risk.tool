@@ -11,7 +11,7 @@ testthat::test_that("get_hazard_type_config returns Fire configuration with 3 in
   config <- get_hazard_type_config()
 
   testthat::expect_true("Fire" %in% names(config))
-  
+
   fire_config <- config$Fire
   testthat::expect_equal(length(fire_config$indicators), 3)
   testthat::expect_true("land_cover" %in% fire_config$indicators)
@@ -40,7 +40,7 @@ testthat::test_that("get_primary_indicator returns correct primary indicator for
 
 testthat::test_that("get_required_indicators returns all 3 indicators for Fire", {
   indicators <- get_required_indicators("Fire")
-  
+
   testthat::expect_equal(length(indicators), 3)
   testthat::expect_true("land_cover" %in% indicators)
   testthat::expect_true("FWI" %in% indicators)
@@ -74,4 +74,3 @@ testthat::test_that("get_primary_indicator returns NA for unknown hazard type", 
 testthat::test_that("is_multi_indicator_hazard returns FALSE for unknown hazard type", {
   testthat::expect_false(is_multi_indicator_hazard("UnknownHazard"))
 })
-

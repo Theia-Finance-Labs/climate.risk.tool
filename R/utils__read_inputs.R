@@ -469,7 +469,7 @@ read_precomputed_hazards <- function(base_dir) {
     # Create rows for this ensemble
     # Check if season column exists for drought hazards
     has_season <- "season" %in% names(precomputed_df)
-    
+
     if (has_season) {
       ensemble_data <- precomputed_df |>
         dplyr::mutate(
@@ -584,23 +584,23 @@ read_hazards_mapping <- function(mapping_path) {
 #' @export
 read_land_cover_legend <- function(base_dir) {
   file_path <- file.path(base_dir, "land_cover_legend_and_index.xlsx")
-  
+
   if (!file.exists(file_path)) {
     stop("Land cover legend file not found: ", file_path)
   }
-  
+
   message("[read_land_cover_legend] Reading land cover legend from: ", file_path)
-  
+
   # Read Excel file
   legend_df <- readxl::read_excel(file_path)
-  
+
   # Validate required columns
   required_cols <- c("Code", "Class", "Category", "Risk")
   missing_cols <- setdiff(required_cols, names(legend_df))
   if (length(missing_cols) > 0) {
     stop("Land cover legend file missing required columns: ", paste(missing_cols, collapse = ", "))
   }
-  
+
   # Rename and clean
   legend_clean <- legend_df |>
     dplyr::select(
@@ -613,9 +613,9 @@ read_land_cover_legend <- function(base_dir) {
       land_cover_code = as.numeric(.data$land_cover_code),
       land_cover_risk = as.numeric(.data$land_cover_risk)
     )
-  
+
   message("[read_land_cover_legend] Loaded ", nrow(legend_clean), " land cover categories")
-  
+
   return(legend_clean)
 }
 
@@ -639,45 +639,47 @@ read_land_cover_legend <- function(base_dir) {
 load_region_name_mapping <- function(base_dir) {
   # Initialize result list
   mapping <- list(province = character(0), municipality = character(0))
-  
+
   # Load province (ADM1) names
   province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
   if (file.exists(province_path)) {
     provinces_sf <- sf::st_read(province_path, quiet = TRUE)
-    
+
     if ("shapeName" %in% names(provinces_sf)) {
       # Get original names
       original_names <- as.character(provinces_sf$shapeName)
-      
+
       # Get normalized names (same way as used throughout the codebase)
       normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
-      
+
       # Create mapping: normalized -> original
       mapping$province <- original_names
       names(mapping$province) <- normalized_names
     }
   }
-  
+
   # Load municipality (ADM2) names
   municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
   if (file.exists(municipality_path)) {
     municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE)
-    
+
     if ("shapeName" %in% names(municipalities_sf)) {
       # Get original names
       original_names <- as.character(municipalities_sf$shapeName)
-      
+
       # Get normalized names (same way as used throughout the codebase)
       normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
-      
+
       # Create mapping: normalized -> original
       mapping$municipality <- original_names
       names(mapping$municipality) <- normalized_names
     }
   }
-  
-  message("[load_region_name_mapping] Loaded ", length(mapping$province), " province names and ", 
-          length(mapping$municipality), " municipality names")
-  
+
+  message(
+    "[load_region_name_mapping] Loaded ", length(mapping$province), " province names and ",
+    length(mapping$municipality), " municipality names"
+  )
+
   return(mapping)
 }

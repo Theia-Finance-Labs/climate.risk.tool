@@ -9,7 +9,7 @@ mod_company_analysis_ui <- function(id) {
     shiny::div(
       class = "company-analysis-container",
       shiny::h3("Company Financial Analysis", class = "results-title"),
-      
+
       # Company Results Table
       shiny::div(
         class = "results-section",
@@ -44,7 +44,7 @@ mod_company_analysis_ui <- function(id) {
           plotly::plotlyOutput(ns("expected_loss_change_plot"), height = "500px")
         )
       ),
-      
+
       # Portfolio Summary Plot
       shiny::div(
         class = "chart-section",
@@ -83,7 +83,7 @@ mod_company_analysis_server <- function(id, results_reactive) {
       has_results(new_has_results)
       message("[mod_company_analysis] has_results updated to: ", new_has_results)
     })
-    
+
     # Expected Loss Change Plot
     output$expected_loss_change_plot <- plotly::renderPlotly({
       message("[mod_company_analysis] Expected loss plot render triggered - has_results: ", has_results())
@@ -110,7 +110,7 @@ mod_company_analysis_server <- function(id, results_reactive) {
       message("[mod_company_analysis] Rendering expected loss plot, nrows=", nrow(results$companies))
       create_expected_loss_change_plot(results$companies)
     })
-    
+
     # Portfolio Summary Plot
     output$portfolio_summary_plot <- plotly::renderPlotly({
       message("[mod_company_analysis] Portfolio summary plot render triggered - has_results: ", has_results())
@@ -139,19 +139,19 @@ mod_company_analysis_server <- function(id, results_reactive) {
       message("[mod_company_analysis] Summary data: ", nrow(summary_data), " rows")
       create_portfolio_summary_plot(summary_data)
     })
-    
+
     # Companies table
     output$companies_table <- DT::renderDataTable({
       results <- results_reactive()
       if (is.null(results) || is.null(results$companies)) {
         return(NULL)
       }
-      
+
       companies <- results$companies
-      
+
       # Create a display copy for formatting
       companies_display <- companies
-      
+
       # Format numeric columns for better display
       for (col in names(companies_display)) {
         if (is.numeric(companies_display[[col]])) {
@@ -167,7 +167,7 @@ mod_company_analysis_server <- function(id, results_reactive) {
           }
         }
       }
-      
+
       DT::datatable(
         companies_display,
         options = list(
@@ -226,7 +226,7 @@ create_expected_loss_change_plot <- function(companies_df) {
   if (is.null(companies_df) || nrow(companies_df) == 0) {
     return(plotly::plot_ly())
   }
-  
+
   # Check if Expected_loss_change_pct column exists
   if (!"Expected_loss_change_pct" %in% names(companies_df)) {
     return(
@@ -243,12 +243,12 @@ create_expected_loss_change_plot <- function(companies_df) {
         )
     )
   }
-  
+
   # Sort by Expected_loss_change_pct descending
   plot_data <- companies_df |>
     dplyr::arrange(dplyr::desc(.data$Expected_loss_change_pct)) |>
     dplyr::mutate(company = factor(.data$company, levels = .data$company))
-  
+
   palette_brazil <- list(
     green = "#009C3B",
     yellow = "#FFDF00",
@@ -257,7 +257,7 @@ create_expected_loss_change_plot <- function(companies_df) {
 
   # Determine bar colors (yellow for increase, green for decrease)
   bar_colors <- ifelse(plot_data$Expected_loss_change_pct > 0, palette_brazil$yellow, palette_brazil$green)
-  
+
   # Create plot
   p <- plotly::plot_ly(
     data = plot_data,
@@ -284,7 +284,7 @@ create_expected_loss_change_plot <- function(companies_df) {
       hovermode = "closest",
       margin = list(l = 60, r = 20, t = 40, b = 120)
     )
-  
+
   p
 }
 
@@ -297,7 +297,7 @@ create_portfolio_summary_plot <- function(summary_data) {
   if (is.null(summary_data) || nrow(summary_data) == 0) {
     return(plotly::plot_ly())
   }
-  
+
   # Define colors for each metric
   palette_brazil <- list(
     green = "#009C3B",
@@ -310,9 +310,9 @@ create_portfolio_summary_plot <- function(summary_data) {
     "Shock" = palette_brazil$green,
     "Difference" = palette_brazil$yellow
   )
-  
+
   colors_vec <- sapply(summary_data$metric, function(m) bar_colors[m])
-  
+
   # Create plot
   p <- plotly::plot_ly(
     data = summary_data,
@@ -340,7 +340,6 @@ create_portfolio_summary_plot <- function(summary_data) {
       hovermode = "closest",
       margin = list(l = 80, r = 20, t = 40, b = 60)
     )
-  
+
   p
 }
-

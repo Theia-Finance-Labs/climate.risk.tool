@@ -53,7 +53,7 @@ testthat::test_that("join_fire_damage_factors handles Fire hazard with all three
 
   # Should pivot to wide format: 2 assets (not 6 rows)
   testthat::expect_equal(nrow(out), 2)
-  
+
   # Should have all required columns
   required_cols <- c(
     "asset", "company", "hazard_type", "hazard_indicator", "hazard_intensity",
@@ -64,10 +64,10 @@ testthat::test_that("join_fire_damage_factors handles Fire hazard with all three
 
   # All assets should have Fire hazard_type
   testthat::expect_true(all(out$hazard_type == "Fire"))
-  
+
   # hazard_indicator should be "FWI" (primary indicator)
   testthat::expect_true(all(out$hazard_indicator == "FWI"))
-  
+
   # hazard_intensity should contain FWI values (not land_cover codes)
   testthat::expect_true(all(out$hazard_intensity %in% c(25, 35)))
 })
@@ -204,7 +204,7 @@ testthat::test_that("join_fire_damage_factors caps FWI values at maximum 50", {
   # The damage_factor should match FWI=50 in the damage factors table
   # We check that damage_factor exists and is not NA (indicating successful lookup at FWI=50)
   testthat::expect_true(!is.na(out$damage_factor))
-  
+
   # Find damage factor for FWI=50 for commercial building
   fwi_50_factor <- damage_factors |>
     dplyr::filter(
@@ -355,19 +355,23 @@ testthat::test_that("join_fire_damage_factors handles agriculture vs commercial/
   out <- join_fire_damage_factors(fire_assets_long, damage_factors, land_cover_legend)
 
   testthat::expect_equal(nrow(out), 2)
-  
+
   # Get damage factors for agriculture and commercial building
   ag_factors <- damage_factors |>
-    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "FWI",
-                  .data$asset_category == "agriculture", .data$hazard_intensity == 25)
+    dplyr::filter(
+      .data$hazard_type == "Fire", .data$hazard_indicator == "FWI",
+      .data$asset_category == "agriculture", .data$hazard_intensity == 25
+    )
   com_factors <- damage_factors |>
-    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "FWI",
-                  .data$asset_category == "commercial building", .data$hazard_intensity == 25)
+    dplyr::filter(
+      .data$hazard_type == "Fire", .data$hazard_indicator == "FWI",
+      .data$asset_category == "commercial building", .data$hazard_intensity == 25
+    )
 
   if (nrow(ag_factors) > 0 && nrow(com_factors) > 0) {
     ag_asset <- out |> dplyr::filter(.data$asset_category == "agriculture")
     com_asset <- out |> dplyr::filter(.data$asset_category == "commercial building")
-    
+
     testthat::expect_equal(ag_asset$damage_factor, ag_factors$damage_factor[1], tolerance = 0.001)
     testthat::expect_equal(com_asset$damage_factor, com_factors$damage_factor[1], tolerance = 0.001)
   }
@@ -414,4 +418,3 @@ testthat::test_that("join_fire_damage_factors sets business_disruption to NA", {
   # business_disruption should be NA for Fire (not used)
   testthat::expect_true(all(is.na(out$business_disruption)))
 })
-

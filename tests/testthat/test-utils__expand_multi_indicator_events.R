@@ -195,4 +195,3 @@ testthat::test_that("expand_multi_indicator_events handles empty events", {
   # Should return empty
   testthat::expect_equal(nrow(expanded), 0)
 })
-

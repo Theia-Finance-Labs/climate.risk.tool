@@ -149,9 +149,9 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
     single_events <- single_events |>
       dplyr::mutate(hazard_return_period = as.numeric(.data$hazard_return_period))
   }
-  
+
   # Expanded events already have numeric hazard_return_period from above
-  
+
   # Combine single-indicator events with expanded multi-indicator events
   result <- dplyr::bind_rows(single_events, expanded)
 
@@ -162,4 +162,3 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
 
   return(result)
 }
-

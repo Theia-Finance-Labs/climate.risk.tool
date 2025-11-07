@@ -8,11 +8,11 @@ create_color_palette <- function(n_categories, palette_name = "Set3") {
   if (n_categories <= 1) {
     return("#009C3B")
   }
-  
+
   if (n_categories <= 12) {
     return(RColorBrewer::brewer.pal(min(n_categories, 12), palette_name))
   }
-  
+
   # For more than 12 categories, interpolate
   base_colors <- RColorBrewer::brewer.pal(12, palette_name)
   grDevices::colorRampPalette(base_colors)(n_categories)
@@ -93,11 +93,11 @@ compute_portfolio_summary <- function(companies_df) {
       value = numeric()
     ))
   }
-  
+
   # Check if expected loss columns exist
   has_baseline <- "Expected_loss_baseline" %in% names(companies_df)
   has_shock <- "Expected_loss_shock" %in% names(companies_df)
-  
+
   if (!has_baseline || !has_shock) {
     # Try to extract from scenario column if pivoted format
     if ("scenario" %in% names(companies_df) && "Expected_loss" %in% names(companies_df)) {
@@ -105,12 +105,12 @@ compute_portfolio_summary <- function(companies_df) {
         dplyr::filter(.data$scenario == "baseline") |>
         dplyr::pull(.data$Expected_loss) |>
         sum(na.rm = TRUE)
-      
+
       shock_sum <- companies_df |>
         dplyr::filter(.data$scenario != "baseline") |>
         dplyr::pull(.data$Expected_loss) |>
         sum(na.rm = TRUE)
-      
+
       difference <- shock_sum - baseline_sum
     } else {
       return(tibble::tibble(
@@ -124,7 +124,7 @@ compute_portfolio_summary <- function(companies_df) {
     shock_sum <- sum(companies_df$Expected_loss_shock, na.rm = TRUE)
     difference <- shock_sum - baseline_sum
   }
-  
+
   tibble::tibble(
     metric = c("Baseline", "Shock", "Difference"),
     value = c(baseline_sum, shock_sum, difference)
@@ -224,4 +224,3 @@ attach_sector_metadata <- function(df, cnae_exposure = NULL) {
       "sector_description"
     )))
 }
-
