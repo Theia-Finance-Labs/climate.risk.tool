@@ -250,7 +250,7 @@ testthat::test_that("CSV hazards use specified aggregation method", {
   # Define Heat HI events (CSV files available in test data)
   # Include ensemble suffix for CSV hazards
   events <- tibble::tibble(
-    hazard_name = c("Compound__HI__GWL=present__RP=10__ensemble=mean", "Compound__HI__GWL=present__RP=5__ensemble=mean"),
+    hazard_name = c("Heat__HI__GWL=present__RP=10__ensemble=mean", "Heat__HI__GWL=present__RP=5__ensemble=mean"),
     event_year = c(2030, 2030)
   )
 

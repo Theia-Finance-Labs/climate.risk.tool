@@ -473,6 +473,7 @@ run_app(base_dir = "path/to/data")
 
 ### Recent Updates
 - Added `test-mod_profit_pathways.R` to cover log-scale clipping logic for non-positive asset profits so charts remain informative.
+- Added drought zero-flooring regression test in `test-shock__apply_acute_revenue_shock.R` to lock revenue at or above zero for extreme damage factors across hazards.
 
 ### Environment Variables for Testing
 ```bash

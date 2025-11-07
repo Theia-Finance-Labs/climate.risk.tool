@@ -29,8 +29,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
       "Flood__depth(cm)__GWL=pc__RP=10",
       "Flood__depth(cm)__GWL=pc__RP=10",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Compound__HI__GWL=present__RP=10__ensemble=mean",
-      "Compound__HI__GWL=2__RP=10__ensemble=mean",
+      "Heat__HI__GWL=present__RP=10__ensemble=mean",
+      "Heat__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
       "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean",
       "Fire__FWI__GWL=3__RP=50__ensemble=mean"
@@ -111,13 +111,13 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     dplyr::group_by(.data$matching_method) |>
     dplyr::summarise(
       has_flood = any(grepl("Flood", .data$hazard_name)),
-      has_compound = any(grepl("Heat", .data$hazard_name)),
+      has_heat = any(grepl("Heat", .data$hazard_name)),
       has_fire = any(grepl("Fire", .data$hazard_name)),
       .groups = "drop"
     )
   if (nrow(mm_cov) > 0) {
     testthat::expect_true(all(mm_cov$has_flood))
-    testthat::expect_true(all(mm_cov$has_compound))
+    testthat::expect_true(all(mm_cov$has_heat))
     # Fire may not be present for all matching methods (depends on test data)
     # Just verify it exists for at least one method
     testthat::expect_true(any(mm_cov$has_fire))
@@ -172,8 +172,8 @@ testthat::test_that("compute_risk produces stable snapshot output", {
       "Flood__depth(cm)__GWL=pc__RP=10",
       "Flood__depth(cm)__GWL=pc__RP=10",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Compound__HI__GWL=present__RP=10__ensemble=mean",
-      "Compound__HI__GWL=2__RP=10__ensemble=mean",
+      "Heat__HI__GWL=present__RP=10__ensemble=mean",
+      "Heat__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
       "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
     ),
