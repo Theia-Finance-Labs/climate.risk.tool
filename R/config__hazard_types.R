@@ -36,7 +36,12 @@ get_hazard_type_config <- function() {
     Flood = list(
       indicators = c("depth(cm)"),
       primary_indicator = "depth(cm)",
-      description = "Flood depth in centimeters"
+      description = "Flood depth in centimeters (TIF)"
+    ),
+    FloodNC = list(
+      indicators = c("depth(cm)"),
+      primary_indicator = "depth(cm)",
+      description = "Flood depth in centimeters (NetCDF)"
     ),
     Heat = list(
       indicators = c("HI"), # Heat Index from NetCDF
