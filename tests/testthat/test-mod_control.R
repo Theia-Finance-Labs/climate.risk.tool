@@ -1,3 +1,10 @@
+testthat::test_that("mod_control_ui renders hazard config upload", {
+  ui <- mod_control_ui("ctrl")
+  html <- htmltools::renderTags(ui)$html
+  testthat::expect_true(grepl("ctrl-company_file", html))
+  testthat::expect_true(grepl("ctrl-upload_hazard_config", html))
+})
+
 testthat::test_that("mod_control_server uses default aggregation factor 1 for hazard loading", {
   testthat::skip_on_cran()
   testthat::skip_on_ci()

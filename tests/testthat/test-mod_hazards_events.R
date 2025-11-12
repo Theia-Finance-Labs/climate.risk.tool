@@ -3,7 +3,49 @@ testthat::test_that("mod_hazards_events_ui renders controls", {
   html <- htmltools::renderTags(ui)$html
   testthat::expect_true(grepl("hz-add_event", html))
   testthat::expect_true(grepl("Hazard events", html))
+  testthat::expect_true(grepl("hz-download_config", html))
 })
+testthat::test_that("mod_hazards_events_server loads events via load_config function", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
+
+  inventory_df <- tibble::tibble(
+    hazard_type = c("Heat"),
+    hazard_indicator = c("HI"),
+    scenario_name = c("GWL=2.0"),
+    hazard_return_period = c(50),
+    hazard_name = c("Heat__HI__GWL=2.0__RP=50")
+  )
+
+  config_df <- tibble::tibble(
+    hazard_type = "Heat",
+    scenario_name = "GWL=2.0",
+    hazard_return_period = 50,
+    event_year = 2040,
+    season = NA_character_
+  )
+
+  tmp <- tempfile(fileext = ".xlsx")
+  writexl::write_xlsx(config_df, tmp)
+
+  shiny::testServer(mod_hazards_events_server, args = list(
+    id = "hz",
+    hazards_inventory = shiny::reactive(inventory_df)
+  ), {
+    ret <- session$returned
+    load_config_fn <- ret$load_config
+    load_config_fn(tmp)
+
+    ev <- events_rv()
+    testthat::expect_equal(nrow(ev), 1)
+    testthat::expect_equal(ev$hazard_type[1], "Heat")
+    testthat::expect_equal(ev$scenario_name[1], "GWL=2.0")
+    testthat::expect_equal(ev$hazard_return_period[1], 50)
+    testthat::expect_equal(ev$event_year[1], 2040L)
+    testthat::expect_true(is.na(ev$season[1]))
+  })
+})
+
 
 testthat::test_that("mod_hazards_events_server exposes events reactive", {
   testthat::skip_on_ci()
