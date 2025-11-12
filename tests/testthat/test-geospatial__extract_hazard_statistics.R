@@ -158,6 +158,57 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
 })
 
 
+testthat::test_that("extract_precomputed_statistics errors when a required hazard is missing", {
+  assets <- tibble::tibble(
+    asset = "asset_missing",
+    company = "company_a",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = "TestMunicipality",
+    province = "TestProvince",
+    asset_category = "office",
+    asset_subtype = NA_character_,
+    size_in_m2 = 1000,
+    share_of_economic_activity = 1,
+    cnae = NA_real_
+  )
+
+  hazards_inventory <- tibble::tibble(
+    hazard_name = c(
+      "Flood__depth(cm)__GWL=pc__RP=10",
+      "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean"
+    ),
+    hazard_type = c("Flood", "Drought"),
+    hazard_indicator = c("depth(cm)", "SPI3"),
+    hazard_return_period = c(10, 5),
+    scenario_name = c("CurrentClimate", "present"),
+    source = c("tif", "nc")
+  )
+
+  precomputed_hazards <- tibble::tibble(
+    region = "TestMunicipality",
+    adm_level = "ADM2",
+    hazard_name = "Flood__depth(cm)__GWL=pc__RP=10",
+    hazard_type = "Flood",
+    hazard_indicator = "depth(cm)",
+    hazard_return_period = 10,
+    scenario_name = "CurrentClimate",
+    aggregation_method = "mean",
+    hazard_value = 0.2
+  )
+
+  testthat::expect_error(
+    extract_precomputed_statistics(
+      assets_df = assets,
+      precomputed_hazards = precomputed_hazards,
+      hazards_inventory = hazards_inventory,
+      aggregation_method = "mean"
+    ),
+    regexp = "Missing precomputed hazard data.*Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean"
+  )
+})
+
+
 testthat::test_that("extract_hazard_statistics errors for missing precomputed hazard, scenario or region", {
   base_dir <- get_test_data_dir()
   precomputed <- read_precomputed_hazards(base_dir)
@@ -207,7 +258,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     # Should error with message about missing hazards
     expect_case1 <- testthat::expect_error(
       extract_hazard_statistics(asset_missing_hazard, hazards, inventory, precomputed),
-      regexp = "No data found.*No match found.*required hazards"
+      regexp = "Missing precomputed hazard data.*hazards"
     )
   }
 

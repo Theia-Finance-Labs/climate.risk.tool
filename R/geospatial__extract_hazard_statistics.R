@@ -366,20 +366,23 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     required_hazard_names <- required_hazards_other |> dplyr::pull(.data$hazard_name)
 
     # Filter by hazard_name first
-    matched_data <- matched_data |>
+    hazard_matches <- matched_data |>
       dplyr::filter(.data$hazard_name %in% required_hazard_names)
 
-    # Check if we got all required hazards
-    found_combos <- matched_data |>
-      dplyr::distinct(.data$hazard_type, .data$hazard_indicator, .data$scenario_name, .data$hazard_return_period)
+    if (length(required_hazard_names) > 0) {
+      missing_hazards <- setdiff(required_hazard_names, unique(hazard_matches$hazard_name))
 
-    # If matched_data is empty and we're not strictly validating, skip this asset
-    if (nrow(matched_data) == 0) {
-      stop(
-        "No data found for asset ", i, " (", asset_name, "). No match found in precomputed data for municipality='", municipality,
-        "' or province='", province, "' for the required hazards."
-      )
+      if (length(missing_hazards) > 0) {
+        stop(
+          "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
+          "Could not find hazards: ", paste(missing_hazards, collapse = ", "),
+          " when matching municipality='", municipality, "' or province='", province, "'."
+        )
+      }
     }
+
+    # Use filtered hazard matches for further processing
+    matched_data <- hazard_matches
 
     # Special handling for drought hazards with agriculture assets: check growing season matching
     # This applies the same logic as the coordinate-based extraction
@@ -451,7 +454,22 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     # Transform precomputed data to match expected output format
     # Filter by the chosen aggregation method (ensemble)
     asset_hazard_data <- matched_data |>
-      dplyr::filter(.data$aggregation_method == aggregation_method) |>
+      dplyr::filter(.data$aggregation_method == aggregation_method)
+
+    if (length(required_hazard_names) > 0) {
+      missing_agg_hazards <- setdiff(required_hazard_names, unique(asset_hazard_data$hazard_name))
+
+      if (length(missing_agg_hazards) > 0) {
+        stop(
+          "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
+          "Aggregation method '", aggregation_method, "' not available for hazards: ",
+          paste(missing_agg_hazards, collapse = ", "),
+          ". Checked municipality='", municipality, "' and province='", province, "'."
+        )
+      }
+    }
+
+    asset_hazard_data <- asset_hazard_data |>
       dplyr::mutate(
         # Extract the value from the column matching the aggregation method
         hazard_intensity = .data$hazard_value,

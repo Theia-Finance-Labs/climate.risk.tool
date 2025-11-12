@@ -765,14 +765,14 @@ def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
     return agg[cols]
 
 
-def process_tif_hazard(tif_path, adm_gdfs_dict, scenario_map):
+def process_tif_hazard(tif_path, adm_gdfs_dict, hazards_metadata):
     """
     Process GeoTIFF hazard file and aggregate over multiple ADM levels.
 
     Args:
         tif_path: Path to GeoTIFF file
         adm_gdfs_dict: Dictionary mapping ADM level names to GeoDataFrames
-        scenario_map: Dictionary mapping scenario codes to names
+        hazards_metadata: DataFrame with hazard metadata (must include this file)
 
     Returns:
         pd.DataFrame: Aggregated statistics per region for all ADM levels
@@ -785,22 +785,24 @@ def process_tif_hazard(tif_path, adm_gdfs_dict, scenario_map):
     if not os.path.exists(tif_path):
         raise FileNotFoundError(f"GeoTIFF file not found: {tif_path}")
 
-    # Parse filename: global_<scenario>_h<return_period>glob.tif or flood_<scenario>_<return_period>_glob.tif
     basename = os.path.basename(tif_path)
-    match = re.match(
-        r"(?:global|flood)_(\w+)[_h](\d+)[_h]?(?:_glob|glob).*\.tif", basename
-    )
-    if not match:
+    metadata_row = hazards_metadata[hazards_metadata["hazard_file"] == basename]
+
+    if metadata_row.empty:
+        print(f"  ⏭️  Skipping GeoTIFF with no metadata entry: {basename}")
+        return None
+
+    metadata_row = metadata_row.iloc[0]
+    hazard_type = str(metadata_row["hazard_type"]).strip()
+    hazard_indicator = str(metadata_row["hazard_indicator"]).strip()
+    scenario_name = str(metadata_row["scenario_name"]).strip()
+    try:
+        hazard_return_period = int(float(metadata_row["hazard_return_period"]))
+    except (ValueError, TypeError):
         raise ValueError(
-            f"Cannot parse scenario and return period from filename: {basename}"
+            f"Invalid hazard_return_period in metadata for {basename}: "
+            f"{metadata_row['hazard_return_period']}"
         )
-
-    scenario_code = match.group(1)
-    return_period = int(match.group(2))
-
-    # Map scenario code to name
-    scenario_code_map = {"pc": "pc", "rcp26": "rcp26", "rcp85": "rcp85"}
-    scenario_name = scenario_code_map.get(scenario_code, scenario_code)
 
     all_results = []
 
@@ -870,9 +872,9 @@ def process_tif_hazard(tif_path, adm_gdfs_dict, scenario_map):
                     "region": region_name,
                     "adm_level": adm_level,
                     "scenario_name": scenario_name,
-                    "hazard_return_period": return_period,
-                    "hazard_type": "Flood",
-                    "hazard_indicator": "depth(cm)",
+                    "hazard_return_period": hazard_return_period,
+                    "hazard_type": hazard_type,
+                    "hazard_indicator": hazard_indicator,
                     "ensemble": np.nan,
                     **stats,
                 }
@@ -932,7 +934,42 @@ def load_existing_precomputed(output_path):
         return pd.DataFrame()
 
 
-def get_file_signature(file_path, file_type, adm_levels, ensemble_filter, scenario_map):
+def load_hazards_metadata(metadata_path):
+    """
+    Load hazard metadata describing scenario names and return periods.
+
+    Args:
+        metadata_path: Path to metadata CSV file
+
+    Returns:
+        pd.DataFrame: Metadata with normalized hazard_file column
+    """
+    if not os.path.exists(metadata_path):
+        raise FileNotFoundError(f"Hazard metadata not found: {metadata_path}")
+
+    metadata = pd.read_csv(metadata_path, encoding="utf-8")
+
+    required_cols = {
+        "hazard_file",
+        "hazard_type",
+        "hazard_indicator",
+        "scenario_name",
+        "hazard_return_period",
+    }
+    missing_cols = required_cols - set(metadata.columns)
+    if missing_cols:
+        raise ValueError(
+            f"Hazard metadata is missing required columns: {', '.join(sorted(missing_cols))}"
+        )
+
+    metadata["hazard_file"] = metadata["hazard_file"].astype(str).str.strip()
+
+    return metadata
+
+
+def get_file_signature(
+    file_path, file_type, adm_levels, ensemble_filter, hazards_metadata=None
+):
     """
     Get the signature of what combinations a file would produce without processing it.
 
@@ -945,7 +982,7 @@ def get_file_signature(file_path, file_type, adm_levels, ensemble_filter, scenar
         file_type: Type of file ('csv', 'nc', 'tif')
         adm_levels: List of ADM level names that would be processed
         ensemble_filter: Ensemble filter value
-        scenario_map: Dictionary mapping scenario codes to names (for TIF files)
+        hazards_metadata: DataFrame with hazard metadata (required for TIF files)
 
     Returns:
         list: List of dictionaries, each representing a combination that would be produced
@@ -954,25 +991,36 @@ def get_file_signature(file_path, file_type, adm_levels, ensemble_filter, scenar
     signatures = []
 
     if file_type == "tif":
-        # For TIF files, parse scenario and return period from filename
         basename = os.path.basename(file_path)
-        match = re.match(
-            r"(?:global|flood)_(\w+)[_h](\d+)[_h]?(?:_glob|glob).*\.tif", basename
-        )
-        if not match:
+        metadata_row = None
+        if hazards_metadata is not None:
+            metadata_row = hazards_metadata[hazards_metadata["hazard_file"] == basename]
+
+        if metadata_row is None or metadata_row.empty:
+            print(f"  ⏭️  Skipping GeoTIFF with no metadata entry: {basename}")
             return []
 
-        scenario_code = match.group(1)
-        return_period = int(match.group(2))
-        scenario_code_map = {"pc": "pc", "rcp26": "rcp26", "rcp85": "rcp85"}
-        scenario_name = scenario_code_map.get(scenario_code, scenario_code)
+        metadata_row = metadata_row.iloc[0]
+        scenario_name = str(metadata_row["scenario_name"]).strip()
+        hazard_type_from_meta = str(metadata_row["hazard_type"]).strip()
+        hazard_indicator_from_meta = str(metadata_row["hazard_indicator"]).strip()
+        try:
+            return_period = int(float(metadata_row["hazard_return_period"]))
+        except (ValueError, TypeError):
+            raise ValueError(
+                f"Invalid hazard_return_period in metadata for {basename}: "
+                f"{metadata_row['hazard_return_period']}"
+            )
+
+        hazard_type = hazard_type_from_meta
+        hazard_indicator = hazard_indicator_from_meta
 
         # TIF files produce one combination per ADM level
         for adm_level in adm_levels:
             signatures.append(
                 {
-                    "hazard_type": "Flood",
-                    "hazard_indicator": "depth(cm)",
+                    "hazard_type": hazard_type,
+                    "hazard_indicator": hazard_indicator,
                     "scenario_name": scenario_name,
                     "hazard_return_period": return_period,
                     "adm_level": adm_level,
@@ -980,7 +1028,9 @@ def get_file_signature(file_path, file_type, adm_levels, ensemble_filter, scenar
                 }
             )
 
-    elif file_type == "csv":
+        return signatures
+
+    if file_type == "csv":
         # For CSV files, peek at unique combinations
         # Read only the key columns to be efficient
         try:
@@ -1105,7 +1155,12 @@ def get_file_signature(file_path, file_type, adm_levels, ensemble_filter, scenar
 
 
 def is_already_processed(
-    file_path, file_type, existing_df, adm_levels, ensemble_filter, scenario_map
+    file_path,
+    file_type,
+    existing_df,
+    adm_levels,
+    ensemble_filter,
+    hazards_metadata=None,
 ):
     """
     Check if a file has already been processed based on existing precomputed data.
@@ -1116,7 +1171,7 @@ def is_already_processed(
         existing_df: DataFrame with existing precomputed data
         adm_levels: List of ADM level names
         ensemble_filter: Ensemble filter value
-        scenario_map: Dictionary mapping scenario codes to names
+        hazards_metadata: DataFrame with hazard metadata (required for TIF files)
 
     Returns:
         bool: True if file appears to be already processed, False otherwise
@@ -1124,9 +1179,22 @@ def is_already_processed(
     if len(existing_df) == 0:
         return False
 
+    # If GeoTIFF has no metadata, skip it entirely (treated as already processed)
+    if (
+        file_type == "tif"
+        and hazards_metadata is not None
+        and hazards_metadata[
+            hazards_metadata["hazard_file"] == os.path.basename(file_path)
+        ].empty
+    ):
+        print(
+            f"  ⏭️  Skipping GeoTIFF with no metadata entry: {os.path.basename(file_path)}"
+        )
+        return True
+
     # Get signatures this file would produce
     signatures = get_file_signature(
-        file_path, file_type, adm_levels, ensemble_filter, scenario_map
+        file_path, file_type, adm_levels, ensemble_filter, hazards_metadata
     )
 
     if len(signatures) == 0:
@@ -1136,6 +1204,31 @@ def is_already_processed(
     # Convert signatures to DataFrame for comparison
     sigs_df = pd.DataFrame(signatures)
 
+    if sigs_df.empty:
+        return False
+
+    existing_df_copy = existing_df.copy()
+
+    def _normalize_scenario(value):
+        if pd.isna(value):
+            return "__NA__"
+        value_str = str(value).strip()
+        if value_str.lower() == "present":
+            return "pc"
+        return value_str
+
+    if "scenario_name" in sigs_df.columns:
+        sigs_df["scenario_key"] = sigs_df["scenario_name"].apply(_normalize_scenario)
+    else:
+        sigs_df["scenario_key"] = "__NA__"
+
+    if "scenario_name" in existing_df_copy.columns:
+        existing_df_copy["scenario_key"] = existing_df_copy["scenario_name"].apply(
+            _normalize_scenario
+        )
+    else:
+        existing_df_copy["scenario_key"] = "__NA__"
+
     # Key columns to match on
     key_cols = [
         "hazard_type",
@@ -1144,6 +1237,9 @@ def is_already_processed(
         "hazard_return_period",
         "adm_level",
     ]
+
+    if "scenario_name" in key_cols:
+        key_cols[key_cols.index("scenario_name")] = "scenario_key"
 
     # Check for extra dimensions that might exist in both
     extra_dims = ["season"]
@@ -1157,7 +1253,6 @@ def is_already_processed(
         # For ensemble, we need to handle NaN values specially
         sigs_df_copy["ensemble"] = sigs_df_copy["ensemble"].fillna("__NA__")
         if "ensemble" in existing_df.columns:
-            existing_df_copy = existing_df.copy()
             existing_df_copy["ensemble"] = existing_df_copy["ensemble"].fillna("__NA__")
             key_cols.append("ensemble")
         else:
@@ -1208,7 +1303,10 @@ def main():
 
     # Processing parameters
     ENSEMBLE_FILTER = "mean"
-    FLOOD_SCENARIOS = {"pc": "CurrentClimate", "rcp26": "RCP2.6", "rcp85": "RCP8.5"}
+    HAZARDS_METADATA_PATH = "workspace/demo_inputs/hazards_metadata.csv"
+
+    print("\nLoading hazard metadata...")
+    hazards_metadata = load_hazards_metadata(HAZARDS_METADATA_PATH)
 
     # ========================================================================
     # LOAD EXISTING PRECOMPUTED DATA
@@ -1313,7 +1411,7 @@ def main():
                 existing_df,
                 adm_level_names,
                 ENSEMBLE_FILTER,
-                FLOOD_SCENARIOS,
+                hazards_metadata,
             ):
                 print(
                     f"  ⏭️  Skipping (already processed): {os.path.basename(tif_path)}"
@@ -1340,7 +1438,7 @@ def main():
                 existing_df,
                 adm_level_names,
                 ENSEMBLE_FILTER,
-                FLOOD_SCENARIOS,
+                hazards_metadata,
             ):
                 print(f"  ⏭️  Skipping (already processed): {file_label}")
             else:
@@ -1365,7 +1463,7 @@ def main():
                 existing_df,
                 adm_level_names,
                 ENSEMBLE_FILTER,
-                FLOOD_SCENARIOS,
+                hazards_metadata,
             ):
                 print(f"  ⏭️  Skipping (already processed): {file_label}")
             else:
@@ -1405,7 +1503,10 @@ def main():
                 f"\n[{i}/{len(tif_files_to_process)}] Processing GeoTIFF: {os.path.basename(tif_path)}"
             )
             print("  📊 Aggregating over all ADM levels...")
-            result = process_tif_hazard(tif_path, adm_gdfs, FLOOD_SCENARIOS)
+            result = process_tif_hazard(tif_path, adm_gdfs, hazards_metadata)
+            if result is None:
+                print("    ⏭️  Skipped (missing metadata)")
+                continue
             all_results.append(result)
             print(f"    ✅ Success: {len(result)} records")
 
@@ -1499,6 +1600,42 @@ def main():
                 existing_df[col] = np.nan
             if col not in new_df.columns:
                 new_df[col] = np.nan
+
+        # Remove records that are being recomputed to avoid duplicates
+        key_columns = [
+            col
+            for col in [
+                "region",
+                "adm_level",
+                "scenario_name",
+                "hazard_return_period",
+                "hazard_type",
+                "hazard_indicator",
+                "ensemble",
+                "season",
+            ]
+            if col in existing_df.columns and col in new_df.columns
+        ]
+
+        if key_columns:
+            print(
+                f"  Filtering existing data using key columns: {', '.join(key_columns)}"
+            )
+            new_keys = new_df[key_columns].drop_duplicates()
+            marker_col = "_recomputed_match"
+            existing_df = existing_df.merge(
+                new_keys.assign(**{marker_col: 1}), on=key_columns, how="left"
+            )
+            replaced_rows = existing_df[marker_col].notna().sum()
+            if replaced_rows > 0:
+                print(f"  Removed {replaced_rows} existing record(s) being replaced")
+            existing_df = existing_df[existing_df[marker_col].isna()].drop(
+                columns=marker_col
+            )
+        else:
+            print(
+                "  ⚠️  No shared key columns found to filter existing data; appending all rows"
+            )
 
         # Combine dataframes
         final_df = pd.concat(

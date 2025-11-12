@@ -173,6 +173,9 @@ Columns: region, adm_level (ADM1/ADM2), hazard_type, scenario_code, scenario_nam
 
 Pre-aggregated hazard statistics for administrative regions. Eliminates need for GeoJSON boundary files.
 
+- Incremental refresh logic: `data-raw/precompute_hazards.py` drops any existing rows sharing the same (`region`, `adm_level`, `hazard_type`, `hazard_indicator`, `scenario_name`, `hazard_return_period`, `ensemble`, `season`) keys before appending newly computed results. This guarantees a clean overwrite when hazards are reprocessed.
+- Metadata alignment: `load_hazards_metadata(metadata_path)` (Python helper in `data-raw/precompute_hazards.py`) loads `hazards_metadata.csv` and enforces that GeoTIFF-derived scenario names and indicators use the curated metadata instead of filename heuristics.
+
 #### 5. `hazards_name_mapping.csv`
 Columns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
 
@@ -373,6 +376,7 @@ inventory <- hazard_data$inventory
 - Used for assets WITHOUT coordinates
 - Priority: municipality (ADM2) > province (ADM1)
 - Validates required hazards from events against available precomputed data
+- Raises explicit errors listing any missing hazards when precomputed data is incomplete for an asset
 - Returns `matching_method = "municipality"` or `"province"`
 - Raises detailed errors if region or hazard combo not found
 
@@ -474,6 +478,7 @@ run_app(base_dir = "path/to/data")
 ### Recent Updates
 - Added `test-mod_profit_pathways.R` to cover log-scale clipping logic for non-positive asset profits so charts remain informative.
 - Added drought zero-flooring regression test in `test-shock__apply_acute_revenue_shock.R` to lock revenue at or above zero for extreme damage factors across hazards.
+- Added regression coverage in `test-geospatial__extract_hazard_statistics.R` ensuring `extract_precomputed_statistics()` fails fast with explicit hazard names when precomputed data is missing.
 
 ### Environment Variables for Testing
 ```bash
