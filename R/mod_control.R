@@ -26,7 +26,7 @@ mod_control_ui <- function(id) {
       shiny::p("Adjust these rates to reflect your financial assumptions:", class = "text-muted", style = "font-size: 0.9em; margin-bottom: 10px;"),
       shiny::sliderInput(
         ns("growth_rate"),
-        "Growth Rate (%):",
+        "Revenue Growth (%):",
         value = 2.0,
         min = 0,
         max = 10,

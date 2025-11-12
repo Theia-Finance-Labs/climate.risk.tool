@@ -1210,11 +1210,10 @@ def is_already_processed(
     existing_df_copy = existing_df.copy()
 
     def _normalize_scenario(value):
+        """Normalize scenario names for comparison."""
         if pd.isna(value):
             return "__NA__"
-        value_str = str(value).strip()
-        if value_str.lower() == "present":
-            return "pc"
+        value_str = str(value).strip().lower()
         return value_str
 
     if "scenario_name" in sigs_df.columns:
@@ -1621,6 +1620,15 @@ def main():
             print(
                 f"  Filtering existing data using key columns: {', '.join(key_columns)}"
             )
+
+            # Normalize ensemble column to string for merge compatibility
+            for col in ["ensemble", "season"]:
+                if col in key_columns:
+                    if col in existing_df.columns:
+                        existing_df[col] = existing_df[col].fillna("__NA__").astype(str)
+                    if col in new_df.columns:
+                        new_df[col] = new_df[col].fillna("__NA__").astype(str)
+
             new_keys = new_df[key_columns].drop_duplicates()
             marker_col = "_recomputed_match"
             existing_df = existing_df.merge(
@@ -1650,6 +1658,11 @@ def main():
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+
+    # Clean up __NA__ strings before saving (convert back to actual NaN)
+    for col in ["ensemble", "season"]:
+        if col in final_df.columns:
+            final_df[col] = final_df[col].replace("__NA__", np.nan)
 
     # Save with UTF-8 encoding (with BOM for Excel compatibility)
     final_df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")

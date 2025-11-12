@@ -299,8 +299,6 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     sname <- gsub("rcp8.5", "rcp85", sname, fixed = TRUE)
     sname <- gsub("rcp2.6", "rcp26", sname, fixed = TRUE)
     sname <- gsub("rcp4.5", "rcp45", sname, fixed = TRUE)
-    sname <- gsub("currentclimate", "pc", sname, fixed = TRUE)
-    sname <- gsub("current climate", "pc", sname, fixed = TRUE)
     sname <- gsub(" ", "", sname, fixed = TRUE)
     return(sname)
   }

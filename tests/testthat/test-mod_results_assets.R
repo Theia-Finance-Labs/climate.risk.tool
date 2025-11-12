@@ -58,8 +58,8 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
 
     # Ensure event_id column is present and data filtered per hazard
     testthat::expect_true("event_id" %in% colnames(table_one))
-    testthat::expect_true(all(unique(table_one$hazard_name) == "Flood__RP10"))
-    testthat::expect_true(all(unique(table_two$hazard_name) == "Fire__RP50"))
+    testthat::expect_true(all(unique(table_one$hazard_name) == "Fire__RP50"))
+    testthat::expect_true(all(unique(table_two$hazard_name) == "Flood__RP10"))
     testthat::expect_true("sector" %in% colnames(table_one))
     testthat::expect_true(all(table_one$sector == "06"))
     testthat::expect_false("sector_name" %in% colnames(table_one))

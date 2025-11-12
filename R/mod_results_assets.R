@@ -155,7 +155,8 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
           dplyr::any_of("hazard_name"),
           dplyr::any_of("hazard_type")
         ) |>
-        dplyr::distinct()
+        dplyr::distinct() |>
+        dplyr::arrange(.data$hazard_label)
     }
 
     output$hazard_tables <- shiny::renderUI({
