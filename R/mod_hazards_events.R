@@ -14,6 +14,15 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
     shiny::div(
       shiny::actionButton(ns("add_event"), label = "Add hazard", class = "btn-secondary"),
       style = "margin-bottom:10px;"
+    ),
+    shiny::div(
+      class = "hazard-config-actions",
+      style = "margin-top: 15px;",
+      shiny::downloadButton(
+        outputId = ns("download_config"),
+        label = "Download Hazard Config",
+        class = "btn btn-info btn-sm"
+      )
     )
   )
 }
@@ -50,6 +59,52 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       filter_inventory_for_ui(inv)
     })
 
+    lookup_hazard_entry <- function(hazard_type_val, scenario_val, return_period_val, season_val = NA_character_) {
+      hazard_indicator_val <- get_primary_indicator(hazard_type_val)
+
+      if (is.na(hazard_indicator_val)) {
+        return(list(
+          hazard_indicator = NA_character_,
+          hazard_name = NA_character_
+        ))
+      }
+
+      full_inv <- try(hazards_inventory(), silent = TRUE)
+
+      if (inherits(full_inv, "try-error") || is.null(full_inv) || nrow(full_inv) == 0) {
+        return(list(
+          hazard_indicator = hazard_indicator_val,
+          hazard_name = NA_character_
+        ))
+      }
+
+      filtered <- full_inv |>
+        dplyr::filter(
+          .data$hazard_type == hazard_type_val,
+          .data$hazard_indicator == hazard_indicator_val,
+          .data$scenario_name == scenario_val,
+          .data$hazard_return_period == !!as.numeric(return_period_val)
+        )
+
+      if (hazard_type_val == "Drought" && !is.na(season_val) && season_val != "" && "season" %in% names(full_inv)) {
+        filtered <- full_inv |>
+          dplyr::filter(
+            .data$hazard_type == hazard_type_val,
+            .data$hazard_indicator == hazard_indicator_val,
+            .data$scenario_name == scenario_val,
+            .data$hazard_return_period == !!as.numeric(return_period_val),
+            .data$season == season_val
+          )
+      }
+
+      hazard_name_val <- if (nrow(filtered) > 0) filtered$hazard_name[[1]] else NA_character_
+
+      list(
+        hazard_indicator = hazard_indicator_val,
+        hazard_name = hazard_name_val
+      )
+    }
+
     # Add event button
     shiny::observeEvent(input$add_event, {
       k <- counter()
@@ -64,55 +119,6 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         return()
       }
 
-      # Get primary indicator for this hazard type (from config)
-      hazard_indicator_val <- get_primary_indicator(haz_type)
-
-      if (is.na(hazard_indicator_val)) {
-        message("[mod_hazards_events] Unknown hazard type: ", haz_type)
-        counter(k + 1L)
-        return()
-      }
-
-      # Find hazard_name from UI inventory
-      ui_inv <- try(ui_inventory(), silent = TRUE)
-      hazard_name_val <- NA_character_
-
-      if (!inherits(ui_inv, "try-error") && (tibble::is_tibble(ui_inv) || is.data.frame(ui_inv)) && nrow(ui_inv) > 0) {
-        matched <- ui_inv |>
-          dplyr::filter(
-            .data$hazard_type == haz_type,
-            .data$scenario_name == scenario,
-            .data$hazard_return_period == return_period
-          )
-
-        if (nrow(matched) > 0) {
-          # Get hazard_name from full inventory for the primary indicator
-          full_inv <- try(hazards_inventory(), silent = TRUE)
-          if (!inherits(full_inv, "try-error") && nrow(full_inv) > 0) {
-            full_matched <- full_inv |>
-              dplyr::filter(
-                .data$hazard_type == haz_type,
-                .data$hazard_indicator == hazard_indicator_val,
-                .data$scenario_name == scenario,
-                .data$hazard_return_period == return_period
-              )
-
-            if (nrow(full_matched) > 0) {
-              hazard_name_val <- full_matched$hazard_name[1]
-            }
-          }
-        }
-      }
-
-      if (is.na(hazard_name_val)) {
-        message(
-          "[mod_hazards_events] Could not determine hazard_name for: ",
-          haz_type, ", ", scenario, ", ", return_period
-        )
-        counter(k + 1L)
-        return()
-      }
-
       # Capture season for Drought events
       event_season <- if (haz_type == "Drought") {
         season_val <- input[[paste0("season_", k)]]
@@ -121,28 +127,23 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         NA_character_
       }
 
-      # For drought with season, refine hazard_name lookup to match the selected season
-      # The inventory (from CSV loader) now includes season in hazard_name
-      if (haz_type == "Drought" && !is.na(event_season)) {
-        full_inv <- try(hazards_inventory(), silent = TRUE)
-        if (!inherits(full_inv, "try-error") && nrow(full_inv) > 0) {
-          # Check if season column exists in inventory
-          if ("season" %in% names(full_inv)) {
-            # Look for hazard_name WITH the selected season
-            season_matched <- full_inv |>
-              dplyr::filter(
-                .data$hazard_type == haz_type,
-                .data$hazard_indicator == hazard_indicator_val,
-                .data$scenario_name == scenario,
-                .data$hazard_return_period == return_period,
-                .data$season == event_season
-              )
+      lookup <- lookup_hazard_entry(
+        hazard_type_val = haz_type,
+        scenario_val = scenario,
+        return_period_val = return_period,
+        season_val = event_season
+      )
 
-            if (nrow(season_matched) > 0) {
-              hazard_name_val <- season_matched$hazard_name[1]
-            }
-          }
-        }
+      hazard_indicator_val <- lookup$hazard_indicator
+      hazard_name_val <- lookup$hazard_name
+
+      if (is.na(hazard_indicator_val) || is.na(hazard_name_val) || hazard_name_val == "") {
+        message(
+          "[mod_hazards_events] Could not determine hazard metadata for: ",
+          haz_type, ", ", scenario, ", ", return_period
+        )
+        counter(k + 1L)
+        return()
       }
 
       new_row <- tibble::tibble(
@@ -170,7 +171,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       return_period_choices <- numeric(0)
 
       if (!inherits(ui_inv, "try-error") && (tibble::is_tibble(ui_inv) || is.data.frame(ui_inv)) && nrow(ui_inv) > 0) {
-        hazard_type_choices <- unique(ui_inv$hazard_type)
+        hazard_type_choices <- sort(unique(ui_inv$hazard_type))
         if (length(hazard_type_choices) > 0) {
           # Get scenarios for first hazard type (primary indicator only)
           first_hazard <- hazard_type_choices[[1]]
@@ -267,6 +268,40 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       })
     })
 
+
+    output$download_config <- shiny::downloadHandler(
+      filename = function() {
+        paste0("hazard_configuration_", Sys.Date(), ".xlsx")
+      },
+      content = function(file) {
+        current_events <- events_rv()
+
+        if (is.null(current_events) || nrow(current_events) == 0) {
+          writexl::write_xlsx(
+            tibble::tibble(message = "No hazard configuration available"),
+            path = file
+          )
+          return()
+        }
+
+        export_cols <- c(
+          "event_id",
+          "hazard_type",
+          "hazard_indicator",
+          "hazard_name",
+          "scenario_name",
+          "hazard_return_period",
+          "event_year",
+          "season"
+        )
+
+        export_df <- current_events |>
+          dplyr::select(dplyr::any_of(export_cols))
+
+        writexl::write_xlsx(as.data.frame(export_df), path = file)
+      }
+    )
+
     # Delete event function
     delete_event <- function(event_id) {
       cur <- events_rv()
@@ -279,10 +314,120 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
       events_rv(updated)
     }
 
+    # Load config from external file path
+    load_config <- function(file_path) {
+      if (is.null(file_path) || !file.exists(file_path)) {
+        return()
+      }
+
+      uploaded <- try(readxl::read_excel(file_path), silent = TRUE)
+
+      if (inherits(uploaded, "try-error") || is.null(uploaded) || nrow(uploaded) == 0) {
+        message("[mod_hazards_events] Failed to read hazard configuration from external upload.")
+        return()
+      }
+
+      required_cols <- c("hazard_type", "scenario_name", "hazard_return_period", "event_year")
+      if (!all(required_cols %in% names(uploaded))) {
+        message("[mod_hazards_events] External configuration missing required columns: ",
+          paste(setdiff(required_cols, names(uploaded)), collapse = ", "))
+        return()
+      }
+
+      processed <- tibble::as_tibble(uploaded) |>
+        dplyr::mutate(
+          hazard_type = as.character(.data$hazard_type),
+          scenario_name = as.character(.data$scenario_name),
+          hazard_return_period = as.numeric(.data$hazard_return_period),
+          event_year = as.integer(.data$event_year)
+        )
+
+      if ("season" %in% names(processed)) {
+        processed <- processed |>
+          dplyr::mutate(season = dplyr::if_else(
+            is.na(.data$season) | .data$season == "",
+            NA_character_,
+            as.character(.data$season)
+          ))
+      } else {
+        processed <- processed |>
+          dplyr::mutate(season = NA_character_)
+      }
+
+      rows <- split(processed, seq_len(nrow(processed)))
+
+      reconstructed <- purrr::imap_dfr(rows, function(row_df, idx) {
+        hazard_type_val <- row_df$hazard_type[[1]]
+        scenario_val <- row_df$scenario_name[[1]]
+        return_period_val <- row_df$hazard_return_period[[1]]
+        event_year_val <- row_df$event_year[[1]]
+        season_val <- row_df$season[[1]]
+
+        lookup <- lookup_hazard_entry(
+          hazard_type_val = hazard_type_val,
+          scenario_val = scenario_val,
+          return_period_val = return_period_val,
+          season_val = season_val
+        )
+
+        hazard_indicator_val <- if ("hazard_indicator" %in% names(row_df) &&
+          !is.na(row_df$hazard_indicator[[1]]) &&
+          nzchar(row_df$hazard_indicator[[1]])) {
+          as.character(row_df$hazard_indicator[[1]])
+        } else {
+          lookup$hazard_indicator
+        }
+
+        hazard_name_val <- if ("hazard_name" %in% names(row_df) &&
+          !is.na(row_df$hazard_name[[1]]) &&
+          nzchar(row_df$hazard_name[[1]])) {
+          as.character(row_df$hazard_name[[1]])
+        } else {
+          lookup$hazard_name
+        }
+
+        if (is.na(hazard_indicator_val) || is.na(hazard_name_val) || hazard_name_val == "") {
+          message(
+            "[mod_hazards_events] Skipping external upload row; unable to resolve hazard metadata for: ",
+            hazard_type_val, ", ", scenario_val, ", ", return_period_val
+          )
+          return(tibble::tibble())
+        }
+
+        event_id_val <- if ("event_id" %in% names(row_df) &&
+          !is.na(row_df$event_id[[1]]) &&
+          nzchar(row_df$event_id[[1]])) {
+          as.character(row_df$event_id[[1]])
+        } else {
+          paste0("ev", idx)
+        }
+
+        tibble::tibble(
+          event_id = event_id_val,
+          hazard_type = hazard_type_val,
+          hazard_indicator = hazard_indicator_val,
+          hazard_name = hazard_name_val,
+          scenario_name = scenario_val,
+          hazard_return_period = as.numeric(return_period_val),
+          event_year = as.integer(event_year_val),
+          season = if (is.null(season_val) || is.na(season_val) || season_val == "") NA_character_ else season_val
+        )
+      })
+
+      if (nrow(reconstructed) == 0) {
+        message("[mod_hazards_events] External configuration did not contain any valid hazard rows.")
+        return()
+      }
+
+      events_rv(reconstructed)
+      counter(nrow(reconstructed) + 1L)
+    }
+
     # Return
     return(list(
       events = events_rv,
-      delete_event = delete_event
+      delete_event = delete_event,
+      load_config = load_config
     ))
   })
 }

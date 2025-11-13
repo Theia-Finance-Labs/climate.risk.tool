@@ -14,6 +14,17 @@ mod_control_ui <- function(id) {
         "Company Excel File:",
         accept = c(".xlsx", ".xls"),
         placeholder = "Choose company.xlsx file"
+      ),
+      shiny::div(
+        style = "margin-top: 10px;",
+        shiny::fileInput(
+          inputId = ns("upload_hazard_config"),
+          label = "Upload Hazard Config (Optional)",
+          accept = c(".xlsx", ".xls"),
+          buttonLabel = "Browse",
+          placeholder = "No file selected",
+          width = "100%"
+        )
       )
     ),
     shiny::div(
@@ -143,6 +154,14 @@ mod_control_server <- function(id, base_dir_reactive) {
 
     # Hazards events module
     hz_mod <- mod_hazards_events_server("hazards", hazards_inventory = hazards_inventory)
+    
+    # Forward hazard config upload from control to hazards module
+    shiny::observeEvent(input$upload_hazard_config, {
+      upload <- input$upload_hazard_config
+      if (!is.null(upload) && !is.null(upload$datapath) && file.exists(upload$datapath)) {
+        hz_mod$load_config(upload$datapath)
+      }
+    })
 
     # Results ready output for conditional panel
     output$results_ready <- shiny::reactive({

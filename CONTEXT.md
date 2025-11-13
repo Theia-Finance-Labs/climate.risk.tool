@@ -840,6 +840,13 @@ The system supports both single-indicator and multi-indicator hazards through a 
 
 ## Recent Changes
 
+### UI & Configuration Enhancements (2025-11-12)
+- Relocated hazard configuration upload from `mod_hazards_events` to the Data Upload section in `mod_control` (below the company file input), keeping the download button in the Hazard Events section; wired the upload through a `load_config()` function exposed by `mod_hazards_events_server` so analysts can load pre-configured event lists early in the workflow; coverage updated in `tests/testthat/test-mod_control.R` and `tests/testthat/test-mod_hazards_events.R`.
+- Added Excel-based hazard configuration download button (styled with `btn-info` for clear differentiation from the `Add hazard` action) to the Hazard Events section, enabling analysts to save and share hazard event selections.
+- Alphabetized hazard panels in the asset exposure view to improve scanability and updated the corresponding expectations in `tests/testthat/test-mod_results_assets.R`.
+- Retitled the growth rate slider to `Revenue Growth (%)` so the financial parameter reflects the business terminology used in stakeholder reviews.
+- Alphabetized hazard type dropdown choices in `mod_hazards_events` to match the sorted asset exposure panels.
+
 ### UI & Visualization Enhancements (2025-11-06)
 - Rebranded the interface as the **Physical Risk Analysis Tool**, refreshed the subtitle, reordered the primary analysis tabs (Asset Analysis → Profit Pathways → Company Analysis → Company Results → Parameters & Status), and simplified the growth rate control label in the sidebar.
 - Refined `mod_results_assets` to present hazard-specific asset tables via collapsible panels, restore original province/municipality names, surface company/sector metadata (using CNAE descriptions for sector names and retaining sector codes), expose `event_id` with formatted economic share values, and add CSV/XLSX downloads for the full asset dataset; supporting coverage added in `tests/testthat/test-mod_results_assets.R`.
