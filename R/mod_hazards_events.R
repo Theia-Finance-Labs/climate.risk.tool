@@ -12,17 +12,29 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
     shiny::p("Select at least one hazard event to run the analysis:", class = "text-muted", style = "font-size: 0.9em; margin-bottom: 10px;"),
     shiny::uiOutput(ns("events_ui")),
     shiny::div(
-      shiny::actionButton(ns("add_event"), label = "Add hazard", class = "btn-secondary"),
-      style = "margin-bottom:10px;"
-    ),
-    shiny::div(
-      class = "hazard-config-actions",
-      style = "margin-top: 15px;",
-      shiny::downloadButton(
-        outputId = ns("download_config"),
-        label = "Download Hazard Config",
-        class = "btn btn-info btn-sm"
+      style = "display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; margin-top: 15px; margin-bottom: 10px;",
+      shiny::tags$label(
+        `for` = ns("upload_hazard_config"),
+        class = "btn btn-outline-secondary btn-sm",
+        style = "margin: 0; cursor: pointer;",
+        shiny::icon("upload"),
+        shiny::tags$span(class = "d-none d-sm-inline", " Load Events")
+      ),
+      shiny::tags$a(
+        id = ns("download_config"),
+        class = "btn btn-outline-secondary btn-sm shiny-download-link",
+        href = "",
+        target = "_blank",
+        download = NA,
+        shiny::icon("download"),
+        shiny::tags$span(class = "d-none d-sm-inline", " Save Events")
       )
+    ),
+    shiny::tags$input(
+      id = ns("upload_hazard_config"),
+      type = "file",
+      accept = ".xlsx,.xls",
+      style = "display: none;"
     )
   )
 }
@@ -190,6 +202,7 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
 
       # Only show form for current event (index k) - NO hazard_indicator dropdown
       shiny::wellPanel(
+        style = "padding-bottom: 0;",
         shiny::selectInput(ns(paste0("hazard_type_", k)), "Hazard Type",
           choices = hazard_type_choices,
           selected = if (length(hazard_type_choices) > 0) hazard_type_choices[[1]] else NULL
@@ -206,6 +219,15 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
           step = 1,
           sep = "",
           ticks = TRUE
+        ),
+        shiny::div(
+          style = "margin: 20px -15px -10px -15px;",
+          shiny::actionButton(
+            ns("add_event"),
+            label = "Add hazard",
+            class = "btn-secondary btn-block",
+            icon = shiny::icon("plus")
+          )
         )
       )
     })
@@ -313,6 +335,14 @@ mod_hazards_events_server <- function(id, hazards_inventory) {
         dplyr::filter(.data$event_id != !!event_id)
       events_rv(updated)
     }
+
+    # Handle file upload from the hidden file input
+    shiny::observeEvent(input$upload_hazard_config, {
+      upload <- input$upload_hazard_config
+      if (!is.null(upload) && !is.null(upload$datapath) && file.exists(upload$datapath)) {
+        load_config(upload$datapath)
+      }
+    })
 
     # Load config from external file path
     load_config <- function(file_path) {

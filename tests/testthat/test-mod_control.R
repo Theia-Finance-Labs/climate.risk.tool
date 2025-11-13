@@ -1,8 +1,9 @@
-testthat::test_that("mod_control_ui renders hazard config upload", {
+testthat::test_that("mod_control_ui includes hazard events upload controls", {
   ui <- mod_control_ui("ctrl")
   html <- htmltools::renderTags(ui)$html
   testthat::expect_true(grepl("ctrl-company_file", html))
-  testthat::expect_true(grepl("ctrl-upload_hazard_config", html))
+  testthat::expect_true(grepl("ctrl-hazards-upload_hazard_config", html))
+  testthat::expect_true(grepl("ctrl-hazards-download_config", html))
 })
 
 testthat::test_that("mod_control_server uses default aggregation factor 1 for hazard loading", {

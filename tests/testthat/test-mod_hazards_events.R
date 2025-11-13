@@ -1,8 +1,9 @@
-testthat::test_that("mod_hazards_events_ui renders controls", {
+testthat::test_that("mod_hazards_events_ui renders static placeholders and controls", {
   ui <- mod_hazards_events_ui("hz")
   html <- htmltools::renderTags(ui)$html
-  testthat::expect_true(grepl("hz-add_event", html))
+  testthat::expect_true(grepl("hz-events_ui", html))
   testthat::expect_true(grepl("Hazard events", html))
+  testthat::expect_true(grepl("hz-upload_hazard_config", html))
   testthat::expect_true(grepl("hz-download_config", html))
 })
 testthat::test_that("mod_hazards_events_server loads events via load_config function", {
