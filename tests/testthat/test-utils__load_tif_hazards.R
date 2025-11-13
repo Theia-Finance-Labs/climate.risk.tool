@@ -70,11 +70,11 @@ test_that("load_tif_hazards supports aggregation parameter", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
 
-  # Test with aggregate_factor = 1 (no aggregation, just pass the parameter)
+  # Test with aggregate_factor = 16 (test data only has aggregated files)
   rasters <- load_tif_hazards(
     mapping_df = mapping_df,
     hazards_dir = hazards_dir,
-    aggregate_factor = 1L
+    aggregate_factor = 16L
   )
 
   # Should load successfully with aggregation parameter specified

@@ -17,15 +17,16 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     company = c("TestCo", "TestCo"),
     event_id = c("ev1", "ev2"),
     matching_method = c("coordinates", "coordinates"),
-    hazard_return_period = c(10, 50),
+    hazard_return_period = c(50, 10),  # A1 is RP50 (Fire), A2 is RP10 (Flood)
     event_year = c(2030, 2040),
-    hazard_type = c("flood", "fire"),
-    hazard_name = c("Flood__RP10", "Fire__RP50"),
+    hazard_type = c("fire", "flood"),  # A1 is fire, A2 is flood
+    hazard_name = c("Fire__RP50", "Flood__RP10"),  # A1 is Fire, A2 is Flood
     hazard_intensity = c(1.5, 2.5),
     damage_factor = c(0.1, 0.2),
     cost_factor = c(1000, 2000),
-    share_of_economic_activity = c(0.6, 0.4),
-    sector = c("06", "35"),
+    share_of_economic_activity = c(0.6, 0.4),  # A1 is 0.6 (Fire), A2 is 0.4 (Flood)
+    sector = c("06", "35"),  # Keep sector column as string with leading zero
+    cnae = c(6, 35),  # Add cnae column for sector metadata lookup
     stringsAsFactors = FALSE
   )
 
