@@ -1,4 +1,4 @@
-GWL,hazard_intensity,hazard_unit,asset_category,damage_factor,cost_factor,hazard_type,hazard_indicator,business_disruption,province,subtype,season,metric,off_window
+GWL,hazard_intensity,hazard_unit,asset_category,damage_factor,cost_factor,hazard_type,hazard_indicator,business_disruption,state,subtype,season,metric,off_window
 ,0.0,depth(cm),commercial building,0.0,838625.370183151,Flood,depth(cm),0.0,,,,,
 ,38.0,depth(cm),industrial building,0.5092,1774630.20177975,Flood,depth(cm),20.0,,,,,
 ,8.0,depth(cm),industrial building,0.1072,1774630.20177975,Flood,depth(cm),4.0,,,,,

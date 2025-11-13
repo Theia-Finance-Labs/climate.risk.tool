@@ -3,7 +3,7 @@
 # Contract:
 # - join_damage_cost_factors(assets_with_hazards, damage_factors_df)
 # - Flood: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
-# - Heat: Joins on hazard_type, province, and scenario_name (GWL)
+# - Heat: Joins on hazard_type, state, and scenario_name (GWL)
 # - Expects long format input with hazard_type, hazard_indicator, hazard_intensity, scenario_name columns
 # - Adds numeric columns damage_factor, cost_factor, business_disruption
 
@@ -18,7 +18,7 @@ testthat::test_that("join_damage_cost_factors handles Flood with intensity-based
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Prov1", "Prov2"),
+    state = c("Prov1", "Prov2"),
     asset_category = c("commercial building", "commercial building"),
     size_in_m2 = c(1000, 800),
     share_of_economic_activity = c(0.5, 0.3),
@@ -50,7 +50,7 @@ testthat::test_that("join_damage_cost_factors handles Flood with intensity-based
   testthat::expect_true(all(!is.na(out$business_disruption)))
 })
 
-testthat::test_that("join_damage_cost_factors handles Heat with province and GWL matching", {
+testthat::test_that("join_damage_cost_factors handles Heat with state and GWL matching", {
   base_dir <- get_test_data_dir()
 
   # Create Heat test data
@@ -60,7 +60,7 @@ testthat::test_that("join_damage_cost_factors handles Heat with province and GWL
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Acre", "Bahia"), # Provinces from damage_and_cost_factors.csv
+    state = c("Acre", "Bahia"), # States from damage_and_cost_factors.csv
     asset_category = c("commercial building", "commercial building"),
     size_in_m2 = c(1000, 800),
     share_of_economic_activity = c(0.5, 0.3),
@@ -122,7 +122,7 @@ testthat::test_that("join_compound_damage_factors uses cnae-based metric selecti
     latitude = c(-10, -15, -20, -25, -30),
     longitude = c(-50, -55, -60, -65, -70),
     municipality = c("Mun1", "Mun2", "Mun3", "Mun4", "Mun5"),
-    province = c("Acre", "Acre", "Acre", "Acre", "Acre"), # Same province, different metrics
+    state = c("Acre", "Acre", "Acre", "Acre", "Acre"), # Same state, different metrics
     asset_category = c("commercial building", "commercial building", "commercial building", "commercial building", "agriculture"),
     cnae = c(high_exposure, median_exposure, low_exposure, NA, NA), # Different CNAEs + missing
     size_in_m2 = c(1000, 800, 600, 400, 200),
@@ -156,22 +156,22 @@ testthat::test_that("join_compound_damage_factors uses cnae-based metric selecti
   testthat::expect_true(a1_df < a3_df) # High < Low (more negative)
 
   # Agriculture without cnae should use high metric (should match A1 in value if factors are correct)
-  # For strict equality test, damage_factors must give same value for "high" metric and scenario/province match
+  # For strict equality test, damage_factors must give same value for "high" metric and scenario/state match
   testthat::expect_equal(a5_df, a1_df)
 })
 
-testthat::test_that("join_drought_damage_factors handles crop/province/season matching - on season", {
+testthat::test_that("join_drought_damage_factors handles crop/state/season matching - on season", {
   base_dir <- get_test_data_dir()
 
   # Create Drought test data for agriculture assets with on-season matching
-  # Using actual provinces and crops from damage_and_cost_factors.csv
+  # Using actual states and crops from damage_and_cost_factors.csv
   assets_long <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C2"),
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Bahia", "Mato Grosso"),
+    state = c("Bahia", "Mato Grosso"),
     asset_category = c("agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Corn"),
     size_in_m2 = c(10000, 8000),
@@ -183,7 +183,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     scenario_name = c("present", "present"),
     event_id = c("event_1", "event_1"),
     event_year = c(2030, 2030),
-    season = c("Summer", "Autumn"), # On-season for these crops in these provinces
+    season = c("Summer", "Autumn"), # On-season for these crops in these states
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -206,7 +206,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
   testthat::expect_true(all(out$damage_factor <= 1))
 })
 
-testthat::test_that("join_drought_damage_factors handles crop/province/season matching - off season", {
+testthat::test_that("join_drought_damage_factors handles crop/state/season matching - off season", {
   base_dir <- get_test_data_dir()
 
   # Create Drought test data for agriculture assets with off-season matching
@@ -217,7 +217,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Bahia"),
+    state = c("Bahia"),
     asset_category = c("agriculture"),
     asset_subtype = c("Soybean"),
     size_in_m2 = c(10000),
@@ -258,7 +258,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Alagoas"),
+    state = c("Alagoas"),
     asset_category = c("agriculture"),
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
@@ -306,7 +306,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Alagoas"),
+    state = c("Alagoas"),
     asset_category = c("agriculture"),
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
@@ -356,7 +356,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - au
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Alagoas"),
+    state = c("Alagoas"),
     asset_category = c("agriculture"),
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
@@ -390,14 +390,14 @@ testthat::test_that("join_drought_damage_factors handles missing subtype (defaul
   base_dir <- get_test_data_dir()
 
   # Create Drought test data with missing subtype
-  # Should default to "Other" province/crop which has Soybean in Summer
+  # Should default to "Other" state/crop which has Soybean in Summer
   assets_long <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C2"),
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("UnknownProvince", "UnknownProvince"), # Will fall back to "Other"
+    state = c("UnknownState", "UnknownState"), # Will fall back to "Other"
     asset_category = c("agriculture", "agriculture"),
     asset_subtype = c(NA, ""), # Missing subtype should default to "Other" → treated as Soybean
     size_in_m2 = c(10000, 8000),
@@ -434,7 +434,7 @@ testthat::test_that("join_drought_damage_factors filters to agriculture only", {
     latitude = c(-10, -15, -20),
     longitude = c(-50, -55, -60),
     municipality = c("Mun1", "Mun2", "Mun3"),
-    province = c("Bahia", "Bahia", "Prov3"),
+    state = c("Bahia", "Bahia", "Prov3"),
     asset_category = c("agriculture", "commercial building", "commercial building"),
     asset_subtype = c("Soybean", NA, NA),
     size_in_m2 = c(10000, 8000, 5000),

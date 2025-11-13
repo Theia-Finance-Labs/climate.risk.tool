@@ -23,7 +23,7 @@ testthat::test_that("read_assets parses key columns with correct types and snake
   # Assets required columns (snake_case)
   req_asset_cols <- c(
     "company", "asset", "share_of_economic_activity",
-    "latitude", "longitude", "province", "municipality", "asset_category"
+    "latitude", "longitude", "state", "municipality", "asset_category"
   )
   testthat::expect_true(all(req_asset_cols %in% names(assets)))
 
@@ -33,7 +33,7 @@ testthat::test_that("read_assets parses key columns with correct types and snake
   testthat::expect_true(is.numeric(assets$share_of_economic_activity))
   testthat::expect_true(is.numeric(assets$latitude))
   testthat::expect_true(is.numeric(assets$longitude))
-  testthat::expect_type(assets$province, "character")
+  testthat::expect_type(assets$state, "character")
   testthat::expect_type(assets$municipality, "character")
   testthat::expect_type(assets$asset_category, "character")
 })
@@ -127,8 +127,8 @@ testthat::test_that("read_damage_cost_factors handles missing file gracefully", 
 # - Reads precomputed_adm_hazards.csv from base_dir/
 # - Returns data frame with columns: region, adm_level, scenario_code, scenario_name,
 #   hazard_return_period, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
-# - adm_level values: "ADM1" (province), "ADM2" (municipality)
-# - Used to look up hazard statistics for assets matched by municipality or province name
+# - adm_level values: "ADM1" (state), "ADM2" (municipality)
+# - Used to look up hazard statistics for assets matched by municipality or state name
 
 
 testthat::test_that("read_precomputed_hazards loads CSV and returns expected structure", {
@@ -162,7 +162,7 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   base_dir <- get_test_data_dir()
   precomputed <- read_precomputed_hazards(base_dir)
 
-  # Should have both province (ADM1) and municipality (ADM2) data
+  # Should have both state (ADM1) and municipality (ADM2) data
   adm_levels <- unique(precomputed$adm_level)
   testthat::expect_true("ADM1" %in% adm_levels)
   testthat::expect_true("ADM2" %in% adm_levels)

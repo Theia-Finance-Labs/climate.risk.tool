@@ -13,14 +13,14 @@ testthat::test_that("geolocated assets extract from TIF files", {
   tif_inventory <- hazard_data$inventory |>
     dplyr::filter(.data$source == "tif", .data$hazard_name %in% names(tif_hazards))
 
-  # Create 2 assets with coordinates (no municipality/province)
+  # Create 2 assets with coordinates (no municipality/state)
   assets <- tibble::tibble(
     asset = c("asset_tif_1", "asset_tif_2"),
     company = c("company_a", "company_b"),
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
     municipality = NA_character_,
-    province = NA_character_,
+    state = NA_character_,
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -74,7 +74,7 @@ testthat::test_that("geolocated assets extract from NC files", {
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
     municipality = NA_character_,
-    province = NA_character_,
+    state = NA_character_,
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -102,7 +102,7 @@ testthat::test_that("geolocated assets extract from NC files", {
 })
 
 
-testthat::test_that("mixed assets use priority: coordinates > municipality > province", {
+testthat::test_that("mixed assets use priority: coordinates > municipality > state", {
   base_dir <- get_test_data_dir()
   precomputed <- read_precomputed_hazards(base_dir)
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
@@ -110,7 +110,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
   events <- tibble::tibble(
     hazard_name = c(
-      "Flood__depth(cm)__GWL=rcp85__RP=10", # TIF hazard
+      "Flood__depth(cm)__GWL=rcp85__RP=100", # TIF hazard aligned with precomputed availability
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
     ),
     event_year = 2030,
@@ -124,12 +124,12 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
 
   # Create 3 assets demonstrating priority cascade
   assets <- tibble::tibble(
-    asset = c("asset_coords", "asset_municipality", "asset_province"),
+    asset = c("asset_coords", "asset_municipality", "asset_state"),
     company = rep("company_a", 3),
     latitude = c(-3.0, NA_real_, NA_real_),
     longitude = c(-60.0, NA_real_, NA_real_),
     municipality = c("Barcelos", "Barcelos", NA_character_),
-    province = c("Amazonas", "Amazonas", "Amazonas"),
+    state = c("Amazonas", "Amazonas", "Amazonas"),
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -146,11 +146,11 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Verify each asset's matching_method
   asset1_method <- unique(out$matching_method[out$asset == "asset_coords"])
   asset2_method <- unique(out$matching_method[out$asset == "asset_municipality"])
-  asset3_method <- unique(out$matching_method[out$asset == "asset_province"])
+  asset3_method <- unique(out$matching_method[out$asset == "asset_state"])
 
   testthat::expect_equal(asset1_method, "coordinates")
   testthat::expect_equal(asset2_method, "municipality")
-  testthat::expect_equal(asset3_method, "province")
+  testthat::expect_equal(asset3_method, "state")
 
   # Verify all get valid hazard statistics
   testthat::expect_true(all(is.numeric(out$hazard_intensity)))
@@ -165,7 +165,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
     latitude = NA_real_,
     longitude = NA_real_,
     municipality = "TestMunicipality",
-    province = "TestProvince",
+    state = "TestState",
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -175,7 +175,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
 
   hazards_inventory <- tibble::tibble(
     hazard_name = c(
-      "Flood__depth(cm)__GWL=pc__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=10",
       "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean"
     ),
     hazard_type = c("Flood", "Drought"),
@@ -188,7 +188,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
   precomputed_hazards <- tibble::tibble(
     region = "TestMunicipality",
     adm_level = "ADM2",
-    hazard_name = "Flood__depth(cm)__GWL=pc__RP=10",
+    hazard_name = "Flood__depth(cm)__GWL=present__RP=10",
     hazard_type = "Flood",
     hazard_indicator = "depth(cm)",
     hazard_return_period = 10,
@@ -215,14 +215,14 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
 
   # --- CASE 1: missing hazard/scenario/return period in precomputed data ---
-  # Create asset with only province (forces precomputed lookup)
+  # Create asset with only state (forces precomputed lookup)
   asset_missing_hazard <- tibble::tibble(
     asset = "test_asset",
     company = "company_a",
     latitude = NA_real_,
     longitude = NA_real_,
     municipality = NA_character_,
-    province = "Amazonas",
+    state = "Amazonas",
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -262,14 +262,14 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     )
   }
 
-  # --- CASE 2: missing municipality and province in precomputed data ---
+  # --- CASE 2: missing municipality and state in precomputed data ---
   asset_noregion <- tibble::tibble(
     asset = "test_asset_noregion",
     company = "company_a",
     latitude = NA_real_,
     longitude = NA_real_,
     municipality = "NonExistentMunicipality12345",
-    province = "NonExistentProvince67890",
+    state = "NonExistentState67890",
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -317,7 +317,7 @@ testthat::test_that("CSV hazards use specified aggregation method", {
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
     municipality = NA_character_,
-    province = NA_character_,
+    state = NA_character_,
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,

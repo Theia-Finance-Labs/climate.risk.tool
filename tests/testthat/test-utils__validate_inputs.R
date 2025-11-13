@@ -11,7 +11,7 @@ testthat::test_that("validate_input_coherence runs successfully with valid data"
   precomputed_hazards <- read_precomputed_hazards(base_dir)
 
   # Load boundary names
-  adm1_names <- load_adm1_province_names(base_dir)
+  adm1_names <- load_adm1_state_names(base_dir)
   adm2_names <- load_adm2_municipality_names(base_dir)
 
   # This should complete successfully
@@ -30,23 +30,23 @@ testthat::test_that("validate_input_coherence runs successfully with valid data"
   testthat::expect_true("warnings" %in% names(result))
 })
 
-testthat::test_that("load_adm1_province_names loads and normalizes province names", {
+testthat::test_that("load_adm1_state_names loads and normalizes state names", {
   base_dir <- get_test_data_dir()
 
-  province_names <- load_adm1_province_names(base_dir)
+  state_names <- load_adm1_state_names(base_dir)
 
-  testthat::expect_true(is.character(province_names))
-  testthat::expect_gt(length(province_names), 0)
+  testthat::expect_true(is.character(state_names))
+  testthat::expect_gt(length(state_names), 0)
 
   # Check that names are ASCII-normalized (no accents)
   # All characters should be ASCII (no UTF-8 special chars)
-  all_ascii <- vapply(province_names, function(name) all(charToRaw(name) < 128), logical(1))
+  all_ascii <- vapply(state_names, function(name) all(charToRaw(name) < 128), logical(1))
   testthat::expect_true(all(all_ascii),
-    info = paste("Non-ASCII province names:", paste(province_names[!all_ascii], collapse = ", "))
+    info = paste("Non-ASCII state names:", paste(state_names[!all_ascii], collapse = ", "))
   )
 
   # Should include known Brazilian states (normalized)
-  testthat::expect_true("Sao Paulo" %in% province_names || "So Paulo" %in% province_names)
+  testthat::expect_true("Sao Paulo" %in% state_names || "So Paulo" %in% state_names)
 })
 
 testthat::test_that("load_adm2_municipality_names loads and normalizes municipality names", {
@@ -64,27 +64,27 @@ testthat::test_that("load_adm2_municipality_names loads and normalizes municipal
   )
 })
 
-testthat::test_that("validate_damage_factors_provinces detects mismatched provinces", {
+testthat::test_that("validate_damage_factors_states detects mismatched states", {
   base_dir <- get_test_data_dir()
 
-  # Create test damage factors with a non-existent province
+  # Create test damage factors with a non-existent state
   damage_factors <- data.frame(
     hazard_type = c("Heat", "Heat"),
-    province = c("Acre", "FakeProvince"), # "FakeProvince" doesn't exist
+    state = c("Acre", "FakeState"), # "FakeState" doesn't exist
     gwl = c("1.5", "1.5"),
     metric = c("median", "median"),
     damage_factor = c(-0.05, -0.06),
     stringsAsFactors = FALSE
   )
 
-  adm1_names <- load_adm1_province_names(base_dir)
+  adm1_names <- load_adm1_state_names(base_dir)
   validation_results <- list(errors = character(), warnings = character())
 
-  result <- validate_damage_factors_provinces(damage_factors, adm1_names, validation_results)
+  result <- validate_damage_factors_states(damage_factors, adm1_names, validation_results)
 
-  # Should have an error about FakeProvince
+  # Should have an error about FakeState
   testthat::expect_gt(length(result$errors), 0)
-  testthat::expect_true(any(grepl("FakeProvince", result$errors)))
+  testthat::expect_true(any(grepl("FakeState", result$errors)))
 })
 
 testthat::test_that("validate_damage_factors_required_fields passes on reference data", {
@@ -115,14 +115,14 @@ testthat::test_that("validate_damage_factors_required_fields flags missing requi
   testthat::expect_true(any(grepl("missing required column 'damage_factor'", result$errors)))
 })
 
-testthat::test_that("validate_assets_geography detects mismatched provinces", {
+testthat::test_that("validate_assets_geography detects mismatched states", {
   base_dir <- get_test_data_dir()
 
-  # Create test assets with a non-existent province
+  # Create test assets with a non-existent state
   assets <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C2"),
-    province = c("Acre", "FakeProvince"),
+    state = c("Acre", "FakeState"),
     municipality = c(NA, NA),
     latitude = c(-10, -15),
     longitude = c(-50, -55),
@@ -131,15 +131,15 @@ testthat::test_that("validate_assets_geography detects mismatched provinces", {
     stringsAsFactors = FALSE
   )
 
-  adm1_names <- load_adm1_province_names(base_dir)
+  adm1_names <- load_adm1_state_names(base_dir)
   adm2_names <- load_adm2_municipality_names(base_dir)
   validation_results <- list(errors = character(), warnings = character())
 
   result <- validate_assets_geography(assets, adm1_names, adm2_names, validation_results)
 
-  # Should have an error about FakeProvince
+  # Should have an error about FakeState
   testthat::expect_gt(length(result$errors), 0)
-  testthat::expect_true(any(grepl("FakeProvince", result$errors)))
+  testthat::expect_true(any(grepl("FakeState", result$errors)))
 })
 
 testthat::test_that("validate_cnae_codes detects invalid CNAE codes", {
@@ -204,21 +204,21 @@ testthat::test_that("validate_economic_activity_shares allows small tolerance fo
 })
 
 testthat::test_that("validate_assets_geography flags rows with no geographic information", {
-  # Assets without lat/lon, municipality, or province should be flagged
+  # Assets without lat/lon, municipality, or state should be flagged
   assets <- data.frame(
     asset = c("A1", "A2"),
     company = c("C1", "C2"),
     latitude = c(NA_real_, NA_real_),
     longitude = c(NA_real_, NA_real_),
     municipality = c(NA_character_, NA_character_),
-    province = c(NA_character_, NA_character_),
+    state = c(NA_character_, NA_character_),
     share_of_economic_activity = c(0.5, 0.5),
     cnae = c(1, 2),
     stringsAsFactors = FALSE
   )
 
   base_dir <- get_test_data_dir()
-  adm1_names <- load_adm1_province_names(base_dir)
+  adm1_names <- load_adm1_state_names(base_dir)
   adm2_names <- load_adm2_municipality_names(base_dir)
 
   validation_results <- list(errors = character(), warnings = character())
@@ -234,7 +234,7 @@ testthat::test_that("validate_assets_geography detects misspelled/encoded munici
     asset = c("A1"),
     company = c("C1"),
     municipality = c("S\u00E3o Pa\u00F4lo"), # "São Paôlo" (intentionally odd accents)
-    province = c(NA_character_),
+    state = c(NA_character_),
     latitude = c(NA_real_),
     longitude = c(NA_real_),
     share_of_economic_activity = c(1.0),
@@ -243,7 +243,7 @@ testthat::test_that("validate_assets_geography detects misspelled/encoded munici
   )
 
   base_dir <- get_test_data_dir()
-  adm1_names <- load_adm1_province_names(base_dir)
+  adm1_names <- load_adm1_state_names(base_dir)
   adm2_names <- load_adm2_municipality_names(base_dir)
 
   validation_results <- list(errors = character(), warnings = character())
@@ -274,7 +274,7 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
   assets <- data.frame(
     asset = c("A1"),
     company = c("Company A"),
-    province = c("FakeProvince"),
+    state = c("FakeState"),
     municipality = c(NA),
     share_of_economic_activity = c(0.5), # Doesn't sum to 1
     cnae = c(99999), # Invalid CNAE
@@ -285,7 +285,7 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
   damage_factors <- read_damage_cost_factors(base_dir)
   cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
-  adm1_names <- load_adm1_province_names(base_dir)
+  adm1_names <- load_adm1_state_names(base_dir)
   adm2_names <- load_adm2_municipality_names(base_dir)
 
   # This SHOULD throw an error

@@ -55,16 +55,16 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         return(assets_df)
       }
 
-      # Convert normalized province/municipality names back to original names for display
+      # Convert normalized state/municipality names back to original names for display
       if (!is.null(name_mapping)) {
-        if ("province" %in% names(assets_df) && !is.null(name_mapping$province) && length(name_mapping$province) > 0) {
-          province_lookup <- name_mapping$province
+        if ("state" %in% names(assets_df) && !is.null(name_mapping$state) && length(name_mapping$state) > 0) {
+          state_lookup <- name_mapping$state
           assets_df <- assets_df |>
             dplyr::mutate(
-              province = dplyr::if_else(
-                !is.na(.data$province) & .data$province %in% names(province_lookup),
-                province_lookup[.data$province],
-                .data$province
+              state = dplyr::if_else(
+                !is.na(.data$state) & .data$state %in% names(state_lookup),
+                state_lookup[.data$state],
+                .data$state
               )
             )
         }

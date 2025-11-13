@@ -15,7 +15,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     assets_mixed$latitude[1] <- NA_real_
     assets_mixed$longitude[1] <- NA_real_
     assets_mixed$municipality[1] <- "Borba"
-    assets_mixed$province[1] <- "Amazonas"
+    assets_mixed$state[1] <- "Amazonas"
   }
 
   # Events: Flood (acute), Heat (acute), and Drought (acute with season)
@@ -24,10 +24,9 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   # - Heat: Uses GWL= with ensemble (CSV files)
   # - Drought: Uses GWL= with season and ensemble (NC files)
   events <- data.frame(
-    hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought", "Fire"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=pc__RP=10",
-      "Flood__depth(cm)__GWL=pc__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=100",
+      "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
       "Heat__HI__GWL=present__RP=10__ensemble=mean",
       "Heat__HI__GWL=2__RP=10__ensemble=mean",
@@ -35,8 +34,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
       "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean",
       "Fire__FWI__GWL=3__RP=50__ensemble=mean"
     ),
-    scenario_name = c("pc", "pc", "rcp85", "present", "2", "present", "1.5", "3"),
-    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5", "3"),
+    scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
+    scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
     hazard_return_period = c(10, 10, 100, 10, 10, 10, 10, 50),
     event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L, 2030L),
     stringsAsFactors = FALSE
@@ -73,7 +72,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
 
   # Assets factors should include metadata and event_info
   testthat::expect_true(all(c("matching_method", "event_year") %in% names(res$assets_factors)))
-  testthat::expect_true(all(res$assets_factors$matching_method %in% c("coordinates", "municipality", "province")))
+  testthat::expect_true(all(res$assets_factors$matching_method %in% c("coordinates", "municipality", "state")))
 
   # Event IDs: auto-generated when not provided
   testthat::expect_true("event_id" %in% names(res$assets_factors))
@@ -158,7 +157,7 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     assets_mixed$latitude[1] <- NA_real_
     assets_mixed$longitude[1] <- NA_real_
     assets_mixed$municipality[1] <- "Borba"
-    assets_mixed$province[1] <- "Amazonas"
+    assets_mixed$state[1] <- "Amazonas"
   }
 
   # Events: Flood (acute), Heat (acute), and Drought (acute with season)
@@ -167,18 +166,17 @@ testthat::test_that("compute_risk produces stable snapshot output", {
   # - Heat: Uses GWL= with ensemble (CSV files)
   # - Drought: Uses GWL= with season and ensemble (NC files)
   events <- data.frame(
-    hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=pc__RP=10",
-      "Flood__depth(cm)__GWL=pc__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=100",
+      "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
       "Heat__HI__GWL=present__RP=10__ensemble=mean",
       "Heat__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
       "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
     ),
-    scenario_name = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
-    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
+    scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
+    scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
     hazard_return_period = c(10, 10, 100, 10, 10, 10, 10),
     event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L),
     stringsAsFactors = FALSE

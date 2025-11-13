@@ -1,2 +1,5 @@
-hazard_file, hazard_type, hazard_indicator, scenario_code, scenario_name, hazard_return_period
-2024_brazil_land_cover.tif,Fire,land_cover,present,present,0.0
+hazard_file,hazard_type,hazard_indicator,scenario_code,scenario_name,hazard_return_period
+2024_brazil_land_cover.tif,Fire,land_cover,present,present,0
+global_pc_h10glob.tif,Flood,depth(cm),present,present,10
+global_rcp85_h10glob.tif,Flood,depth(cm),rcp85,rcp85,10
+global_rcp85_h100glob.tif,Flood,depth(cm),rcp85,rcp85,100

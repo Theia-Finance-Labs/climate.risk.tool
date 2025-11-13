@@ -142,7 +142,7 @@ join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
   return(flood_merged)
 }
 
-#' Join Heat (heat) damage factors using province, GWL, and sector-based metric matching (internal function)
+#' Join Heat (heat) damage factors using state, GWL, and sector-based metric matching (internal function)
 #'
 #' @param compound_assets Data frame with Heat hazard assets
 #' @param damage_factors_df Data frame with damage and cost factors lookup table
@@ -181,15 +181,15 @@ join_compound_damage_factors <- function(compound_assets, damage_factors_df, cna
       )
   }
 
-  # Join with damage factors matching on hazard_type, province, gwl, AND metric
+  # Join with damage factors matching on hazard_type, state, gwl, AND metric
   compound_factors <- damage_factors_df |>
     dplyr::filter(.data$hazard_type == "Heat") |>
-    dplyr::select("hazard_type", "province", "gwl", "metric", "damage_factor")
+    dplyr::select("hazard_type", "state", "gwl", "metric", "damage_factor")
 
   compound_merged <- dplyr::left_join(
     compound_assets_with_metric,
     compound_factors,
-    by = c("hazard_type", "province", "scenario_name" = "gwl", "metric")
+    by = c("hazard_type", "state", "scenario_name" = "gwl", "metric")
   ) |>
     dplyr::mutate(
       cost_factor = NA_real_,
@@ -200,14 +200,14 @@ join_compound_damage_factors <- function(compound_assets, damage_factors_df, cna
 }
 
 
-#' Join Drought damage factors for agriculture assets with crop/province/season matching using closest intensity (internal function)
+#' Join Drought damage factors for agriculture assets with crop/state/season matching using closest intensity (internal function)
 #'
 #' Matching strategy (in order of priority):
-#' 1. Province + Subtype: First attempts to match the asset's province and crop subtype
-#' 2. Fallback Province: If province not found, uses the first available province with data for that crop
+#' 1. State + Subtype: First attempts to match the asset's state and crop subtype
+#' 2. Fallback State: If state not found, uses the first available state with data for that crop
 #' 3. No match: If crop not found at all, sets damage_factor = 0 with NA for growing_season and off_window
 #'
-#' After finding the correct province and crop:
+#' After finding the correct state and crop:
 #' - Finds the closest intensity match (caps at -3 for values below -3)
 #' - For multi-season crops (e.g., Sugarcane with Winter and Autumn):
 #'   * If user-selected season matches a growing season: use that season's damage factor
@@ -230,11 +230,11 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
       damage_factor_value = as.numeric(.data$damage_factor),
       off_window_value = as.numeric(.data$off_window)
     ) |>
-    dplyr::select("province", "subtype", "season", "damage_factor_value", "off_window_value", "hazard_intensity_num") |>
+    dplyr::select("state", "subtype", "season", "damage_factor_value", "off_window_value", "hazard_intensity_num") |>
     dplyr::rename(growing_season = "season") # Rename to avoid conflict with event season
 
   # Create "Other" crop type by duplicating Soybean data (for missing crop types)
-  # "Other" province already exists in the input data
+  # "Other" state already exists in the input data
   drought_factors_other_crop <- drought_factors |>
     dplyr::filter(.data$subtype == "Soybean") |>
     dplyr::mutate(subtype = "Other")
@@ -245,10 +245,10 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     drought_factors_other_crop
   )
 
-  # Get list of province+crop combinations that exist (for matching logic)
-  province_crop_combinations <- drought_factors |>
-    dplyr::filter(.data$province != "Other", .data$subtype != "Other") |>
-    dplyr::distinct(.data$province, .data$subtype)
+  # Get list of state+crop combinations that exist (for matching logic)
+  state_crop_combinations <- drought_factors |>
+    dplyr::filter(.data$state != "Other", .data$subtype != "Other") |>
+    dplyr::distinct(.data$state, .data$subtype)
 
   # Prepare assets: determine matching keys based on what exists in damage factors
   drought_assets_prepared <- drought_assets |>
@@ -263,33 +263,33 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
         "Other",
         .data$asset_subtype
       ),
-      province_clean = dplyr::if_else(
-        is.na(.data$province) | .data$province == "",
+      state_clean = dplyr::if_else(
+        is.na(.data$state) | .data$state == "",
         "Other",
-        .data$province
+        .data$state
       ),
       # Asset identifier for tracking
       asset_id = dplyr::row_number()
     ) |>
-    # Check if province+crop combination exists
+    # Check if state+crop combination exists
     dplyr::left_join(
-      province_crop_combinations |> dplyr::mutate(combo_exists = TRUE),
-      by = c("province_clean" = "province", "asset_subtype_clean" = "subtype")
+      state_crop_combinations |> dplyr::mutate(combo_exists = TRUE),
+      by = c("state_clean" = "state", "asset_subtype_clean" = "subtype")
     ) |>
     dplyr::mutate(
       combo_exists = !is.na(.data$combo_exists),
       # Matching logic based on what exists:
-      # - If combo exists: use actual province + actual crop
-      # - If crop exists but not in this province: use "Other" province + actual crop
-      # - If crop doesn't exist at all: use actual province + "Other" crop (will then fallback to "Other" province in join)
+      # - If combo exists: use actual state + actual crop
+      # - If crop exists but not in this state: use "Other" state + actual crop
+      # - If crop doesn't exist at all: use actual state + "Other" crop (will then fallback to "Other" state in join)
       subtype_for_match = .data$asset_subtype_clean, # Always use actual crop (or "Other" if missing)
-      province_for_match = dplyr::if_else(
+      state_for_match = dplyr::if_else(
         .data$combo_exists,
-        .data$province_clean, # Combo exists, use actual province
-        "Other" # Combo doesn't exist, use "Other" province
+        .data$state_clean, # Combo exists, use actual state
+        "Other" # Combo doesn't exist, use "Other" state
       )
     ) |>
-    dplyr::select(-"combo_exists", -"asset_subtype_clean", -"province_clean")
+    dplyr::select(-"combo_exists", -"asset_subtype_clean", -"state_clean")
 
   # Handle assets with intensity > -1 (no damage) early
   assets_no_damage <- drought_assets_prepared |>
@@ -301,18 +301,18 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
       cost_factor = NA_real_,
       business_disruption = NA_real_
     ) |>
-    dplyr::select(-dplyr::any_of(c("subtype_for_match", "province_for_match", "asset_id")))
+    dplyr::select(-dplyr::any_of(c("subtype_for_match", "state_for_match", "asset_id")))
 
   # Continue with assets that need damage factor lookup (intensity <= -1)
   drought_assets_prepared <- drought_assets_prepared |>
     dplyr::filter(.data$hazard_intensity <= -1)
 
-  # Step 1: EXACT MATCH - Try province + subtype + season combinations
-  # Priority: actual province + actual crop, then fallbacks
+  # Step 1: EXACT MATCH - Try state + subtype + season combinations
+  # Priority: actual state + actual crop, then fallbacks
   merged_exact <- drought_assets_prepared |>
     dplyr::inner_join(
       drought_factors,
-      by = c("province_for_match" = "province", "subtype_for_match" = "subtype", "season" = "growing_season"),
+      by = c("state_for_match" = "state", "subtype_for_match" = "subtype", "season" = "growing_season"),
       relationship = "many-to-many"
     )
 
@@ -338,7 +338,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
       )
   }
 
-  # Step 2: OFF-SEASON MATCH - province + subtype (all seasons, will average)
+  # Step 2: OFF-SEASON MATCH - state + subtype (all seasons, will average)
   # Join handles all combinations: actual prov + actual crop, actual prov + Other crop, Other prov + actual crop, Other prov + Other crop
   assets_no_exact_match <- drought_assets_prepared |>
     dplyr::anti_join(
@@ -351,7 +351,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     merged_off_season <- assets_no_exact_match |>
       dplyr::inner_join(
         drought_factors,
-        by = c("province_for_match" = "province", "subtype_for_match" = "subtype"),
+        by = c("state_for_match" = "state", "subtype_for_match" = "subtype"),
         relationship = "many-to-many"
       )
 
@@ -403,7 +403,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
           # Average the damage factors and off_windows across all growing seasons
           avg_damage_factor = mean(.data$damage_factor_value, na.rm = TRUE),
           avg_off_window = mean(.data$off_window_value, na.rm = TRUE),
-          # Collect all growing seasons for this crop/province
+          # Collect all growing seasons for this crop/state
           seasons_list = paste(sort(unique(dplyr::pick("growing_season")$growing_season)), collapse = ", "),
           .groups = "drop"
         ) |>
@@ -433,7 +433,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     result_with_factors <- data.frame()
   }
 
-  # Step 5: Handle unmatched assets (those that didn't match any crop/province)
+  # Step 5: Handle unmatched assets (those that didn't match any crop/state)
   all_asset_ids <- if (nrow(result_with_factors) > 0) {
     result_with_factors |> dplyr::pull(.data$asset_id)
   } else {
@@ -457,7 +457,7 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
     dplyr::select(
       -dplyr::any_of(c(
         "subtype_for_match",
-        "province_for_match",
+        "state_for_match",
         "asset_id",
         "intensity_diff",
         "match_type",
@@ -513,7 +513,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
   # IMPORTANT: Don't include scenario/RP columns before pivoting, as they vary by indicator
   fire_wide <- fire_assets |>
     dplyr::select(
-      "asset", "company", "latitude", "longitude", "municipality", "province",
+      "asset", "company", "latitude", "longitude", "municipality", "state",
       "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
       "cnae", "hazard_type", "hazard_indicator", "hazard_intensity",
       "matching_method", "event_id", "event_year"
@@ -639,7 +639,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       hazard_indicator = "FWI"
     ) |>
     dplyr::select(
-      "asset", "company", "latitude", "longitude", "municipality", "province",
+      "asset", "company", "latitude", "longitude", "municipality", "state",
       "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
       "cnae", "hazard_name", "hazard_type", "hazard_indicator", "hazard_return_period",
       "scenario_name", "source", "matching_method", "event_id", "event_year",

@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils__read_inputs.R
 \name{read_precomputed_hazards}
 \alias{read_precomputed_hazards}
-\title{Read precomputed hazard statistics for provinces and municipalities}
+\title{Read precomputed hazard statistics for states and municipalities}
 \usage{
 read_precomputed_hazards(base_dir)
 }
@@ -12,13 +12,13 @@ read_precomputed_hazards(base_dir)
 \value{
 tibble with precomputed hazard statistics including columns: region, adm_level,
 scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
-p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
+p2_5, p5, p95, p97_5. adm_level is "ADM1" for states or "ADM2" for municipalities.
 Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
 }
 \description{
 Reads precomputed hazard statistics from CSV file containing hazard data
-aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard
-values for assets without coordinates but with province or municipality information.
+aggregated at ADM1 (state) and ADM2 (municipality) levels. Used to look up hazard
+values for assets without coordinates but with state or municipality information.
 }
 \details{
 Read precomputed administrative hazard statistics from CSV file
@@ -27,7 +27,7 @@ Read precomputed administrative hazard statistics from CSV file
 \dontrun{
 base_dir <- system.file("tests_data", package = "climate.risk.tool")
 precomputed <- read_precomputed_hazards(base_dir)
-# Look up Amazonas province flood hazard
+# Look up Amazonas state flood hazard
 amazonas_flood <- precomputed |>
   dplyr::filter(region == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
 }

@@ -2,9 +2,9 @@
 #'
 #' @title Validate all input data for coherence and consistency
 #' @description Performs comprehensive validation checks on input data including:
-#'   - Province names in damage factors match ADM1 boundaries (after normalization)
-#'   - Province and municipality names in assets match ADM1/ADM2 boundaries
-#'   - Province and municipality names in precomputed hazards match ADM1/ADM2
+#'   - State names in damage factors match ADM1 boundaries (after normalization)
+#'   - State and municipality names in assets match ADM1/ADM2 boundaries
+#'   - State and municipality names in precomputed hazards match ADM1/ADM2
 #'   - CNAE codes in assets exist in reference CNAE file
 #'   - Share of economic activity sums to 1 for each company
 #' @param assets_df Assets data frame
@@ -12,14 +12,14 @@
 #' @param damage_factors_df Damage factors data frame
 #' @param precomputed_hazards_df Optional precomputed hazards data frame
 #' @param cnae_exposure_df CNAE exposure data frame
-#' @param adm1_names Character vector of valid ADM1 (province) names (ASCII-normalized)
+#' @param adm1_names Character vector of valid ADM1 (state) names (ASCII-normalized)
 #' @param adm2_names Character vector of valid ADM2 (municipality) names (ASCII-normalized)
 #' @return List with validation results containing `errors` and `warnings` character vectors.
 #'   Stops execution if errors are found.
 #' @examples
 #' \dontrun{
 #' # Load boundary names
-#' adm1 <- load_adm1_province_names("tests/tests_data")
+#' adm1 <- load_adm1_state_names("tests/tests_data")
 #' adm2 <- load_adm2_municipality_names("tests/tests_data")
 #' # Validate
 #' validate_input_coherence(assets, damage_factors, precomputed_hazards, cnae_exposure, adm1, adm2)
@@ -42,9 +42,9 @@ validate_input_coherence <- function(
   )
 
   # ============================================================================
-  # VALIDATION CHECK 1: Province names in damage factors
+  # VALIDATION CHECK 1: State names in damage factors
   # ============================================================================
-  validation_results <- validate_damage_factors_provinces(
+  validation_results <- validate_damage_factors_states(
     damage_factors_df,
     c(adm1_names, "Other"),
     validation_results
@@ -59,7 +59,7 @@ validate_input_coherence <- function(
   )
 
   # ============================================================================
-  # VALIDATION CHECK 2: Province and municipality names in assets
+  # VALIDATION CHECK 2: State and municipality names in assets
   # ============================================================================
   validation_results <- validate_assets_geography(
     assets_df,
@@ -78,7 +78,7 @@ validate_input_coherence <- function(
   )
 
   # ============================================================================
-  # VALIDATION CHECK 3: Province and municipality in precomputed hazards (if provided)
+  # VALIDATION CHECK 3: State and municipality in precomputed hazards (if provided)
   # ============================================================================
   if (!is.null(precomputed_hazards_df)) {
     validation_results <- validate_precomputed_hazards_geography(
@@ -135,28 +135,28 @@ validate_input_coherence <- function(
 }
 
 
-#' Load ADM1 (province) normalized names from boundaries file
+#' Load ADM1 (state) normalized names from boundaries file
 #'
 #' @param base_dir Base directory containing areas subdirectory
-#' @return Character vector of normalized province names
+#' @return Character vector of normalized state names
 #' @noRd
-load_adm1_province_names <- function(base_dir) {
-  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+load_adm1_state_names <- function(base_dir) {
+  state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
 
-  if (!file.exists(province_path)) {
-    warning("[load_adm1_province_names] Province boundaries not found at: ", province_path)
+  if (!file.exists(state_path)) {
+    warning("[load_adm1_state_names] State boundaries not found at: ", state_path)
     return(character(0))
   }
 
-  provinces_sf <- sf::st_read(province_path, quiet = TRUE)
+  states_sf <- sf::st_read(state_path, quiet = TRUE)
 
-  # Normalize names same way as in assign_province_to_assets
-  province_names <- provinces_sf |>
+  # Normalize names same way as in assign_state_to_assets
+  state_names <- states_sf |>
     dplyr::pull(.data$shapeName) |>
     as.character() |>
     stringi::stri_trans_general("Latin-ASCII")
 
-  return(unique(province_names))
+  return(unique(state_names))
 }
 
 
@@ -175,7 +175,7 @@ load_adm2_municipality_names <- function(base_dir) {
 
   municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE)
 
-  # Normalize names same way as in assign_province_to_assets
+  # Normalize names same way as in assign_state_to_assets
   municipality_names <- municipalities_sf |>
     dplyr::pull(.data$shapeName) |>
     as.character() |>
@@ -185,40 +185,40 @@ load_adm2_municipality_names <- function(base_dir) {
 }
 
 
-#' Validate damage factors province names against ADM1 boundaries
+#' Validate damage factors state names against ADM1 boundaries
 #'
 #' @param damage_factors_df Damage factors data frame
-#' @param adm1_names Character vector of valid ADM1 province names
+#' @param adm1_names Character vector of valid ADM1 state names
 #' @param validation_results List with errors and warnings vectors
 #' @return Updated validation_results list
 #' @noRd
-validate_damage_factors_provinces <- function(damage_factors_df, adm1_names, validation_results) {
+validate_damage_factors_states <- function(damage_factors_df, adm1_names, validation_results) {
   if (length(adm1_names) == 0) {
     validation_results$warnings <- c(
       validation_results$warnings,
-      "Cannot validate damage factors provinces: ADM1 boundaries not loaded"
+      "Cannot validate damage factors states: ADM1 boundaries not loaded"
     )
     return(validation_results)
   }
 
-  # Get unique province names from damage factors (excluding "-" placeholder)
-  df_provinces <- damage_factors_df |>
-    dplyr::filter(!is.na(.data$province), .data$province != "-") |>
-    dplyr::pull(.data$province) |>
+  # Get unique state names from damage factors (excluding "-" placeholder)
+  df_states <- damage_factors_df |>
+    dplyr::filter(!is.na(.data$state), .data$state != "-") |>
+    dplyr::pull(.data$state) |>
     unique()
 
-  # Normalize damage factor provinces for comparison
-  df_provinces_normalized <- stringi::stri_trans_general(df_provinces, "Latin-ASCII")
+  # Normalize damage factor states for comparison
+  df_states_normalized <- stringi::stri_trans_general(df_states, "Latin-ASCII")
 
   # Find mismatches
-  invalid_provinces <- df_provinces_normalized[!df_provinces_normalized %in% adm1_names]
+  invalid_states <- df_states_normalized[!df_states_normalized %in% adm1_names]
 
-  if (length(invalid_provinces) > 0) {
+  if (length(invalid_states) > 0) {
     validation_results$errors <- c(
       validation_results$errors,
       paste0(
-        "Damage factors contain province names not in ADM1 boundaries (after normalization): ",
-        paste(invalid_provinces, collapse = ", ")
+        "Damage factors contain state names not in ADM1 boundaries (after normalization): ",
+        paste(invalid_states, collapse = ", ")
       )
     )
   }
@@ -233,8 +233,8 @@ validate_damage_factors_provinces <- function(damage_factors_df, adm1_names, val
 #' - Flood: hazard_intensity, hazard_unit, asset_category, damage_factor,
 #'             cost_factor, hazard_indicator, business_disruption
 #' - Drought:  hazard_intensity, hazard_unit, asset_category, damage_factor,
-#'             hazard_indicator, province, subtype, season, off_window
-#' - Heat: gwl, damage_factor, hazard_indicator, province, metric
+#'             hazard_indicator, state, subtype, season, off_window
+#' - Heat: gwl, damage_factor, hazard_indicator, state, metric
 #'
 #' @param damage_factors_df Damage factors data frame
 #' @param validation_results List with errors and warnings vectors
@@ -257,10 +257,10 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
     ),
     Drought = c(
       "hazard_intensity", "hazard_unit", "asset_category", "damage_factor",
-      "hazard_indicator", "province", "subtype", "season", "off_window"
+      "hazard_indicator", "state", "subtype", "season", "off_window"
     ),
     Heat = c(
-      "gwl", "damage_factor", "hazard_indicator", "province", "metric"
+      "gwl", "damage_factor", "hazard_indicator", "state", "metric"
     )
   )
 
@@ -314,27 +314,27 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
 }
 
 
-#' Validate assets geography (province and municipality) against ADM1/ADM2 boundaries
+#' Validate assets geography (state and municipality) against ADM1/ADM2 boundaries
 #'
 #' @param assets_df Assets data frame
-#' @param adm1_names Character vector of valid ADM1 province names
+#' @param adm1_names Character vector of valid ADM1 state names
 #' @param adm2_names Character vector of valid ADM2 municipality names
 #' @param validation_results List with errors and warnings vectors
 #' @return Updated validation_results list
 #' @noRd
 validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validation_results) {
   # Flag rows with no geographic information at all
-  if (all(c("latitude", "longitude", "municipality", "province") %in% names(assets_df))) {
+  if (all(c("latitude", "longitude", "municipality", "state") %in% names(assets_df))) {
     no_geo_idx <- which(
       (is.na(assets_df$latitude) | is.null(assets_df$latitude)) &
         (is.na(assets_df$longitude) | is.null(assets_df$longitude)) &
         (is.na(assets_df$municipality) | is.null(assets_df$municipality) | !nzchar(trimws(as.character(assets_df$municipality)))) &
-        (is.na(assets_df$province) | is.null(assets_df$province) | !nzchar(trimws(as.character(assets_df$province))))
+        (is.na(assets_df$state) | is.null(assets_df$state) | !nzchar(trimws(as.character(assets_df$state))))
     )
     if (length(no_geo_idx) > 0) {
       validation_results$errors <- c(
         validation_results$errors,
-        paste0("Assets have no geographic information (lat/lon/municipality/province) for rows: ", paste(no_geo_idx, collapse = ", "))
+        paste0("Assets have no geographic information (lat/lon/municipality/state) for rows: ", paste(no_geo_idx, collapse = ", "))
       )
     }
   }
@@ -347,34 +347,34 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
         stringi::stri_trans_general(as.character(trimws(.data$municipality)), "Latin-ASCII"),
         .data$municipality
       ),
-      province = dplyr::if_else(
-        !is.na(.data$province) & nzchar(trimws(as.character(.data$province))),
-        stringi::stri_trans_general(as.character(trimws(.data$province)), "Latin-ASCII"),
-        .data$province
+      state = dplyr::if_else(
+        !is.na(.data$state) & nzchar(trimws(as.character(.data$state))),
+        stringi::stri_trans_general(as.character(trimws(.data$state)), "Latin-ASCII"),
+        .data$state
       )
     )
-  # Validate provinces
+  # Validate states
   if (length(adm1_names) > 0) {
-    asset_provinces <- assets_df |>
-      dplyr::filter(!is.na(.data$province)) |>
-      dplyr::pull(.data$province) |>
+    asset_states <- assets_df |>
+      dplyr::filter(!is.na(.data$state)) |>
+      dplyr::pull(.data$state) |>
       unique()
 
-    invalid_provinces <- asset_provinces[!asset_provinces %in% adm1_names]
+    invalid_states <- asset_states[!asset_states %in% adm1_names]
 
-    if (length(invalid_provinces) > 0) {
+    if (length(invalid_states) > 0) {
       validation_results$errors <- c(
         validation_results$errors,
         paste0(
-          "Assets contain province names not in ADM1 boundaries: ",
-          paste(invalid_provinces, collapse = ", ")
+          "Assets contain state names not in ADM1 boundaries: ",
+          paste(invalid_states, collapse = ", ")
         )
       )
     }
   } else {
     validation_results$warnings <- c(
       validation_results$warnings,
-      "Cannot validate asset provinces: ADM1 boundaries not loaded"
+      "Cannot validate asset states: ADM1 boundaries not loaded"
     )
   }
 
@@ -410,31 +410,31 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
 #' Validate precomputed hazards geography against ADM1/ADM2 boundaries
 #'
 #' @param precomputed_hazards_df Precomputed hazards data frame
-#' @param adm1_names Character vector of valid ADM1 province names
+#' @param adm1_names Character vector of valid ADM1 state names
 #' @param adm2_names Character vector of valid ADM2 municipality names
 #' @param validation_results List with errors and warnings vectors
 #' @return Updated validation_results list
 #' @noRd
 validate_precomputed_hazards_geography <- function(precomputed_hazards_df, adm1_names, adm2_names, validation_results) {
-  # Validate provinces (if column exists)
+  # Validate states (if column exists)
   if ("region" %in% names(precomputed_hazards_df) && length(adm1_names) > 0) {
-    # Check adm_level to see if these are provinces
-    province_rows <- precomputed_hazards_df |>
+    # Check adm_level to see if these are states
+    state_rows <- precomputed_hazards_df |>
       dplyr::filter(.data$adm_level == "ADM1", !is.na(.data$region))
 
-    if (nrow(province_rows) > 0) {
-      hazard_provinces <- province_rows |>
+    if (nrow(state_rows) > 0) {
+      hazard_states <- state_rows |>
         dplyr::pull(.data$region) |>
         unique()
 
-      invalid_provinces <- hazard_provinces[!hazard_provinces %in% adm1_names]
+      invalid_states <- hazard_states[!hazard_states %in% adm1_names]
 
-      if (length(invalid_provinces) > 0) {
+      if (length(invalid_states) > 0) {
         validation_results$errors <- c(
           validation_results$errors,
           paste0(
-            "Precomputed hazards contain province names not in ADM1 boundaries: ",
-            paste(invalid_provinces, collapse = ", ")
+            "Precomputed hazards contain state names not in ADM1 boundaries: ",
+            paste(invalid_states, collapse = ", ")
           )
         )
       }
