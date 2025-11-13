@@ -26,8 +26,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   events <- data.frame(
     hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought", "Fire"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=present__RP=10",
-      "Flood__depth(cm)__GWL=present__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=100",
+      "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
       "Heat__HI__GWL=present__RP=10__ensemble=mean",
       "Heat__HI__GWL=2__RP=10__ensemble=mean",
@@ -169,8 +169,8 @@ testthat::test_that("compute_risk produces stable snapshot output", {
   events <- data.frame(
     hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=present__RP=10",
-      "Flood__depth(cm)__GWL=present__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=100",
+      "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
       "Heat__HI__GWL=present__RP=10__ensemble=mean",
       "Heat__HI__GWL=2__RP=10__ensemble=mean",
