@@ -25,7 +25,7 @@ validate_input_coherence(
 
 \item{cnae_exposure_df}{CNAE exposure data frame}
 
-\item{adm1_names}{Character vector of valid ADM1 (province) names (ASCII-normalized)}
+\item{adm1_names}{Character vector of valid ADM1 (state) names (ASCII-normalized)}
 
 \item{adm2_names}{Character vector of valid ADM2 (municipality) names (ASCII-normalized)}
 }
@@ -36,9 +36,9 @@ Stops execution if errors are found.
 \description{
 Performs comprehensive validation checks on input data including:
 \itemize{
-\item Province names in damage factors match ADM1 boundaries (after normalization)
-\item Province and municipality names in assets match ADM1/ADM2 boundaries
-\item Province and municipality names in precomputed hazards match ADM1/ADM2
+\item State names in damage factors match ADM1 boundaries (after normalization)
+\item State and municipality names in assets match ADM1/ADM2 boundaries
+\item State and municipality names in precomputed hazards match ADM1/ADM2
 \item CNAE codes in assets exist in reference CNAE file
 \item Share of economic activity sums to 1 for each company
 }
@@ -49,7 +49,7 @@ Validate Input Data Coherence
 \examples{
 \dontrun{
 # Load boundary names
-adm1 <- load_adm1_province_names("tests/tests_data")
+adm1 <- load_adm1_state_names("tests/tests_data")
 adm2 <- load_adm2_municipality_names("tests/tests_data")
 # Validate
 validate_input_coherence(assets, damage_factors, precomputed_hazards, cnae_exposure, adm1, adm2)

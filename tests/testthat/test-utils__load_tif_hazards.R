@@ -28,10 +28,10 @@ test_that("load_tif_hazards loads from mapping dataframe", {
 
 test_that("load_tif_hazards loads rasters correctly", {
   mapping_df <- tibble::tibble(
-    hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
+    hazard_file = c("global_present_h10glob.tif", "global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
     hazard_type = c("flood", "flood", "flood"),
     hazard_indicator = c("depth(cm)", "depth(cm)", "depth(cm)"),
-    scenario_code = c("pc", "rcp85", "rcp85"),
+    scenario_code = c("present", "rcp85", "rcp85"),
     scenario_name = c("CurrentClimate", "RCP8.5", "RCP8.5"),
     hazard_return_period = c(10, 10, 100)
   )
@@ -59,10 +59,10 @@ test_that("load_tif_hazards loads rasters correctly", {
 test_that("load_tif_hazards supports aggregation parameter", {
   testthat::skip_on_ci()
   mapping_df <- tibble::tibble(
-    hazard_file = c("global_pc_h10glob.tif"),
+    hazard_file = c("global_present_h10glob.tif"),
     hazard_type = c("flood"),
     hazard_indicator = c("depth(cm)"),
-    scenario_code = c("pc"),
+    scenario_code = c("present"),
     scenario_name = c("CurrentClimate"),
     hazard_return_period = c(10)
   )

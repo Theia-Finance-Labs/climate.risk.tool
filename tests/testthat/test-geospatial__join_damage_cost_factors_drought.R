@@ -1,19 +1,19 @@
 # Additional tests for join_damage_cost_factors - Edge cases and scenarios
 
-testthat::test_that("join_drought_damage_factors: crop exists but not in asset's province (use Other province)", {
+testthat::test_that("join_drought_damage_factors: crop exists but not in asset's state (use Other state)", {
   base_dir <- get_test_data_dir()
 
   # Test Sugarcane in Mato Grosso (doesn't exist - Mato Grosso has Corn/Soybean only)
-  # Should fallback to "Other" province + Sugarcane
+  # Should fallback to "Other" state + Sugarcane
   assets_long <- data.frame(
     asset = c("A1"),
     company = c("C1"),
     latitude = c(-12.5),
     longitude = c(-56.0),
     municipality = c("Mun1"),
-    province = c("Mato Grosso"), # Has Corn/Soybean but NOT Sugarcane
+    state = c("Mato Grosso"), # Has Corn/Soybean but NOT Sugarcane
     asset_category = c("agriculture"),
-    asset_subtype = c("Sugarcane"), # Exists in other provinces (Bahia, Sao Paulo, etc)
+    asset_subtype = c("Sugarcane"), # Exists in other states (Bahia, Sao Paulo, etc)
     size_in_m2 = c(10000),
     share_of_economic_activity = c(0.5),
     hazard_name = c("SPI3__extraction_method=mean"),
@@ -23,7 +23,7 @@ testthat::test_that("join_drought_damage_factors: crop exists but not in asset's
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
-    season = c("Winter"), # Sugarcane grows in Winter in some provinces
+    season = c("Winter"), # Sugarcane grows in Winter in some states
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -42,15 +42,15 @@ testthat::test_that("join_drought_damage_factors: crop exists but not in asset's
 testthat::test_that("join_drought_damage_factors: crop doesn't exist anywhere (use Other crop)", {
   base_dir <- get_test_data_dir()
 
-  # Test unknown crop type in a known province
-  # Should fallback to "Other" crop (based on Soybean) + actual province
+  # Test unknown crop type in a known state
+  # Should fallback to "Other" crop (based on Soybean) + actual state
   assets_long <- data.frame(
     asset = c("A1"),
     company = c("C1"),
     latitude = c(-15),
     longitude = c(-48),
     municipality = c("Mun1"),
-    province = c("Goias"), # Valid province
+    state = c("Goias"), # Valid state
     asset_category = c("agriculture"),
     asset_subtype = c("Rice"), # Doesn't exist in damage factors
     size_in_m2 = c(10000),
@@ -75,18 +75,18 @@ testthat::test_that("join_drought_damage_factors: crop doesn't exist anywhere (u
   testthat::expect_true(out$damage_factor >= 0)
 })
 
-testthat::test_that("join_drought_damage_factors: neither crop nor province exist (use Other+Other)", {
+testthat::test_that("join_drought_damage_factors: neither crop nor state exist (use Other+Other)", {
   base_dir <- get_test_data_dir()
 
-  # Test unknown crop in unknown province
-  # Should fallback to "Other" crop + "Other" province
+  # Test unknown crop in unknown state
+  # Should fallback to "Other" crop + "Other" state
   assets_long <- data.frame(
     asset = c("A1"),
     company = c("C1"),
     latitude = c(0),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Amapa"), # Province not in damage factors
+    state = c("Amapa"), # State not in damage factors
     asset_category = c("agriculture"),
     asset_subtype = c("Rice"), # Crop not in damage factors
     size_in_m2 = c(10000),
@@ -123,7 +123,7 @@ testthat::test_that("join_drought_damage_factors: closest intensity matching wor
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Bahia", "Bahia"),
+    state = c("Bahia", "Bahia"),
     asset_category = c("agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Soybean"),
     size_in_m2 = c(10000, 8000),
@@ -159,7 +159,7 @@ testthat::test_that("join_drought_damage_factors: multiple assets with same prop
     latitude = c(-10, -10.01, -10.02),
     longitude = c(-50, -50.01, -50.02),
     municipality = c("Mun1", "Mun1", "Mun1"),
-    province = c("Bahia", "Bahia", "Bahia"),
+    state = c("Bahia", "Bahia", "Bahia"),
     asset_category = c("agriculture", "agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Soybean", "Soybean"),
     size_in_m2 = c(10000, 10000, 10000),
@@ -197,7 +197,7 @@ testthat::test_that("join_drought_damage_factors: all four seasons tested", {
     latitude = c(-10, -15, -20, -25),
     longitude = c(-50, -55, -60, -65),
     municipality = c("Mun1", "Mun2", "Mun3", "Mun4"),
-    province = c("Bahia", "Bahia", "Bahia", "Bahia"),
+    state = c("Bahia", "Bahia", "Bahia", "Bahia"),
     asset_category = c("agriculture", "agriculture", "agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Soybean", "Soybean", "Soybean"),
     size_in_m2 = c(10000, 8000, 12000, 9000),
@@ -235,7 +235,7 @@ testthat::test_that("join_drought_damage_factors: off-season with single growing
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Bahia"),
+    state = c("Bahia"),
     asset_category = c("agriculture"),
     asset_subtype = c("Soybean"),
     size_in_m2 = c(10000),

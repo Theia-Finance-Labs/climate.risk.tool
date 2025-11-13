@@ -88,7 +88,7 @@ testthat::test_that("create_asset_geometries raises error for assets without coo
   df$latitude[1] <- NA_real_
   df$longitude[1] <- NA_real_
   df$municipality[1] <- "Borba"
-  df$province[1] <- "Amazonas"
+  df$state[1] <- "Amazonas"
 
   # Should raise error with informative message
   testthat::expect_error(

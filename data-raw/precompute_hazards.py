@@ -1292,7 +1292,7 @@ def main():
 
     # Input paths
     HAZARDS_DIR = "workspace/demo_inputs/hazards"
-    ADM1_PATH = "tests/tests_data/areas/province/geoBoundaries-BRA-ADM1.shp"
+    ADM1_PATH = "tests/tests_data/areas/state/geoBoundaries-BRA-ADM1.shp"
     ADM2_PATH = "tests/tests_data/areas/municipality/geoBoundaries-BRA-ADM2.shp"
 
     # Output path

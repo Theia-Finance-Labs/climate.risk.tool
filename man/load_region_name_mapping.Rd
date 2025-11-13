@@ -12,7 +12,7 @@ load_region_name_mapping(base_dir)
 \value{
 Named list with two elements:
 \itemize{
-\item province: Named character vector mapping normalized province names to original names
+\item state: Named character vector mapping normalized state names to original names
 \item municipality: Named character vector mapping normalized municipality names to original names
 }
 }
@@ -28,6 +28,6 @@ Load region name mapping dictionary
 \dontrun{
 base_dir <- system.file("tests_data", package = "climate.risk.tool")
 name_mapping <- load_region_name_mapping(base_dir)
-# Access original name: name_mapping$province["Sao Paulo"] returns "São Paulo"
+# Access original name: name_mapping$state["Sao Paulo"] returns "São Paulo"
 }
 }

@@ -11,12 +11,12 @@ R package built with {golem} framework for Shiny apps. Performs climate risk ana
 The tool processes climate risk through a multi-step pipeline orchestrated by `compute_risk()`:
 
 **PHASE 0: Input Preparation**
-1. **Province Assignment**: Assign provinces to assets without province data (via coordinates or municipality)
+1. **State Assignment**: Assign states to assets without state data (via coordinates or municipality)
 2. **Input Validation**: Validate data coherence (if `validate_inputs=TRUE` and `base_dir` provided)
 3. **Asset Filtering**: Filter assets to only include those with matching companies
 
 **PHASE 1: Geospatial Processing**
-4. **Geospatial Extraction**: Assign hazard values to assets using priority cascade (coordinates → municipality → province)
+4. **Geospatial Extraction**: Assign hazard values to assets using priority cascade (coordinates → municipality → state)
 5. **Hazard-Damage Mapping**: Join damage cost factors based on hazard intensity and asset characteristics
 
 **PHASE 2: Financial Modeling**
@@ -35,7 +35,7 @@ The tool processes climate risk through a multi-step pipeline orchestrated by `c
 Assets are assigned hazard values using this priority:
 1. **Coordinates** (lat/lon) → Spatial extraction from raster files
 2. **Municipality** (ADM2) → Precomputed lookup from `precomputed_adm_hazards.csv`
-3. **Province** (ADM1) → Precomputed lookup from `precomputed_adm_hazards.csv`
+3. **State** (ADM1) → Precomputed lookup from `precomputed_adm_hazards.csv`
 4. **None** → Error with informative message
 
 This is handled automatically by `extract_hazard_statistics()`.
@@ -160,7 +160,7 @@ To add a new hazard type:
 ### Required Input Files
 
 #### 1. `asset_information.xlsx`
-Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR province)
+Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
 
 #### 2. `company.xlsx`
 Columns: company_id, company_name, equity, debt, other financial data
@@ -262,18 +262,18 @@ Examples:
 
 **Validation Checks:**
 
-1. **Province Names in Damage Factors**: All province names must match ADM1 boundary names (after ASCII normalization)
-2. **Province Names in Assets**: All asset province names must match ADM1 boundary names
+1. **State Names in Damage Factors**: All state names must match ADM1 boundary names (after ASCII normalization)
+2. **State Names in Assets**: All asset state names must match ADM1 boundary names
 3. **Municipality Names in Assets**: All asset municipality names must match ADM2 boundary names  
-4. **Province Names in Precomputed Hazards**: All province-level (ADM1) regions must match ADM1 boundary names
+4. **State Names in Precomputed Hazards**: All state-level (ADM1) regions must match ADM1 boundary names
 5. **Municipality Names in Precomputed Hazards**: All municipality-level (ADM2) regions must match ADM2 boundary names
 6. **CNAE Codes in Assets**: All CNAE codes in assets must exist in the reference CNAE exposure file
 7. **Share of Economic Activity**: For each company, asset shares must sum to 1.0 (±0.01 tolerance)
 
-**ASCII Normalization**: All province and municipality names are normalized using `stringi::stri_trans_general("Latin-ASCII")` to remove accents (e.g., "Espírito Santo" → "Espirito Santo"). This ensures consistent matching between data sources.
+**ASCII Normalization**: All state and municipality names are normalized using `stringi::stri_trans_general("Latin-ASCII")` to remove accents (e.g., "Espírito Santo" → "Espirito Santo"). This ensures consistent matching between data sources.
 
 **Helper Functions**:
-- `load_adm1_province_names(base_dir)` → Character vector of normalized ADM1 province names
+- `load_adm1_state_names(base_dir)` → Character vector of normalized ADM1 state names
 - `load_adm2_municipality_names(base_dir)` → Character vector of normalized ADM2 municipality names
 
 **Implementation**: `R/utils__validate_inputs.R`
@@ -283,15 +283,15 @@ Examples:
 
 **`read_assets(base_dir)`** → data.frame
 - Reads from `{base_dir}/user_input/asset_information.xlsx`
-- ASCII-normalizes province and municipality names
-- **Does NOT assign provinces to assets** - this is now done in `compute_risk()` or can be called separately
+- ASCII-normalizes state and municipality names
+- **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
 
-**`assign_province_to_assets(assets_df, base_dir)`** → data.frame
-- Assigns provinces to assets without province data using spatial matching
+**`assign_state_to_assets(assets_df, base_dir)`** → data.frame
+- Assigns states to assets without state data using spatial matching
 - Strategy 1: Uses coordinates (lat/lon) for spatial join with ADM1 boundaries
-- Strategy 2: Uses municipality name to look up province
+- Strategy 2: Uses municipality name to look up state
 - Called automatically by `compute_risk()` if `base_dir` is provided
-- Can be called manually: `assets <- assign_province_to_assets(assets, base_dir)`
+- Can be called manually: `assets <- assign_state_to_assets(assets, base_dir)`
 
 **`read_companies(file_path)`** → data.frame
 - Reads company data from specified Excel path
@@ -350,7 +350,7 @@ inventory <- hazard_data$inventory
 - **Priority cascade** for asset location:
   1. Coordinates → spatial extraction (polygon-based for TIF/NC, closest-point for CSV)
   2. No coordinates + municipality → precomputed ADM2 lookup
-  3. No coordinates + province → precomputed ADM1 lookup
+  3. No coordinates + state → precomputed ADM1 lookup
   4. None → Error
 - Returns long format with columns: `hazard_intensity`, `matching_method`, etc.
 - Includes diagnostic logging to show asset routing and matching method summary
@@ -374,17 +374,17 @@ inventory <- hazard_data$inventory
 **`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
 - Lookup from precomputed administrative hazard data
 - Used for assets WITHOUT coordinates
-- Priority: municipality (ADM2) > province (ADM1)
+- Priority: municipality (ADM2) > state (ADM1)
 - Validates required hazards from events against available precomputed data
 - Raises explicit errors listing any missing hazards when precomputed data is incomplete for an asset
-- Returns `matching_method = "municipality"` or `"province"`
+- Returns `matching_method = "municipality"` or `"state"`
 - Raises detailed errors if region or hazard combo not found
 
 **`join_damage_cost_factors(assets_long_format, damage_factors_df, cnae_exposure = NULL)`** → data.frame
 - Joins damage and cost factors based on hazard type:
   - **Flood**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
-  - **Compound**: Joins on hazard_type, province, scenario_name (GWL), and metric (sector-based from CNAE exposure)
-  - **Drought**: Joins on province, crop subtype, season, and closest hazard_intensity match
+  - **Compound**: Joins on hazard_type, state, scenario_name (GWL), and metric (sector-based from CNAE exposure)
+  - **Drought**: Joins on state, crop subtype, season, and closest hazard_intensity match
 - Optional `cnae_exposure` parameter used for Compound hazards to determine metric (high/median/low) based on sector CNAE codes
 
 ### Financial Calculations
@@ -594,7 +594,7 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 - Defined in `hazards_name_mapping.csv`
 
 ### ADM Levels
-- ADM1 = Province/State level
+- ADM1 = State/State level
 - ADM2 = Municipality/County level
 
 ### Event Types
@@ -619,7 +619,7 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 - Aggregation factor reduces raster resolution for speed
 - Precomputed administrative hazards eliminate spatial joins
 - Single CSV instead of multiple GeoJSON files
-- Batch processing by municipality/province groups
+- Batch processing by municipality/state groups
 
 ### Trade-offs
 - Higher aggregation = faster processing, lower spatial accuracy
@@ -651,7 +651,7 @@ Location: [exact line where error occurred]
 - Module and function identification
 
 ### Informative Errors
-- Asset with no location data (no coords, municipality, or province)
+- Asset with no location data (no coords, municipality, or state)
 - Missing hazard files referenced in mapping
 - Duplicate hazard definitions on filter columns
 - Assets without matching companies
@@ -670,7 +670,7 @@ Location: [exact line where error occurred]
 
 **Damage Factor Matching**:
 - **Crop Type**: Coffee, Corn, Soybean, Sugarcane, or "Other" (default for missing subtypes)
-- **Province**: Uses asset province or falls back to "Other" if not found
+- **State**: Uses asset state or falls back to "Other" if not found
 - **Multi-Season Crops** (NEW): Some crops have multiple growing seasons (e.g., Sugarcane in Alagoas has Winter 37% and Autumn 35%)
   - System finds ALL growing seasons for the crop at the matched intensity level
 - **Season Matching Logic**:
@@ -711,16 +711,16 @@ Assets output now includes drought metadata:
 
 ### Compound (Heat) for All Assets
 
-**Overview**: Compound (heat) impacts affect all asset categories through labor productivity loss calculated using Cobb-Douglas production function. Damage factors vary by province, Global Warming Level (GWL), and sector-based labor productivity exposure (high/median/low).
+**Overview**: Compound (heat) impacts affect all asset categories through labor productivity loss calculated using Cobb-Douglas production function. Damage factors vary by state, Global Warming Level (GWL), and sector-based labor productivity exposure (high/median/low).
 
 **Damage Factor Matching**:
-- **Province**: Uses asset province for geographic matching
+- **State**: Uses asset state for geographic matching
 - **GWL**: Uses scenario_name from events (matches gwl column in damage_factors)
 - **Metric Selection** (new): Based on sector CNAE code:
   - If asset has sector (CNAE code) and found in CNAE exposure file → use corresponding LP exposure value (high/median/low)
   - If sector is missing/NA → use "median" (default)
   - Exception: If sector is missing AND `asset_category == "agriculture"` → use "high"
-- **Join**: Matches on `hazard_type`, `province`, `gwl`, AND `metric` (not hardcoded to "median")
+- **Join**: Matches on `hazard_type`, `state`, `gwl`, AND `metric` (not hardcoded to "median")
 
 **Revenue Shock Formula**:
 - Uses Cobb-Douglas production function to calculate labor productivity loss
@@ -735,14 +735,14 @@ Assets output now includes drought metadata:
 **Data Requirements**:
 - `damage_and_cost_factors.csv` must include rows with:
   - `hazard_type = "Compound"`, `metric` in ("high", "median", "low")
-  - Columns: `province`, `gwl`, `metric`, `damage_factor`
+  - Columns: `state`, `gwl`, `metric`, `damage_factor`
 - `cnae_labor_productivity_exposure.xlsx` with columns: `cnae` (numeric), `sector`/`description`, `decision`/`lp_exposure` ("High"/"Median"/"Low" normalized to lowercase)
 - Assets should have `sector` column with numeric CNAE codes (no leading zeros, e.g., 6 not 06)
 
 **Data Requirements**:
 - `damage_and_cost_factors.csv` must include rows with:
   - `hazard_type = "drought"`, `hazard_indicator = "SPI3"`, `metric = "mean"`
-  - Columns: `province`, `subtype`, `season`, `damage_factor`, `off_window`
+  - Columns: `state`, `subtype`, `season`, `damage_factor`, `off_window`
 - Events must include `season` column (Summer/Autumn/Winter/Spring)
 
 ### Fire for Buildings and Agriculture
@@ -849,7 +849,7 @@ The system supports both single-indicator and multi-indicator hazards through a 
 
 ### UI & Visualization Enhancements (2025-11-06)
 - Rebranded the interface as the **Physical Risk Analysis Tool**, refreshed the subtitle, reordered the primary analysis tabs (Asset Analysis → Profit Pathways → Company Analysis → Company Results → Parameters & Status), and simplified the growth rate control label in the sidebar.
-- Refined `mod_results_assets` to present hazard-specific asset tables via collapsible panels, restore original province/municipality names, surface company/sector metadata (using CNAE descriptions for sector names and retaining sector codes), expose `event_id` with formatted economic share values, and add CSV/XLSX downloads for the full asset dataset; supporting coverage added in `tests/testthat/test-mod_results_assets.R`.
+- Refined `mod_results_assets` to present hazard-specific asset tables via collapsible panels, restore original state/municipality names, surface company/sector metadata (using CNAE descriptions for sector names and retaining sector codes), expose `event_id` with formatted economic share values, and add CSV/XLSX downloads for the full asset dataset; supporting coverage added in `tests/testthat/test-mod_results_assets.R`.
 - Enriched profit pathway analytics by merging company, sector, and economic-share metadata into trajectory data, preferring sector names in the selection table, and exposing CSV/XLSX downloads (`download_profit_pathways_csv`, `download_profit_pathways_excel`); validated in the new `tests/testthat/test-mod_profit_pathways.R`.
  - Enriched profit pathway analytics by merging company, sector, and economic-share metadata into trajectory data, preferring sector names in the selection table, exposing CSV/XLSX downloads (`download_profit_pathways_csv`, `download_profit_pathways_excel`), and documenting the log-scale handling of zero/negative profits directly in the UI; validated in the new `tests/testthat/test-mod_profit_pathways.R`.
 - Ensured Profit Pathways renders sector names using CNAE labor descriptions while the asset results continue to surface numeric sector codes alongside the resolved descriptions, leveraging the preloaded CNAE exposure lookup; tightened coverage in `tests/testthat/test-mod_results_assets.R` and `tests/testthat/test-mod_profit_pathways.R`.
@@ -858,8 +858,9 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - Applied a Brazil-themed palette (green, yellow, blue, white) across CSS, plotly visuals, and helper utilities to align the UI and charts with the national identity.
 
 ### Bug Fixes
+- **Eliminated spurious NetCDF open warnings during hazard loading**: Refactored `load_nc_hazards_with_metadata()` to reuse a single `terra::rast()` call per NetCDF file (leveraging the `subds` parameter) and slice layers from the cached raster instead of reopening the GDAL subdataset for every scenario. This removes the repeated `Error in R_nc4_open: No such file or directory` console spam triggered during app startup/tests and keeps the lazy-loading behaviour intact. Added regression coverage in `tests/testthat/test-utils__load_hazards.R` to assert that loading hazards no longer emits file-open warnings. (2025-11-13)
 - **Fixed Windows path parsing in hazard loading**: Replaced fragile absolute path parsing with robust cross-platform relative path parsing in `load_nc_hazards_with_metadata()` and `load_csv_hazards_with_metadata()`. Previously, path parsing relied on finding the "hazards" directory in absolute paths, which failed on Windows due to differences in `normalizePath()` behavior and path separators. Now uses `normalizePath(..., winslash = "/")` to ensure consistent forward slashes across platforms, then computes relative paths from the known `hazards_dir` parameter. This ensures hazard_type and hazard_indicator are parsed correctly on all platforms. (2025-10-30)
-- **Fixed drought damage factor matching with province fallback**: Enhanced `join_drought_damage_factors()` to handle provinces without specific drought damage data. When a province doesn't have drought factors for a crop (e.g., Amapá province), the function now falls back to the first available province that has data for that crop type. This ensures all agriculture assets affected by drought get proper damage factors, growing_season, and off_window columns. Previously, assets in provinces without drought data would get damage_factor=0 with NA metadata. (2025-10-30)
+- **Fixed drought damage factor matching with state fallback**: Enhanced `join_drought_damage_factors()` to handle states without specific drought damage data. When a state doesn't have drought factors for a crop (e.g., Amapá state), the function now falls back to the first available state that has data for that crop type. This ensures all agriculture assets affected by drought get proper damage factors, growing_season, and off_window columns. Previously, assets in states without drought data would get damage_factor=0 with NA metadata. (2025-10-30)
 - **Fixed NC hazard scenario extraction**: Corrected parsing logic in `load_nc_cube_with_terra()` to properly handle both GIRI-style files (explicit scenario indices like `scenario=_1`) and ensemble-style files (combination indices). Files now correctly extract all scenarios instead of defaulting to "present" only.
 - **Fixed hazard selection validation**: Added proper validation to require at least one hazard event selection before running analysis. Previously, the app would run with a default hazard when none were selected, which could lead to unexpected results. Now shows clear error message: "Please select at least one hazard event before running the analysis. Use the 'Add hazard' button to configure hazard events."
 - Fixed encoding issues in Brazilian flood map processing
