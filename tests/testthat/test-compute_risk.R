@@ -26,8 +26,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   events <- data.frame(
     hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought", "Fire"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=pc__RP=10",
-      "Flood__depth(cm)__GWL=pc__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=10",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
       "Heat__HI__GWL=present__RP=10__ensemble=mean",
       "Heat__HI__GWL=2__RP=10__ensemble=mean",
@@ -35,8 +35,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
       "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean",
       "Fire__FWI__GWL=3__RP=50__ensemble=mean"
     ),
-    scenario_name = c("pc", "pc", "rcp85", "present", "2", "present", "1.5", "3"),
-    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5", "3"),
+    scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
+    scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
     hazard_return_period = c(10, 10, 100, 10, 10, 10, 10, 50),
     event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L, 2030L),
     stringsAsFactors = FALSE
@@ -169,16 +169,16 @@ testthat::test_that("compute_risk produces stable snapshot output", {
   events <- data.frame(
     hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=pc__RP=10",
-      "Flood__depth(cm)__GWL=pc__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=10",
+      "Flood__depth(cm)__GWL=present__RP=10",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
       "Heat__HI__GWL=present__RP=10__ensemble=mean",
       "Heat__HI__GWL=2__RP=10__ensemble=mean",
       "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
       "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
     ),
-    scenario_name = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
-    scenario_code = c("pc", "pc", "rcp85", "present", "2", "present", "1.5"),
+    scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
+    scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
     hazard_return_period = c(10, 10, 100, 10, 10, 10, 10),
     event_year = c(2030L, 2031L, 2035L, 2030L, 2035L, 2032L, 2033L),
     stringsAsFactors = FALSE
