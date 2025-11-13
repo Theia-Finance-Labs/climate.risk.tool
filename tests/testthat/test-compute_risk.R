@@ -141,6 +141,44 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   }
 })
 
+testthat::test_that("compute_risk errors when events contain duplicate event_id values", {
+  base_dir <- get_test_data_dir()
+  assets <- read_assets(base_dir)
+  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+  precomputed_hazards <- read_precomputed_hazards(base_dir)
+  damage_factors <- read_damage_cost_factors(base_dir)
+  inventory <- hazard_data$inventory
+
+  events <- data.frame(
+    event_id = c("duplicate_event", "duplicate_event"),
+    hazard_type = c("Flood", "Flood"),
+    hazard_name = c(
+      "Flood__depth(cm)__GWL=present__RP=100",
+      "Flood__depth(cm)__GWL=present__RP=100"
+    ),
+    scenario_name = c("present", "present"),
+    scenario_code = c("present", "present"),
+    hazard_return_period = c(10, 10),
+    event_year = c(2030L, 2031L),
+    stringsAsFactors = FALSE
+  )
+
+  testthat::expect_error(
+    compute_risk(
+      assets = assets,
+      companies = companies,
+      events = events,
+      hazards = hazards,
+      hazards_inventory = inventory,
+      precomputed_hazards = precomputed_hazards,
+      damage_factors = damage_factors
+    ),
+    "events must have unique event_id values"
+  )
+})
+
 testthat::test_that("compute_risk produces stable snapshot output", {
   base_dir <- get_test_data_dir()
   assets <- read_assets(base_dir)

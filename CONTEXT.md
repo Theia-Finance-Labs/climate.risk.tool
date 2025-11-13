@@ -249,6 +249,7 @@ Examples:
 - Returns: `list(assets, companies, assets_yearly, companies_yearly)`
 - Orchestrates entire pipeline from raw inputs to final risk metrics
 - Filters assets to only those with matching companies
+- Validates hazard events have unique `event_id` values before processing
 - Uses priority cascade for hazard assignment
 - Uses company-specific net profit margins from the companies data frame
 

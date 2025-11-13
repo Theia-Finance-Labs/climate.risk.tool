@@ -189,6 +189,14 @@ compute_risk <- function(assets,
       dplyr::mutate(event_id = paste0("event_", dplyr::row_number()))
   }
 
+  duplicated_event_ids <- events$event_id[duplicated(events$event_id)]
+  if (length(duplicated_event_ids) > 0) {
+    stop(
+      "events must have unique event_id values; duplicates found: ",
+      paste(unique(duplicated_event_ids), collapse = ", ")
+    )
+  }
+
   # Filter assets to only include those with matching companies
   assets <- filter_assets_by_companies(assets, companies)
 
