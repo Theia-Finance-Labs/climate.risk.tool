@@ -18,7 +18,7 @@ testthat::test_that("join_damage_cost_factors handles Flood with intensity-based
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Prov1", "Prov2"),
+    state = c("Prov1", "Prov2"),
     asset_category = c("commercial building", "commercial building"),
     size_in_m2 = c(1000, 800),
     share_of_economic_activity = c(0.5, 0.3),
@@ -60,7 +60,7 @@ testthat::test_that("join_damage_cost_factors handles Heat with province and GWL
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Acre", "Bahia"), # Provinces from damage_and_cost_factors.csv
+    state = c("Acre", "Bahia"), # Provinces from damage_and_cost_factors.csv
     asset_category = c("commercial building", "commercial building"),
     size_in_m2 = c(1000, 800),
     share_of_economic_activity = c(0.5, 0.3),
@@ -122,7 +122,7 @@ testthat::test_that("join_compound_damage_factors uses cnae-based metric selecti
     latitude = c(-10, -15, -20, -25, -30),
     longitude = c(-50, -55, -60, -65, -70),
     municipality = c("Mun1", "Mun2", "Mun3", "Mun4", "Mun5"),
-    province = c("Acre", "Acre", "Acre", "Acre", "Acre"), # Same province, different metrics
+    state = c("Acre", "Acre", "Acre", "Acre", "Acre"), # Same province, different metrics
     asset_category = c("commercial building", "commercial building", "commercial building", "commercial building", "agriculture"),
     cnae = c(high_exposure, median_exposure, low_exposure, NA, NA), # Different CNAEs + missing
     size_in_m2 = c(1000, 800, 600, 400, 200),
@@ -171,7 +171,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Bahia", "Mato Grosso"),
+    state = c("Bahia", "Mato Grosso"),
     asset_category = c("agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Corn"),
     size_in_m2 = c(10000, 8000),
@@ -217,7 +217,7 @@ testthat::test_that("join_drought_damage_factors handles crop/province/season ma
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Bahia"),
+    state = c("Bahia"),
     asset_category = c("agriculture"),
     asset_subtype = c("Soybean"),
     size_in_m2 = c(10000),
@@ -258,7 +258,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Alagoas"),
+    state = c("Alagoas"),
     asset_category = c("agriculture"),
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
@@ -306,7 +306,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Alagoas"),
+    state = c("Alagoas"),
     asset_category = c("agriculture"),
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
@@ -356,7 +356,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - au
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Alagoas"),
+    state = c("Alagoas"),
     asset_category = c("agriculture"),
     asset_subtype = c("Sugarcane"),
     size_in_m2 = c(10000),
@@ -397,7 +397,7 @@ testthat::test_that("join_drought_damage_factors handles missing subtype (defaul
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("UnknownProvince", "UnknownProvince"), # Will fall back to "Other"
+    state = c("UnknownProvince", "UnknownProvince"), # Will fall back to "Other"
     asset_category = c("agriculture", "agriculture"),
     asset_subtype = c(NA, ""), # Missing subtype should default to "Other" → treated as Soybean
     size_in_m2 = c(10000, 8000),
@@ -434,7 +434,7 @@ testthat::test_that("join_drought_damage_factors filters to agriculture only", {
     latitude = c(-10, -15, -20),
     longitude = c(-50, -55, -60),
     municipality = c("Mun1", "Mun2", "Mun3"),
-    province = c("Bahia", "Bahia", "Prov3"),
+    state = c("Bahia", "Bahia", "Prov3"),
     asset_category = c("agriculture", "commercial building", "commercial building"),
     asset_subtype = c("Soybean", NA, NA),
     size_in_m2 = c(10000, 8000, 5000),

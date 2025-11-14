@@ -36,8 +36,7 @@ read_assets <- function(base_dir) {
   # Read assets data
   assets_raw <- readxl::read_excel(assets_path) |>
     tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case) |>
-    dplyr::rename(state = province)
+    dplyr::rename_with(to_snake_case)
 
   # Convert numeric columns for assets
   numeric_asset_cols <- c("share_of_economic_activity", "latitude", "longitude", "size_in_m2", "size_in_hectare")
