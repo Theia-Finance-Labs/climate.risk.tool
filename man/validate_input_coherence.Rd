@@ -11,7 +11,8 @@ validate_input_coherence(
   precomputed_hazards_df = NULL,
   cnae_exposure_df,
   adm1_names,
-  adm2_names
+  adm2_names,
+  events_df = NULL
 )
 }
 \arguments{
@@ -28,6 +29,8 @@ validate_input_coherence(
 \item{adm1_names}{Character vector of valid ADM1 (province) names (ASCII-normalized)}
 
 \item{adm2_names}{Character vector of valid ADM2 (municipality) names (ASCII-normalized)}
+
+\item{events_df}{Optional events data frame to validate hazard-specific coverage}
 }
 \value{
 List with validation results containing \code{errors} and \code{warnings} character vectors.

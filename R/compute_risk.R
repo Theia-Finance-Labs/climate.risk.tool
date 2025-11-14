@@ -175,7 +175,8 @@ compute_risk <- function(assets,
       precomputed_hazards_df = precomputed_hazards,
       cnae_exposure_df = cnae_exposure,
       adm1_names = adm1_names,
-      adm2_names = adm2_names
+      adm2_names = adm2_names,
+      events_df = events
     )
   }
 

@@ -473,7 +473,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         hazard_intensity = .data$hazard_value,
         hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
-        source = "precomputed", # Add source column (matched_data doesn't have it)
+        source = paste0("precomputed (", match_level, ")"), # Add source column indicating municipality or state
         # Add asset information to each hazard row
         asset = asset_row$asset,
         company = asset_row$company,

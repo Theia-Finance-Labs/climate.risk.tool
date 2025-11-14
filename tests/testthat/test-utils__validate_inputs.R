@@ -227,6 +227,33 @@ testthat::test_that("validate_assets_geography flags rows with no geographic inf
   testthat::expect_gt(length(result$errors), 0)
 })
 
+testthat::test_that("validate_assets_geography flags rows with only latitude or only longitude", {
+  # Assets with only latitude or only longitude should be flagged
+  assets <- data.frame(
+    asset = c("A1", "A2", "A3", "A4"),
+    company = c("C1", "C2", "C3", "C4"),
+    latitude = c(-23.5505, NA_real_, -23.5505, NA_real_),  # A1: both, A2: neither, A3: only lat, A4: missing lat
+    longitude = c(-46.6333, NA_real_, NA_real_, -46.6333),  # A1: both, A2: neither, A3: missing lon, A4: only lon
+    municipality = c(NA_character_, "Sao Paulo", NA_character_, NA_character_),
+    state = c(NA_character_, "Sao Paulo", NA_character_, NA_character_),
+    share_of_economic_activity = c(1.0, 1.0, 1.0, 1.0),
+    cnae = c(1, 2, 3, 4),
+    stringsAsFactors = FALSE
+  )
+
+  base_dir <- get_test_data_dir()
+  adm1_names <- load_adm1_state_names(base_dir)
+  adm2_names <- load_adm2_municipality_names(base_dir)
+
+  validation_results <- list(errors = character(), warnings = character())
+  result <- validate_assets_geography(assets, adm1_names, adm2_names, validation_results)
+
+  # Should have an error about A3 (has lat but not lon) and A4 (has lon but not lat)
+  testthat::expect_gt(length(result$errors), 0)
+  testthat::expect_true(any(grepl("latitude or longitude filled but not both", result$errors)))
+  testthat::expect_true(any(grepl("3", result$errors)) || any(grepl("4", result$errors)))  # Rows 3 and 4 should be flagged
+})
+
 testthat::test_that("validate_assets_geography detects misspelled/encoded municipality names", {
   # Create assets with a municipality name that is likely to be mis-encoded/misspelled
   # Reference names come from geojson via load_adm2_municipality_names()
@@ -336,4 +363,221 @@ testthat::test_that("validate_companies_against_assets flags missing values in c
 
   testthat::expect_gt(length(result$errors), 0)
   testthat::expect_true(any(grepl("missing values", result$errors)))
+})
+
+testthat::test_that("validate_precomputed_hazards_geography catches missing hazard data for municipality", {
+  base_dir <- get_test_data_dir()
+
+  # Create test assets with a municipality
+  assets <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
+    municipality = "Barcelos",
+    state = "Amazonas",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    asset_category = "office",
+    share_of_economic_activity = 1.0
+  )
+
+  # Create test events requiring Flood and Drought hazards
+  events <- tibble::tibble(
+    event_id = c("E1", "E2"),
+    hazard_type = c("Flood", "Drought"),
+    hazard_indicator = c("depth(cm)", "SPI3"),
+    scenario_name = c("present", "1.5"),
+    hazard_return_period = c(100, 5)
+  )
+
+  # Create precomputed hazards with only Flood (missing Drought)
+  precomputed <- tibble::tibble(
+    region = "Barcelos",
+    adm_level = "ADM2",
+    scenario_name = "present",
+    hazard_return_period = 100,
+    hazard_type = "Flood",
+    hazard_indicator = "depth(cm)",
+    mean = 100.0,
+    ensemble = "mean"
+  )
+
+  adm1_names <- c("Amazonas")
+  adm2_names <- c("Barcelos")
+  validation_results <- list(errors = character(), warnings = character())
+
+  result <- validate_precomputed_hazards_geography(
+    precomputed,
+    adm1_names,
+    adm2_names,
+    validation_results,
+    assets_df = assets,
+    events_df = events
+  )
+
+  # Should have an error about missing Drought data
+  testthat::expect_gt(length(result$errors), 0)
+  testthat::expect_true(any(grepl("Drought__SPI3", result$errors)))
+  testthat::expect_true(any(grepl("Barcelos", result$errors)))
+})
+
+testthat::test_that("validate_precomputed_hazards_geography passes when municipality has all required hazards", {
+  base_dir <- get_test_data_dir()
+
+  # Create test assets with a municipality
+  assets <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
+    municipality = "Barcelos",
+    state = "Amazonas",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    asset_category = "office",
+    share_of_economic_activity = 1.0
+  )
+
+  # Create test events requiring Flood and Drought hazards
+  events <- tibble::tibble(
+    event_id = c("E1", "E2"),
+    hazard_type = c("Flood", "Drought"),
+    hazard_indicator = c("depth(cm)", "SPI3"),
+    scenario_name = c("present", "1.5"),
+    hazard_return_period = c(100, 5)
+  )
+
+  # Create precomputed hazards with both Flood and Drought
+  precomputed <- tibble::tibble(
+    region = c("Barcelos", "Barcelos"),
+    adm_level = c("ADM2", "ADM2"),
+    scenario_name = c("present", "1.5"),
+    hazard_return_period = c(100, 5),
+    hazard_type = c("Flood", "Drought"),
+    hazard_indicator = c("depth(cm)", "SPI3"),
+    mean = c(100.0, -1.5),
+    ensemble = c("mean", "mean")
+  )
+
+  adm1_names <- c("Amazonas")
+  adm2_names <- c("Barcelos")
+  validation_results <- list(errors = character(), warnings = character())
+
+  result <- validate_precomputed_hazards_geography(
+    precomputed,
+    adm1_names,
+    adm2_names,
+    validation_results,
+    assets_df = assets,
+    events_df = events
+  )
+
+  # Should have no errors
+  testthat::expect_equal(length(result$errors), 0)
+})
+
+testthat::test_that("validate_precomputed_hazards_geography falls back to state when municipality missing hazard", {
+  base_dir <- get_test_data_dir()
+
+  # Create test assets with a municipality
+  assets <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
+    municipality = "Barcelos",
+    state = "Amazonas",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    asset_category = "office",
+    share_of_economic_activity = 1.0
+  )
+
+  # Create test events requiring Drought
+  events <- tibble::tibble(
+    event_id = "E1",
+    hazard_type = "Drought",
+    hazard_indicator = "SPI3",
+    scenario_name = "1.5",
+    hazard_return_period = 5
+  )
+
+  # Create precomputed hazards with Drought only at state level
+  precomputed <- tibble::tibble(
+    region = "Amazonas",
+    adm_level = "ADM1",
+    scenario_name = "1.5",
+    hazard_return_period = 5,
+    hazard_type = "Drought",
+    hazard_indicator = "SPI3",
+    mean = -1.5,
+    ensemble = "mean"
+  )
+
+  adm1_names <- c("Amazonas")
+  adm2_names <- c("Barcelos")
+  validation_results <- list(errors = character(), warnings = character())
+
+  result <- validate_precomputed_hazards_geography(
+    precomputed,
+    adm1_names,
+    adm2_names,
+    validation_results,
+    assets_df = assets,
+    events_df = events
+  )
+
+  # Should have no errors (state fallback works)
+  testthat::expect_equal(length(result$errors), 0)
+})
+
+testthat::test_that("validate_precomputed_hazards_geography errors when both municipality and state lack hazard", {
+  base_dir <- get_test_data_dir()
+
+  # Create test assets with a municipality
+  assets <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
+    municipality = "Barcelos",
+    state = "Amazonas",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    asset_category = "office",
+    share_of_economic_activity = 1.0
+  )
+
+  # Create test events requiring Drought
+  events <- tibble::tibble(
+    event_id = "E1",
+    hazard_type = "Drought",
+    hazard_indicator = "SPI3",
+    scenario_name = "1.5",
+    hazard_return_period = 5
+  )
+
+  # Create precomputed hazards with only Flood (no Drought at any level)
+  precomputed <- tibble::tibble(
+    region = c("Barcelos", "Amazonas"),
+    adm_level = c("ADM2", "ADM1"),
+    scenario_name = c("present", "present"),
+    hazard_return_period = c(100, 100),
+    hazard_type = c("Flood", "Flood"),
+    hazard_indicator = c("depth(cm)", "depth(cm)"),
+    mean = c(100.0, 120.0),
+    ensemble = c("mean", "mean")
+  )
+
+  adm1_names <- c("Amazonas")
+  adm2_names <- c("Barcelos")
+  validation_results <- list(errors = character(), warnings = character())
+
+  result <- validate_precomputed_hazards_geography(
+    precomputed,
+    adm1_names,
+    adm2_names,
+    validation_results,
+    assets_df = assets,
+    events_df = events
+  )
+
+  # Should have an error mentioning both municipality and state lack the hazard
+  testthat::expect_gt(length(result$errors), 0)
+  testthat::expect_true(any(grepl("Drought__SPI3", result$errors)))
+  testthat::expect_true(any(grepl("Barcelos", result$errors)))
+  testthat::expect_true(any(grepl("Amazonas", result$errors)))
 })

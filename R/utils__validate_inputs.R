@@ -14,6 +14,7 @@
 #' @param cnae_exposure_df CNAE exposure data frame
 #' @param adm1_names Character vector of valid ADM1 (province) names (ASCII-normalized)
 #' @param adm2_names Character vector of valid ADM2 (municipality) names (ASCII-normalized)
+#' @param events_df Optional events data frame to validate hazard-specific coverage
 #' @return List with validation results containing `errors` and `warnings` character vectors.
 #'   Stops execution if errors are found.
 #' @examples
@@ -32,7 +33,8 @@ validate_input_coherence <- function(
   precomputed_hazards_df = NULL,
   cnae_exposure_df,
   adm1_names,
-  adm2_names
+  adm2_names,
+  events_df = NULL
 ) {
   message("[validate_input_coherence] Starting validation checks...")
 
@@ -85,7 +87,9 @@ validate_input_coherence <- function(
       precomputed_hazards_df,
       adm1_names,
       adm2_names,
-      validation_results
+      validation_results,
+      assets_df = assets_df,
+      events_df = events_df
     )
   }
 
@@ -337,6 +341,18 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
         paste0("Assets have no geographic information (lat/lon/municipality/state) for rows: ", paste(no_geo_idx, collapse = ", "))
       )
     }
+
+    # Check that if latitude OR longitude is filled, both must be filled
+    lat_lon_mismatch_idx <- which(
+      (!is.na(assets_df$latitude) & !is.null(assets_df$latitude) & (is.na(assets_df$longitude) | is.null(assets_df$longitude))) |
+      (!is.na(assets_df$longitude) & !is.null(assets_df$longitude) & (is.na(assets_df$latitude) | is.null(assets_df$latitude)))
+    )
+    if (length(lat_lon_mismatch_idx) > 0) {
+      validation_results$errors <- c(
+        validation_results$errors,
+        paste0("Assets have latitude or longitude filled but not both for rows: ", paste(lat_lon_mismatch_idx, collapse = ", "), ". Both latitude and longitude must be provided if at least one is filled.")
+      )
+    }
   }
 
   # Normalize asset text fields to ASCII for comparison
@@ -413,9 +429,18 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
 #' @param adm1_names Character vector of valid ADM1 province names
 #' @param adm2_names Character vector of valid ADM2 municipality names
 #' @param validation_results List with errors and warnings vectors
+#' @param assets_df Optional assets data frame to check hazard coverage for specific regions
+#' @param events_df Optional events data frame to know which hazards are required
 #' @return Updated validation_results list
 #' @noRd
-validate_precomputed_hazards_geography <- function(precomputed_hazards_df, adm1_names, adm2_names, validation_results) {
+validate_precomputed_hazards_geography <- function(
+  precomputed_hazards_df,
+  adm1_names,
+  adm2_names,
+  validation_results,
+  assets_df = NULL,
+  events_df = NULL
+) {
   # Validate provinces (if column exists)
   if ("region" %in% names(precomputed_hazards_df) && length(adm1_names) > 0) {
     # Check adm_level to see if these are provinces
@@ -461,6 +486,122 @@ validate_precomputed_hazards_geography <- function(precomputed_hazards_df, adm1_
             paste(invalid_municipalities, collapse = ", ")
           )
         )
+      }
+    }
+  }
+
+  # NEW: Validate hazard-specific coverage for asset regions
+  if (!is.null(assets_df) && !is.null(events_df) && nrow(assets_df) > 0 && nrow(events_df) > 0) {
+    # Get required hazards from events
+    required_hazards <- events_df |>
+      dplyr::select(.data$hazard_type, .data$hazard_indicator) |>
+      dplyr::distinct()
+
+    # Get unique regions from assets (both municipality and state)
+    asset_municipalities <- assets_df |>
+      dplyr::filter(!is.na(.data$municipality), nzchar(as.character(.data$municipality))) |>
+      dplyr::pull(.data$municipality) |>
+      unique()
+
+    asset_states <- assets_df |>
+      dplyr::filter(!is.na(.data$state), nzchar(as.character(.data$state))) |>
+      dplyr::pull(.data$state) |>
+      unique()
+
+    # Check hazard coverage for each municipality
+    for (municipality in asset_municipalities) {
+      municipality_hazards <- precomputed_hazards_df |>
+        dplyr::filter(
+          .data$region == municipality,
+          .data$adm_level == "ADM2"
+        ) |>
+        dplyr::select(.data$hazard_type, .data$hazard_indicator) |>
+        dplyr::distinct()
+
+      # Check if all required hazards are present
+      for (i in seq_len(nrow(required_hazards))) {
+        hazard_type <- required_hazards$hazard_type[i]
+        hazard_indicator <- required_hazards$hazard_indicator[i]
+
+        has_hazard <- municipality_hazards |>
+          dplyr::filter(
+            .data$hazard_type == hazard_type,
+            .data$hazard_indicator == hazard_indicator
+          ) |>
+          nrow() > 0
+
+        if (!has_hazard) {
+          # Check if state has this hazard (fallback)
+          state_for_municipality <- assets_df |>
+            dplyr::filter(.data$municipality == municipality) |>
+            dplyr::pull(.data$state) |>
+            unique() |>
+            head(1)
+
+          if (length(state_for_municipality) > 0 && !is.na(state_for_municipality)) {
+            state_has_hazard <- precomputed_hazards_df |>
+              dplyr::filter(
+                .data$region == state_for_municipality,
+                .data$adm_level == "ADM1",
+                .data$hazard_type == hazard_type,
+                .data$hazard_indicator == hazard_indicator
+              ) |>
+              nrow() > 0
+
+            if (!state_has_hazard) {
+              validation_results$errors <- c(
+                validation_results$errors,
+                paste0(
+                  "Municipality '", municipality, "' is missing precomputed hazard data for ",
+                  hazard_type, "__", hazard_indicator, ". ",
+                  "State '", state_for_municipality, "' also lacks this hazard data."
+                )
+              )
+            }
+          } else {
+            validation_results$errors <- c(
+              validation_results$errors,
+              paste0(
+                "Municipality '", municipality, "' is missing precomputed hazard data for ",
+                hazard_type, "__", hazard_indicator, "."
+              )
+            )
+          }
+        }
+      }
+    }
+
+    # Check hazard coverage for states (for assets without municipality)
+    for (state in asset_states) {
+      state_hazards <- precomputed_hazards_df |>
+        dplyr::filter(
+          .data$region == state,
+          .data$adm_level == "ADM1"
+        ) |>
+        dplyr::select(.data$hazard_type, .data$hazard_indicator) |>
+        dplyr::distinct()
+
+      # Check if all required hazards are present
+      for (i in seq_len(nrow(required_hazards))) {
+        hazard_type <- required_hazards$hazard_type[i]
+        hazard_indicator <- required_hazards$hazard_indicator[i]
+
+        has_hazard <- state_hazards |>
+          dplyr::filter(
+            .data$hazard_type == hazard_type,
+            .data$hazard_indicator == hazard_indicator
+          ) |>
+          nrow() > 0
+
+        if (!has_hazard) {
+          validation_results$errors <- c(
+            validation_results$errors,
+            paste0(
+              "State '", state, "' is missing precomputed hazard data for ",
+              hazard_type, "__", hazard_indicator, "."
+            )
+          )
+        }
       }
     }
   }

@@ -154,6 +154,12 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > sta
   testthat::expect_equal(asset2_method, "municipality")
   testthat::expect_equal(asset3_method, "state")
 
+  # Verify source field for precomputed data
+  asset2_source <- unique(out$source[out$asset == "asset_municipality"])
+  asset3_source <- unique(out$source[out$asset == "asset_state"])
+  testthat::expect_equal(asset2_source, "precomputed (municipality)")
+  testthat::expect_equal(asset3_source, "precomputed (state)")
+
   # Verify all get valid hazard statistics
   testthat::expect_true(all(is.numeric(out$hazard_intensity)))
   testthat::expect_true(all(!is.na(out$hazard_intensity)))

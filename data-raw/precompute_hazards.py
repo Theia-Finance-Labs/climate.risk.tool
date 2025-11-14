@@ -314,15 +314,49 @@ def process_csv_hazard(csv_path, adm_gdf, adm_level, ensemble_filter):
         crs="EPSG:4326",
     )
 
-    # Spatial join
-    joined = gpd.sjoin(
-        gdf_pts, adm_gdf[["region", "geometry"]], how="inner", predicate="within"
-    )
+    # For CSV files, use nearest-neighbor matching for ALL regions
+    # (CSV data is typically sparse, so we assign the closest grid point to each region's centroid)
+    print(f"  📍 Using nearest-neighbor matching for all {len(adm_gdf)} regions...")
 
-    if len(joined) == 0:
-        raise RuntimeError(
-            f"Spatial join failed - no points within regions for {csv_path}"
-        )
+    # Project to a metric CRS (EPSG:3857 - Web Mercator) for accurate distance calculations
+    gdf_pts_projected = gdf_pts.to_crs(epsg=3857)
+    adm_gdf_projected = adm_gdf.to_crs(epsg=3857)
+
+    # Get unique lat/lon combinations to find nearest point
+    unique_coords = df[["lon", "lat"]].drop_duplicates()
+    unique_coords_gdf = gpd.GeoDataFrame(
+        unique_coords,
+        geometry=gpd.points_from_xy(unique_coords["lon"], unique_coords["lat"]),
+        crs="EPSG:4326",
+    ).to_crs(epsg=3857)
+
+    all_matches = []
+    for idx, region_row in adm_gdf.iterrows():
+        region_name = region_row["region"]
+        region_geom_proj = adm_gdf_projected.loc[idx, "geometry"]
+        region_centroid_proj = region_geom_proj.centroid
+
+        # Calculate distance from region centroid to all unique grid points (in meters)
+        distances = unique_coords_gdf.geometry.distance(region_centroid_proj)
+
+        # Find nearest coordinate
+        nearest_coord_idx = distances.idxmin()
+        nearest_lon = unique_coords.loc[nearest_coord_idx, "lon"]
+        nearest_lat = unique_coords.loc[nearest_coord_idx, "lat"]
+
+        # Get ALL data rows for this nearest coordinate (all seasons, return periods, etc.)
+        nearest_point_data = df[
+            (df["lon"] == nearest_lon) & (df["lat"] == nearest_lat)
+        ].copy()
+
+        # Assign this region to all those rows
+        nearest_point_data["region"] = region_name
+
+        all_matches.append(nearest_point_data)
+
+    # Convert all matches to dataframe
+    joined = pd.concat(all_matches, ignore_index=True)
+    print(f"  ✅ Assigned nearest grid point to all {len(joined)} region entries")
 
     # Aggregate statistics per region
     def q(p):
@@ -1244,15 +1278,20 @@ def is_already_processed(
     extra_dims = ["season"]
     for dim in extra_dims:
         if dim in sigs_df.columns and dim in existing_df.columns:
+            # Normalize the dimension to handle NaN values
+            sigs_df[dim] = sigs_df[dim].fillna("__NA__").astype(str)
+            existing_df_copy[dim] = existing_df_copy[dim].fillna("__NA__").astype(str)
             key_cols.append(dim)
 
     # Handle ensemble column separately (it might be NaN in existing data)
     sigs_df_copy = sigs_df.copy()
     if "ensemble" in sigs_df.columns:
         # For ensemble, we need to handle NaN values specially
-        sigs_df_copy["ensemble"] = sigs_df_copy["ensemble"].fillna("__NA__")
+        sigs_df_copy["ensemble"] = sigs_df_copy["ensemble"].fillna("__NA__").astype(str)
         if "ensemble" in existing_df.columns:
-            existing_df_copy["ensemble"] = existing_df_copy["ensemble"].fillna("__NA__")
+            existing_df_copy["ensemble"] = (
+                existing_df_copy["ensemble"].fillna("__NA__").astype(str)
+            )
             key_cols.append("ensemble")
         else:
             # Existing data doesn't have ensemble, but we're looking for it
@@ -1292,7 +1331,7 @@ def main():
 
     # Input paths
     HAZARDS_DIR = "workspace/demo_inputs/hazards"
-    ADM1_PATH = "tests/tests_data/areas/province/geoBoundaries-BRA-ADM1.shp"
+    ADM1_PATH = "tests/tests_data/areas/state/geoBoundaries-BRA-ADM1.shp"
     ADM2_PATH = "tests/tests_data/areas/municipality/geoBoundaries-BRA-ADM2.shp"
 
     # Output path
