@@ -11,12 +11,12 @@ R package built with {golem} framework for Shiny apps. Performs climate risk ana
 The tool processes climate risk through a multi-step pipeline orchestrated by `compute_risk()`:
 
 **PHASE 0: Input Preparation**
-1. **Province Assignment**: Assign provinces to assets without province data (via coordinates or municipality)
+1. **State Assignment**: Assign states to assets without state data (via coordinates or municipality)
 2. **Input Validation**: Validate data coherence (if `validate_inputs=TRUE` and `base_dir` provided)
 3. **Asset Filtering**: Filter assets to only include those with matching companies
 
 **PHASE 1: Geospatial Processing**
-4. **Geospatial Extraction**: Assign hazard values to assets using priority cascade (coordinates → municipality → province)
+4. **Geospatial Extraction**: Assign hazard values to assets using priority cascade (coordinates → municipality → state)
 5. **Hazard-Damage Mapping**: Join damage cost factors based on hazard intensity and asset characteristics
 
 **PHASE 2: Financial Modeling**
@@ -160,7 +160,7 @@ To add a new hazard type:
 ### Required Input Files
 
 #### 1. `asset_information.xlsx`
-Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR province)
+Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
 
 #### 2. `company.xlsx`
 Columns: company_id, company_name, equity, debt, other financial data
@@ -263,18 +263,18 @@ Examples:
 
 **Validation Checks:**
 
-1. **Province Names in Damage Factors**: All province names must match ADM1 boundary names (after ASCII normalization)
-2. **Province Names in Assets**: All asset province names must match ADM1 boundary names
-3. **Municipality Names in Assets**: All asset municipality names must match ADM2 boundary names  
-4. **Province Names in Precomputed Hazards**: All province-level (ADM1) regions must match ADM1 boundary names
+1. **State Names in Damage Factors**: All state names must match ADM1 boundary names (after ASCII normalization)
+2. **State Names in Assets**: All asset state names must match ADM1 boundary names
+3. **Municipality Names in Assets**: All asset municipality names must match ADM2 boundary names
+4. **State Names in Precomputed Hazards**: All state-level (ADM1) regions must match ADM1 boundary names
 5. **Municipality Names in Precomputed Hazards**: All municipality-level (ADM2) regions must match ADM2 boundary names
 6. **CNAE Codes in Assets**: All CNAE codes in assets must exist in the reference CNAE exposure file
 7. **Share of Economic Activity**: For each company, asset shares must sum to 1.0 (±0.01 tolerance)
 
-**ASCII Normalization**: All province and municipality names are normalized using `stringi::stri_trans_general("Latin-ASCII")` to remove accents (e.g., "Espírito Santo" → "Espirito Santo"). This ensures consistent matching between data sources.
+**ASCII Normalization**: All state and municipality names are normalized using `stringi::stri_trans_general("Latin-ASCII")` to remove accents (e.g., "Espírito Santo" → "Espirito Santo"). This ensures consistent matching between data sources.
 
 **Helper Functions**:
-- `load_adm1_province_names(base_dir)` → Character vector of normalized ADM1 province names
+- `load_adm1_state_names(base_dir)` → Character vector of normalized ADM1 state names
 - `load_adm2_municipality_names(base_dir)` → Character vector of normalized ADM2 municipality names
 
 **Implementation**: `R/utils__validate_inputs.R`
@@ -284,15 +284,15 @@ Examples:
 
 **`read_assets(base_dir)`** → data.frame
 - Reads from `{base_dir}/user_input/asset_information.xlsx`
-- ASCII-normalizes province and municipality names
-- **Does NOT assign provinces to assets** - this is now done in `compute_risk()` or can be called separately
+- ASCII-normalizes state and municipality names
+- **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
 
-**`assign_province_to_assets(assets_df, base_dir)`** → data.frame
-- Assigns provinces to assets without province data using spatial matching
+**`assign_state_to_assets(assets_df, base_dir)`** → data.frame
+- Assigns states to assets without state data using spatial matching
 - Strategy 1: Uses coordinates (lat/lon) for spatial join with ADM1 boundaries
-- Strategy 2: Uses municipality name to look up province
+- Strategy 2: Uses municipality name to look up state
 - Called automatically by `compute_risk()` if `base_dir` is provided
-- Can be called manually: `assets <- assign_province_to_assets(assets, base_dir)`
+- Can be called manually: `assets <- assign_state_to_assets(assets, base_dir)`
 
 **`read_companies(file_path)`** → data.frame
 - Reads company data from specified Excel path
@@ -351,7 +351,7 @@ inventory <- hazard_data$inventory
 - **Priority cascade** for asset location:
   1. Coordinates → spatial extraction (polygon-based for TIF/NC, closest-point for CSV)
   2. No coordinates + municipality → precomputed ADM2 lookup
-  3. No coordinates + province → precomputed ADM1 lookup
+  3. No coordinates + state → precomputed ADM1 lookup
   4. None → Error
 - Returns long format with columns: `hazard_intensity`, `matching_method`, etc.
 - Includes diagnostic logging to show asset routing and matching method summary
@@ -375,17 +375,17 @@ inventory <- hazard_data$inventory
 **`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
 - Lookup from precomputed administrative hazard data
 - Used for assets WITHOUT coordinates
-- Priority: municipality (ADM2) > province (ADM1)
+- Priority: municipality (ADM2) > state (ADM1)
 - Validates required hazards from events against available precomputed data
 - Raises explicit errors listing any missing hazards when precomputed data is incomplete for an asset
-- Returns `matching_method = "municipality"` or `"province"`
+- Returns `matching_method = "municipality"` or `"state"`
 - Raises detailed errors if region or hazard combo not found
 
 **`join_damage_cost_factors(assets_long_format, damage_factors_df, cnae_exposure = NULL)`** → data.frame
 - Joins damage and cost factors based on hazard type:
   - **Flood**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
-  - **Compound**: Joins on hazard_type, province, scenario_name (GWL), and metric (sector-based from CNAE exposure)
-  - **Drought**: Joins on province, crop subtype, season, and closest hazard_intensity match
+  - **Compound**: Joins on hazard_type, state, scenario_name (GWL), and metric (sector-based from CNAE exposure)
+  - **Drought**: Joins on state, crop subtype, season, and closest hazard_intensity match
 - Optional `cnae_exposure` parameter used for Compound hazards to determine metric (high/median/low) based on sector CNAE codes
 
 ### Financial Calculations

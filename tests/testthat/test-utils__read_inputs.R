@@ -23,7 +23,7 @@ testthat::test_that("read_assets parses key columns with correct types and snake
   # Assets required columns (snake_case)
   req_asset_cols <- c(
     "company", "asset", "share_of_economic_activity",
-    "latitude", "longitude", "province", "municipality", "asset_category"
+    "latitude", "longitude", "state", "municipality", "asset_category"
   )
   testthat::expect_true(all(req_asset_cols %in% names(assets)))
 
@@ -33,7 +33,7 @@ testthat::test_that("read_assets parses key columns with correct types and snake
   testthat::expect_true(is.numeric(assets$share_of_economic_activity))
   testthat::expect_true(is.numeric(assets$latitude))
   testthat::expect_true(is.numeric(assets$longitude))
-  testthat::expect_type(assets$province, "character")
+  testthat::expect_type(assets$state, "character")
   testthat::expect_type(assets$municipality, "character")
   testthat::expect_type(assets$asset_category, "character")
 })

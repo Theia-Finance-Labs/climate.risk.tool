@@ -35,7 +35,7 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{hazards_inventory}{Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)}
 
-\item{precomputed_hazards}{Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())}
+\item{precomputed_hazards}{Data frame with precomputed hazard statistics for municipalities and states (from read_precomputed_hazards())}
 
 \item{damage_factors}{Data frame with damage and cost factors (from read_damage_cost_factors())}
 
@@ -43,9 +43,9 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{land_cover_legend}{Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())}
 
-\item{adm1_boundaries}{Optional sf object with ADM1 (province) boundaries for province assignment and validation}
+\item{adm1_boundaries}{Optional sf object with ADM1 (state) boundaries for state assignment and validation}
 
-\item{adm2_boundaries}{Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup}
+\item{adm2_boundaries}{Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup}
 
 \item{validate_inputs}{Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)}
 
@@ -82,8 +82,8 @@ The function executes the following 16-step pipeline:
 \enumerate{
 \item Read inputs: Load asset and company data from CSV files
 \item Load hazards: Read climate hazard raster files (.tif)
-\item Load areas: Load municipality and province boundary files
-\item Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > province priority
+\item Load areas: Load municipality and state boundary files
+\item Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > state priority
 \item Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
 \item Join damage factors: Map hazard intensity to damage/cost factors
 \item Apply acute shock: Calculate sudden climate event impacts

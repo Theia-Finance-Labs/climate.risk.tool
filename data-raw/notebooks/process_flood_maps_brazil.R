@@ -22,7 +22,7 @@ if (requireNamespace("here", quietly = TRUE)) {
 }
 
 hazards_world_dir <- file.path(project_root, "workspace", "hazards_world")
-brazil_boundaries_file <- file.path(project_root, "tests", "tests_data", "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+brazil_boundaries_file <- file.path(project_root, "tests", "tests_data", "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
 output_base_dir <- file.path(project_root, "tests", "tests_data", "hazards")
 
 # Create output base directory if it doesn't exist

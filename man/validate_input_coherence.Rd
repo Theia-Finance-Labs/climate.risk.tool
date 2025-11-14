@@ -49,7 +49,7 @@ Validate Input Data Coherence
 \examples{
 \dontrun{
 # Load boundary names
-adm1 <- load_adm1_province_names("tests/tests_data")
+adm1 <- load_adm1_state_names("tests/tests_data")
 adm2 <- load_adm2_municipality_names("tests/tests_data")
 # Validate
 validate_input_coherence(assets, damage_factors, precomputed_hazards, cnae_exposure, adm1, adm2)
