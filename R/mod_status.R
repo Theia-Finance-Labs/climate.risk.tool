@@ -92,7 +92,7 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
         # Return empty table with message
         return(
           DT::datatable(
-            tibble::tibble(Message = "No events configured - will use default event"),
+            tibble::tibble(Message = "No events configured - Add new hazard events from the sidebar"),
             options = list(dom = "t"),
             rownames = FALSE
           )
