@@ -490,19 +490,63 @@ validate_precomputed_hazards_geography <- function(
     }
   }
 
+  # Validate that state and municipality names in assets exist in reference lists
+  if (!is.null(assets_df) && nrow(assets_df) > 0) {
+    # Check states
+    if ("state" %in% names(assets_df) && length(adm1_names) > 0) {
+      asset_states <- assets_df |>
+        dplyr::filter(!is.na(.data$state), nzchar(as.character(.data$state))) |>
+        dplyr::pull(.data$state) |>
+        unique()
+
+      invalid_states <- asset_states[!asset_states %in% adm1_names]
+
+      if (length(invalid_states) > 0) {
+        validation_results$errors <- c(
+          validation_results$errors,
+          paste0(
+            "Assets contain state names not in ADM1 boundaries: ",
+            paste(invalid_states, collapse = ", ")
+          )
+        )
+      }
+    }
+
+    # Check municipalities
+    if ("municipality" %in% names(assets_df) && length(adm2_names) > 0) {
+      asset_municipalities <- assets_df |>
+        dplyr::filter(!is.na(.data$municipality), nzchar(as.character(.data$municipality))) |>
+        dplyr::pull(.data$municipality) |>
+        unique()
+
+      invalid_municipalities <- asset_municipalities[!asset_municipalities %in% adm2_names]
+
+      if (length(invalid_municipalities) > 0) {
+        validation_results$errors <- c(
+          validation_results$errors,
+          paste0(
+            "Assets contain municipality names not in ADM2 boundaries: ",
+            paste(invalid_municipalities, collapse = ", ")
+          )
+        )
+      }
+    }
+  }
+
   # NEW: Validate hazard-specific coverage for asset regions
   if (!is.null(assets_df) && !is.null(events_df) && nrow(assets_df) > 0 && nrow(events_df) > 0) {
     # Get required hazards from events
     required_hazards <- events_df |>
-      dplyr::select(.data$hazard_type, .data$hazard_indicator) |>
+      dplyr::select("hazard_type", "hazard_indicator") |>
       dplyr::distinct()
 
-    # Get unique regions from assets (both municipality and state)
+    # Get unique municipalities from assets (check all assets with municipalities)
     asset_municipalities <- assets_df |>
       dplyr::filter(!is.na(.data$municipality), nzchar(as.character(.data$municipality))) |>
       dplyr::pull(.data$municipality) |>
       unique()
 
+    # Get unique states from assets (check all assets with states, regardless of municipality)
     asset_states <- assets_df |>
       dplyr::filter(!is.na(.data$state), nzchar(as.character(.data$state))) |>
       dplyr::pull(.data$state) |>
@@ -512,10 +556,10 @@ validate_precomputed_hazards_geography <- function(
     for (municipality in asset_municipalities) {
       municipality_hazards <- precomputed_hazards_df |>
         dplyr::filter(
-          .data$region == municipality,
+          .data$region == !!municipality,
           .data$adm_level == "ADM2"
         ) |>
-        dplyr::select(.data$hazard_type, .data$hazard_indicator) |>
+        dplyr::select("hazard_type", "hazard_indicator") |>
         dplyr::distinct()
 
       # Check if all required hazards are present
@@ -525,15 +569,15 @@ validate_precomputed_hazards_geography <- function(
 
         has_hazard <- municipality_hazards |>
           dplyr::filter(
-            .data$hazard_type == hazard_type,
-            .data$hazard_indicator == hazard_indicator
+            .data$hazard_type == !!hazard_type,
+            .data$hazard_indicator == !!hazard_indicator
           ) |>
           nrow() > 0
 
         if (!has_hazard) {
           # Check if state has this hazard (fallback)
           state_for_municipality <- assets_df |>
-            dplyr::filter(.data$municipality == municipality) |>
+            dplyr::filter(.data$municipality == !!municipality) |>
             dplyr::pull(.data$state) |>
             unique() |>
             head(1)
@@ -541,10 +585,10 @@ validate_precomputed_hazards_geography <- function(
           if (length(state_for_municipality) > 0 && !is.na(state_for_municipality)) {
             state_has_hazard <- precomputed_hazards_df |>
               dplyr::filter(
-                .data$region == state_for_municipality,
+                .data$region == !!state_for_municipality,
                 .data$adm_level == "ADM1",
-                .data$hazard_type == hazard_type,
-                .data$hazard_indicator == hazard_indicator
+                .data$hazard_type == !!hazard_type,
+                .data$hazard_indicator == !!hazard_indicator
               ) |>
               nrow() > 0
 
@@ -571,14 +615,14 @@ validate_precomputed_hazards_geography <- function(
       }
     }
 
-    # Check hazard coverage for states (for assets without municipality)
+    # Check hazard coverage for states (for all assets with states)
     for (state in asset_states) {
       state_hazards <- precomputed_hazards_df |>
         dplyr::filter(
-          .data$region == state,
+          .data$region == !!state,
           .data$adm_level == "ADM1"
         ) |>
-        dplyr::select(.data$hazard_type, .data$hazard_indicator) |>
+        dplyr::select("hazard_type", "hazard_indicator") |>
         dplyr::distinct()
 
       # Check if all required hazards are present
@@ -588,8 +632,8 @@ validate_precomputed_hazards_geography <- function(
 
         has_hazard <- state_hazards |>
           dplyr::filter(
-            .data$hazard_type == hazard_type,
-            .data$hazard_indicator == hazard_indicator
+            .data$hazard_type == !!hazard_type,
+            .data$hazard_indicator == !!hazard_indicator
           ) |>
           nrow() > 0
 
