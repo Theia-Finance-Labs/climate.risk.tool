@@ -60,8 +60,8 @@ read_assets <- function(base_dir) {
       )
     )
 
-  # Handle character columns that can have empty values (municipality, province, asset_subtype)
-  char_cols_with_empty <- c("municipality", "province", "asset_subtype")
+  # Handle character columns that can have empty values (municipality, state, asset_subtype)
+  char_cols_with_empty <- c("municipality", "state", "asset_subtype")
 
   assets_raw <- assets_raw |>
     dplyr::mutate(
@@ -76,7 +76,7 @@ read_assets <- function(base_dir) {
       )
     )
 
-  # Normalize municipality and province names (remove accents, convert to ASCII)
+  # Normalize municipality and state names (remove accents, convert to ASCII)
   # Also ensure that whitespace-only strings are converted to NA
   assets_raw <- assets_raw |>
     dplyr::mutate(
@@ -85,9 +85,9 @@ read_assets <- function(base_dir) {
         stringi::stri_trans_general(as.character(trimws(.data$municipality)), "Latin-ASCII"),
         NA_character_
       ),
-      province = dplyr::if_else(
-        !is.na(.data$province) & nzchar(trimws(as.character(.data$province))),
-        stringi::stri_trans_general(as.character(trimws(.data$province)), "Latin-ASCII"),
+      state = dplyr::if_else(
+        !is.na(.data$state) & nzchar(trimws(as.character(.data$state))),
+        stringi::stri_trans_general(as.character(trimws(.data$state)), "Latin-ASCII"),
         NA_character_
       )
     )
@@ -96,54 +96,54 @@ read_assets <- function(base_dir) {
   assets_raw
 }
 
-#' Assign province to assets using already-loaded boundaries
+#' Assign state to assets using already-loaded boundaries
 #'
-#' @title Assign provinces to assets using spatial matching with loaded boundaries
-#' @description For assets without province assigned, uses spatial matching with ADM1 boundaries
+#' @title Assign states to assets using spatial matching with loaded boundaries
+#' @description For assets without state assigned, uses spatial matching with ADM1 boundaries
 #'   based on coordinates (if available) or municipality lookup (if no coordinates).
-#'   Province names are ASCII-normalized for consistency.
+#'   State names are ASCII-normalized for consistency.
 #' @param assets_df Data frame with asset information
-#' @param adm1_boundaries sf object with ADM1 (province) boundaries
+#' @param adm1_boundaries sf object with ADM1 (state) boundaries
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for municipality-based lookup
-#' @return Data frame with province assigned to all assets
+#' @return Data frame with state assigned to all assets
 #' @examples
 #' \dontrun{
 #' adm1 <- sf::st_read("path/to/ADM1.geojson")
-#' assets_with_provinces <- assign_province_to_assets_with_boundaries(assets, adm1)
+#' assets_with_states <- assign_state_to_assets_with_boundaries(assets, adm1)
 #' }
 #' @export
-assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL) {
-  # Ensure province column is character (not logical if all NA)
-  if ("province" %in% names(assets_df)) {
-    assets_df$province <- as.character(assets_df$province)
+assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL) {
+  # Ensure state column is character (not logical if all NA)
+  if ("state" %in% names(assets_df)) {
+    assets_df$state <- as.character(assets_df$state)
   }
 
-  # Normalize province names in boundaries
-  provinces_sf <- adm1_boundaries |>
+  # Normalize state names in boundaries
+  states_sf <- adm1_boundaries |>
     dplyr::mutate(
-      province_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
+      state_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
     )
 
-  # Identify assets without province
-  assets_without_province <- assets_df |>
-    dplyr::filter(is.na(.data$province))
+  # Identify assets without state
+  assets_without_state <- assets_df |>
+    dplyr::filter(is.na(.data$state))
 
-  assets_with_province_already <- assets_df |>
-    dplyr::filter(!is.na(.data$province))
+  assets_with_state_already <- assets_df |>
+    dplyr::filter(!is.na(.data$state))
 
-  if (nrow(assets_without_province) == 0) {
-    message("[assign_province_to_assets] All assets already have province assigned")
+  if (nrow(assets_without_state) == 0) {
+    message("[assign_state_to_assets] All assets already have state assigned")
     return(assets_df)
   }
 
-  message("[assign_province_to_assets] Assigning province to ", nrow(assets_without_province), " assets")
+  message("[assign_state_to_assets] Assigning state to ", nrow(assets_without_state), " assets")
 
-  # Strategy 1: Assets with lat/lon - spatial join to province
-  assets_with_coords <- assets_without_province |>
+  # Strategy 1: Assets with lat/lon - spatial join to state
+  assets_with_coords <- assets_without_state |>
     dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
 
   if (nrow(assets_with_coords) > 0) {
-    message("  Assigning province via coordinates for ", nrow(assets_with_coords), " assets")
+    message("  Assigning state via coordinates for ", nrow(assets_with_coords), " assets")
 
     # Convert to sf object
     assets_coords_sf <- sf::st_as_sf(
@@ -152,24 +152,24 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
       crs = 4326
     )
 
-    # Spatial join with provinces
-    assets_coords_joined <- sf::st_join(assets_coords_sf, provinces_sf, join = sf::st_within)
+    # Spatial join with states
+    assets_coords_joined <- sf::st_join(assets_coords_sf, states_sf, join = sf::st_within)
 
-    # Extract coordinates back and assign province
+    # Extract coordinates back and assign state
     coords_matrix <- sf::st_coordinates(assets_coords_joined)
     assets_with_coords <- assets_with_coords |>
       dplyr::mutate(
-        province = assets_coords_joined$province_name
+        state = assets_coords_joined$state_name
       )
   }
 
   # Strategy 2: Assets with municipality but no coordinates - join via municipality
-  assets_with_municipality <- assets_without_province |>
+  assets_with_municipality <- assets_without_state |>
     dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
     dplyr::filter(!is.na(.data$municipality))
 
   if (nrow(assets_with_municipality) > 0 && !is.null(adm2_boundaries)) {
-    message("  Assigning province via municipality for ", nrow(assets_with_municipality), " assets")
+    message("  Assigning state via municipality for ", nrow(assets_with_municipality), " assets")
 
     # Normalize municipality names in boundaries
     municipalities_sf <- adm2_boundaries |>
@@ -181,16 +181,16 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
     if (!sf::st_is_longlat(municipalities_sf)) {
       municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
     }
-    if (!sf::st_is_longlat(provinces_sf)) {
-      provinces_sf <- sf::st_transform(provinces_sf, 4326)
+    if (!sf::st_is_longlat(states_sf)) {
+      states_sf <- sf::st_transform(states_sf, 4326)
     }
 
     muni_points <- sf::st_point_on_surface(municipalities_sf)
-    muni_points_joined <- sf::st_join(muni_points, provinces_sf, join = sf::st_within)
+    muni_points_joined <- sf::st_join(muni_points, states_sf, join = sf::st_within)
 
     municipality_lookup <- muni_points_joined |>
       sf::st_drop_geometry() |>
-      dplyr::select("municipality_name", "province_name")
+      dplyr::select("municipality_name", "state_name")
 
     assets_with_municipality <- assets_with_municipality |>
       dplyr::left_join(
@@ -198,59 +198,59 @@ assign_province_to_assets_with_boundaries <- function(assets_df, adm1_boundaries
         by = c("municipality" = "municipality_name")
       ) |>
       dplyr::mutate(
-        province = dplyr::coalesce(.data$province_name, .data$province)
+        state = dplyr::coalesce(.data$state_name, .data$state)
       ) |>
-      dplyr::select(-dplyr::any_of(c("province_name", "adm1_name")))
+      dplyr::select(-dplyr::any_of(c("state_name", "adm1_name")))
   }
 
   # Combine all assets back together
   result <- dplyr::bind_rows(
-    assets_with_province_already,
+    assets_with_state_already,
     if (exists("assets_with_coords") && nrow(assets_with_coords) > 0) assets_with_coords else NULL,
     if (exists("assets_with_municipality") && nrow(assets_with_municipality) > 0) assets_with_municipality else NULL,
-    # Assets that still don't have province (no coords, no municipality)
-    assets_without_province |>
+    # Assets that still don't have state (no coords, no municipality)
+    assets_without_state |>
       dplyr::filter(
         (is.na(.data$latitude) | is.na(.data$longitude)) &
           is.na(.data$municipality)
       )
   )
 
-  n_assigned <- sum(!is.na(result$province)) - sum(!is.na(assets_df$province))
-  message("[assign_province_to_assets] Assigned province to ", n_assigned, " additional assets")
+  n_assigned <- sum(!is.na(result$state)) - sum(!is.na(assets_df$state))
+  message("[assign_state_to_assets] Assigned state to ", n_assigned, " additional assets")
 
   return(result)
 }
 
 
-#' Assign province to assets based on coordinates or municipality (from base_dir)
+#' Assign state to assets based on coordinates or municipality (from base_dir)
 #'
-#' @title Assign provinces to assets using spatial matching (loads boundaries from base_dir)
-#' @description For assets without province assigned, uses spatial matching with ADM1 boundaries
+#' @title Assign states to assets using spatial matching (loads boundaries from base_dir)
+#' @description For assets without state assigned, uses spatial matching with ADM1 boundaries
 #'   based on coordinates (if available) or municipality lookup (if no coordinates).
-#'   Province names are ASCII-normalized for consistency.
+#'   State names are ASCII-normalized for consistency.
 #'   This is a convenience wrapper that loads boundaries from base_dir.
 #' @param assets_df Data frame with asset information
 #' @param base_dir Base directory containing areas subdirectory with geoBoundaries files
-#' @return Data frame with province assigned to all assets
+#' @return Data frame with state assigned to all assets
 #' @examples
 #' \dontrun{
 #' assets <- read_assets("tests/tests_data")
-#' assets_with_provinces <- assign_province_to_assets(assets, "tests/tests_data")
+#' assets_with_states <- assign_state_to_assets(assets, "tests/tests_data")
 #' }
 #' @export
-assign_province_to_assets <- function(assets_df, base_dir) {
-  # Load province boundaries
-  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+assign_state_to_assets <- function(assets_df, base_dir) {
+  # Load state boundaries
+  state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
   municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
 
-  if (!file.exists(province_path)) {
-    message("[assign_province_to_assets] Province boundaries not found, skipping province assignment")
+  if (!file.exists(state_path)) {
+    message("[assign_state_to_assets] State boundaries not found, skipping state assignment")
     return(assets_df)
   }
 
   # Load boundaries
-  adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
+  adm1_boundaries <- sf::st_read(state_path, quiet = TRUE)
   adm2_boundaries <- if (file.exists(municipality_path)) {
     sf::st_read(municipality_path, quiet = TRUE)
   } else {
@@ -258,7 +258,7 @@ assign_province_to_assets <- function(assets_df, base_dir) {
   }
 
   # Call the main function with loaded boundaries
-  assign_province_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
+  assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
 }
 
 #' Read company data from Excel file
@@ -344,12 +344,12 @@ read_damage_cost_factors <- function(base_dir) {
     ) |>
     # Convert column names to snake_case for consistency
     dplyr::rename_with(to_snake_case) |>
-    # Normalize province names (remove accents, convert to ASCII)
+    # Normalize state names (remove accents, convert to ASCII)
     dplyr::mutate(
-      province = dplyr::if_else(
-        !is.na(.data$province) & .data$province != "-" & nzchar(as.character(.data$province)),
-        stringi::stri_trans_general(as.character(.data$province), "Latin-ASCII"),
-        .data$province
+      state = dplyr::if_else(
+        !is.na(.data$state) & .data$state != "-" & nzchar(as.character(.data$state)),
+        stringi::stri_trans_general(as.character(.data$state), "Latin-ASCII"),
+        .data$state
       )
     )
 

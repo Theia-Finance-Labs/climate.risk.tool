@@ -15,7 +15,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
     assets_mixed$latitude[1] <- NA_real_
     assets_mixed$longitude[1] <- NA_real_
     assets_mixed$municipality[1] <- "Borba"
-    assets_mixed$province[1] <- "Amazonas"
+    assets_mixed$state[1] <- "Amazonas"
   }
 
   # Events: Flood (acute), Heat (acute), and Drought (acute with season)
@@ -73,7 +73,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
 
   # Assets factors should include metadata and event_info
   testthat::expect_true(all(c("matching_method", "event_year") %in% names(res$assets_factors)))
-  testthat::expect_true(all(res$assets_factors$matching_method %in% c("coordinates", "municipality", "province")))
+  testthat::expect_true(all(res$assets_factors$matching_method %in% c("coordinates", "municipality", "state")))
 
   # Event IDs: auto-generated when not provided
   testthat::expect_true("event_id" %in% names(res$assets_factors))
@@ -196,7 +196,7 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     assets_mixed$latitude[1] <- NA_real_
     assets_mixed$longitude[1] <- NA_real_
     assets_mixed$municipality[1] <- "Borba"
-    assets_mixed$province[1] <- "Amazonas"
+    assets_mixed$state[1] <- "Amazonas"
   }
 
   # Events: Flood (acute), Heat (acute), and Drought (acute with season)

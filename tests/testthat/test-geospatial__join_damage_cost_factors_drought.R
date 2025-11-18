@@ -11,7 +11,7 @@ testthat::test_that("join_drought_damage_factors: crop exists but not in asset's
     latitude = c(-12.5),
     longitude = c(-56.0),
     municipality = c("Mun1"),
-    province = c("Mato Grosso"), # Has Corn/Soybean but NOT Sugarcane
+    state = c("Mato Grosso"), # Has Corn/Soybean but NOT Sugarcane
     asset_category = c("agriculture"),
     asset_subtype = c("Sugarcane"), # Exists in other provinces (Bahia, Sao Paulo, etc)
     size_in_m2 = c(10000),
@@ -50,7 +50,7 @@ testthat::test_that("join_drought_damage_factors: crop doesn't exist anywhere (u
     latitude = c(-15),
     longitude = c(-48),
     municipality = c("Mun1"),
-    province = c("Goias"), # Valid province
+    state = c("Goias"), # Valid state
     asset_category = c("agriculture"),
     asset_subtype = c("Rice"), # Doesn't exist in damage factors
     size_in_m2 = c(10000),
@@ -86,7 +86,7 @@ testthat::test_that("join_drought_damage_factors: neither crop nor province exis
     latitude = c(0),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Amapa"), # Province not in damage factors
+    state = c("Amapa"), # State not in damage factors
     asset_category = c("agriculture"),
     asset_subtype = c("Rice"), # Crop not in damage factors
     size_in_m2 = c(10000),
@@ -123,7 +123,7 @@ testthat::test_that("join_drought_damage_factors: closest intensity matching wor
     latitude = c(-10, -15),
     longitude = c(-50, -55),
     municipality = c("Mun1", "Mun2"),
-    province = c("Bahia", "Bahia"),
+    state = c("Bahia", "Bahia"),
     asset_category = c("agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Soybean"),
     size_in_m2 = c(10000, 8000),
@@ -159,7 +159,7 @@ testthat::test_that("join_drought_damage_factors: multiple assets with same prop
     latitude = c(-10, -10.01, -10.02),
     longitude = c(-50, -50.01, -50.02),
     municipality = c("Mun1", "Mun1", "Mun1"),
-    province = c("Bahia", "Bahia", "Bahia"),
+    state = c("Bahia", "Bahia", "Bahia"),
     asset_category = c("agriculture", "agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Soybean", "Soybean"),
     size_in_m2 = c(10000, 10000, 10000),
@@ -197,7 +197,7 @@ testthat::test_that("join_drought_damage_factors: all four seasons tested", {
     latitude = c(-10, -15, -20, -25),
     longitude = c(-50, -55, -60, -65),
     municipality = c("Mun1", "Mun2", "Mun3", "Mun4"),
-    province = c("Bahia", "Bahia", "Bahia", "Bahia"),
+    state = c("Bahia", "Bahia", "Bahia", "Bahia"),
     asset_category = c("agriculture", "agriculture", "agriculture", "agriculture"),
     asset_subtype = c("Soybean", "Soybean", "Soybean", "Soybean"),
     size_in_m2 = c(10000, 8000, 12000, 9000),
@@ -235,7 +235,7 @@ testthat::test_that("join_drought_damage_factors: off-season with single growing
     latitude = c(-10),
     longitude = c(-50),
     municipality = c("Mun1"),
-    province = c("Bahia"),
+    state = c("Bahia"),
     asset_category = c("agriculture"),
     asset_subtype = c("Soybean"),
     size_in_m2 = c(10000),

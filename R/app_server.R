@@ -112,10 +112,10 @@ app_server <- function(input, output, session) {
         values$cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
         values$land_cover_legend <- read_land_cover_legend(base_dir)
 
-        # Load ADM1 and ADM2 boundaries for province assignment and validation
-        province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+        # Load ADM1 and ADM2 boundaries for state assignment and validation
+        state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
         municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
-        values$adm1_boundaries <- sf::st_read(province_path, quiet = TRUE)
+        values$adm1_boundaries <- sf::st_read(state_path, quiet = TRUE)
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
 
         # Load region name mapping for displaying original names in frontend

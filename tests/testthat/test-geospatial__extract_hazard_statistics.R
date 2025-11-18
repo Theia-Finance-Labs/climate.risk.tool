@@ -21,7 +21,7 @@ testthat::test_that("geolocated assets extract from TIF files", {
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
     municipality = NA_character_,
-    province = NA_character_,
+    state = NA_character_,
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -75,7 +75,7 @@ testthat::test_that("geolocated assets extract from NC files", {
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
     municipality = NA_character_,
-    province = NA_character_,
+    state = NA_character_,
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -103,7 +103,7 @@ testthat::test_that("geolocated assets extract from NC files", {
 })
 
 
-testthat::test_that("mixed assets use priority: coordinates > municipality > province", {
+testthat::test_that("mixed assets use priority: coordinates > municipality > state", {
   base_dir <- get_test_data_dir()
   precomputed <- read_precomputed_hazards(base_dir)
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
@@ -126,12 +126,12 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
 
   # Create 3 assets demonstrating priority cascade
   assets <- tibble::tibble(
-    asset = c("asset_coords", "asset_municipality", "asset_province"),
+    asset = c("asset_coords", "asset_municipality", "asset_state"),
     company = rep("company_a", 3),
     latitude = c(-3.0, NA_real_, NA_real_),
     longitude = c(-60.0, NA_real_, NA_real_),
     municipality = c("Barcelos", "Barcelos", NA_character_),
-    province = c("Amazonas", "Amazonas", "Amazonas"),
+    state = c("Amazonas", "Amazonas", "Amazonas"),
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -148,11 +148,17 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > pro
   # Verify each asset's matching_method
   asset1_method <- unique(out$matching_method[out$asset == "asset_coords"])
   asset2_method <- unique(out$matching_method[out$asset == "asset_municipality"])
-  asset3_method <- unique(out$matching_method[out$asset == "asset_province"])
+  asset3_method <- unique(out$matching_method[out$asset == "asset_state"])
 
   testthat::expect_equal(asset1_method, "coordinates")
   testthat::expect_equal(asset2_method, "municipality")
-  testthat::expect_equal(asset3_method, "province")
+  testthat::expect_equal(asset3_method, "state")
+
+  # Verify source field for precomputed data
+  asset2_source <- unique(out$source[out$asset == "asset_municipality"])
+  asset3_source <- unique(out$source[out$asset == "asset_state"])
+  testthat::expect_equal(asset2_source, "precomputed (municipality)")
+  testthat::expect_equal(asset3_source, "precomputed (state)")
 
   # Verify all get valid hazard statistics
   testthat::expect_true(all(is.numeric(out$hazard_intensity)))
@@ -167,7 +173,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
     latitude = NA_real_,
     longitude = NA_real_,
     municipality = "TestMunicipality",
-    province = "TestProvince",
+    state = "TestProvince",
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -224,7 +230,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     latitude = NA_real_,
     longitude = NA_real_,
     municipality = NA_character_,
-    province = "Amazonas",
+    state = "Amazonas",
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -271,7 +277,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     latitude = NA_real_,
     longitude = NA_real_,
     municipality = "NonExistentMunicipality12345",
-    province = "NonExistentProvince67890",
+    state = "NonExistentProvince67890",
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
@@ -319,7 +325,7 @@ testthat::test_that("CSV hazards use specified aggregation method", {
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
     municipality = NA_character_,
-    province = NA_character_,
+    state = NA_character_,
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,

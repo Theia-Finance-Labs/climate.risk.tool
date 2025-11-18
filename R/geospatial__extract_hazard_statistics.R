@@ -1,7 +1,7 @@
 #' Extract hazard statistics using spatial extraction or precomputed lookups (internal function)
 #'
 #' @param assets_df Data frame with asset information. Can have geometry column (for spatial extraction)
-#'   or municipality/province columns (for precomputed lookups)
+#'   or municipality/state columns (for precomputed lookups)
 #' @param hazards Named list of hazard rasters (from load_hazards) - used for spatial extraction
 #' @param hazards_inventory Data frame with hazard metadata (hazard_name, hazard_type, hazard_indicator, etc.)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
@@ -10,7 +10,7 @@
 #'   to compute from extracted pixel values. Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
 #' @param damage_factors_df Optional data frame with damage factors for drought growing season matching in precomputed extraction
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
-#'   municipality, province, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
+#'   municipality, state, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
 #' @noRd
 extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean", damage_factors_df = NULL) {
@@ -257,7 +257,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         ) |>
         dplyr::select(
           "asset", "company", "latitude", "longitude",
-          "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
+          "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
           "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
           "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
         )
@@ -282,7 +282,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
   return(dplyr::bind_rows(all_results))
 }
 
-#' Extract statistics from precomputed administrative data (municipality/province lookup)
+#' Extract statistics from precomputed administrative data (municipality/state lookup)
 #' @param damage_factors_df Optional data frame with damage factors for drought growing season matching
 #' @noRd
 extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean", damage_factors_df = NULL) {
@@ -312,9 +312,9 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     asset_row <- assets_df |> dplyr::slice(i)
     asset_name <- asset_row |> dplyr::pull(.data$asset)
     municipality <- asset_row |> dplyr::pull(.data$municipality)
-    province <- asset_row |> dplyr::pull(.data$province)
+    state <- asset_row |> dplyr::pull(.data$state)
 
-    # Try municipality first (ADM2), then province (ADM1)
+    # Try municipality first (ADM2), then state (ADM1)
     # Note: Names are already normalized in read_assets() and read_precomputed_hazards()
     matched_data <- NULL
     match_level <- NULL
@@ -331,14 +331,14 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     }
 
     if (is.null(matched_data) || nrow(matched_data) == 0) {
-      if (!is.na(province) && nzchar(as.character(province))) {
+      if (!is.na(state) && nzchar(as.character(state))) {
         matched_data <- precomputed_hazards |>
           dplyr::filter(
-            .data$region == province,
+            .data$region == state,
             .data$adm_level == "ADM1"
           )
-        match_level <- "province"
-        matched_region <- province
+        match_level <- "state"
+        matched_region <- state
       }
     }
 
@@ -346,7 +346,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       stop(
         "Cannot determine hazard statistics for asset ", i, " (", asset_name, "). ",
         "No match found in precomputed data for municipality='", municipality,
-        "' or province='", province, "'"
+        "' or state='", state, "'"
       )
     }
 
@@ -374,7 +374,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         stop(
           "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
           "Could not find hazards: ", paste(missing_hazards, collapse = ", "),
-          " when matching municipality='", municipality, "' or province='", province, "'."
+          " when matching municipality='", municipality, "' or state='", state, "'."
         )
       }
     }
@@ -394,11 +394,11 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         as.character(asset_row$asset_subtype)
       )
 
-      # Get province for matching (use actual province, fallback to "Other" handled in join_drought_damage_factors)
-      province_clean <- dplyr::if_else(
-        is.na(asset_row$province) | asset_row$province == "",
+      # Get state for matching (use actual state, fallback to "Other" handled in join_drought_damage_factors)
+      state_clean <- dplyr::if_else(
+        is.na(asset_row$state) | asset_row$state == "",
         "Other",
-        as.character(asset_row$province)
+        as.character(asset_row$state)
       )
 
       # Get crop's growing seasons from damage factors
@@ -410,19 +410,19 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
           .data$hazard_type == "Drought",
           .data$hazard_indicator == "SPI3",
           .data$subtype == crop_subtype_for_lookup,
-          .data$province == province_clean | .data$province == "Other"
+          .data$state == state_clean | .data$state == "Other"
         ) |>
         dplyr::distinct(.data$season) |>
         dplyr::pull(.data$season)
 
-      # If no specific province match, try "Other" province
-      if (length(crop_growing_seasons) == 0 && province_clean != "Other") {
+      # If no specific state match, try "Other" state
+      if (length(crop_growing_seasons) == 0 && state_clean != "Other") {
         crop_growing_seasons <- damage_factors_df |>
           dplyr::filter(
             .data$hazard_type == "Drought",
             .data$hazard_indicator == "SPI3",
             .data$subtype == crop_subtype_for_lookup,
-            .data$province == "Other"
+            .data$state == "Other"
           ) |>
           dplyr::distinct(.data$season) |>
           dplyr::pull(.data$season)
@@ -438,7 +438,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         # No growing seasons found for this crop - this will be handled in join_drought_damage_factors
         message(
           "      Warning: No growing seasons found for crop '", asset_subtype_clean,
-          "' in province '", province_clean, "' for asset ", asset_name
+          "' in state '", state_clean, "' for asset ", asset_name
         )
       } else {
         # Log the growing seasons for debugging
@@ -462,7 +462,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
           "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
           "Aggregation method '", aggregation_method, "' not available for hazards: ",
           paste(missing_agg_hazards, collapse = ", "),
-          ". Checked municipality='", municipality, "' and province='", province, "'."
+          ". Checked municipality='", municipality, "' and state='", state, "'."
         )
       }
     }
@@ -473,14 +473,14 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         hazard_intensity = .data$hazard_value,
         hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
-        source = "precomputed", # Add source column (matched_data doesn't have it)
+        source = paste0("precomputed (", match_level, ")"), # Add source column indicating municipality or state
         # Add asset information to each hazard row
         asset = asset_row$asset,
         company = asset_row$company,
         latitude = asset_row$latitude,
         longitude = asset_row$longitude,
         municipality = asset_row$municipality,
-        province = asset_row$province,
+        state = asset_row$state,
         asset_category = asset_row$asset_category,
         asset_subtype = asset_row$asset_subtype,
         size_in_m2 = asset_row$size_in_m2,
@@ -489,7 +489,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",
-        "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
+        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )
@@ -510,7 +510,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
           latitude = asset_row$latitude,
           longitude = asset_row$longitude,
           municipality = asset_row$municipality,
-          province = asset_row$province,
+          state = asset_row$state,
           asset_category = asset_row$asset_category,
           asset_subtype = asset_row$asset_subtype,
           size_in_m2 = asset_row$size_in_m2,
@@ -612,7 +612,7 @@ extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, ag
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",
-        "municipality", "province", "asset_category", "asset_subtype", "size_in_m2",
+        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
         "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
       )

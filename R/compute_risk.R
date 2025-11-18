@@ -10,12 +10,12 @@
 #'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
-#' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and provinces (from read_precomputed_hazards())
+#' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and states (from read_precomputed_hazards())
 #' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
 #' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())
 #' @param land_cover_legend Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())
-#' @param adm1_boundaries Optional sf object with ADM1 (province) boundaries for province assignment and validation
-#' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for province assignment via municipality lookup
+#' @param adm1_boundaries Optional sf object with ADM1 (state) boundaries for state assignment and validation
+#' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
@@ -36,8 +36,8 @@
 #' The function executes the following 16-step pipeline:
 #' 1. Read inputs: Load asset and company data from CSV files
 #' 2. Load hazards: Read climate hazard raster files (.tif)
-#' 3. Load areas: Load municipality and province boundary files
-#' 4. Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > province priority
+#' 3. Load areas: Load municipality and state boundary files
+#' 4. Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > state priority
 #' 5. Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
 #' 6. Join damage factors: Map hazard intensity to damage/cost factors
 #' 7. Apply acute shock: Calculate sudden climate event impacts
@@ -134,13 +134,13 @@ compute_risk <- function(assets,
   }
 
   # ============================================================================
-  # PHASE 0: INPUT PREPARATION - Assign provinces to assets and validate
+  # PHASE 0: INPUT PREPARATION - Assign states to assets and validate
   # ============================================================================
 
-  # Assign provinces to assets that don't have one (requires boundaries)
+  # Assign states to assets that don't have one (requires boundaries)
   if (!is.null(adm1_boundaries)) {
-    message("[compute_risk] Assigning provinces to assets without location data...")
-    assets <- assign_province_to_assets_with_boundaries(
+    message("[compute_risk] Assigning states to assets without location data...")
+    assets <- assign_state_to_assets_with_boundaries(
       assets,
       adm1_boundaries,
       adm2_boundaries
@@ -175,7 +175,8 @@ compute_risk <- function(assets,
       precomputed_hazards_df = precomputed_hazards,
       cnae_exposure_df = cnae_exposure,
       adm1_names = adm1_names,
-      adm2_names = adm2_names
+      adm2_names = adm2_names,
+      events_df = events
     )
   }
 
@@ -216,7 +217,7 @@ compute_risk <- function(assets,
     dplyr::filter(.data$hazard_name %in% filtered_hazard_names)
 
   # Extract hazard statistics: spatial extraction for assets with coordinates,
-  # precomputed lookup for assets with municipality/province only
+  # precomputed lookup for assets with municipality/state only
 
   assets_long <- extract_hazard_statistics(
     assets_df = assets,
