@@ -25,17 +25,21 @@ Load your data and run the complete climate risk analysis:
 ``` r
 library(climate.risk.tool)
 
-# Path to your input data directory. It must contain:
-# - user_input/: asset_information.xlsx, company.xlsx
+# Path to your base data directory. It must contain:
 # - damage_and_cost_factors.csv
 # - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
 # - hazards_name_mapping.csv (metadata for TIF hazards, optional for NC/CSV)
 # - hazards/[hazard_type]/ directory with .tif, .nc, or .csv files
 base_dir <- "/path/to/your/data"
 
+# Path to your input folder containing:
+# - asset_information.xlsx
+# - company.xlsx
+input_folder <- "/path/to/your/input_folder"
+
 # Load all required data
-assets <- read_assets(base_dir)
-companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+assets <- read_assets(input_folder)
+companies <- read_companies(input_folder)
 
 # Load hazards with unified loader (supports TIF, NetCDF, and CSV formats)
 hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
@@ -99,14 +103,19 @@ Launch the web interface for interactive analysis:
 ``` r
 library(climate.risk.tool)
 
-# Path to your input data directory
+# Path to your base data directory (containing hazards, damage factors, etc.)
 base_dir <- "/path/to/your/data"
 
 run_app(base_dir = base_dir)
 ```
 
-This will open the climate.risk.tool interface, where you can upload company data,
-run the risk calculations, and view the results interactively.
+This will open the climate.risk.tool interface, where you can:
+1. Select a folder containing `asset_information.xlsx` and `company.xlsx` files
+2. Configure hazard events
+3. Run the risk calculations
+4. View and download results interactively
+
+The app uses a native folder browser dialog for easy folder selection.
 
 ## Developer Setup
 

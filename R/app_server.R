@@ -155,17 +155,29 @@ app_server <- function(input, output, session) {
   # Run analysis when button is clicked
   observeEvent(control$run_trigger(), {
     base_dir <- get_base_dir()
-    company_file <- control$company_file()
+    input_folder <- control$input_folder()
 
     # Guard clauses
     if (is.null(base_dir) || base_dir == "") {
       values$status <- "Error: Base directory is not set. Please restart the app with a valid base_dir."
       return()
     }
-    if (is.null(company_file) || is.null(company_file$datapath) || company_file$datapath == "") {
-      values$status <- "Error: Please upload a company.xlsx file before running the analysis."
+    if (is.null(input_folder) || input_folder == "") {
+      values$status <- "Error: Please select an input folder containing asset_information.xlsx and company.xlsx files."
       return()
     }
+    
+    # Check that both required files exist in the selected folder
+    asset_file <- file.path(input_folder, "asset_information.xlsx")
+    company_file <- file.path(input_folder, "company.xlsx")
+    if (!file.exists(asset_file) || !file.exists(company_file)) {
+      missing <- c()
+      if (!file.exists(asset_file)) missing <- c(missing, "asset_information.xlsx")
+      if (!file.exists(company_file)) missing <- c(missing, "company.xlsx")
+      values$status <- paste0("Error: Missing required files in selected folder: ", paste(missing, collapse = ", "))
+      return()
+    }
+    
     if (!values$data_loaded || is.null(values$hazards) || length(values$hazards) == 0) {
       values$status <- "Error: Data files not loaded. Please wait for data to finish loading."
       return()
@@ -175,9 +187,9 @@ app_server <- function(input, output, session) {
 
     tryCatch(
       {
-        # Load companies file from the uploaded file
-        company_file_path <- company_file$datapath
-        companies <- read_companies(company_file_path)
+        # Load asset and company files from the selected folder
+        values$assets <- read_assets(input_folder)
+        companies <- read_companies(input_folder)
 
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)

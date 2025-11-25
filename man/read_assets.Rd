@@ -4,24 +4,28 @@
 \alias{read_assets}
 \title{Read asset information from Excel file}
 \usage{
-read_assets(base_dir)
+read_assets(folder_path)
 }
 \arguments{
-\item{base_dir}{Character string specifying the base directory containing user_input subdirectory}
+\item{folder_path}{Character string specifying either the folder containing asset_information.xlsx
+directly, or the base directory containing user_input subdirectory}
 }
 \value{
 tibble with asset information
 }
 \description{
-Reads asset information from Excel file in the user_input directory,
-converting column names to snake_case and parsing numeric columns correctly.
+Reads asset information from Excel file, either from a folder path
+directly containing asset_information.xlsx, or from base_dir/user_input/asset_information.xlsx.
+Converts column names to snake_case and parses numeric columns correctly.
 }
 \details{
 Read asset data from Excel file
 }
 \examples{
 \dontrun{
-base_dir <- system.file("tests_data", package = "climate.risk.tool")
-assets <- read_assets(base_dir)
+# Direct folder path
+assets <- read_assets("path/to/folder")
+# Or base directory with user_input subdirectory
+assets <- read_assets("path/to/base_dir")
 }
 }

@@ -142,9 +142,6 @@ To add a new hazard type:
 
 ```
 {base_dir}/
-├── user_input/
-│   ├── asset_information.xlsx
-│   └── company.xlsx
 ├── damage_and_cost_factors.csv
 ├── precomputed_adm_hazards.csv
 ├── hazards_name_mapping.csv
@@ -155,14 +152,20 @@ To add a new hazard type:
     │   └── ...
     ├── heat/
     └── ...
+
+{input_folder}/  (user-selected folder)
+├── asset_information.xlsx
+└── company.xlsx
 ```
 
 ### Required Input Files
 
 #### 1. `asset_information.xlsx`
+Location: User-selected input folder
 Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
 
 #### 2. `company.xlsx`
+Location: User-selected input folder (same folder as asset_information.xlsx)
 Columns: company_id, company_name, equity, debt, other financial data
 
 #### 3. `damage_and_cost_factors.csv`
@@ -282,10 +285,11 @@ Examples:
 
 ### Data Loading
 
-**`read_assets(base_dir)`** → data.frame
-- Reads from `{base_dir}/user_input/asset_information.xlsx`
+**`read_assets(folder_path)`** → data.frame
+- Reads from `{folder_path}/asset_information.xlsx` (direct) or `{folder_path}/user_input/asset_information.xlsx` (legacy)
 - ASCII-normalizes state and municipality names
 - **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
+- Accepts either a folder containing asset_information.xlsx directly, or a base_dir with user_input subdirectory
 
 **`assign_state_to_assets(assets_df, base_dir)`** → data.frame
 - Assigns states to assets without state data using spatial matching
@@ -295,7 +299,9 @@ Examples:
 - Can be called manually: `assets <- assign_state_to_assets(assets, base_dir)`
 
 **`read_companies(file_path)`** → data.frame
-- Reads company data from specified Excel path
+- Reads company data from specified Excel file path or folder path
+- If given a folder path, looks for company.xlsx in that folder
+- If given a file path, reads that file directly
 
 **`read_damage_cost_factors(base_dir)`** → data.frame
 - Reads from `{base_dir}/damage_and_cost_factors.csv`
@@ -429,7 +435,8 @@ inventory <- hazard_data$inventory
 ### Modules
 
 **`mod_control`** - Control panel
-- File upload, parameter inputs, run button
+- Folder selection (for asset_information.xlsx and company.xlsx), parameter inputs, run button
+- Uses shinyFiles package for native folder browser dialog
 
 **`mod_hazards_events`** - Event configuration
 - Three cascading dropdowns:
@@ -840,6 +847,19 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - **Backward Compatibility**: Existing single-indicator hazards work exactly as before, just without visible indicator selection
 
 ## Recent Changes
+
+### Input Folder Selection (2025-11-25)
+- **Replaced file upload with folder selection**: Users now select a folder containing both `asset_information.xlsx` and `company.xlsx` files instead of uploading individual files
+- **Native folder browser**: Implemented using `shinyFiles` package with `shinyDirChoose` for cross-platform folder selection dialog
+- **Automatic file detection**: App displays status showing which required files are found/missing in selected folder
+- **Backward compatibility**: `read_assets()` and `read_companies()` functions support both direct folder paths and legacy `user_input` subdirectory structure
+- **Updated data flow**: Assets are now loaded from the selected input folder at analysis runtime, not from `base_dir/user_input`
+- **UI improvements**: 
+  - Replaced file input with "Select Input Folder" button
+  - Added real-time folder status display showing found/missing files
+  - Clear visual feedback with ✓/✗ indicators
+- **Dependencies**: Added `shinyFiles` package to DESCRIPTION Imports
+- **Tests updated**: Modified `test-mod_control.R` and `test-app_server.R` to reflect folder selection instead of file upload
 
 ### UI & Configuration Enhancements (2025-11-12)
 - Relocated hazard configuration upload from `mod_hazards_events` to the Data Upload section in `mod_control` (below the company file input), keeping the download button in the Hazard Events section; wired the upload through a `load_config()` function exposed by `mod_hazards_events_server` so analysts can load pre-configured event lists early in the workflow; coverage updated in `tests/testthat/test-mod_control.R` and `tests/testthat/test-mod_hazards_events.R`.

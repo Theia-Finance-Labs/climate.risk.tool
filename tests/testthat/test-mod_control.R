@@ -1,7 +1,8 @@
-testthat::test_that("mod_control_ui includes hazard events upload controls", {
+testthat::test_that("mod_control_ui includes folder selection and hazard events upload controls", {
   ui <- mod_control_ui("ctrl")
   html <- htmltools::renderTags(ui)$html
-  testthat::expect_true(grepl("ctrl-company_file", html))
+  testthat::expect_true(grepl("ctrl-select_folder", html))
+  testthat::expect_true(grepl("ctrl-folder_path_display", html))
   testthat::expect_true(grepl("ctrl-hazards-upload_hazard_config", html))
   testthat::expect_true(grepl("ctrl-hazards-download_config", html))
 })

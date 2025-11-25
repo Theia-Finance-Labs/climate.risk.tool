@@ -12,25 +12,35 @@ to_snake_case <- function(names) {
 #' Read asset data from Excel file
 #'
 #' @title Read asset information from Excel file
-#' @description Reads asset information from Excel file in the user_input directory,
-#'   converting column names to snake_case and parsing numeric columns correctly.
-#' @param base_dir Character string specifying the base directory containing user_input subdirectory
+#' @description Reads asset information from Excel file, either from a folder path
+#'   directly containing asset_information.xlsx, or from base_dir/user_input/asset_information.xlsx.
+#'   Converts column names to snake_case and parses numeric columns correctly.
+#' @param folder_path Character string specifying either the folder containing asset_information.xlsx
+#'   directly, or the base directory containing user_input subdirectory
 #' @return tibble with asset information
 #' @examples
 #' \dontrun{
-#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' assets <- read_assets(base_dir)
+#' # Direct folder path
+#' assets <- read_assets("path/to/folder")
+#' # Or base directory with user_input subdirectory
+#' assets <- read_assets("path/to/base_dir")
 #' }
 #' @export
-read_assets <- function(base_dir) {
-  message("[read_assets] Reading asset data from: ", base_dir)
+read_assets <- function(folder_path) {
+  message("[read_assets] Reading asset data from: ", folder_path)
 
-  # Define file path
-  assets_path <- file.path(base_dir, "user_input", "asset_information.xlsx")
+  # Try direct path first (folder contains asset_information.xlsx)
+  assets_path <- file.path(folder_path, "asset_information.xlsx")
+  
+  # If not found, try user_input subdirectory (legacy behavior)
+  if (!file.exists(assets_path)) {
+    assets_path <- file.path(folder_path, "user_input", "asset_information.xlsx")
+  }
 
   # Check if file exists
   if (!file.exists(assets_path)) {
-    stop("Asset information file not found at: ", assets_path)
+    stop("Asset information file not found at: ", file.path(folder_path, "asset_information.xlsx"),
+         " or ", file.path(folder_path, "user_input", "asset_information.xlsx"))
   }
 
   # Read assets data
@@ -266,15 +276,25 @@ assign_state_to_assets <- function(assets_df, base_dir) {
 #' @title Read company information from Excel file
 #' @description Reads company information from an Excel file,
 #'   converting column names to snake_case and parsing numeric columns correctly.
-#' @param file_path Character string specifying the path to the company Excel file
+#'   Can accept either a direct file path or a folder path containing company.xlsx.
+#' @param file_path Character string specifying either the path to the company Excel file directly,
+#'   or a folder path containing company.xlsx
 #' @return tibble with company information
 #' @examples
 #' \dontrun{
+#' # Direct file path
 #' companies <- read_companies("path/to/company.xlsx")
+#' # Or folder path
+#' companies <- read_companies("path/to/folder")
 #' }
 #' @export
 read_companies <- function(file_path) {
   message("[read_companies] Reading company data from: ", file_path)
+
+  # If file_path is a directory, look for company.xlsx in it
+  if (dir.exists(file_path)) {
+    file_path <- file.path(file_path, "company.xlsx")
+  }
 
   # Check if file exists
   if (!file.exists(file_path)) {
