@@ -1,7 +1,9 @@
 testthat::test_that("compute_risk end-to-end integration across hazards and event types", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input2")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   # Include all hazard sources (TIF, NC, CSV). Heat hazards are provided via CSV.
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
@@ -143,8 +145,10 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
 
 testthat::test_that("compute_risk errors when events contain duplicate event_id values", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input2")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
@@ -181,8 +185,10 @@ testthat::test_that("compute_risk errors when events contain duplicate event_id 
 
 testthat::test_that("compute_risk produces stable snapshot output", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input2")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   # Include all hazard sources (TIF, NC, CSV). Heat hazards are provided via CSV.
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
@@ -244,8 +250,10 @@ testthat::test_that("compute_risk produces stable snapshot output", {
 
 testthat::test_that("compute_risk handles Fire events correctly with multi-indicator expansion", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input2")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
   precomputed_hazards <- read_precomputed_hazards(base_dir)

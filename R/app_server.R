@@ -88,15 +88,15 @@ app_server <- function(input, output, session) {
     results_reactive = results
   )
 
-  # Load all static data files (everything except companies which comes from file upload)
+  # Load all static data files (everything except assets and companies which come from user-selected folder)
   # Reuses hazards already loaded by control module to avoid duplicate loading
   load_all_static_files <- function(base_dir) {
     tryCatch(
       {
         values$status <- "Loading data files..."
 
-        # Load all input files
-        values$assets <- read_assets(base_dir)
+        # NOTE: Assets are NOT loaded here - they come from the user-selected input folder
+        # when "Run Analysis" is clicked
 
         # Reuse hazards and inventory from control module (already loaded for UI)
         hazards_result <- try(control$hazards_and_inventory(), silent = TRUE)
@@ -106,7 +106,7 @@ app_server <- function(input, output, session) {
         values$hazards <- c(hazards_result$hazards$tif, hazards_result$hazards$nc, hazards_result$hazards$csv)
         values$hazards_inventory <- hazards_result$inventory
 
-        # Load supporting data files
+        # Load supporting data files from base_dir
         values$precomputed_hazards <- read_precomputed_hazards(base_dir)
         values$damage_factors <- read_damage_cost_factors(base_dir)
         values$cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
@@ -121,7 +121,7 @@ app_server <- function(input, output, session) {
         # Load region name mapping for displaying original names in frontend
         values$region_name_mapping <- load_region_name_mapping(base_dir)
 
-        values$status <- "Data files loaded. Ready to run analysis."
+        values$status <- "Data files loaded. Ready to select input folder and run analysis."
         values$data_loaded <- TRUE
       },
       error = function(e) {

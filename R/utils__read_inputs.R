@@ -12,35 +12,26 @@ to_snake_case <- function(names) {
 #' Read asset data from Excel file
 #'
 #' @title Read asset information from Excel file
-#' @description Reads asset information from Excel file, either from a folder path
-#'   directly containing asset_information.xlsx, or from base_dir/user_input/asset_information.xlsx.
+#' @description Reads asset information from Excel file in the specified folder.
+#'   The folder must directly contain asset_information.xlsx.
 #'   Converts column names to snake_case and parses numeric columns correctly.
-#' @param folder_path Character string specifying either the folder containing asset_information.xlsx
-#'   directly, or the base directory containing user_input subdirectory
+#' @param folder_path Character string specifying the folder containing asset_information.xlsx
 #' @return tibble with asset information
 #' @examples
 #' \dontrun{
-#' # Direct folder path
+#' # Folder path containing asset_information.xlsx
 #' assets <- read_assets("path/to/folder")
-#' # Or base directory with user_input subdirectory
-#' assets <- read_assets("path/to/base_dir")
 #' }
 #' @export
 read_assets <- function(folder_path) {
   message("[read_assets] Reading asset data from: ", folder_path)
 
-  # Try direct path first (folder contains asset_information.xlsx)
+  # File must be directly in the specified folder
   assets_path <- file.path(folder_path, "asset_information.xlsx")
-  
-  # If not found, try user_input subdirectory (legacy behavior)
-  if (!file.exists(assets_path)) {
-    assets_path <- file.path(folder_path, "user_input", "asset_information.xlsx")
-  }
 
   # Check if file exists
   if (!file.exists(assets_path)) {
-    stop("Asset information file not found at: ", file.path(folder_path, "asset_information.xlsx"),
-         " or ", file.path(folder_path, "user_input", "asset_information.xlsx"))
+    stop("Asset information file not found at: ", assets_path)
   }
 
   # Read assets data

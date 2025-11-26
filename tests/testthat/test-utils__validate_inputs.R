@@ -4,8 +4,9 @@ testthat::test_that("validate_input_coherence runs successfully with valid data"
   base_dir <- get_test_data_dir()
 
   # Load all data
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
+  companies <- read_companies(input_folder)
   damage_factors <- read_damage_cost_factors(base_dir)
   cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
@@ -308,7 +309,8 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
     stringsAsFactors = FALSE
   )
 
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input2")
+  companies <- read_companies(input_folder)
   damage_factors <- read_damage_cost_factors(base_dir)
   cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
@@ -332,8 +334,9 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
 
 testthat::test_that("validate_companies_against_assets detects companies with no assets", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
+  companies <- read_companies(input_folder)
 
   # Inject a fake company with no assets
   companies <- dplyr::bind_rows(

@@ -1,7 +1,7 @@
 # Tests for functions: read_assets, read_companies
 
 # Contracts:
-# - read_assets(base_dir) reads asset Excel under base_dir/user_input/asset_information.xlsx
+# - read_assets(folder_path) reads asset Excel from folder_path/asset_information.xlsx
 # - read_companies(file_path) reads company Excel from specified file path
 # - All functions parse numeric columns correctly and convert column names to snake_case
 # - Return non-empty data frames
@@ -9,7 +9,8 @@
 
 testthat::test_that("read_assets returns assets as data.frame", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
 
   testthat::expect_s3_class(assets, "data.frame")
   testthat::expect_gt(nrow(assets), 0)
@@ -18,7 +19,8 @@ testthat::test_that("read_assets returns assets as data.frame", {
 
 testthat::test_that("read_assets parses key columns with correct types and snake_case names", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
+  input_folder <- file.path(base_dir, "user_input2")
+  assets <- read_assets(input_folder)
 
   # Assets required columns (snake_case)
   req_asset_cols <- c(
@@ -41,7 +43,7 @@ testthat::test_that("read_assets parses key columns with correct types and snake
 
 testthat::test_that("read_companies returns companies as data.frame", {
   base_dir <- get_test_data_dir()
-  companies_path <- file.path(base_dir, "user_input", "company.xlsx")
+  companies_path <- file.path(base_dir, "user_input2", "company.xlsx")
   companies <- read_companies(companies_path)
 
   testthat::expect_s3_class(companies, "data.frame")
@@ -51,7 +53,7 @@ testthat::test_that("read_companies returns companies as data.frame", {
 
 testthat::test_that("read_companies parses key columns with correct types and snake_case names", {
   base_dir <- get_test_data_dir()
-  companies_path <- file.path(base_dir, "user_input", "company.xlsx")
+  companies_path <- file.path(base_dir, "user_input2", "company.xlsx")
   companies <- read_companies(companies_path)
 
   # Companies required columns (snake_case)

@@ -7,15 +7,14 @@
 read_assets(folder_path)
 }
 \arguments{
-\item{folder_path}{Character string specifying either the folder containing asset_information.xlsx
-directly, or the base directory containing user_input subdirectory}
+\item{folder_path}{Character string specifying the folder containing asset_information.xlsx}
 }
 \value{
 tibble with asset information
 }
 \description{
-Reads asset information from Excel file, either from a folder path
-directly containing asset_information.xlsx, or from base_dir/user_input/asset_information.xlsx.
+Reads asset information from Excel file in the specified folder.
+The folder must directly contain asset_information.xlsx.
 Converts column names to snake_case and parses numeric columns correctly.
 }
 \details{
@@ -23,9 +22,7 @@ Read asset data from Excel file
 }
 \examples{
 \dontrun{
-# Direct folder path
+# Folder path containing asset_information.xlsx
 assets <- read_assets("path/to/folder")
-# Or base directory with user_input subdirectory
-assets <- read_assets("path/to/base_dir")
 }
 }
