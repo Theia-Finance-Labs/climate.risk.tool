@@ -16,7 +16,7 @@ mod_control_ui <- function(id) {
           label = "Select Input Folder",
           title = "Select folder containing asset_information.xlsx and company.xlsx",
           icon = shiny::icon("folder-open"),
-          class = "btn-info btn-block"
+          class = "btn-primary btn-block"
         ),
         shiny::div(
           id = ns("folder_status"),
