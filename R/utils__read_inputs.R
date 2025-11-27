@@ -590,7 +590,8 @@ read_hazards_mapping <- function(mapping_path) {
 #' @examples
 #' \dontrun{
 #' legend <- read_land_cover_legend("workspace/demo_inputs")
-#' # Returns tibble with columns: land_cover_code, land_cover_class, land_cover_category, land_cover_risk
+#' # Returns tibble with columns: land_cover_code, land_cover_class,
+#' # land_cover_category, land_cover_risk
 #' }
 #' @export
 read_land_cover_legend <- function(base_dir) {

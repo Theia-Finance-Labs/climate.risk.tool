@@ -126,12 +126,12 @@ mod_control_server <- function(id, base_dir_reactive) {
       company_exists <- file.exists(company_file)
       
       if (asset_exists && company_exists) {
-        paste0("✓ Folder: ", folder, "\n✓ Found: asset_information.xlsx, company.xlsx")
+        paste0("[OK] Folder: ", folder, "\n[OK] Found: asset_information.xlsx, company.xlsx")
       } else {
         missing <- c()
         if (!asset_exists) missing <- c(missing, "asset_information.xlsx")
         if (!company_exists) missing <- c(missing, "company.xlsx")
-        paste0("✗ Folder: ", folder, "\n✗ Missing: ", paste(missing, collapse = ", "))
+        paste0("[X] Folder: ", folder, "\n[X] Missing: ", paste(missing, collapse = ", "))
       }
     })
 
