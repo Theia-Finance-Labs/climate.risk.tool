@@ -155,7 +155,7 @@ To add a new hazard type:
 
 {input_folder}/  (user-selected folder)
 ├── asset_information.xlsx
-└── company.xlsx
+└── company_information.xlsx
 ```
 
 ### Required Input Files
@@ -164,7 +164,7 @@ To add a new hazard type:
 Location: User-selected input folder
 Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
 
-#### 2. `company.xlsx`
+#### 2. `company_information.xlsx`
 Location: User-selected input folder (same folder as asset_information.xlsx)
 Columns: company_id, company_name, equity, debt, other financial data
 
@@ -300,7 +300,7 @@ Examples:
 
 **`read_companies(file_path)`** → data.frame
 - Reads company data from specified Excel file path or folder path
-- If given a folder path, looks for company.xlsx in that folder
+- If given a folder path, looks for company_information.xlsx in that folder
 - If given a file path, reads that file directly
 
 **`read_damage_cost_factors(base_dir)`** → data.frame
@@ -435,7 +435,7 @@ inventory <- hazard_data$inventory
 ### Modules
 
 **`mod_control`** - Control panel
-- Folder selection (for asset_information.xlsx and company.xlsx), parameter inputs, run button
+- Folder selection (for asset_information.xlsx and company_information.xlsx), parameter inputs, run button
 - Uses shinyFiles package for native folder browser dialog
 
 **`mod_hazards_events`** - Event configuration
@@ -849,7 +849,7 @@ The system supports both single-indicator and multi-indicator hazards through a 
 ## Recent Changes
 
 ### Input Folder Selection (2025-11-25)
-- **Replaced file upload with folder selection**: Users now select a folder containing both `asset_information.xlsx` and `company.xlsx` files instead of uploading individual files
+- **Replaced file upload with folder selection**: Users now select a folder containing both `asset_information.xlsx` and `company_information.xlsx` files instead of uploading individual files
 - **Native folder browser**: Implemented using `shinyFiles` package with `shinyDirChoose` for cross-platform folder selection dialog
 - **Automatic file detection**: App displays status showing which required files are found/missing in selected folder
 - **Backward compatibility**: `read_assets()` and `read_companies()` functions support both direct folder paths and legacy `user_input` subdirectory structure

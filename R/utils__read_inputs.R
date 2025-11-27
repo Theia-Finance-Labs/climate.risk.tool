@@ -267,14 +267,14 @@ assign_state_to_assets <- function(assets_df, base_dir) {
 #' @title Read company information from Excel file
 #' @description Reads company information from an Excel file,
 #'   converting column names to snake_case and parsing numeric columns correctly.
-#'   Can accept either a direct file path or a folder path containing company.xlsx.
+#'   Can accept either a direct file path or a folder path containing company_information.xlsx.
 #' @param file_path Character string specifying either the path to the company Excel file directly,
-#'   or a folder path containing company.xlsx
+#'   or a folder path containing company_information.xlsx
 #' @return tibble with company information
 #' @examples
 #' \dontrun{
 #' # Direct file path
-#' companies <- read_companies("path/to/company.xlsx")
+#' companies <- read_companies("path/to/company_information.xlsx")
 #' # Or folder path
 #' companies <- read_companies("path/to/folder")
 #' }
@@ -282,9 +282,9 @@ assign_state_to_assets <- function(assets_df, base_dir) {
 read_companies <- function(file_path) {
   message("[read_companies] Reading company data from: ", file_path)
 
-  # If file_path is a directory, look for company.xlsx in it
+  # If file_path is a directory, look for company_information.xlsx in it
   if (dir.exists(file_path)) {
-    file_path <- file.path(file_path, "company.xlsx")
+    file_path <- file.path(file_path, "company_information.xlsx")
   }
 
   # Check if file exists

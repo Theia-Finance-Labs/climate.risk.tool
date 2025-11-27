@@ -163,17 +163,17 @@ app_server <- function(input, output, session) {
       return()
     }
     if (is.null(input_folder) || input_folder == "") {
-      values$status <- "Error: Please select an input folder containing asset_information.xlsx and company.xlsx files."
+      values$status <- "Error: Please select an input folder containing asset_information.xlsx and company_information.xlsx files."
       return()
     }
     
     # Check that both required files exist in the selected folder
     asset_file <- file.path(input_folder, "asset_information.xlsx")
-    company_file <- file.path(input_folder, "company.xlsx")
+    company_file <- file.path(input_folder, "company_information.xlsx")
     if (!file.exists(asset_file) || !file.exists(company_file)) {
       missing <- c()
       if (!file.exists(asset_file)) missing <- c(missing, "asset_information.xlsx")
-      if (!file.exists(company_file)) missing <- c(missing, "company.xlsx")
+      if (!file.exists(company_file)) missing <- c(missing, "company_information.xlsx")
       values$status <- paste0("Error: Missing required files in selected folder: ", paste(missing, collapse = ", "))
       return()
     }

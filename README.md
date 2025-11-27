@@ -34,7 +34,7 @@ base_dir <- "/path/to/your/data"
 
 # Path to your input folder containing:
 # - asset_information.xlsx
-# - company.xlsx
+# - company_information.xlsx
 input_folder <- "/path/to/your/input_folder"
 
 # Load all required data
@@ -110,7 +110,7 @@ run_app(base_dir = base_dir)
 ```
 
 This will open the climate.risk.tool interface, where you can:
-1. Select a folder containing `asset_information.xlsx` and `company.xlsx` files
+1. Select a folder containing `asset_information.xlsx` and `company_information.xlsx` files
 2. Configure hazard events
 3. Run the risk calculations
 4. View and download results interactively

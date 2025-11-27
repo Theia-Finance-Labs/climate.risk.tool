@@ -14,7 +14,7 @@ mod_control_ui <- function(id) {
         shinyFiles::shinyDirButton(
           id = ns("select_folder"),
           label = "Select Input Folder",
-          title = "Select folder containing asset_information.xlsx and company.xlsx",
+          title = "Select folder containing asset_information.xlsx and company_information.xlsx",
           icon = shiny::icon("folder-open"),
           class = "btn-primary btn-block"
         ),
@@ -93,19 +93,37 @@ mod_control_server <- function(id, base_dir_reactive) {
     # Set up folder selection using shinyFiles (cross-platform)
     # On Windows: includes drive letters (C:, D:, etc.)
     # On Mac/Linux: includes home directory and system volumes
-    volumes <- c(Home = path.expand("~"), shinyFiles::getVolumes()())
-    shinyFiles::shinyDirChoose(
-      input = input,
-      id = "select_folder",
-      roots = volumes,
-      session = session,
-      filetypes = character(0)  # Allow all file types (we're selecting folders)
-    )
+    # Include base_dir as a volume so the picker opens there by default
+    # Compute volumes reactively to include base_dir when available
+    volumes <- shiny::reactive({
+      base_dir <- base_dir_reactive()
+      vol_list <- c(Home = path.expand("~"), shinyFiles::getVolumes()())
+      # Add base_dir as a named volume if it exists and is valid
+      if (!is.null(base_dir) && base_dir != "" && dir.exists(base_dir)) {
+        # Use a descriptive name for the base_dir volume
+        vol_list <- c("Base Directory" = base_dir, vol_list)
+      }
+      return(vol_list)
+    })
+    
+    # Initialize shinyDirChoose with initial volumes
+    # Update it when base_dir becomes available
+    shiny::observe({
+      vol_list <- volumes()
+      shinyFiles::shinyDirChoose(
+        input = input,
+        id = "select_folder",
+        roots = vol_list,
+        session = session,
+        filetypes = character(0),  # Allow all file types (we're selecting folders)
+        allowDirCreate = FALSE  # Disable "create new folder" button
+      )
+    })
     
     # Observe folder selection
     shiny::observeEvent(input$select_folder, {
       if (!is.integer(input$select_folder)) {
-        folder_path <- shinyFiles::parseDirPath(volumes, input$select_folder)
+        folder_path <- shinyFiles::parseDirPath(volumes(), input$select_folder)
         if (length(folder_path) > 0 && dir.exists(folder_path)) {
           values$selected_folder <- as.character(folder_path)
         }
@@ -120,17 +138,17 @@ mod_control_server <- function(id, base_dir_reactive) {
       
       folder <- values$selected_folder
       asset_file <- file.path(folder, "asset_information.xlsx")
-      company_file <- file.path(folder, "company.xlsx")
+      company_file <- file.path(folder, "company_information.xlsx")
       
       asset_exists <- file.exists(asset_file)
       company_exists <- file.exists(company_file)
       
       if (asset_exists && company_exists) {
-        paste0("[OK] Folder: ", folder, "\n[OK] Found: asset_information.xlsx, company.xlsx")
+        paste0("[OK] Folder: ", folder, "\n[OK] Found: asset_information.xlsx, company_information.xlsx")
       } else {
         missing <- c()
         if (!asset_exists) missing <- c(missing, "asset_information.xlsx")
-        if (!company_exists) missing <- c(missing, "company.xlsx")
+        if (!company_exists) missing <- c(missing, "company_information.xlsx")
         paste0("[X] Folder: ", folder, "\n[X] Missing: ", paste(missing, collapse = ", "))
       }
     })

@@ -21,7 +21,7 @@ library(climate.risk.tool)
 # Set the path to your data directory
 # This should contain:
 # - user_input/asset_information.xlsx
-# - user_input/company.xlsx
+# - user_input/company_information.xlsx
 # - hazards/[hazard_type]/*.tif or *.nc files (supports both formats)
 # - damage_and_cost_factors.csv
 # - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
@@ -35,8 +35,8 @@ Load all required data from your base directory:
 
 ```{r}
 # Load all required data
-assets <- read_assets(base_dir)
-companies <- read_companies(file.path(base_dir, "user_input", "company_small.csv"))
+assets <- read_assets(file.path(base_dir, "user_input"))
+companies <- read_companies(file.path(base_dir, "user_input"))
 
 # Load hazards with unified loader (supports both TIF and NetCDF formats)
 hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
