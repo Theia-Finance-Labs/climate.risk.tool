@@ -9,7 +9,7 @@
 
 testthat::test_that("read_assets returns assets as data.frame", {
   base_dir <- get_test_data_dir()
-  input_folder <- file.path(base_dir, "user_input2")
+  input_folder <- file.path(base_dir, "user_input")
   assets <- read_assets(input_folder)
 
   testthat::expect_s3_class(assets, "data.frame")
@@ -19,7 +19,7 @@ testthat::test_that("read_assets returns assets as data.frame", {
 
 testthat::test_that("read_assets parses key columns with correct types and snake_case names", {
   base_dir <- get_test_data_dir()
-  input_folder <- file.path(base_dir, "user_input2")
+  input_folder <- file.path(base_dir, "user_input")
   assets <- read_assets(input_folder)
 
   # Assets required columns (snake_case)
@@ -43,7 +43,7 @@ testthat::test_that("read_assets parses key columns with correct types and snake
 
 testthat::test_that("read_companies returns companies as data.frame", {
   base_dir <- get_test_data_dir()
-  companies_path <- file.path(base_dir, "user_input2", "company.xlsx")
+  companies_path <- file.path(base_dir, "user_input", "company.xlsx")
   companies <- read_companies(companies_path)
 
   testthat::expect_s3_class(companies, "data.frame")
@@ -53,7 +53,7 @@ testthat::test_that("read_companies returns companies as data.frame", {
 
 testthat::test_that("read_companies parses key columns with correct types and snake_case names", {
   base_dir <- get_test_data_dir()
-  companies_path <- file.path(base_dir, "user_input2", "company.xlsx")
+  companies_path <- file.path(base_dir, "user_input", "company.xlsx")
   companies <- read_companies(companies_path)
 
   # Companies required columns (snake_case)
