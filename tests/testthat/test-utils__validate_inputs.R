@@ -401,7 +401,7 @@ testthat::test_that("validate_precomputed_hazards_geography catches missing haza
     hazard_type = "Flood",
     hazard_indicator = "depth(cm)",
     mean = 100.0,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")
@@ -456,7 +456,7 @@ testthat::test_that("validate_precomputed_hazards_geography passes when municipa
     hazard_type = c("Flood", "Drought", "Flood", "Drought"),
     hazard_indicator = c("depth(cm)", "SPI3", "depth(cm)", "SPI3"),
     mean = c(100.0, -1.5, 120.0, -1.8),
-    ensemble = c("mean", "mean", "mean", "mean")
+    ensemble = c("median", "median", "median", "median")
   )
 
   adm1_names <- c("Amazonas")
@@ -509,7 +509,7 @@ testthat::test_that("validate_precomputed_hazards_geography falls back to state 
     hazard_type = "Drought",
     hazard_indicator = "SPI3",
     mean = -1.5,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")
@@ -562,7 +562,7 @@ testthat::test_that("validate_precomputed_hazards_geography errors when both mun
     hazard_type = c("Flood", "Flood"),
     hazard_indicator = c("depth(cm)", "depth(cm)"),
     mean = c(100.0, 120.0),
-    ensemble = c("mean", "mean")
+    ensemble = c("median", "median")
   )
 
   adm1_names <- c("Amazonas")
@@ -618,7 +618,7 @@ testthat::test_that("validate_precomputed_hazards_geography validates state-only
     hazard_type = "Drought",
     hazard_indicator = "SPI3",
     mean = -1.5,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")
@@ -671,7 +671,7 @@ testthat::test_that("validate_precomputed_hazards_geography errors for state-onl
     hazard_type = "Flood",
     hazard_indicator = "depth(cm)",
     mean = 100.0,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")

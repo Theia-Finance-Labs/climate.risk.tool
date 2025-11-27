@@ -213,13 +213,13 @@ Examples:
 - `hazard_indicator`: From path (e.g., "CDD", "FWI")
 - `GWL` (Global Warming Level): From NC dimensions (e.g., "present", "1.5", "2", "3")
 - `return_period`: From NC dimensions (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Only 'mean' ensemble loaded by default
+- `ensemble`: Only 'median' ensemble loaded by default
 
 **Georeferencing:** NC files store lat/lon as cell centers. Loader calculates resolution and extends extent by half-pixel to create proper raster edges.
 
 **Extraction:** Polygon-based (crop/mask with aggregation function)
 
-**NC Ensemble Handling:** Only 'mean' ensemble is loaded as a `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble=mean`. This provides representative values without loading all ensemble variants.
+**NC Ensemble Handling:** Only 'median' ensemble is loaded as a `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble=median`. This provides representative values without loading all ensemble variants.
 
 #### CSV Files (.csv)
 Location: `{base_dir}/hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.csv`
@@ -236,11 +236,11 @@ Examples:
 - `hazard_indicator`: From path (e.g., "HI")
 - `GWL`: From CSV column (e.g., "present", "1.5", "2")
 - `return_period`: From CSV column (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Only 'mean' ensemble loaded by default
+- `ensemble`: Only 'median' ensemble loaded by default
 
 **Extraction:** Closest-point assignment (Euclidean distance in lat/lon coordinates)
 
-**CSV Naming Convention:** `{hazard_type}__{hazard_indicator}__GWL={gwl}__RP={rp}__ensemble=mean`
+**CSV Naming Convention:** `{hazard_type}__{hazard_indicator}__GWL={gwl}__RP={rp}__ensemble=median`
 
 **Mixed Type Validation:** Each leaf directory (e.g., `hazards/Compound/HI/ensemble/`) must contain only ONE file type (.tif, .nc, or .csv). Mixed types in the same folder will raise an error.
 
@@ -321,11 +321,11 @@ Examples:
 - Returns: `list(hazards = list(tif = ..., nc = ..., csv = ...), inventory = tibble(...))`
 - **TIF**: Loads from `hazards_metadata.csv` as SpatRaster objects
 - **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period) combination
-  - Only 'mean' ensemble loaded by default
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean`
+  - Only 'median' ensemble loaded by default
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=median`
 - **CSV**: Auto-discovers files, reads point data as data frames
-  - Only 'mean' ensemble loaded by default
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean`
+  - Only 'median' ensemble loaded by default
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=median`
 - **Inventory**: Combined metadata tibble with `source` column ("tif", "nc", or "csv")
 
 **Application Usage:**
@@ -340,8 +340,8 @@ inventory <- hazard_data$inventory
 
 **Naming Convention:**
 - TIF: `{hazard_type}__{scenario_code}_h{return_period}glob` (e.g., `flood__pc_h10glob`)
-- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
-- CSV: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Compound__HI__GWL=present__RP=5__ensemble=mean`)
+- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=median` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=median`)
+- CSV: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=median` (e.g., `Compound__HI__GWL=present__RP=5__ensemble=median`)
 
 ### Geospatial Processing
 

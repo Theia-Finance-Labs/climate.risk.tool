@@ -19,7 +19,7 @@ test_that("extract_csv_statistics finds closest point correctly", {
 
   # Create test CSV hazard data (grid of points)
   hazard_csv_data <- data.frame(
-    ensemble = rep("mean", 9),
+    ensemble = rep("median", 9),
     GWL = rep("present", 9),
     return_period = rep(5, 9),
     lat = c(-32.0, -32.0, -32.0, -32.5, -32.5, -32.5, -33.0, -33.0, -33.0),
@@ -31,7 +31,7 @@ test_that("extract_csv_statistics finds closest point correctly", {
 
   # Create hazards list
   hazards_csv <- list(
-    "TestHazard__HI__GWL=present__RP=5__ensemble=mean" = hazard_csv_data
+    "TestHazard__HI__GWL=present__RP=5__ensemble=median" = hazard_csv_data
   )
 
   # Create inventory
@@ -41,8 +41,8 @@ test_that("extract_csv_statistics finds closest point correctly", {
     scenario_name = "present",
     hazard_return_period = 5,
     scenario_code = "present",
-    hazard_name = "TestHazard__HI__GWL=present__RP=5__ensemble=mean",
-    ensemble = "mean",
+    hazard_name = "TestHazard__HI__GWL=present__RP=5__ensemble=median",
+    ensemble = "median",
     source = "csv"
   )
 
@@ -87,7 +87,7 @@ test_that("extract_csv_statistics handles multiple assets", {
 
   # Create test CSV hazard data
   hazard_csv_data <- data.frame(
-    ensemble = rep("mean", 4),
+    ensemble = rep("median", 4),
     GWL = rep("present", 4),
     return_period = rep(10, 4),
     lat = c(-32.0, -32.5, -33.0, -33.5),
@@ -98,7 +98,7 @@ test_that("extract_csv_statistics handles multiple assets", {
   )
 
   hazards_csv <- list(
-    "TestHazard__HI__GWL=present__RP=10__ensemble=mean" = hazard_csv_data
+    "TestHazard__HI__GWL=present__RP=10__ensemble=median" = hazard_csv_data
   )
 
   csv_inventory <- tibble::tibble(
@@ -107,8 +107,8 @@ test_that("extract_csv_statistics handles multiple assets", {
     scenario_name = "present",
     hazard_return_period = 10,
     scenario_code = "present",
-    hazard_name = "TestHazard__HI__GWL=present__RP=10__ensemble=mean",
-    ensemble = "mean",
+    hazard_name = "TestHazard__HI__GWL=present__RP=10__ensemble=median",
+    ensemble = "median",
     source = "csv"
   )
 
@@ -142,7 +142,7 @@ test_that("extract_csv_statistics adds extraction_method suffix", {
   )
 
   hazard_csv_data <- data.frame(
-    ensemble = "mean",
+    ensemble = "median",
     GWL = "present",
     return_period = 5,
     lat = -32.5,
@@ -153,7 +153,7 @@ test_that("extract_csv_statistics adds extraction_method suffix", {
   )
 
   hazards_csv <- list(
-    "TestHazard__HI__GWL=present__RP=5__ensemble=mean" = hazard_csv_data
+    "TestHazard__HI__GWL=present__RP=5__ensemble=median" = hazard_csv_data
   )
 
   csv_inventory <- tibble::tibble(
@@ -162,8 +162,8 @@ test_that("extract_csv_statistics adds extraction_method suffix", {
     scenario_name = "present",
     hazard_return_period = 5,
     scenario_code = "present",
-    hazard_name = "TestHazard__HI__GWL=present__RP=5__ensemble=mean",
-    ensemble = "mean",
+    hazard_name = "TestHazard__HI__GWL=present__RP=5__ensemble=median",
+    ensemble = "median",
     source = "csv"
   )
 
@@ -178,6 +178,6 @@ test_that("extract_csv_statistics adds extraction_method suffix", {
   expect_true(grepl("__extraction_method=mean$", result$hazard_name))
   expect_equal(
     result$hazard_name,
-    "TestHazard__HI__GWL=present__RP=5__ensemble=mean__extraction_method=mean"
+    "TestHazard__HI__GWL=present__RP=5__ensemble=median__extraction_method=mean"
   )
 })

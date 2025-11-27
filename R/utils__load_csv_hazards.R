@@ -10,7 +10,7 @@
 #' `lat`, `lon`, `hazard_indicator`, `hazard_intensity`. Each row represents a
 #' geolocated point with a hazard value.
 #'
-#' **Ensemble dimension:** Only the 'mean' ensemble is loaded by default.
+#' **Ensemble dimension:** Only the 'median' ensemble is loaded by default.
 #' This avoids iteration over all ensemble values and provides a single representative
 #' dataset per hazard scenario.
 #'
@@ -95,21 +95,21 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
     # Check if season column exists (for drought hazards)
     has_season <- "season" %in% names(csv_data)
 
-    # Filter to only 'mean' ensemble
-    csv_data_mean <- csv_data |>
-      dplyr::filter(.data$ensemble == "mean")
+    # Filter to only 'median' ensemble
+    csv_data_median <- csv_data |>
+      dplyr::filter(.data$ensemble == "median")
 
-    if (nrow(csv_data_mean) == 0) {
-      message("    No 'mean' ensemble found in CSV file, skipping: ", basename(f))
+    if (nrow(csv_data_median) == 0) {
+      message("    No 'median' ensemble found in CSV file, skipping: ", basename(f))
       next
     }
 
     # Get unique combinations of (GWL, return_period, ensemble, season)
     if (has_season) {
-      unique_combos <- csv_data_mean |>
+      unique_combos <- csv_data_median |>
         dplyr::distinct(.data$GWL, .data$return_period, .data$ensemble, .data$season)
     } else {
-      unique_combos <- csv_data_mean |>
+      unique_combos <- csv_data_median |>
         dplyr::distinct(.data$GWL, .data$return_period, .data$ensemble)
     }
 
@@ -123,7 +123,7 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
 
       # Filter data for this combination
       if (has_season && !is.na(season_val)) {
-        hazard_data <- csv_data_mean |>
+        hazard_data <- csv_data_median |>
           dplyr::filter(
             .data$GWL == gwl_val,
             .data$return_period == rp_val,
@@ -131,7 +131,7 @@ load_csv_hazards_with_metadata <- function(hazards_dir) {
             .data$season == season_val
           )
       } else {
-        hazard_data <- csv_data_mean |>
+        hazard_data <- csv_data_median |>
           dplyr::filter(
             .data$GWL == gwl_val,
             .data$return_period == rp_val,

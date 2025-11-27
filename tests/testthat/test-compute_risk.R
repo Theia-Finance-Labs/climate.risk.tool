@@ -31,11 +31,11 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Heat__HI__GWL=present__RP=10__ensemble=mean",
-      "Heat__HI__GWL=2__RP=10__ensemble=mean",
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
-      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean",
-      "Fire__FWI__GWL=3__RP=50__ensemble=mean"
+      "Heat__HI__GWL=present__RP=10__ensemble=median",
+      "Heat__HI__GWL=2__RP=10__ensemble=median",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=median",
+      "Fire__FWI__GWL=3__RP=50__ensemble=median"
     ),
     scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
     scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
@@ -216,10 +216,10 @@ testthat::test_that("compute_risk produces stable snapshot output", {
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Heat__HI__GWL=present__RP=10__ensemble=mean",
-      "Heat__HI__GWL=2__RP=10__ensemble=mean",
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
-      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
+      "Heat__HI__GWL=present__RP=10__ensemble=median",
+      "Heat__HI__GWL=2__RP=10__ensemble=median",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=median"
     ),
     scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
     scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5"),

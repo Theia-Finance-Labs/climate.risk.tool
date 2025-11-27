@@ -139,13 +139,13 @@ testthat::test_that("mod_hazards_events_server captures season for Drought event
   shiny::testServer(mod_hazards_events_server, args = list(id = "hz", hazards_inventory = shiny::reactive({
     # Inventory with Drought hazard
     data.frame(
-      key = c("Drought__SPI3__GWL=present__RP=10__ensemble=mean"),
+      key = c("Drought__SPI3__GWL=present__RP=10__ensemble=median"),
       hazard_type = c("Drought"),
       hazard_indicator = c("SPI3"),
       scenario_name = c("present"),
       scenario_code = c("present"),
       hazard_return_period = c(10),
-      hazard_name = c("Drought__SPI3__GWL=present__RP=10__ensemble=mean"),
+      hazard_name = c("Drought__SPI3__GWL=present__RP=10__ensemble=median"),
       stringsAsFactors = FALSE
     )
   })), {

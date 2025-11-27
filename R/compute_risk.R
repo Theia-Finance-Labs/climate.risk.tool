@@ -20,11 +20,11 @@
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
 #' @param risk_free_rate Numeric. Risk-free rate for Merton model (default: 0.02)
-#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
+#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "median").
 #'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
 #'   For TIF files: uses terra::extract with the specified function.
-#'   For NC files: uses the mean ensemble layer by default.
-#'   For precomputed data: uses the mean ensemble variant.
+#'   For NC files: uses the median ensemble layer by default (ensemble selection is separate from aggregation_method).
+#'   For precomputed data: uses the median ensemble variant (ensemble selection is separate from aggregation_method).
 #' #'
 #' @return List containing final results:
 #'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
@@ -107,7 +107,7 @@ compute_risk <- function(assets,
                          growth_rate = 0.02,
                          discount_rate = 0.05,
                          risk_free_rate = 0.02,
-                         aggregation_method = "mean") {
+                         aggregation_method = "median") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -204,7 +204,7 @@ compute_risk <- function(assets,
 
   # Filter hazards to only those referenced by events
   # Note: For multi-indicator hazards (Fire), this will internally expand to load all required indicators
-  # Note: For NC hazards, only the mean ensemble is loaded by default
+  # Note: For NC hazards, only the median ensemble is loaded by default
   hazards <- filter_hazards_by_events(hazards, events, hazards_inventory)
 
 

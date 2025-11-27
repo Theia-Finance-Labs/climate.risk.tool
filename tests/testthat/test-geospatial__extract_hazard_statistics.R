@@ -58,7 +58,7 @@ testthat::test_that("geolocated assets extract from NC files", {
   # NC hazards expand to all ensemble variants automatically
   # Use GWL=present which exists in test data, and include season for SPI3
   events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
+    hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
     event_year = 2030,
     season = "Summer"
   )
@@ -113,7 +113,7 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > sta
   events <- tibble::tibble(
     hazard_name = c(
       "Flood__depth(cm)__GWL=rcp85__RP=100", # TIF hazard (use RP=100 which exists in precomputed)
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median" # NC hazard with season
     ),
     event_year = 2030,
   )
@@ -184,7 +184,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
   hazards_inventory <- tibble::tibble(
     hazard_name = c(
       "Flood__depth(cm)__GWL=pc__RP=10",
-      "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean"
+      "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median"
     ),
     hazard_type = c("Flood", "Drought"),
     hazard_indicator = c("depth(cm)", "SPI3"),
@@ -212,7 +212,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
       hazards_inventory = hazards_inventory,
       aggregation_method = "mean"
     ),
-    regexp = "Missing precomputed hazard data.*Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean"
+    regexp = "Missing precomputed hazard data.*Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median"
   )
 })
 
@@ -309,7 +309,7 @@ testthat::test_that("CSV hazards use specified aggregation method", {
   # Define Heat HI events (CSV files available in test data)
   # Include ensemble suffix for CSV hazards
   events <- tibble::tibble(
-    hazard_name = c("Heat__HI__GWL=present__RP=10__ensemble=mean", "Heat__HI__GWL=present__RP=5__ensemble=mean"),
+    hazard_name = c("Heat__HI__GWL=present__RP=10__ensemble=median", "Heat__HI__GWL=present__RP=5__ensemble=median"),
     event_year = c(2030, 2030)
   )
 

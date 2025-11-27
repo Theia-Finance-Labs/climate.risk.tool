@@ -1340,7 +1340,7 @@ def main():
     )
 
     # Processing parameters
-    ENSEMBLE_FILTER = "mean"
+    ENSEMBLE_FILTER = "median"
     HAZARDS_METADATA_PATH = "workspace/demo_inputs/hazards_metadata.csv"
 
     print("\nLoading hazard metadata...")
