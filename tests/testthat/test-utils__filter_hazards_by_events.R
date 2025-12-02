@@ -111,15 +111,13 @@ testthat::test_that("filter_hazards_by_events handles multiple NC events correct
   # Should match only mean ensemble variants (current implementation behavior)
   expect_equal(length(result), 2)
 
-  # Check Drought mean variant only
+  # Check Drought median variant only
   expect_true("Drought__CDD__GWL=present__RP=5__ensemble=median" %in% names(result))
-  expect_false("Drought__CDD__GWL=present__RP=5__ensemble=median" %in% names(result))
   expect_false("Drought__CDD__GWL=present__RP=5__ensemble=p10" %in% names(result))
   expect_false("Drought__CDD__GWL=present__RP=5__ensemble=p90" %in% names(result))
 
-  # Check Heat mean variant only
+  # Check Heat median variant only
   expect_true("Heat__Frost__GWL=2__RP=10__ensemble=median" %in% names(result))
-  expect_false("Heat__Frost__GWL=2__RP=10__ensemble=median" %in% names(result))
   expect_false("Heat__Frost__GWL=2__RP=10__ensemble=p10" %in% names(result))
   expect_false("Heat__Frost__GWL=2__RP=10__ensemble=p90" %in% names(result))
 
@@ -154,9 +152,8 @@ testthat::test_that("filter_hazards_by_events handles mixed TIF and NC hazards",
   # TIF exact match
   expect_true("flood__rcp85_h10glob" %in% names(result))
 
-  # NC matches only mean ensemble variant
+  # NC matches only median ensemble variant
   expect_true("Drought__CDD__GWL=present__RP=5__ensemble=median" %in% names(result))
-  expect_false("Drought__CDD__GWL=present__RP=5__ensemble=median" %in% names(result))
   expect_false("Drought__CDD__GWL=present__RP=5__ensemble=p10" %in% names(result))
   expect_false("Drought__CDD__GWL=present__RP=5__ensemble=p90" %in% names(result))
 })

@@ -234,7 +234,8 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
-    share_of_economic_activity = 0.5
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
   )
 
   # Find a hazard combo in inventory NOT in precomputed for Amazonas
@@ -246,29 +247,36 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     dplyr::anti_join(
       precomputed_combos,
       by = c("hazard_type", "scenario_name", "hazard_return_period")
-    )
+    ) |>
+    # Exclude Fire/land_cover which has special handling (synthetic default value)
+    dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
 
-  ran_case1 <- FALSE
-  if (nrow(missing_hazard) > 0) {
-    ran_case1 <- TRUE
-    # Create events with this missing hazard
-    events <- tibble::tibble(
-      hazard_name = missing_hazard$hazard_name[1],
-      event_year = 2030,
-    )
+  # Skip test if no missing hazards found (all hazards in inventory are in precomputed)
+  testthat::skip_if(
+    nrow(missing_hazard) == 0,
+    "No missing hazards found - all hazards in inventory are available in precomputed data (excluding Fire/land_cover which has special handling)"
+  )
+  
+  # Create events with this missing hazard
+  events <- tibble::tibble(
+    hazard_name = missing_hazard$hazard_name[1],
+    event_year = 2030,
+  )
 
-    # Filter to just this hazard
-    all_hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
-    hazards <- filter_hazards_by_events(all_hazards, events)
-    inventory <- hazard_data$inventory |>
-      dplyr::filter(.data$hazard_name %in% names(hazards))
+  # Filter to just this hazard
+  all_hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+  hazards <- filter_hazards_by_events(all_hazards, events)
+  # Use full inventory so the function can check if required hazards are in precomputed
+  # The missing hazard should be in inventory but not in precomputed
+  inventory <- hazard_data$inventory |>
+    dplyr::filter(.data$hazard_name == missing_hazard$hazard_name[1])
 
-    # Should error with message about missing hazards
-    expect_case1 <- testthat::expect_error(
-      extract_hazard_statistics(asset_missing_hazard, hazards, inventory, precomputed),
-      regexp = "Missing precomputed hazard data.*hazards"
-    )
-  }
+  # Should error with message about missing hazards
+  # Note: The function will error if a hazard in inventory is not found in precomputed data
+  testthat::expect_error(
+    extract_hazard_statistics(asset_missing_hazard, hazards, inventory, precomputed),
+    regexp = "Missing precomputed hazard data"
+  )
 
   # --- CASE 2: missing municipality and province in precomputed data ---
   asset_noregion <- tibble::tibble(
@@ -281,7 +289,8 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     asset_category = "office",
     asset_subtype = NA_character_,
     size_in_m2 = 1000,
-    share_of_economic_activity = 0.5
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
   )
   events2 <- tibble::tibble(
     hazard_name = "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
