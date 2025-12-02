@@ -366,3 +366,183 @@ testthat::test_that("CSV hazards use specified aggregation method", {
   indicators <- unique(out$hazard_indicator)
   testthat::expect_true("HI" %in% indicators)
 })
+
+
+testthat::test_that("agriculture portfolio with state but no municipality works", {
+  # Bug reproduction: Portfolio with state data but no municipality should work
+  # Error was: "Can't compute column `asset_subtype`"
+  
+  base_dir <- get_test_data_dir()
+  precomputed <- read_precomputed_hazards(base_dir)
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  # Create agriculture assets with state but NO municipality
+  assets <- tibble::tibble(
+    asset = c("farm_1", "farm_2"),
+    company = c("agri_company_a", "agri_company_b"),
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,  # No municipality
+    state = c("Amazonas", "Mato Grosso"),  # Only state provided (using states from test data)
+    asset_category = "agriculture",
+    asset_subtype = c("Soybean", "Corn"),  # Valid crop types
+    size_in_m2 = 100000,
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
+  )
+  
+  # Create drought event (agriculture-specific)
+  events <- tibble::tibble(
+    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
+    event_year = 2030
+  )
+  
+  # Load hazards
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  
+  # Filter hazards (Drought is in NC format, not CSV)
+  all_hazards <- c(hazard_data$hazards$nc)
+  hazards <- filter_hazards_by_events(all_hazards, events)
+  inventory <- hazard_data$inventory |>
+    dplyr::filter(.data$hazard_name %in% names(hazards))
+  
+  # This should NOT error - should use state-level precomputed data
+  out <- extract_hazard_statistics(
+    assets,
+    hazards,
+    inventory,
+    precomputed,
+    damage_factors_df = damage_factors
+  )
+  
+  # Verify results
+  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
+  # so we get 6 rows per asset = 12 rows total for 2 assets
+  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
+  testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
+  testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
+  testthat::expect_true(all(out$asset_category == "agriculture"))
+  testthat::expect_true(all(!is.na(out$asset_subtype)))  # asset_subtype should be preserved
+  testthat::expect_true(all(out$asset_subtype %in% c("Soybean", "Corn")))
+  testthat::expect_true(all(!is.na(out$state)))  # State should be preserved
+})
+
+
+testthat::test_that("agriculture portfolio without crop types defaults to Soybean", {
+  # Bug reproduction: Portfolio without crop types should default to Soybean
+  # According to methodology: when croptype cannot be matched, use Soybean by default
+  
+  base_dir <- get_test_data_dir()
+  precomputed <- read_precomputed_hazards(base_dir)
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  # Create agriculture assets WITHOUT crop types (asset_subtype)
+  assets <- tibble::tibble(
+    asset = c("farm_unknown_1", "farm_unknown_2"),
+    company = c("agri_company_c", "agri_company_d"),
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = c("Amazonas", "Mato Grosso"),  # Using states from test data
+    asset_category = "agriculture",
+    asset_subtype = NA_character_,  # Missing crop type - should default to Soybean
+    size_in_m2 = 100000,
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
+  )
+  
+  # Create drought event (agriculture-specific)
+  events <- tibble::tibble(
+    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
+    event_year = 2030
+  )
+  
+  # Load hazards
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  
+  # Filter hazards (Drought is in NC format, not CSV)
+  all_hazards <- c(hazard_data$hazards$nc)
+  hazards <- filter_hazards_by_events(all_hazards, events)
+  inventory <- hazard_data$inventory |>
+    dplyr::filter(.data$hazard_name %in% names(hazards))
+  
+  # This should NOT error - should use Soybean as default crop type
+  out <- extract_hazard_statistics(
+    assets,
+    hazards,
+    inventory,
+    precomputed,
+    damage_factors_df = damage_factors
+  )
+  
+  # Verify results
+  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
+  # so we get 6 rows per asset = 12 rows total for 2 assets
+  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
+  testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
+  testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
+  testthat::expect_true(all(out$asset_category == "agriculture"))
+  # asset_subtype should still be NA in output (we don't change the original data)
+  # but the logic should use "Other"/Soybean internally for damage factor matching
+  testthat::expect_true(all(is.na(out$asset_subtype)))
+  testthat::expect_true(all(!is.na(out$hazard_intensity)))  # Should have hazard data
+})
+
+
+testthat::test_that("agriculture portfolio with invalid crop types defaults to Soybean", {
+  # Bug reproduction: Portfolio with crop types that don't match our 4 crops should default to Soybean
+  
+  base_dir <- get_test_data_dir()
+  precomputed <- read_precomputed_hazards(base_dir)
+  damage_factors <- read_damage_cost_factors(base_dir)
+  
+  # Create agriculture assets with INVALID crop types (not in our 4 supported crops)
+  assets <- tibble::tibble(
+    asset = c("farm_wheat", "farm_barley"),
+    company = c("agri_company_e", "agri_company_f"),
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = c("Amazonas", "Mato Grosso"),  # Using states from test data
+    asset_category = "agriculture",
+    asset_subtype = c("Wheat", "Barley"),  # Invalid crop types - not in our damage factors
+    size_in_m2 = 100000,
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
+  )
+  
+  # Create drought event (agriculture-specific)
+  events <- tibble::tibble(
+    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
+    event_year = 2030
+  )
+  
+  # Load hazards
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  
+  # Filter hazards (Drought is in NC format, not CSV)
+  all_hazards <- c(hazard_data$hazards$nc)
+  hazards <- filter_hazards_by_events(all_hazards, events)
+  inventory <- hazard_data$inventory |>
+    dplyr::filter(.data$hazard_name %in% names(hazards))
+  
+  # This should NOT error - should use Soybean as default for unrecognized crops
+  out <- extract_hazard_statistics(
+    assets,
+    hazards,
+    inventory,
+    precomputed,
+    damage_factors_df = damage_factors
+  )
+  
+  # Verify results
+  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
+  # so we get 6 rows per asset = 12 rows total for 2 assets
+  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
+  testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
+  testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
+  testthat::expect_true(all(out$asset_category == "agriculture"))
+  # asset_subtype should be preserved as-is in output
+  testthat::expect_true(all(out$asset_subtype %in% c("Wheat", "Barley")))
+  testthat::expect_true(all(!is.na(out$hazard_intensity)))  # Should have hazard data
+})

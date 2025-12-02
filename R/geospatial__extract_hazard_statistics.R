@@ -313,6 +313,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     asset_name <- asset_row |> dplyr::pull(.data$asset)
     municipality <- asset_row |> dplyr::pull(.data$municipality)
     state <- asset_row |> dplyr::pull(.data$state)
+    asset_category <- asset_row |> dplyr::pull(.data$asset_category)
+    asset_subtype <- asset_row |> dplyr::pull(.data$asset_subtype)
 
     # Try municipality first (ADM2), then state (ADM1)
     # Note: Names are already normalized in read_assets() and read_precomputed_hazards()
@@ -385,20 +387,20 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     # Special handling for drought hazards with agriculture assets: check growing season matching
     # This applies the same logic as the coordinate-based extraction
     if (!is.null(damage_factors_df) &&
-      asset_row$asset_category == "agriculture" &&
+      asset_category == "agriculture" &&
       any(matched_data$hazard_type == "Drought", na.rm = TRUE)) {
       # Get the crop type (default to "Other"/Soybean if missing)
       asset_subtype_clean <- dplyr::if_else(
-        is.na(asset_row$asset_subtype) | asset_row$asset_subtype == "",
+        is.na(asset_subtype) | asset_subtype == "",
         "Other",
-        as.character(asset_row$asset_subtype)
+        as.character(asset_subtype)
       )
 
       # Get state for matching (use actual state, fallback to "Other" handled in join_drought_damage_factors)
       state_clean <- dplyr::if_else(
-        is.na(asset_row$state) | asset_row$state == "",
+        is.na(state) | state == "",
         "Other",
-        as.character(asset_row$state)
+        as.character(state)
       )
 
       # Get crop's growing seasons from damage factors
