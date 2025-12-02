@@ -20,7 +20,7 @@ compute_risk(
   growth_rate = 0.02,
   discount_rate = 0.05,
   risk_free_rate = 0.02,
-  aggregation_method = "mean"
+  aggregation_method = "median"
 )
 }
 \arguments{
@@ -55,11 +55,11 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{risk_free_rate}{Numeric. Risk-free rate for Merton model (default: 0.02)}
 
-\item{aggregation_method}{Character. Statistical aggregation method for hazard extraction (default: "mean").
+\item{aggregation_method}{Character. Statistical aggregation method for hazard extraction (default: "median").
 Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
 For TIF files: uses terra::extract with the specified function.
-For NC files: uses the mean ensemble layer by default.
-For precomputed data: uses the mean ensemble variant.
+For NC files: uses the median ensemble layer by default (ensemble selection is separate from aggregation_method).
+For precomputed data: uses the median ensemble variant (ensemble selection is separate from aggregation_method).
 #'}
 }
 \value{

@@ -18,7 +18,7 @@ Named list of filtered SpatRaster objects
 }
 \description{
 Filters a list of hazard rasters to only those referenced by events.
-For NC hazards, only the 'mean' ensemble is loaded by default, so filtering
+For NC hazards, only the 'median' ensemble is loaded by default, so filtering
 matches the base hazard name without ensemble suffix.
 For multi-indicator hazards (Fire), internally expands to load all required indicators.
 }
@@ -34,19 +34,19 @@ The function handles two types of hazard filtering:
 
 \strong{NC hazards}: Base name matching
 \itemize{
-\item If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the mean ensemble:
+\item If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the median ensemble:
 \itemize{
-\item Drought__CDD__GWL=present__RP=5 (loaded as mean ensemble by default)
+\item Drought__CDD__GWL=present__RP=5 (loaded as median ensemble by default)
 }
-\item If event already specifies "__ensemble=mean", strips the ensemble suffix and matches base name
+\item If event already specifies "__ensemble=median", strips the ensemble suffix and matches base name
 }
 
 This simplified approach avoids loading multiple ensemble variants and focuses on
-the mean ensemble as the representative value for each hazard scenario.
+the median ensemble as the representative value for each hazard scenario.
 }
 \examples{
 \dontrun{
-# Load hazards (gets NC hazards with mean ensemble only)
+# Load hazards (gets NC hazards with median ensemble only)
 result <- load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
 hazards <- c(result$hazards$tif, result$hazards$nc)
 
@@ -59,7 +59,7 @@ events <- data.frame(
   event_year = c(2030, 2040)
 )
 
-# Filter: matches 2 events -> 2 hazard rasters (mean ensemble only)
+# Filter: matches 2 events -> 2 hazard rasters (median ensemble only)
 filtered_hazards <- filter_hazards_by_events(hazards, events)
 }
 }
