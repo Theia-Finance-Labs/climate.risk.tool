@@ -292,10 +292,10 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
           )
         ) |>
         dplyr::select(
-          .data$asset,
-          .data$company,
-          .data$sector_name,
-          .data$share_pct,
+          "asset",
+          "company",
+          "sector_name",
+          "share_pct",
           dplyr::any_of(c("asset_category", "asset_subtype"))
         ) |>
         dplyr::rename(
