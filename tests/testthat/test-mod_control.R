@@ -1,7 +1,8 @@
-testthat::test_that("mod_control_ui includes hazard events upload controls", {
+testthat::test_that("mod_control_ui includes folder selection and hazard events upload controls", {
   ui <- mod_control_ui("ctrl")
   html <- htmltools::renderTags(ui)$html
-  testthat::expect_true(grepl("ctrl-company_file", html))
+  testthat::expect_true(grepl("ctrl-select_folder", html))
+  testthat::expect_true(grepl("ctrl-folder_path_display", html))
   testthat::expect_true(grepl("ctrl-hazards-upload_hazard_config", html))
   testthat::expect_true(grepl("ctrl-hazards-download_config", html))
 })
@@ -17,7 +18,7 @@ testthat::test_that("mod_control_server uses default aggregation factor 1 for ha
     base_dir_reactive = shiny::reactive(base_dir)
   ), {
     # Get hazards - they should be loaded with default aggregation factor 1
-    haz <- get_hazards_at_factor()
+    haz <- suppressWarnings(get_hazards_at_factor())
 
     # If hazards loaded successfully, they should respect the default aggregation factor
     if (!is.null(haz) && length(haz) > 0) {
@@ -38,7 +39,7 @@ testthat::test_that("mod_control_server hazards inventory loads with default agg
     base_dir_reactive = shiny::reactive(base_dir)
   ), {
     # Get inventory with default aggregation factor (1)
-    inv <- hazards_inventory()
+    inv <- suppressWarnings(hazards_inventory())
     testthat::expect_true(is.data.frame(inv))
 
     # Inventory should be consistent since aggregation factor is fixed at 1

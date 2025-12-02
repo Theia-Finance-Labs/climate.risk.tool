@@ -12,7 +12,7 @@
 #' are found, it uses the first variable.
 #'
 #' **Ensemble dimension:** If the NC file has an ensemble dimension with values
-#' like mean, median, p10, p90, only the 'mean' ensemble is loaded by default.
+#' like mean, median, p10, p90, only the 'median' ensemble is loaded by default.
 #' This avoids iteration over all ensemble values and provides a single representative
 #' raster per hazard scenario.
 #'
@@ -222,8 +222,8 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
     }
 
     # Determine ensemble values to iterate over
-    # Only load 'mean' ensemble by default to avoid iteration over all ensemble values
-    ensemble_values <- list(list(idx = 1L, label = "mean")) # Default: only mean ensemble
+    # Only load 'median' ensemble by default to avoid iteration over all ensemble values
+    ensemble_values <- list(list(idx = 1L, label = "median")) # Default: only median ensemble
 
     if (!inherits(ens_vals, "try-error") && length(ens_vals) > 0) {
       # Convert to character for consistent handling
@@ -235,14 +235,14 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
         ens_chars <- as.character(ens_vals)
       }
 
-      # Find the 'mean' ensemble index if it exists
-      mean_idx <- which(ens_chars == "mean")
-      if (length(mean_idx) > 0) {
-        # Use only the mean ensemble
-        ensemble_values <- list(list(idx = as.integer(mean_idx[1]), label = "mean"))
+      # Find the 'median' ensemble index if it exists
+      median_idx <- which(ens_chars == "median")
+      if (length(median_idx) > 0) {
+        # Use only the median ensemble
+        ensemble_values <- list(list(idx = as.integer(median_idx[1]), label = "median"))
       } else {
-        # If no 'mean' ensemble found, use the first one but label it as 'mean'
-        ensemble_values <- list(list(idx = 1L, label = "mean"))
+        # If no 'median' ensemble found, use the first one but label it as 'median'
+        ensemble_values <- list(list(idx = 1L, label = "median"))
       }
     }
 
@@ -360,7 +360,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
 
 
             # Unified hazard name WITH ensemble suffix for NC files
-            # NC files always use mean ensemble during load
+            # NC files always use median ensemble during load
             # Include season in hazard_name if present (e.g., for Drought SPI3)
             hazard_name <- if (!is.na(season_label) && !inherits(season_vals, "try-error")) {
               paste0(

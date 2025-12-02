@@ -9,11 +9,20 @@ mod_control_ui <- function(id) {
     shiny::div(
       class = "control-section",
       shiny::h4("Data Upload", class = "section-header"),
-      shiny::fileInput(
-        ns("company_file"),
-        "Company Excel File:",
-        accept = c(".xlsx", ".xls"),
-        placeholder = "Choose company.xlsx file"
+      shiny::div(
+        style = "margin-bottom: 15px;",
+        shinyFiles::shinyDirButton(
+          id = ns("select_folder"),
+          label = "Select Input Folder",
+          title = "Select folder containing asset_information.xlsx and company_information.xlsx",
+          icon = shiny::icon("folder-open"),
+          class = "btn-primary btn-block"
+        ),
+        shiny::div(
+          id = ns("folder_status"),
+          style = "margin-top: 10px; padding: 8px; border-radius: 4px; font-size: 0.9em;",
+          shiny::textOutput(ns("folder_path_display"))
+        )
       )
     ),
     shiny::div(
@@ -68,7 +77,7 @@ mod_control_ui <- function(id) {
 #'
 #' @param id Internal parameter for shiny
 #' @param base_dir_reactive reactive containing base directory path
-#' @return list with reactive values for company_file, events, run_trigger, growth_rate, discount_rate, risk_free_rate, results_ready, and get_hazards_at_factor
+#' @return list with reactive values for input_folder, events, run_trigger, growth_rate, discount_rate, risk_free_rate, results_ready, and get_hazards_at_factor
 #' @export
 mod_control_server <- function(id, base_dir_reactive) {
   shiny::moduleServer(id, function(input, output, session) {
@@ -77,8 +86,72 @@ mod_control_server <- function(id, base_dir_reactive) {
     # Reactive values
     values <- shiny::reactiveValues(
       results_ready = FALSE,
-      results = NULL
+      results = NULL,
+      selected_folder = NULL
     )
+    
+    # Set up folder selection using shinyFiles (cross-platform)
+    # On Windows: includes drive letters (C:, D:, etc.)
+    # On Mac/Linux: includes home directory and system volumes
+    # Include base_dir as a volume so the picker opens there by default
+    # Compute volumes reactively to include base_dir when available
+    volumes <- shiny::reactive({
+      base_dir <- base_dir_reactive()
+      vol_list <- c(Home = path.expand("~"), shinyFiles::getVolumes()())
+      # Add base_dir as a named volume if it exists and is valid
+      if (!is.null(base_dir) && base_dir != "" && dir.exists(base_dir)) {
+        # Use a descriptive name for the base_dir volume
+        vol_list <- c("Base Directory" = base_dir, vol_list)
+      }
+      return(vol_list)
+    })
+    
+    # Initialize shinyDirChoose with initial volumes
+    # Update it when base_dir becomes available
+    shiny::observe({
+      vol_list <- volumes()
+      shinyFiles::shinyDirChoose(
+        input = input,
+        id = "select_folder",
+        roots = vol_list,
+        session = session,
+        filetypes = character(0),  # Allow all file types (we're selecting folders)
+        allowDirCreate = FALSE  # Disable "create new folder" button
+      )
+    })
+    
+    # Observe folder selection
+    shiny::observeEvent(input$select_folder, {
+      if (!is.integer(input$select_folder)) {
+        folder_path <- shinyFiles::parseDirPath(volumes(), input$select_folder)
+        if (length(folder_path) > 0 && dir.exists(folder_path)) {
+          values$selected_folder <- as.character(folder_path)
+        }
+      }
+    })
+    
+    # Display selected folder path and file status
+    output$folder_path_display <- shiny::renderText({
+      if (is.null(values$selected_folder)) {
+        return("No folder selected")
+      }
+      
+      folder <- values$selected_folder
+      asset_file <- file.path(folder, "asset_information.xlsx")
+      company_file <- file.path(folder, "company_information.xlsx")
+      
+      asset_exists <- file.exists(asset_file)
+      company_exists <- file.exists(company_file)
+      
+      if (asset_exists && company_exists) {
+        paste0("[OK] Folder: ", folder, "\n[OK] Found: asset_information.xlsx, company_information.xlsx")
+      } else {
+        missing <- c()
+        if (!asset_exists) missing <- c(missing, "asset_information.xlsx")
+        if (!company_exists) missing <- c(missing, "company_information.xlsx")
+        paste0("[X] Folder: ", folder, "\n[X] Missing: ", paste(missing, collapse = ", "))
+      }
+    })
 
     # Load hazards and inventory (unified loader)
     hazards_and_inventory <- shiny::reactive({
@@ -152,8 +225,8 @@ mod_control_server <- function(id, base_dir_reactive) {
 
     # Return reactive values and functions
     return(list(
-      company_file = shiny::reactive({
-        input$company_file
+      input_folder = shiny::reactive({
+        values$selected_folder
       }),
       events = hz_mod$events,
       delete_event = hz_mod$delete_event,

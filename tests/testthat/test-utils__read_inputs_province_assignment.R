@@ -7,7 +7,7 @@ testthat::test_that("read_assets normalizes state and municipality names", {
   test_assets_path <- file.path(base_dir, "user_input", "asset_information.xlsx")
 
   # Read the actual assets (they should have normalized names after reading)
-  assets <- read_assets(base_dir)
+  assets <- read_assets(file.path(base_dir, "user_input"))
 
   # Check that state and municipality are character columns
   testthat::expect_true("state" %in% names(assets))

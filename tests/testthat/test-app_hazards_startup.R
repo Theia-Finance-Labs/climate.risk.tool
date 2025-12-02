@@ -11,7 +11,7 @@ testthat::test_that("hazards inventory is available at startup", {
       shiny::testServer(app_server, args = list(), {
         # Check that hazards_inventory function exists and is callable
         testthat::expect_true(is.function(control$hazards_inventory))
-        inv <- control$hazards_inventory()
+        inv <- suppressWarnings(control$hazards_inventory())
         testthat::expect_true(is.data.frame(inv))
         testthat::expect_gt(nrow(inv), 0)
       })
@@ -33,7 +33,7 @@ testthat::test_that("control module exposes hazards inventory and aggregation_fa
       shiny::testServer(app_server, args = list(), {
         # Check that hazards_inventory function exists and is callable
         testthat::expect_true(is.function(control$hazards_inventory))
-        inv <- control$hazards_inventory()
+        inv <- suppressWarnings(control$hazards_inventory())
         testthat::expect_true(is.data.frame(inv))
         testthat::expect_gt(nrow(inv), 0)
       })

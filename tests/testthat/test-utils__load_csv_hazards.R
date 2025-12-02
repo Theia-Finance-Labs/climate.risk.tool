@@ -46,19 +46,19 @@ test_that("load_csv_hazards_with_metadata parses folder structure", {
   }
 })
 
-test_that("load_csv_hazards_with_metadata filters ensemble=mean", {
+test_that("load_csv_hazards_with_metadata filters ensemble=median", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   result <- load_csv_hazards_with_metadata(hazards_dir = hazards_dir)
 
-  # If CSV files exist, check that only mean ensemble is loaded
+  # If CSV files exist, check that only median ensemble is loaded
   if (nrow(result$inventory) > 0) {
-    # All inventory entries should have ensemble = "mean"
-    expect_true(all(result$inventory$ensemble == "mean"))
+    # All inventory entries should have ensemble = "median"
+    expect_true(all(result$inventory$ensemble == "median"))
 
-    # All hazard names should end with __ensemble=mean
+    # All hazard names should end with __ensemble=median
     csv_names <- names(result$hazards)
-    expect_true(all(grepl("__ensemble=mean$", csv_names)))
+    expect_true(all(grepl("__ensemble=median$", csv_names)))
   }
 })
 
@@ -111,7 +111,7 @@ test_that("load_csv_hazards_with_metadata handles CSV with required columns", {
 
   # Create a valid CSV file
   test_csv <- data.frame(
-    ensemble = c("mean", "mean", "mean"),
+    ensemble = c("median", "median", "median"),
     GWL = c("present", "present", "present"),
     return_period = c(5, 5, 5),
     lat = c(-32.5, -32.6, -32.7),
@@ -138,7 +138,7 @@ test_that("load_csv_hazards_with_metadata handles CSV with required columns", {
 
   # Check inventory
   expect_equal(result$inventory$source, "csv")
-  expect_equal(result$inventory$ensemble, "mean")
+  expect_equal(result$inventory$ensemble, "median")
   expect_equal(result$inventory$hazard_type, "TestHazard")
   expect_equal(result$inventory$hazard_indicator, "TestIndicator")
 })

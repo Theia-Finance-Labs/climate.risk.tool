@@ -142,9 +142,6 @@ To add a new hazard type:
 
 ```
 {base_dir}/
-├── user_input/
-│   ├── asset_information.xlsx
-│   └── company.xlsx
 ├── damage_and_cost_factors.csv
 ├── precomputed_adm_hazards.csv
 ├── hazards_name_mapping.csv
@@ -155,14 +152,20 @@ To add a new hazard type:
     │   └── ...
     ├── heat/
     └── ...
+
+{input_folder}/  (user-selected folder)
+├── asset_information.xlsx
+└── company_information.xlsx
 ```
 
 ### Required Input Files
 
 #### 1. `asset_information.xlsx`
+Location: User-selected input folder
 Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
 
-#### 2. `company.xlsx`
+#### 2. `company_information.xlsx`
+Location: User-selected input folder (same folder as asset_information.xlsx)
 Columns: company_id, company_name, equity, debt, other financial data
 
 #### 3. `damage_and_cost_factors.csv`
@@ -210,13 +213,13 @@ Examples:
 - `hazard_indicator`: From path (e.g., "CDD", "FWI")
 - `GWL` (Global Warming Level): From NC dimensions (e.g., "present", "1.5", "2", "3")
 - `return_period`: From NC dimensions (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Only 'mean' ensemble loaded by default
+- `ensemble`: Only 'median' ensemble loaded by default
 
 **Georeferencing:** NC files store lat/lon as cell centers. Loader calculates resolution and extends extent by half-pixel to create proper raster edges.
 
 **Extraction:** Polygon-based (crop/mask with aggregation function)
 
-**NC Ensemble Handling:** Only 'mean' ensemble is loaded as a `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble=mean`. This provides representative values without loading all ensemble variants.
+**NC Ensemble Handling:** Only 'median' ensemble is loaded as a `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble=median`. This provides representative values without loading all ensemble variants.
 
 #### CSV Files (.csv)
 Location: `{base_dir}/hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.csv`
@@ -233,11 +236,11 @@ Examples:
 - `hazard_indicator`: From path (e.g., "HI")
 - `GWL`: From CSV column (e.g., "present", "1.5", "2")
 - `return_period`: From CSV column (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Only 'mean' ensemble loaded by default
+- `ensemble`: Only 'median' ensemble loaded by default
 
 **Extraction:** Closest-point assignment (Euclidean distance in lat/lon coordinates)
 
-**CSV Naming Convention:** `{hazard_type}__{hazard_indicator}__GWL={gwl}__RP={rp}__ensemble=mean`
+**CSV Naming Convention:** `{hazard_type}__{hazard_indicator}__GWL={gwl}__RP={rp}__ensemble=median`
 
 **Mixed Type Validation:** Each leaf directory (e.g., `hazards/Compound/HI/ensemble/`) must contain only ONE file type (.tif, .nc, or .csv). Mixed types in the same folder will raise an error.
 
@@ -282,10 +285,11 @@ Examples:
 
 ### Data Loading
 
-**`read_assets(base_dir)`** → data.frame
-- Reads from `{base_dir}/user_input/asset_information.xlsx`
+**`read_assets(folder_path)`** → data.frame
+- Reads from `{folder_path}/asset_information.xlsx` (direct) or `{folder_path}/user_input/asset_information.xlsx` (legacy)
 - ASCII-normalizes state and municipality names
 - **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
+- Accepts either a folder containing asset_information.xlsx directly, or a base_dir with user_input subdirectory
 
 **`assign_state_to_assets(assets_df, base_dir)`** → data.frame
 - Assigns states to assets without state data using spatial matching
@@ -295,7 +299,9 @@ Examples:
 - Can be called manually: `assets <- assign_state_to_assets(assets, base_dir)`
 
 **`read_companies(file_path)`** → data.frame
-- Reads company data from specified Excel path
+- Reads company data from specified Excel file path or folder path
+- If given a folder path, looks for company_information.xlsx in that folder
+- If given a file path, reads that file directly
 
 **`read_damage_cost_factors(base_dir)`** → data.frame
 - Reads from `{base_dir}/damage_and_cost_factors.csv`
@@ -315,11 +321,11 @@ Examples:
 - Returns: `list(hazards = list(tif = ..., nc = ..., csv = ...), inventory = tibble(...))`
 - **TIF**: Loads from `hazards_metadata.csv` as SpatRaster objects
 - **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period) combination
-  - Only 'mean' ensemble loaded by default
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean`
+  - Only 'median' ensemble loaded by default
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=median`
 - **CSV**: Auto-discovers files, reads point data as data frames
-  - Only 'mean' ensemble loaded by default
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean`
+  - Only 'median' ensemble loaded by default
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=median`
 - **Inventory**: Combined metadata tibble with `source` column ("tif", "nc", or "csv")
 
 **Application Usage:**
@@ -334,8 +340,8 @@ inventory <- hazard_data$inventory
 
 **Naming Convention:**
 - TIF: `{hazard_type}__{scenario_code}_h{return_period}glob` (e.g., `flood__pc_h10glob`)
-- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
-- CSV: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Compound__HI__GWL=present__RP=5__ensemble=mean`)
+- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=median` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=median`)
+- CSV: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=median` (e.g., `Compound__HI__GWL=present__RP=5__ensemble=median`)
 
 ### Geospatial Processing
 
@@ -429,7 +435,8 @@ inventory <- hazard_data$inventory
 ### Modules
 
 **`mod_control`** - Control panel
-- File upload, parameter inputs, run button
+- Folder selection (for asset_information.xlsx and company_information.xlsx), parameter inputs, run button
+- Uses shinyFiles package for native folder browser dialog
 
 **`mod_hazards_events`** - Event configuration
 - Three cascading dropdowns:
@@ -840,6 +847,19 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - **Backward Compatibility**: Existing single-indicator hazards work exactly as before, just without visible indicator selection
 
 ## Recent Changes
+
+### Input Folder Selection (2025-11-25)
+- **Replaced file upload with folder selection**: Users now select a folder containing both `asset_information.xlsx` and `company_information.xlsx` files instead of uploading individual files
+- **Native folder browser**: Implemented using `shinyFiles` package with `shinyDirChoose` for cross-platform folder selection dialog
+- **Automatic file detection**: App displays status showing which required files are found/missing in selected folder
+- **Backward compatibility**: `read_assets()` and `read_companies()` functions support both direct folder paths and legacy `user_input` subdirectory structure
+- **Updated data flow**: Assets are now loaded from the selected input folder at analysis runtime, not from `base_dir/user_input`
+- **UI improvements**: 
+  - Replaced file input with "Select Input Folder" button
+  - Added real-time folder status display showing found/missing files
+  - Clear visual feedback with ✓/✗ indicators
+- **Dependencies**: Added `shinyFiles` package to DESCRIPTION Imports
+- **Tests updated**: Modified `test-mod_control.R` and `test-app_server.R` to reflect folder selection instead of file upload
 
 ### UI & Configuration Enhancements (2025-11-12)
 - Relocated hazard configuration upload from `mod_hazards_events` to the Data Upload section in `mod_control` (below the company file input), keeping the download button in the Hazard Events section; wired the upload through a `load_config()` function exposed by `mod_hazards_events_server` so analysts can load pre-configured event lists early in the workflow; coverage updated in `tests/testthat/test-mod_control.R` and `tests/testthat/test-mod_hazards_events.R`.

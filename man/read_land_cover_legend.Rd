@@ -24,6 +24,7 @@ Read Land Cover Legend and Risk Metrics
 \examples{
 \dontrun{
 legend <- read_land_cover_legend("workspace/demo_inputs")
-# Returns tibble with columns: land_cover_code, land_cover_class, land_cover_category, land_cover_risk
+# Returns tibble with columns: land_cover_code, land_cover_class,
+# land_cover_category, land_cover_risk
 }
 }

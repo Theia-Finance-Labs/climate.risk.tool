@@ -88,15 +88,15 @@ app_server <- function(input, output, session) {
     results_reactive = results
   )
 
-  # Load all static data files (everything except companies which comes from file upload)
+  # Load all static data files (everything except assets and companies which come from user-selected folder)
   # Reuses hazards already loaded by control module to avoid duplicate loading
   load_all_static_files <- function(base_dir) {
     tryCatch(
       {
         values$status <- "Loading data files..."
 
-        # Load all input files
-        values$assets <- read_assets(base_dir)
+        # NOTE: Assets are NOT loaded here - they come from the user-selected input folder
+        # when "Run Analysis" is clicked
 
         # Reuse hazards and inventory from control module (already loaded for UI)
         hazards_result <- try(control$hazards_and_inventory(), silent = TRUE)
@@ -106,7 +106,7 @@ app_server <- function(input, output, session) {
         values$hazards <- c(hazards_result$hazards$tif, hazards_result$hazards$nc, hazards_result$hazards$csv)
         values$hazards_inventory <- hazards_result$inventory
 
-        # Load supporting data files
+        # Load supporting data files from base_dir
         values$precomputed_hazards <- read_precomputed_hazards(base_dir)
         values$damage_factors <- read_damage_cost_factors(base_dir)
         values$cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
@@ -121,7 +121,7 @@ app_server <- function(input, output, session) {
         # Load region name mapping for displaying original names in frontend
         values$region_name_mapping <- load_region_name_mapping(base_dir)
 
-        values$status <- "Data files loaded. Ready to run analysis."
+        values$status <- "Data files loaded. Ready to select input folder and run analysis."
         values$data_loaded <- TRUE
       },
       error = function(e) {
@@ -155,17 +155,29 @@ app_server <- function(input, output, session) {
   # Run analysis when button is clicked
   observeEvent(control$run_trigger(), {
     base_dir <- get_base_dir()
-    company_file <- control$company_file()
+    input_folder <- control$input_folder()
 
     # Guard clauses
     if (is.null(base_dir) || base_dir == "") {
       values$status <- "Error: Base directory is not set. Please restart the app with a valid base_dir."
       return()
     }
-    if (is.null(company_file) || is.null(company_file$datapath) || company_file$datapath == "") {
-      values$status <- "Error: Please upload a company.xlsx file before running the analysis."
+    if (is.null(input_folder) || input_folder == "") {
+      values$status <- "Error: Please select an input folder containing asset_information.xlsx and company_information.xlsx files."
       return()
     }
+    
+    # Check that both required files exist in the selected folder
+    asset_file <- file.path(input_folder, "asset_information.xlsx")
+    company_file <- file.path(input_folder, "company_information.xlsx")
+    if (!file.exists(asset_file) || !file.exists(company_file)) {
+      missing <- c()
+      if (!file.exists(asset_file)) missing <- c(missing, "asset_information.xlsx")
+      if (!file.exists(company_file)) missing <- c(missing, "company_information.xlsx")
+      values$status <- paste0("Error: Missing required files in selected folder: ", paste(missing, collapse = ", "))
+      return()
+    }
+    
     if (!values$data_loaded || is.null(values$hazards) || length(values$hazards) == 0) {
       values$status <- "Error: Data files not loaded. Please wait for data to finish loading."
       return()
@@ -175,9 +187,9 @@ app_server <- function(input, output, session) {
 
     tryCatch(
       {
-        # Load companies file from the uploaded file
-        company_file_path <- company_file$datapath
-        companies <- read_companies(company_file_path)
+        # Load asset and company files from the selected folder
+        values$assets <- read_assets(input_folder)
+        companies <- read_companies(input_folder)
 
         # Build events from control module (single call; events is a reactiveVal)
         ev_df <- try(control$events(), silent = TRUE)

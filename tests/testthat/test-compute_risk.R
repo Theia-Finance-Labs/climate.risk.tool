@@ -1,7 +1,9 @@
 testthat::test_that("compute_risk end-to-end integration across hazards and event types", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   # Include all hazard sources (TIF, NC, CSV). Heat hazards are provided via CSV.
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
@@ -29,11 +31,11 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Heat__HI__GWL=present__RP=10__ensemble=mean",
-      "Heat__HI__GWL=2__RP=10__ensemble=mean",
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
-      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean",
-      "Fire__FWI__GWL=3__RP=50__ensemble=mean"
+      "Heat__HI__GWL=present__RP=10__ensemble=median",
+      "Heat__HI__GWL=2__RP=10__ensemble=median",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=median",
+      "Fire__FWI__GWL=3__RP=50__ensemble=median"
     ),
     scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
     scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
@@ -143,8 +145,10 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
 
 testthat::test_that("compute_risk errors when events contain duplicate event_id values", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
@@ -181,8 +185,10 @@ testthat::test_that("compute_risk errors when events contain duplicate event_id 
 
 testthat::test_that("compute_risk produces stable snapshot output", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   # Include all hazard sources (TIF, NC, CSV). Heat hazards are provided via CSV.
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
@@ -210,10 +216,10 @@ testthat::test_that("compute_risk produces stable snapshot output", {
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=present__RP=100",
       "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Heat__HI__GWL=present__RP=10__ensemble=mean",
-      "Heat__HI__GWL=2__RP=10__ensemble=mean",
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
-      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
+      "Heat__HI__GWL=present__RP=10__ensemble=median",
+      "Heat__HI__GWL=2__RP=10__ensemble=median",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=median"
     ),
     scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
     scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
@@ -244,8 +250,10 @@ testthat::test_that("compute_risk produces stable snapshot output", {
 
 testthat::test_that("compute_risk handles Fire events correctly with multi-indicator expansion", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input")
+  assets <- read_assets(input_folder)
+  input_folder <- file.path(base_dir, "user_input")
+  companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
   hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
   precomputed_hazards <- read_precomputed_hazards(base_dir)

@@ -292,27 +292,27 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
           )
         ) |>
         dplyr::select(
-          asset,
-          company,
-          sector_name,
-          share_pct,
+          "asset",
+          "company",
+          "sector_name",
+          "share_pct",
           dplyr::any_of(c("asset_category", "asset_subtype"))
         ) |>
         dplyr::rename(
-          Asset = asset,
-          Company = company,
-          Sector = sector_name,
-          `Share of economic activity` = share_pct
+          Asset = "asset",
+          Company = "company",
+          Sector = "sector_name",
+          `Share of economic activity` = "share_pct"
         )
 
       if ("asset_category" %in% names(display)) {
         display <- display |>
-          dplyr::rename(Category = asset_category)
+          dplyr::rename(Category = "asset_category")
       }
 
       if ("asset_subtype" %in% names(display)) {
         display <- display |>
-          dplyr::rename(Subtype = asset_subtype)
+          dplyr::rename(Subtype = "asset_subtype")
       }
 
       session$userData$profit_pathways_assets_table <- display

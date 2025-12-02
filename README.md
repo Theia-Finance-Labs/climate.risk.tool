@@ -25,17 +25,21 @@ Load your data and run the complete climate risk analysis:
 ``` r
 library(climate.risk.tool)
 
-# Path to your input data directory. It must contain:
-# - user_input/: asset_information.xlsx, company.xlsx
+# Path to your base data directory. It must contain:
 # - damage_and_cost_factors.csv
 # - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
 # - hazards_name_mapping.csv (metadata for TIF hazards, optional for NC/CSV)
 # - hazards/[hazard_type]/ directory with .tif, .nc, or .csv files
 base_dir <- "/path/to/your/data"
 
+# Path to your input folder containing:
+# - asset_information.xlsx
+# - company_information.xlsx
+input_folder <- "/path/to/your/input_folder"
+
 # Load all required data
-assets <- read_assets(base_dir)
-companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+assets <- read_assets(input_folder)
+companies <- read_companies(input_folder)
 
 # Load hazards with unified loader (supports TIF, NetCDF, and CSV formats)
 hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
@@ -56,9 +60,9 @@ events <- data.frame(
   hazard_type = c("Flood", "Heat", "Drought", "Fire"),
   hazard_name = c(
     "Flood__depth(cm)__GWL=present__RP=100",
-    "Heat__HI__GWL=2__RP=10__ensemble=mean",
-    "Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=mean",
-    "Fire__FWI__GWL=3__RP=50__ensemble=mean"
+    "Heat__HI__GWL=2__RP=10__ensemble=median",
+    "Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=median",
+    "Fire__FWI__GWL=3__RP=50__ensemble=median"
   ),
   scenario_name = c("present", "2", "1.5", "3"),
   scenario_code = c("present", "2", "1.5", "3"),
@@ -99,14 +103,19 @@ Launch the web interface for interactive analysis:
 ``` r
 library(climate.risk.tool)
 
-# Path to your input data directory
+# Path to your base data directory (containing hazards, damage factors, etc.)
 base_dir <- "/path/to/your/data"
 
 run_app(base_dir = base_dir)
 ```
 
-This will open the climate.risk.tool interface, where you can upload company data,
-run the risk calculations, and view the results interactively.
+This will open the climate.risk.tool interface, where you can:
+1. Select a folder containing `asset_information.xlsx` and `company_information.xlsx` files
+2. Configure hazard events
+3. Run the risk calculations
+4. View and download results interactively
+
+The app uses a native folder browser dialog for easy folder selection.
 
 ## Developer Setup
 
@@ -233,7 +242,7 @@ The package supports three hazard data formats that can be used together in the 
 - Auto-discovers from directory structure and file dimensions
 - Direct extraction of pre-computed ensemble statistics (mean, median, p10, p90)
 - Naming format: `{HazardType}__{indicator}__GWL={level}__RP={period}__ensemble={variant}__season={season}`
-- Example: `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=mean`
+- Example: `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=median`
 - **No spatial computation needed** - statistics pre-computed in the NC file
 
 **CSV Files** - Tabular format for point-based or aggregated data
@@ -241,7 +250,7 @@ The package supports three hazard data formats that can be used together in the 
 - Auto-discovered from directory structure
 - Direct data lookup without spatial computation
 - Naming format: `{HazardType}__{indicator}__GWL={level}__RP={period}__ensemble={variant}`
-- Example: `Heat__HI__GWL=2__RP=10__ensemble=mean`
+- Example: `Heat__HI__GWL=2__RP=10__ensemble=median`
 
 #### Mixed Format Pipeline Handling
 

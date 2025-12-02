@@ -4,8 +4,9 @@ testthat::test_that("validate_input_coherence runs successfully with valid data"
   base_dir <- get_test_data_dir()
 
   # Load all data
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input")
+  assets <- read_assets(input_folder)
+  companies <- read_companies(input_folder)
   damage_factors <- read_damage_cost_factors(base_dir)
   cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
@@ -308,7 +309,8 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
     stringsAsFactors = FALSE
   )
 
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input")
+  companies <- read_companies(input_folder)
   damage_factors <- read_damage_cost_factors(base_dir)
   cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
   precomputed_hazards <- read_precomputed_hazards(base_dir)
@@ -332,8 +334,9 @@ testthat::test_that("validate_input_coherence stops on error with invalid data",
 
 testthat::test_that("validate_companies_against_assets detects companies with no assets", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
-  companies <- read_companies(file.path(base_dir, "user_input", "company.xlsx"))
+  input_folder <- file.path(base_dir, "user_input")
+  assets <- read_assets(input_folder)
+  companies <- read_companies(input_folder)
 
   # Inject a fake company with no assets
   companies <- dplyr::bind_rows(
@@ -350,7 +353,7 @@ testthat::test_that("validate_companies_against_assets detects companies with no
 
 testthat::test_that("validate_companies_against_assets flags missing values in companies columns", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
+  assets <- read_assets(file.path(base_dir, "user_input"))
 
   # Create minimal companies with a missing value
   companies <- tibble::tibble(
@@ -398,7 +401,7 @@ testthat::test_that("validate_precomputed_hazards_geography catches missing haza
     hazard_type = "Flood",
     hazard_indicator = "depth(cm)",
     mean = 100.0,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")
@@ -453,7 +456,7 @@ testthat::test_that("validate_precomputed_hazards_geography passes when municipa
     hazard_type = c("Flood", "Drought", "Flood", "Drought"),
     hazard_indicator = c("depth(cm)", "SPI3", "depth(cm)", "SPI3"),
     mean = c(100.0, -1.5, 120.0, -1.8),
-    ensemble = c("mean", "mean", "mean", "mean")
+    ensemble = c("median", "median", "median", "median")
   )
 
   adm1_names <- c("Amazonas")
@@ -506,7 +509,7 @@ testthat::test_that("validate_precomputed_hazards_geography falls back to state 
     hazard_type = "Drought",
     hazard_indicator = "SPI3",
     mean = -1.5,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")
@@ -559,7 +562,7 @@ testthat::test_that("validate_precomputed_hazards_geography errors when both mun
     hazard_type = c("Flood", "Flood"),
     hazard_indicator = c("depth(cm)", "depth(cm)"),
     mean = c(100.0, 120.0),
-    ensemble = c("mean", "mean")
+    ensemble = c("median", "median")
   )
 
   adm1_names <- c("Amazonas")
@@ -615,7 +618,7 @@ testthat::test_that("validate_precomputed_hazards_geography validates state-only
     hazard_type = "Drought",
     hazard_indicator = "SPI3",
     mean = -1.5,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")
@@ -668,7 +671,7 @@ testthat::test_that("validate_precomputed_hazards_geography errors for state-onl
     hazard_type = "Flood",
     hazard_indicator = "depth(cm)",
     mean = 100.0,
-    ensemble = "mean"
+    ensemble = "median"
   )
 
   adm1_names <- c("Amazonas")

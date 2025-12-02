@@ -11,7 +11,7 @@
 
 testthat::test_that("create_asset_geometries handles assets with coordinates", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
+  assets <- read_assets(file.path(base_dir, "user_input"))
 
   # Filter to only assets with coordinates
   assets_with_coords <- assets |>
@@ -37,7 +37,7 @@ testthat::test_that("create_asset_geometries handles assets with coordinates", {
 
 testthat::test_that("create_asset_geometries buffer: row uses size_in_m2 if given, default buffer otherwise", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
+  assets <- read_assets(file.path(base_dir, "user_input"))
 
   # Create 3 test assets: one with large size, one with small size, one with NA size
   df <- assets[1:3, , drop = FALSE]
@@ -81,7 +81,7 @@ testthat::test_that("create_asset_geometries buffer: row uses size_in_m2 if give
 
 testthat::test_that("create_asset_geometries raises error for assets without coordinates", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
+  assets <- read_assets(file.path(base_dir, "user_input"))
 
   # Create test asset without coordinates
   df <- assets[1, , drop = FALSE]
@@ -100,7 +100,7 @@ testthat::test_that("create_asset_geometries raises error for assets without coo
 
 testthat::test_that("create_asset_geometries respects output_crs parameter", {
   base_dir <- get_test_data_dir()
-  assets <- read_assets(base_dir)
+  assets <- read_assets(file.path(base_dir, "user_input"))
 
   # Create test asset
   df <- assets[1, , drop = FALSE]

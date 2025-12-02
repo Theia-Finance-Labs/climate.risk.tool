@@ -7,7 +7,8 @@
 read_companies(file_path)
 }
 \arguments{
-\item{file_path}{Character string specifying the path to the company Excel file}
+\item{file_path}{Character string specifying either the path to the company Excel file directly,
+or a folder path containing company_information.xlsx}
 }
 \value{
 tibble with company information
@@ -15,12 +16,16 @@ tibble with company information
 \description{
 Reads company information from an Excel file,
 converting column names to snake_case and parsing numeric columns correctly.
+Can accept either a direct file path or a folder path containing company_information.xlsx.
 }
 \details{
 Read company data from Excel file
 }
 \examples{
 \dontrun{
-companies <- read_companies("path/to/company.xlsx")
+# Direct file path
+companies <- read_companies("path/to/company_information.xlsx")
+# Or folder path
+companies <- read_companies("path/to/folder")
 }
 }
