@@ -84,13 +84,14 @@ prepare_profit_trajectories <- function(assets_yearly, scenario, asset_metadata 
 #' Compute portfolio summary statistics
 #'
 #' @param companies_df Data frame with company results
-#' @return Data frame with portfolio-level metrics
+#' @return Data frame with portfolio-level metrics (includes % change)
 #' @noRd
 compute_portfolio_summary <- function(companies_df) {
   if (is.null(companies_df) || nrow(companies_df) == 0) {
     return(tibble::tibble(
       metric = character(),
-      value = numeric()
+      value = numeric(),
+      pct_change = numeric()
     ))
   }
 
@@ -115,7 +116,8 @@ compute_portfolio_summary <- function(companies_df) {
     } else {
       return(tibble::tibble(
         metric = c("Baseline", "Shock", "Difference"),
-        value = c(0, 0, 0)
+        value = c(0, 0, 0),
+        pct_change = c(NA_real_, NA_real_, NA_real_)
       ))
     }
   } else {
@@ -125,9 +127,17 @@ compute_portfolio_summary <- function(companies_df) {
     difference <- shock_sum - baseline_sum
   }
 
+  # Calculate percentage change
+  pct_change <- if (baseline_sum == 0 || is.na(baseline_sum)) {
+    NA_real_
+  } else {
+    (difference / baseline_sum) * 100
+  }
+
   tibble::tibble(
     metric = c("Baseline", "Shock", "Difference"),
-    value = c(baseline_sum, shock_sum, difference)
+    value = c(baseline_sum, shock_sum, difference),
+    pct_change = c(NA_real_, NA_real_, pct_change)
   )
 }
 

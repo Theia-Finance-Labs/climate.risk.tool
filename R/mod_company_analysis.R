@@ -58,6 +58,18 @@ mod_company_analysis_ui <- function(id) {
         shiny::div(
           class = "chart-container",
           plotly::plotlyOutput(ns("portfolio_summary_plot"), height = "400px")
+        ),
+        # Portfolio-level percentage change display
+        shiny::div(
+          style = "margin-top: 1.5rem; padding: 1rem; background-color: #f8f9fa; border-radius: 8px; border-left: 4px solid #002776;",
+          shiny::div(
+            style = "font-size: 0.9rem; color: #6c757d; margin-bottom: 0.5rem;",
+            "Portfolio Expected Loss % Change"
+          ),
+          shiny::div(
+            style = "font-size: 2rem; font-weight: bold;",
+            shiny::textOutput(ns("portfolio_pct_change"), inline = TRUE)
+          )
         )
       )
     )
@@ -138,6 +150,30 @@ mod_company_analysis_server <- function(id, results_reactive) {
       summary_data <- compute_portfolio_summary(results$companies)
       message("[mod_company_analysis] Summary data: ", nrow(summary_data), " rows")
       create_portfolio_summary_plot(summary_data)
+    })
+
+    # Portfolio percentage change text output
+    output$portfolio_pct_change <- shiny::renderText({
+      if (!has_results()) {
+        return("—")
+      }
+
+      results <- results_reactive()
+      summary_data <- compute_portfolio_summary(results$companies)
+      
+      # Extract the percentage change from the "Difference" row
+      pct_change_row <- summary_data |>
+        dplyr::filter(.data$metric == "Difference")
+      
+      if (nrow(pct_change_row) == 0 || is.na(pct_change_row$pct_change[1])) {
+        return("N/A")
+      }
+      
+      pct_value <- pct_change_row$pct_change[1]
+      
+      # Format with color based on positive/negative
+      formatted <- sprintf("%+.2f%%", pct_value)
+      return(formatted)
     })
 
     # Companies table
@@ -290,7 +326,7 @@ create_expected_loss_change_plot <- function(companies_df) {
 
 #' Create Portfolio Summary Plot
 #'
-#' @param summary_data Data frame with metric and value columns
+#' @param summary_data Data frame with metric, value, and pct_change columns
 #' @return plotly object
 #' @noRd
 create_portfolio_summary_plot <- function(summary_data) {
@@ -313,6 +349,25 @@ create_portfolio_summary_plot <- function(summary_data) {
 
   colors_vec <- sapply(summary_data$metric, function(m) bar_colors[m])
 
+  # Build hover text with conditional % change display
+  hover_text <- sapply(seq_len(nrow(summary_data)), function(i) {
+    row <- summary_data[i, ]
+    base_text <- paste0(
+      "<b>", row$metric, "</b><br>",
+      "Total Expected Loss: R$", format(round(row$value), big.mark = ",")
+    )
+    
+    # Add % change only for "Difference" row
+    if (row$metric == "Difference" && !is.na(row$pct_change)) {
+      base_text <- paste0(
+        base_text, "<br>",
+        "% Change: ", sprintf("%.2f", row$pct_change), "%"
+      )
+    }
+    
+    paste0(base_text, "<br><extra></extra>")
+  })
+
   # Create plot
   p <- plotly::plot_ly(
     data = summary_data,
@@ -320,11 +375,7 @@ create_portfolio_summary_plot <- function(summary_data) {
     y = ~value,
     type = "bar",
     marker = list(color = colors_vec),
-    hovertemplate = paste0(
-      "<b>%{x}</b><br>",
-      "Total Expected Loss: R$%{y:,.0f}<br>",
-      "<extra></extra>"
-    )
+    hovertemplate = hover_text
   ) |>
     plotly::layout(
       xaxis = list(
