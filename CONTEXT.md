@@ -877,6 +877,7 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - Relocated company financial results into the `mod_company_analysis` module (removing the standalone Company Results tab), added CSV/XLSX downloads, and refreshed table/chart styling to use the Brazil palette.
 - Updated the status view to show Event IDs directly in the configured hazard list, validated by the strengthened checks in `tests/testthat/test-mod_status.R`.
 - Applied a Brazil-themed palette (green, yellow, blue, white) across CSS, plotly visuals, and helper utilities to align the UI and charts with the national identity.
+- Enhanced portfolio-level expected loss summary to show percentage change in total expected loss (baseline to shock) in the hover tooltip of the "Difference" bar, computed by `compute_portfolio_summary()` and displayed in `create_portfolio_summary_plot()`.
 
 ### Bug Fixes
 - **Fixed Windows path parsing in hazard loading**: Replaced fragile absolute path parsing with robust cross-platform relative path parsing in `load_nc_hazards_with_metadata()` and `load_csv_hazards_with_metadata()`. Previously, path parsing relied on finding the "hazards" directory in absolute paths, which failed on Windows due to differences in `normalizePath()` behavior and path separators. Now uses `normalizePath(..., winslash = "/")` to ensure consistent forward slashes across platforms, then computes relative paths from the known `hazards_dir` parameter. This ensures hazard_type and hazard_indicator are parsed correctly on all platforms. (2025-10-30)

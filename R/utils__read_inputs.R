@@ -69,14 +69,27 @@ read_assets <- function(folder_path) {
       dplyr::across(
         dplyr::any_of(char_cols_with_empty),
         ~ {
-          col_data <- .
-          col_data[col_data == ""] <- NA
-          Encoding(col_data) <- "UTF-8"
+          # Convert to character first to handle all types (logical NA, numeric, etc.)
+          col_data <- as.character(.)
+          # Replace empty strings with NA
+          col_data[col_data == "" | col_data == "NA"] <- NA_character_
+          # Set encoding only if we have non-NA values
+          if (any(!is.na(col_data))) {
+            Encoding(col_data) <- "UTF-8"
+          }
           col_data
         }
       )
     )
 
+  # Ensure municipality and state columns exist (add as NA if missing)
+  if (!"municipality" %in% names(assets_raw)) {
+    assets_raw$municipality <- NA_character_
+  }
+  if (!"state" %in% names(assets_raw)) {
+    assets_raw$state <- NA_character_
+  }
+  
   # Normalize municipality and state names (remove accents, convert to ASCII)
   # Also ensure that whitespace-only strings are converted to NA
   assets_raw <- assets_raw |>
