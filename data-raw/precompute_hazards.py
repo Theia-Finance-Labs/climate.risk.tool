@@ -688,7 +688,11 @@ def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
     hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
     df["hazard_type"] = hazard_type
     df["hazard_indicator"] = hazard_indicator
-    df["ensemble"] = ensemble_filter
+    # Only set ensemble if dimension actually exists
+    if "ensemble" in da.dims:
+        df["ensemble"] = ensemble_filter
+    else:
+        df["ensemble"] = None
 
     # Rename GWL and return_period columns if they exist
     if "GWL" in df.columns:

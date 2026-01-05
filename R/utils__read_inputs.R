@@ -498,6 +498,13 @@ read_precomputed_hazards <- function(base_dir) {
       ensemble_data <- precomputed_df |>
         dplyr::mutate(
           # Unified hazard_name - include season for drought (like NC files do)
+          # Only include ensemble if not empty/NA
+          # Only add ensemble suffix if ensemble value exists and is not empty
+          ensemble_suffix = dplyr::if_else(
+            is.na(.data$ensemble) | .data$ensemble == "",
+            "",
+            paste0("__ensemble=", .data$ensemble)
+          ),
           hazard_name = dplyr::if_else(
             .data$hazard_type == "Drought" & !is.na(.data$season),
             paste0(
@@ -505,31 +512,40 @@ read_precomputed_hazards <- function(base_dir) {
               "__GWL=", .data$scenario_name,
               "__RP=", .data$hazard_return_period,
               "__season=", .data$season,
-              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+              .data$ensemble_suffix
             ),
             paste0(
               .data$hazard_type, "__", .data$hazard_indicator,
               "__GWL=", .data$scenario_name,
               "__RP=", .data$hazard_return_period,
-              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+              .data$ensemble_suffix
             )
           ),
           aggregation_method = summ_col,
           hazard_value = .data[[summ_col]]
-        )
+        ) |>
+        dplyr::select(-"ensemble_suffix")
     } else {
       ensemble_data <- precomputed_df |>
         dplyr::mutate(
           # Unified hazard_name WITHOUT season
+          # Only include ensemble if not empty/NA
+          # Only add ensemble suffix if ensemble value exists and is not empty
+          ensemble_suffix = dplyr::if_else(
+            is.na(.data$ensemble) | .data$ensemble == "",
+            "",
+            paste0("__ensemble=", .data$ensemble)
+          ),
           hazard_name = paste0(
             .data$hazard_type, "__", .data$hazard_indicator,
             "__GWL=", .data$scenario_name,
             "__RP=", .data$hazard_return_period,
-            ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
+            .data$ensemble_suffix
           ),
           aggregation_method = summ_col,
           hazard_value = .data[[summ_col]]
-        )
+        ) |>
+        dplyr::select(-"ensemble_suffix")
     }
 
     transformed_list[[summ_col]] <- ensemble_data

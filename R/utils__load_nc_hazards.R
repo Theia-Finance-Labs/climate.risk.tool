@@ -364,25 +364,25 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
             rp_label <- if (inherits(rp_vals, "try-error")) paste0("idx", ir) else as.character(rp_vals[ir])
             season_label <- if (inherits(season_vals, "try-error")) NA_character_ else as.character(season_vals[is])
 
+            # Check if dimensions actually exist (not just defaulted values)
+            has_ensemble <- !inherits(ens_vals, "try-error") && length(ens_dim) > 0
+            has_season <- !inherits(season_vals, "try-error") && length(season_dim) > 0 && !is.na(season_label)
 
-            # Unified hazard name WITH ensemble suffix for NC files
-            # NC files always use mean ensemble during load
-            # Include season in hazard_name if present (e.g., for Drought SPI3)
-            hazard_name <- if (!is.na(season_label) && !inherits(season_vals, "try-error")) {
-              paste0(
-                hazard_type, "__", hazard_indicator,
-                "__GWL=", gwl_label,
-                "__RP=", rp_label,
-                "__season=", season_label,
-                "__ensemble=", ens_label
-              )
-            } else {
-              paste0(
-                hazard_type, "__", hazard_indicator,
-                "__GWL=", gwl_label,
-                "__RP=", rp_label,
-                "__ensemble=", ens_label
-              )
+            # Build hazard name conditionally based on actual dimensions
+            hazard_name <- paste0(
+              hazard_type, "__", hazard_indicator,
+              "__GWL=", gwl_label,
+              "__RP=", rp_label
+            )
+            
+            # Only include season if dimension actually exists
+            if (has_season) {
+              hazard_name <- paste0(hazard_name, "__season=", season_label)
+            }
+            
+            # Only include ensemble if dimension actually exists
+            if (has_ensemble) {
+              hazard_name <- paste0(hazard_name, "__ensemble=", ens_label)
             }
 
             results[[hazard_name]] <- r
@@ -397,8 +397,8 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
               scenario_name = gwl_label,
               hazard_return_period = rp_numeric,
               hazard_name = hazard_name,
-              ensemble = ens_label,
-              season = season_label,
+              ensemble = if (has_ensemble) ens_label else NA_character_,
+              season = if (has_season) season_label else NA_character_,
               source = "nc"
             )
           }

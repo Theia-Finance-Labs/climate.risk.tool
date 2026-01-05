@@ -213,6 +213,61 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
   )
 })
 
+testthat::test_that("extract_precomputed_statistics matches precomputed hazards even if inventory hazard_name includes ensemble suffix", {
+  assets <- tibble::tibble(
+    asset = "asset_state_only",
+    company = "company_a",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = "Amazonas",
+    asset_category = "office",
+    asset_subtype = NA_character_,
+    size_in_m2 = 1000,
+    share_of_economic_activity = 1,
+    cnae = NA_real_
+  )
+
+  # Inventory hazard_name includes ensemble suffix (as loaded from NC hazards),
+  # but precomputed hazard_name commonly does not (CSV ensemble is often missing).
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Flood__depth(cm)__GWL=rcp26__RP=100__ensemble=mean",
+    hazard_type = "Flood",
+    hazard_indicator = "depth(cm)",
+    hazard_return_period = 100,
+    scenario_name = "rcp26",
+    source = "nc"
+  )
+
+  # Precomputed hazard_name has no ensemble suffix, but it provides hazard_value by aggregation_method
+  precomputed_hazards <- tibble::tibble(
+    region = "Amazonas",
+    adm_level = "ADM1",
+    hazard_name = "Flood__depth(cm)__GWL=rcp26__RP=100",
+    hazard_type = "Flood",
+    hazard_indicator = "depth(cm)",
+    hazard_return_period = 100,
+    scenario_name = "rcp26",
+    aggregation_method = c("mean", "median"),
+    hazard_value = c(1.23, 4.56)
+  )
+
+  out <- climate.risk.tool:::extract_precomputed_statistics(
+    assets_df = assets,
+    precomputed_hazards = precomputed_hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "median"
+  )
+
+  testthat::expect_equal(unique(out$matching_method), "state")
+  testthat::expect_equal(unique(out$source), "precomputed (state)")
+  testthat::expect_equal(unique(out$hazard_intensity), 4.56)
+  testthat::expect_equal(
+    unique(out$hazard_name),
+    "Flood__depth(cm)__GWL=rcp26__RP=100__ensemble=mean__extraction_method=median"
+  )
+})
+
 
 testthat::test_that("extract_hazard_statistics errors for missing precomputed hazard, scenario or region", {
   base_dir <- get_test_data_dir()

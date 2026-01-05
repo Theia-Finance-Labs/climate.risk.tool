@@ -282,6 +282,15 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
 
   required_hazards <- hazards_inventory
 
+  # Precomputed hazard names may not carry an ensemble suffix (CSV often has missing ensemble values),
+  # while the hazards inventory (and spatial extraction) can include it (e.g. "__ensemble=mean").
+  # We match using a normalized "base hazard name" (ensemble stripped), but we always emit hazard_name
+  # using the inventory's hazard_name so downstream joins (events mapping) are consistent.
+  normalize_hazard_name_for_matching <- function(hazard_name) {
+    # Strip __ensemble=* suffix if present
+    sub("__ensemble=.*$", "", as.character(hazard_name))
+  }
+
 
   precomp_results_list <- list()
 
@@ -339,26 +348,41 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     required_hazards_other <- required_hazards |>
       dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
 
-    # Get list of required hazard_names
-    required_hazard_names <- required_hazards_other |> dplyr::pull(.data$hazard_name)
+    # Get list of required hazard_names (inventory format; may include ensemble suffix)
+    required_hazard_names <- required_hazards_other |>
+      dplyr::pull(.data$hazard_name) |>
+      as.character()
 
-    # Filter by hazard_name first
-    hazard_matches <- matched_data |>
-      dplyr::filter(.data$hazard_name %in% required_hazard_names)
+    required_lookup <- required_hazards_other |>
+      dplyr::mutate(
+        required_hazard_name = as.character(.data$hazard_name),
+        hazard_name_base = normalize_hazard_name_for_matching(.data$hazard_name)
+      ) |>
+      dplyr::select("required_hazard_name", "hazard_name_base")
 
-    if (length(required_hazard_names) > 0) {
-      missing_hazards <- setdiff(required_hazard_names, unique(hazard_matches$hazard_name))
+    matched_data_with_base <- matched_data |>
+      dplyr::mutate(hazard_name_base = normalize_hazard_name_for_matching(.data$hazard_name))
 
-      if (length(missing_hazards) > 0) {
+    # Keep only hazards needed for this run (matching on base hazard name)
+    hazard_matches <- matched_data_with_base |>
+      dplyr::inner_join(required_lookup, by = "hazard_name_base")
+
+    if (nrow(required_lookup) > 0) {
+      missing_bases <- setdiff(required_lookup$hazard_name_base, unique(hazard_matches$hazard_name_base))
+      if (length(missing_bases) > 0) {
+        missing_original <- required_lookup |>
+          dplyr::filter(.data$hazard_name_base %in% missing_bases) |>
+          dplyr::pull(.data$required_hazard_name) |>
+          unique()
+
         stop(
           "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
-          "Could not find hazards: ", paste(missing_hazards, collapse = ", "),
+          "Could not find hazards: ", paste(missing_original, collapse = ", "),
           " when matching municipality='", municipality, "' or state='", state, "'."
         )
       }
     }
 
-    # Use filtered hazard matches for further processing
     matched_data <- hazard_matches
 
     # Special handling for drought hazards with agriculture assets: check growing season matching
@@ -433,14 +457,18 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     asset_hazard_data <- matched_data |>
       dplyr::filter(.data$aggregation_method == aggregation_method)
 
-    if (length(required_hazard_names) > 0) {
-      missing_agg_hazards <- setdiff(required_hazard_names, unique(asset_hazard_data$hazard_name))
+    if (nrow(required_lookup) > 0) {
+      missing_agg_bases <- setdiff(required_lookup$hazard_name_base, unique(asset_hazard_data$hazard_name_base))
+      if (length(missing_agg_bases) > 0) {
+        missing_agg_original <- required_lookup |>
+          dplyr::filter(.data$hazard_name_base %in% missing_agg_bases) |>
+          dplyr::pull(.data$required_hazard_name) |>
+          unique()
 
-      if (length(missing_agg_hazards) > 0) {
         stop(
           "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
           "Aggregation method '", aggregation_method, "' not available for hazards: ",
-          paste(missing_agg_hazards, collapse = ", "),
+          paste(missing_agg_original, collapse = ", "),
           ". Checked municipality='", municipality, "' and state='", state, "'."
         )
       }
@@ -450,7 +478,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       dplyr::mutate(
         # Extract the value from the column matching the aggregation method
         hazard_intensity = .data$hazard_value,
-        hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
+        # Emit the inventory hazard name (keeps any ensemble suffix) so joins downstream are consistent
+        hazard_name = paste0(.data$required_hazard_name, "__extraction_method=", aggregation_method),
         matching_method = match_level,
         source = paste0("precomputed (", match_level, ")"), # Add source column indicating municipality or state
         # Add asset information to each hazard row
