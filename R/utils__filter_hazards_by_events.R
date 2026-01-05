@@ -2,7 +2,7 @@
 #'
 #' @title Filter hazard rasters to match event requirements
 #' @description Filters a list of hazard rasters to only those referenced by events.
-#'   For NC hazards, only the 'median' ensemble is loaded by default, so filtering
+#'   For NC hazards, only the 'mean' ensemble is loaded by default, so filtering
 #'   matches the base hazard name without ensemble suffix.
 #'   For multi-indicator hazards (Fire), internally expands to load all required indicators.
 #'
@@ -13,24 +13,21 @@
 #' @return Named list of filtered SpatRaster objects
 #'
 #' @details
-#' The function handles two types of hazard filtering:
-#'
-#' **TIF hazards**: Exact name matching
-#' - If event specifies "flood__rcp85_h10glob", returns exactly that raster
+#' The function handles NetCDF hazard filtering:
 #'
 #' **NC hazards**: Base name matching
-#' - If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the median ensemble:
-#'   - Drought__CDD__GWL=present__RP=5 (loaded as median ensemble by default)
-#' - If event already specifies "__ensemble=median", strips the ensemble suffix and matches base name
+#' - If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the mean ensemble:
+#'   - Drought__CDD__GWL=present__RP=5__ensemble=mean (loaded as mean ensemble by default)
+#' - If event already specifies "__ensemble=mean", strips the ensemble suffix and matches base name
 #'
 #' This simplified approach avoids loading multiple ensemble variants and focuses on
-#' the median ensemble as the representative value for each hazard scenario.
+#' the mean ensemble as the representative value for each hazard scenario.
 #'
 #' @examples
 #' \dontrun{
-#' # Load hazards (gets NC hazards with median ensemble only)
+#' # Load hazards (gets NC hazards with mean ensemble only)
 #' result <- load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
-#' hazards <- c(result$hazards$tif, result$hazards$nc)
+#' hazards <- result$hazards
 #'
 #' # Define events (base event names without ensemble suffix)
 #' events <- data.frame(
@@ -41,7 +38,7 @@
 #'   event_year = c(2030, 2040)
 #' )
 #'
-#' # Filter: matches 2 events -> 2 hazard rasters (median ensemble only)
+#' # Filter: matches 2 events -> 2 hazard rasters (mean ensemble only)
 #' filtered_hazards <- filter_hazards_by_events(hazards, events)
 #' }
 #' @export
@@ -118,23 +115,23 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) 
       unique()
   }
 
-  # Exact matches (for TIF hazards and NC hazards with median ensemble)
+  # Exact matches (for NC hazards with mean ensemble)
   exact_matches <- available_names[available_names %in% desired_names]
 
   # Pattern matches for NC hazards (base event name matches)
-  # Since we only load median ensemble, we match base names directly
+  # Since we only load mean ensemble, we match base names directly
   pattern_matches <- character()
   for (desired in desired_names) {
     # If desired name contains __ensemble=, strip it to get base event
     if (grepl("__ensemble=", desired)) {
       # Remove ensemble suffix to get base event
       base_event <- sub("__ensemble=.*$", "", desired)
-      # Match the base event name (which represents median ensemble)
+      # Match the base event name (which represents mean ensemble)
       if (base_event %in% available_names) {
         pattern_matches <- c(pattern_matches, base_event)
       }
     } else {
-      # Match the base event name directly (represents median ensemble)
+      # Match the base event name directly (represents mean ensemble)
       if (desired %in% available_names) {
         pattern_matches <- c(pattern_matches, desired)
       }

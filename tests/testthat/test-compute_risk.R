@@ -5,8 +5,8 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   input_folder <- file.path(base_dir, "user_input")
   companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  # Include all hazard sources (TIF, NC, CSV). Heat hazards are provided via CSV.
-  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+  # Include all NetCDF hazard sources
+  hazards <- hazard_data$hazards
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
   inventory <- hazard_data$inventory
@@ -22,8 +22,7 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
 
   # Events: Flood (acute), Heat (acute), and Drought (acute with season)
   # Hazard names match the actual available test data:
-  # - Flood: Uses GWL= format with scenario_code (TIF files)
-  # - Heat: Uses GWL= with ensemble (CSV files)
+  # - All hazards: Uses GWL= format with ensemble (NetCDF files)
   # - Drought: Uses GWL= with season and ensemble (NC files)
   events <- data.frame(
     hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought", "Fire"),
@@ -190,8 +189,8 @@ testthat::test_that("compute_risk produces stable snapshot output", {
   input_folder <- file.path(base_dir, "user_input")
   companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  # Include all hazard sources (TIF, NC, CSV). Heat hazards are provided via CSV.
-  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+  # Include all NetCDF hazard sources
+  hazards <- hazard_data$hazards
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
   inventory <- hazard_data$inventory

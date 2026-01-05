@@ -198,9 +198,8 @@ mod_control_server <- function(id, base_dir_reactive) {
         return(NULL)
       }
 
-      # Flatten into a single named list for the analysis pipeline
-      flat <- c(result$hazards$tif, result$hazards$nc, result$hazards$csv)
-      return(flat)
+      # Return hazards as a single named list for the analysis pipeline
+      return(result$hazards)
     })
 
     # Extract inventory for UI

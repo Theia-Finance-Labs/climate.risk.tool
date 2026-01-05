@@ -1,11 +1,11 @@
-# Test: load_hazards_and_inventory (unified TIF + NC loader)
+# Test: load_hazards_and_inventory (NetCDF-only loader)
 
 test_that("load_hazards_and_inventory returns hazards and inventory", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
-    aggregate_factor = 16L
+    aggregate_factor = 1L
   )
 
   # Should return list with hazards and inventory keys
@@ -13,14 +13,9 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
   expect_true("hazards" %in% names(result))
   expect_true("inventory" %in% names(result))
 
-  # Hazards should have tif and nc and csv keys
+  # Hazards should be a named list of SpatRaster objects
   expect_type(result$hazards, "list")
-  expect_true("tif" %in% names(result$hazards))
-  expect_true("nc" %in% names(result$hazards))
-  expect_true("csv" %in% names(result$hazards))
-
-  # CSV hazards should be a list
-  expect_type(result$hazards$csv, "list")
+  expect_true(length(result$hazards) > 0)
 
   # Inventory should be a tibble/dataframe
   expect_s3_class(result$inventory, "data.frame")
@@ -34,8 +29,8 @@ test_that("load_hazards_and_inventory NC rasters have proper extent (cell center
     aggregate_factor = 16L
   )
 
-  # Check first NC raster
-  r_nc <- result$hazards$nc[[1]]
+  # Check first NetCDF raster
+  r_nc <- result$hazards[[1]]
 
   # Should have proper georeferencing
   expect_s4_class(r_nc, "SpatRaster")
@@ -64,7 +59,7 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
 
 
   # Check naming convention
-  nc_names <- names(result$hazards$nc)
+  nc_names <- names(result$hazards)
 
   # Names should contain hazard_type from folder
   # e.g., "Drought__CDD__GWL=present__RP=5__ensemble=median"
@@ -80,24 +75,24 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
   expect_true(all(grepl("RP=", nc_names)))
 })
 
-test_that("load_hazards_and_inventory NC rasters filter ensemble=median correctly", {
+test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
-    aggregate_factor = 16L
+    aggregate_factor = 1L
   )
 
 
-  # NC files should load only median ensemble (current implementation behavior)
-  nc_names <- names(result$hazards$nc)
+  # NC files should load only mean ensemble (current implementation behavior)
+  nc_names <- names(result$hazards)
 
-  # Check that we have median ensemble values in the names
-  expect_true(any(grepl("__ensemble=median$", nc_names)),
-    info = "Should have at least one median ensemble"
+  # Check that we have mean ensemble values in the names
+  expect_true(any(grepl("__ensemble=mean$", nc_names)),
+    info = "Should have at least one mean ensemble"
   )
-  expect_false(any(grepl("__ensemble=mean$", nc_names)),
-    info = "Should not have mean ensemble (not loaded)"
+  expect_false(any(grepl("__ensemble=median$", nc_names)),
+    info = "Should not have median ensemble (not loaded)"
   )
   expect_false(any(grepl("__ensemble=p10$", nc_names)),
     info = "Should not have p10 ensemble (not loaded)"
@@ -109,5 +104,5 @@ test_that("load_hazards_and_inventory NC rasters filter ensemble=median correctl
   # Check inventory has ensemble column for NC hazards
   nc_inventory <- result$inventory |> dplyr::filter(source == "nc")
   expect_true("ensemble" %in% names(nc_inventory))
-  expect_true(all(nc_inventory$ensemble %in% c("median")))
+  expect_true(all(nc_inventory$ensemble %in% c("mean")))
 })

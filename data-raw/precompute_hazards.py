@@ -1618,7 +1618,35 @@ def main():
 
     print("\nCombining new results...")
     new_df = pd.concat(all_results, ignore_index=True)
-    print(f"New records: {len(new_df)}")
+    print(f"New records (before deduplication): {len(new_df)}")
+
+    # Deduplicate new results (in case same file was processed multiple times)
+    # Key columns that uniquely identify a record
+    dedup_key_cols = [
+        "region",
+        "adm_level",
+        "scenario_name",
+        "hazard_return_period",
+        "hazard_type",
+        "hazard_indicator",
+    ]
+    # Add optional columns if they exist
+    if "ensemble" in new_df.columns:
+        dedup_key_cols.append("ensemble")
+    if "season" in new_df.columns:
+        dedup_key_cols.append("season")
+
+    # Check for duplicates
+    duplicates_before = new_df.duplicated(subset=dedup_key_cols, keep="first").sum()
+    if duplicates_before > 0:
+        print(f"  ⚠️  Found {duplicates_before} duplicate records in new results")
+        print(f"  🧹 Removing duplicates (keeping first occurrence)...")
+        new_df = new_df.drop_duplicates(subset=dedup_key_cols, keep="first")
+        print(f"  ✅ After deduplication: {len(new_df)} records")
+    else:
+        print(f"  ✅ No duplicates found in new results")
+
+    print(f"New records (after deduplication): {len(new_df)}")
 
     # Append to existing data if it exists
     if len(existing_df) > 0:
@@ -1694,6 +1722,45 @@ def main():
     else:
         final_df = new_df
         print(f"Total records: {len(final_df)} (all new)")
+
+    # Final deduplication check before saving (safety net)
+    print("\n🔍 Final deduplication check...")
+    dedup_key_cols_final = [
+        "region",
+        "adm_level",
+        "scenario_name",
+        "hazard_return_period",
+        "hazard_type",
+        "hazard_indicator",
+    ]
+    # Add optional columns if they exist
+    if "ensemble" in final_df.columns:
+        dedup_key_cols_final.append("ensemble")
+    if "season" in final_df.columns:
+        dedup_key_cols_final.append("season")
+
+    # Normalize ensemble and season for deduplication check
+    final_df_check = final_df.copy()
+    for col in ["ensemble", "season"]:
+        if col in final_df_check.columns:
+            final_df_check[col] = final_df_check[col].fillna("__NA__").astype(str)
+
+    duplicates_final = final_df_check.duplicated(
+        subset=dedup_key_cols_final, keep="first"
+    ).sum()
+    if duplicates_final > 0:
+        print(f"  ⚠️  Found {duplicates_final} duplicate records in final dataset")
+        print(f"  🧹 Removing duplicates (keeping first occurrence)...")
+
+        # Use the normalized check dataframe to identify duplicates, then filter original
+        keep_mask = ~final_df_check.duplicated(
+            subset=dedup_key_cols_final, keep="first"
+        )
+        final_df = final_df[keep_mask].reset_index(drop=True)
+
+        print(f"  ✅ After final deduplication: {len(final_df)} records")
+    else:
+        print(f"  ✅ No duplicates in final dataset")
 
     # Ensure output directory exists
     os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)

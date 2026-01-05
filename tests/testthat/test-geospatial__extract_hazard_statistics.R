@@ -1,22 +1,21 @@
-testthat::test_that("geolocated assets extract from TIF files", {
+testthat::test_that("geolocated assets extract from NetCDF files", {
   # Load all hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 1L)
 
-  # Define events with just 1 TIF hazard for focused testing (using formatted hazard name)
-  # Use RP=100 since precomputed data has this for Barcelos (not RP=10)
+  # Define events with NetCDF hazard for focused testing (using formatted hazard name)
   events <- tibble::tibble(
-    hazard_name = "Flood__depth(cm)__GWL=rcp85__RP=100",
+    hazard_name = "Drought__CDD__GWL=present__RP=5__ensemble=mean",
     event_year = 2030,
   )
 
   # Filter to just the selected hazard (like the real pipeline does)
-  tif_hazards <- filter_hazards_by_events(hazard_data$hazards$tif, events)
-  tif_inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$source == "tif", .data$hazard_name %in% names(tif_hazards))
+  nc_hazards <- filter_hazards_by_events(hazard_data$hazards, events)
+  nc_inventory <- hazard_data$inventory |>
+    dplyr::filter(.data$source == "nc", .data$hazard_name %in% names(nc_hazards))
 
   # Create 2 assets with coordinates (no municipality/province)
   assets <- tibble::tibble(
-    asset = c("asset_tif_1", "asset_tif_2"),
+    asset = c("asset_nc_1", "asset_nc_2"),
     company = c("company_a", "company_b"),
     latitude = c(-3.0, -15.0),
     longitude = c(-60.0, -47.9),
@@ -32,8 +31,8 @@ testthat::test_that("geolocated assets extract from TIF files", {
   # Extract
   out <- extract_hazard_statistics(
     assets,
-    tif_hazards,
-    tif_inventory,
+    nc_hazards,
+    nc_inventory,
     precomputed_hazards = tibble::tibble()
   )
 
@@ -63,8 +62,8 @@ testthat::test_that("geolocated assets extract from NC files", {
     season = "Summer"
   )
 
-  # Filter to just the selected hazard (expands to all ensemble variants)
-  nc_hazards <- filter_hazards_by_events(hazard_data$hazards$nc, events)
+  # Filter to just the selected hazard
+  nc_hazards <- filter_hazards_by_events(hazard_data$hazards, events)
   nc_inventory <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_name %in% names(nc_hazards))
 
@@ -108,18 +107,16 @@ testthat::test_that("mixed assets use priority: coordinates > municipality > sta
   precomputed <- read_precomputed_hazards(base_dir)
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
 
-  # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
-  # Use RP=100 for flood since that exists in precomputed data for Barcelos
+  # Define events with NetCDF hazards for focused testing
   events <- tibble::tibble(
     hazard_name = c(
-      "Flood__depth(cm)__GWL=rcp85__RP=100", # TIF hazard (use RP=100 which exists in precomputed)
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median" # NC hazard with season
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean" # NC hazard with season
     ),
     event_year = 2030,
   )
 
   # Filter hazards to match events (like the real pipeline)
-  all_hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+  all_hazards <- hazard_data$hazards
   hazards <- filter_hazards_by_events(all_hazards, events)
   inventory <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_name %in% names(hazards))
@@ -190,7 +187,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
     hazard_indicator = c("depth(cm)", "SPI3"),
     hazard_return_period = c(10, 5),
     scenario_name = c("CurrentClimate", "present"),
-    source = c("tif", "nc")
+    source = c("nc")
   )
 
   precomputed_hazards <- tibble::tibble(
@@ -264,7 +261,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
   )
 
   # Filter to just this hazard
-  all_hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
+  all_hazards <- hazard_data$hazards
   hazards <- filter_hazards_by_events(all_hazards, events)
   # Use full inventory so the function can check if required hazards are in precomputed
   # The missing hazard should be in inventory but not in precomputed
@@ -311,61 +308,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
 })
 
 
-testthat::test_that("CSV hazards use specified aggregation method", {
-  # Load hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-
-  # Define Heat HI events (CSV files available in test data)
-  # Include ensemble suffix for CSV hazards
-  events <- tibble::tibble(
-    hazard_name = c("Heat__HI__GWL=present__RP=10__ensemble=median", "Heat__HI__GWL=present__RP=5__ensemble=median"),
-    event_year = c(2030, 2030)
-  )
-
-  # Filter to CSV hazards
-  csv_hazards <- filter_hazards_by_events(hazard_data$hazards$csv, events)
-  csv_inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$source == "csv", .data$hazard_name %in% names(csv_hazards))
-
-  # Create assets with coordinates
-  assets <- tibble::tibble(
-    asset = c("asset_csv_1", "asset_csv_2"),
-    company = c("company_a", "company_b"),
-    latitude = c(-3.0, -15.0),
-    longitude = c(-60.0, -47.9),
-    municipality = NA_character_,
-    state = NA_character_,
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
-  )
-
-  # Extract with mean aggregation
-  out <- extract_hazard_statistics(
-    assets,
-    csv_hazards,
-    csv_inventory,
-    precomputed_hazards = tibble::tibble(),
-    aggregation_method = "mean"
-  )
-
-  # Verify: all matching_method = "coordinates"
-  testthat::expect_true(all(out$matching_method == "coordinates"))
-
-  # Verify: hazard statistics are numeric
-  testthat::expect_true(is.numeric(out$hazard_intensity))
-
-  # Should have results for both assets and both return periods
-  # (2 assets × 2 events = 4 rows)
-  testthat::expect_equal(nrow(out), 4)
-  testthat::expect_equal(length(unique(out$asset)), 2)
-
-  # Should have Heat HI indicator
-  indicators <- unique(out$hazard_indicator)
-  testthat::expect_true("HI" %in% indicators)
-})
+# CSV hazards test removed - CSV support has been removed in favor of NetCDF-only
 
 
 testthat::test_that("agriculture portfolio with state but no municipality works", {
@@ -401,7 +344,7 @@ testthat::test_that("agriculture portfolio with state but no municipality works"
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
   
   # Filter hazards (Drought is in NC format, not CSV)
-  all_hazards <- c(hazard_data$hazards$nc)
+  all_hazards <- hazard_data$hazards
   hazards <- filter_hazards_by_events(all_hazards, events)
   inventory <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_name %in% names(hazards))
@@ -461,7 +404,7 @@ testthat::test_that("agriculture portfolio without crop types defaults to Soybea
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
   
   # Filter hazards (Drought is in NC format, not CSV)
-  all_hazards <- c(hazard_data$hazards$nc)
+  all_hazards <- hazard_data$hazards
   hazards <- filter_hazards_by_events(all_hazards, events)
   inventory <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_name %in% names(hazards))
@@ -521,7 +464,7 @@ testthat::test_that("agriculture portfolio with invalid crop types defaults to S
   hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
   
   # Filter hazards (Drought is in NC format, not CSV)
-  all_hazards <- c(hazard_data$hazards$nc)
+  all_hazards <- hazard_data$hazards
   hazards <- filter_hazards_by_events(all_hazards, events)
   inventory <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_name %in% names(hazards))

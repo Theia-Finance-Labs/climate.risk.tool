@@ -313,35 +313,30 @@ Examples:
 ### Hazard Loading Workflow
 
 **1. `load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)`** → list(hazards, inventory)
-- **Unified loader** for TIF, NetCDF, and CSV files
-- Validates no mixed file types (.tif/.nc/.csv) in same leaf directory
-- Scans for TIF mapping file (`hazards_metadata.csv`); if absent, skips TIF loading
+- **NetCDF-only loader** for .nc files
 - Auto-discovers NC files by scanning directory tree
-- Auto-discovers CSV files by scanning directory tree
-- Returns: `list(hazards = list(tif = ..., nc = ..., csv = ...), inventory = tibble(...))`
-- **TIF**: Loads from `hazards_metadata.csv` as SpatRaster objects
-- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period) combination
-  - Only 'median' ensemble loaded by default
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=median`
-- **CSV**: Auto-discovers files, reads point data as data frames
-  - Only 'median' ensemble loaded by default
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=median`
-- **Inventory**: Combined metadata tibble with `source` column ("tif", "nc", or "csv")
+- Uses terra-based lazy loading with GDAL string syntax for efficient memory usage
+- Returns: `list(hazards = ..., inventory = tibble(...))`
+- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period × season × ensemble) combination
+  - Only 'mean' ensemble loaded by default
+  - Uses terra::rast() with NETCDF:path:variable syntax for lazy loading
+  - Extracts specific layers using layer indexing
+  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean` (with optional `__season={season}`)
+- **Inventory**: Metadata tibble with `source` column ("nc")
 
 **Application Usage:**
 ```r
 # In mod_control_server:
-hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-# Access hazards (flattened for compute pipeline):
-hazards_flat <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 1L)
+# Access hazards (for compute pipeline):
+hazards <- hazard_data$hazards
 # Access inventory (for UI dropdowns):
 inventory <- hazard_data$inventory
 ```
 
 **Naming Convention:**
-- TIF: `{hazard_type}__{scenario_code}_h{return_period}glob` (e.g., `flood__pc_h10glob`)
-- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=median` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=median`)
-- CSV: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=median` (e.g., `Compound__HI__GWL=present__RP=5__ensemble=median`)
+- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
+- With season: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__season={season}__ensemble=mean` (e.g., `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=mean`)
 
 ### Geospatial Processing
 
@@ -352,10 +347,10 @@ inventory <- hazard_data$inventory
 
 **`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, events)`** → long format data.frame
 - **Main orchestrator** that dispatches to specialized extraction functions:
-  - **Coordinate-based assets** → `extract_spatial_statistics()` for spatial extraction (TIF/NC/CSV)
+  - **Coordinate-based assets** → `extract_spatial_statistics()` for spatial extraction (NetCDF)
   - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup
 - **Priority cascade** for asset location:
-  1. Coordinates → spatial extraction (polygon-based for TIF/NC, closest-point for CSV)
+  1. Coordinates → spatial extraction (polygon-based for NetCDF)
   2. No coordinates + municipality → precomputed ADM2 lookup
   3. No coordinates + state → precomputed ADM1 lookup
   4. None → Error
@@ -363,20 +358,10 @@ inventory <- hazard_data$inventory
 - Includes diagnostic logging to show asset routing and matching method summary
 
 **`extract_spatial_statistics(assets_df, hazards, hazards_inventory, aggregation_method)`** → long format data.frame (internal)
-- Routes to appropriate extraction method based on hazard source:
-  - **CSV hazards** → `extract_csv_statistics()` for closest-point assignment
-  - **TIF/NC hazards** → Polygon-based extraction (crop, mask, aggregate)
+- Polygon-based extraction for NetCDF raster hazards (crop, mask, aggregate)
 - Used for assets WITH coordinates
 - Returns `matching_method = "coordinates"`
 - Adds `__extraction_method={aggregation_method}` suffix to hazard names
-
-**`extract_csv_statistics(assets_df, hazards_csv, hazards_inventory, aggregation_method)`** → long format data.frame (internal)
-- Closest-point assignment for CSV point data
-- For each asset, calculates Euclidean distance to all CSV points: `sqrt((lat_asset - lat_csv)^2 + (lon_asset - lon_csv)^2)`
-- Assigns hazard_intensity from nearest point
-- Used for assets WITH coordinates and CSV hazards
-- Returns `matching_method = "coordinates"`
-- Adds `__extraction_method={aggregation_method}` suffix for consistency (though method doesn't affect closest-point selection)
 
 **`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
 - Lookup from precomputed administrative hazard data

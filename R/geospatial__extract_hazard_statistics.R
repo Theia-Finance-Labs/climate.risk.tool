@@ -6,8 +6,8 @@
 #' @param hazards_inventory Data frame with hazard metadata (hazard_name, hazard_type, hazard_indicator, etc.)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
-#'   For NC sources: selects which ensemble raster to extract. For TIF sources: determines which statistic
-#'   to compute from extracted pixel values. Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
+#'   Determines which statistic to compute from extracted pixel values for NetCDF sources.
+#'   Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
 #' @param damage_factors_df Optional data frame with damage factors for drought growing season matching in precomputed extraction
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, state, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
@@ -63,44 +63,21 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   return(final_result)
 }
 
-#' Extract statistics from spatial hazards (unified for NC, TIF, and CSV sources)
+#' Extract statistics from spatial hazards (NetCDF sources)
 #' @noRd
 extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
   message("  [extract_spatial_statistics] Extracting hazard statistics...")
   message("    Using aggregation method: ", aggregation_method)
 
-  # Separate CSV hazards from raster hazards (TIF/NC)
-  csv_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source == "csv")
-
+  # Filter to only NetCDF raster hazards
   raster_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source %in% c("tif", "nc"))
+    dplyr::filter(.data$source == "nc")
 
   all_results <- list()
 
-  # ========= Process CSV hazards (closest-point assignment) =========
-  if (nrow(csv_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing CSV hazards with closest-point assignment...")
-
-    # Extract CSV hazards from the hazards list
-    csv_hazard_names <- csv_inventory$hazard_name
-    hazards_csv <- hazards[csv_hazard_names]
-    hazards_csv <- hazards_csv[!sapply(hazards_csv, is.null)]
-
-    if (length(hazards_csv) > 0) {
-      csv_results <- extract_csv_statistics(
-        assets_df,
-        hazards_csv,
-        csv_inventory,
-        aggregation_method
-      )
-      all_results[[length(all_results) + 1]] <- csv_results
-    }
-  }
-
-  # ========= Process raster hazards (TIF/NC with polygon extraction) =========
+  # ========= Process raster hazards (NetCDF with polygon extraction) =========
   if (nrow(raster_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing raster hazards (TIF/NC) with polygon extraction...")
+    message("  [extract_spatial_statistics] Processing NetCDF raster hazards with polygon extraction...")
 
     # Define aggregation function mapping (used for TIF sources)
     aggregation_functions <- list(
@@ -124,15 +101,15 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         ux[which.max(tabulate(match(x_clean, ux)))]
       }
     )
-    # Validate aggregation method for TIF sources
+    # Validate aggregation method for NetCDF sources
     if (!aggregation_method %in% names(aggregation_functions)) {
       stop(
-        "Invalid aggregation_method '", aggregation_method, "' for TIF extraction. ",
+        "Invalid aggregation_method '", aggregation_method, "' for NetCDF extraction. ",
         "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
       )
     }
 
-    # Create geometries for assets (shared by both NC and TIF)
+    # Create geometries for assets
     assets_sf <- create_asset_geometries(
       assets_df,
       default_buffer_size_m = 1111,
@@ -185,8 +162,8 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       r_crs <- terra::crs(hazard_rast)
       if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
-      # Unified extraction method: polygon extraction with masking and aggregation for both NC and TIF
-      message("      Using polygon extraction (crop/mask) for ", toupper(hazard_source), " source")
+      # Unified extraction method: polygon extraction with masking and aggregation for NetCDF
+      message("      Using polygon extraction (crop/mask) for NetCDF source")
 
       n_geoms <- nrow(assets_sf)
       stats_df <- tibble::tibble(
@@ -238,7 +215,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         }
       }
 
-      # Combine statistics with asset data (same format for both NC and TIF)
+      # Combine statistics with asset data
       df_i <- dplyr::bind_cols(
         sf::st_drop_geometry(assets_sf),
         stats_df |> dplyr::select(-"ID")
@@ -542,92 +519,4 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   }
 
   return(do.call(rbind, precomp_results_list))
-}
-
-#' Extract statistics from CSV hazards using closest-point assignment
-#' @noRd
-extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, aggregation_method = "mean") {
-  message("  [extract_csv_statistics] Extracting hazard statistics from CSV point data...")
-  message("    Using closest-point assignment (aggregation_method parameter kept for consistency)")
-
-  # Filter inventory to only CSV sources
-  csv_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source == "csv")
-
-  n_hazards <- nrow(csv_inventory)
-  results_list <- vector("list", n_hazards)
-
-  for (i in seq_len(n_hazards)) {
-    hazard_meta <- csv_inventory |> dplyr::slice(i)
-
-    base_hazard_name <- hazard_meta$hazard_name
-    hazard_csv_data <- hazards_csv[[base_hazard_name]]
-
-    if (is.null(hazard_csv_data)) {
-      warning("CSV hazard data not found for: ", base_hazard_name)
-      next
-    }
-
-    # Get metadata
-    hazard_type <- hazard_meta$hazard_type
-    hazard_indicator <- hazard_meta$hazard_indicator
-    hazard_return_period <- hazard_meta$hazard_return_period
-    hazard_scenario_name <- hazard_meta$scenario_name
-
-    # Add extraction_method suffix for output consistency
-    hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
-
-    message("    Processing CSV hazard ", i, "/", n_hazards, ": ", base_hazard_name)
-
-    n_assets <- nrow(assets_df)
-    asset_intensities <- numeric(n_assets)
-
-    # For each asset, find closest CSV point
-    for (j in seq_len(n_assets)) {
-      asset_lat <- assets_df$latitude[j]
-      asset_lon <- assets_df$longitude[j]
-
-      # Calculate Euclidean distance to all CSV points
-      distances <- sqrt(
-        (hazard_csv_data$lat - asset_lat)^2 +
-          (hazard_csv_data$lon - asset_lon)^2
-      )
-
-      # Find minimum distance
-      min_idx <- which.min(distances)
-
-      # Extract hazard intensity from closest point
-      asset_intensities[j] <- hazard_csv_data$hazard_intensity[min_idx]
-    }
-
-    # Combine with asset data
-    df_i <- assets_df |>
-      dplyr::mutate(
-        hazard_intensity = asset_intensities,
-        hazard_name = hazard_name_with_ensemble,
-        hazard_type = hazard_type,
-        scenario_name = hazard_scenario_name,
-        hazard_indicator = hazard_indicator,
-        hazard_return_period = hazard_return_period,
-        source = "csv",
-        matching_method = "coordinates"
-      ) |>
-      dplyr::select(
-        "asset", "company", "latitude", "longitude",
-        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
-      )
-
-    results_list[[i]] <- df_i
-  }
-
-  # Filter out NULL entries
-  results_list <- results_list[!sapply(results_list, is.null)]
-
-  if (length(results_list) == 0) {
-    return(tibble::tibble())
-  }
-
-  return(do.call(rbind, results_list))
 }

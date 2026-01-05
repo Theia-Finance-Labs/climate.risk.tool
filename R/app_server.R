@@ -103,7 +103,7 @@ app_server <- function(input, output, session) {
         if (inherits(hazards_result, "try-error") || is.null(hazards_result)) {
           stop("Hazards could not be loaded from control module")
         }
-        values$hazards <- c(hazards_result$hazards$tif, hazards_result$hazards$nc, hazards_result$hazards$csv)
+        values$hazards <- hazards_result$hazards
         values$hazards_inventory <- hazards_result$inventory
 
         # Load supporting data files from base_dir

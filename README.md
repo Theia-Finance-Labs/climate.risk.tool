@@ -230,52 +230,37 @@ The codebase is organized into logical modules using a clear naming convention:
 
 #### Data Format Support
 
-The package supports three hazard data formats that can be used together in the same analysis:
+The package supports NetCDF (.nc) hazard data format:
 
-**GeoTIFF (.tif) Files** - Traditional raster format
-- Requires `hazards_name_mapping.csv` for metadata
-- Spatial extraction computes statistics from pixel values using `exactextractr`
-- Naming format: `{HazardType}__{indicator}__GWL={scenario}__RP={return_period}`
-- Example: `Flood__depth(cm)__GWL=present__RP=100`
-
-**NetCDF (.nc) Files** - Modern scientific format with pre-computed statistics
+**NetCDF (.nc) Files** - Scientific format with multi-dimensional data
 - Auto-discovers from directory structure and file dimensions
-- Direct extraction of pre-computed ensemble statistics (mean, median, p10, p90)
+- Uses terra-based lazy loading for efficient memory usage
+- Loads 'mean' ensemble by default for each hazard scenario
 - Naming format: `{HazardType}__{indicator}__GWL={level}__RP={period}__ensemble={variant}__season={season}`
-- Example: `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=median`
-- **No spatial computation needed** - statistics pre-computed in the NC file
+- Example: `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=mean`
+- Supports multiple dimensions: GWL, return_period, ensemble, season
+- Spatial extraction computes statistics from raster values using polygon-based extraction
 
-**CSV Files** - Tabular format for point-based or aggregated data
-- Typically used for Heat hazards and other non-spatial hazard data
-- Auto-discovered from directory structure
-- Direct data lookup without spatial computation
-- Naming format: `{HazardType}__{indicator}__GWL={level}__RP={period}__ensemble={variant}`
-- Example: `Heat__HI__GWL=2__RP=10__ensemble=median`
+#### NetCDF Pipeline Handling
 
-#### Mixed Format Pipeline Handling
-
-The pipeline seamlessly handles mixed TIF, NetCDF, and CSV formats through several mechanisms:
+The pipeline handles NetCDF files through several mechanisms:
 
 **1. Unified Loading (`load_hazards_and_inventory()`)**
-- Loads all three formats in a single call
-- Returns combined list: `list(hazards = list(tif = ..., nc = ..., csv = ...), inventory = ...)`
-- Creates unified inventory with `source` column indicating data format
-- TIF files are optional (if no mapping file exists, only NC/CSV files are loaded)
+- Scans directory tree for NetCDF files
+- Extracts metadata from file structure and NetCDF dimensions
+- Returns list: `list(hazards = ..., inventory = ...)`
+- Creates unified inventory with `source` column ("nc")
 
 **2. Smart Event Filtering (`filter_hazards_by_events()`)**
-- Filters hazards by event requirements across all formats
-- **TIF hazards**: Exact name matching
-- **NC hazards**: Automatic ensemble expansion (1 event → 4 ensemble variants)
-- **CSV hazards**: Direct lookup by hazard name
-- Returns single filtered list combining all formats
+- Filters hazards by event requirements
+- **NC hazards**: Base name matching (mean ensemble loaded by default)
+- Returns filtered list of SpatRaster objects
 
-**3. Multi-Format Extraction Workflow (`extract_hazard_statistics()`)**
-- **Detects format mix** and chooses appropriate extraction method per hazard
-- **TIF sources**: Spatial computation using `exactextractr` for pixel statistics
-- **NC sources**: Direct extraction of pre-computed ensemble statistics
-- **CSV sources**: Direct data lookup from tabular format
+**3. Spatial Extraction Workflow (`extract_hazard_statistics()`)**
+- **Polygon-based extraction**: Crop and mask rasters to asset geometries
+- **Aggregation methods**: mean, median, max, min, p2_5, p5, p95, p97_5
 - **Priority cascade**: Coordinates → Municipality (ADM2) → Province (ADM1) → Error
-- **Unified output**: Same column structure regardless of source format
+- **Unified output**: Consistent column structure for all hazards
 
 **4. Combined Results Processing**
 - All downstream functions work identically with mixed format results

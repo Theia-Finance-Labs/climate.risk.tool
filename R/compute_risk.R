@@ -20,11 +20,11 @@
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
 #' @param risk_free_rate Numeric. Risk-free rate for Merton model (default: 0.02)
-#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "median").
+#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
 #'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
-#'   For TIF files: uses terra::extract with the specified function.
-#'   For NC files: uses the median ensemble layer by default (ensemble selection is separate from aggregation_method).
-#'   For precomputed data: uses the median ensemble variant (ensemble selection is separate from aggregation_method).
+#'   For NetCDF files: uses terra::extract with the specified function.
+#'   For NC files: uses the mean ensemble layer by default (ensemble selection is separate from aggregation_method).
+#'   For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).
 #' #'
 #' @return List containing final results:
 #'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
@@ -35,7 +35,7 @@
 #' @details
 #' The function executes the following 16-step pipeline:
 #' 1. Read inputs: Load asset and company data from CSV files
-#' 2. Load hazards: Read climate hazard raster files (.tif)
+#' 2. Load hazards: Read climate hazard NetCDF files (.nc)
 #' 3. Load areas: Load municipality and state boundary files
 #' 4. Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > state priority
 #' 5. Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
