@@ -27,6 +27,16 @@ from unidecode import unidecode
 from tqdm import tqdm
 
 
+import warnings
+
+# Silence Dask's "Sending large graph" warning
+# We know we have many chunks (necessary for 2.5B points), so the graph is large.
+# This warning is just advisory and we accept the overhead.
+warnings.filterwarnings("ignore", message="Sending large graph")
+warnings.filterwarnings(
+    "ignore", message="The specified chunks separate the stored chunks"
+)
+
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
@@ -298,9 +308,9 @@ def process_nc_hazard(
     if not adm_gdf.sindex:
         adm_gdf.sindex
 
-    # Open WITHOUT specifying chunks first to respect native file structure
-    # This prevents the "chunks separate stored chunks" warning and inefficiency
-    ds = xr.open_dataset(nc_path)
+    # Open with chunks={} to ensure we get Dask arrays (using native chunking)
+    # This enables parallel computation via the Dask cluster
+    ds = xr.open_dataset(nc_path, chunks={})
 
     # Check if we need to chunk manually (e.g. if file is not chunked)
     # We'll rely on explicit slicing later rather than dask chunking at open time
@@ -412,6 +422,8 @@ def process_nc_hazard(
         total_spatial_chunks = n_lat_chunks * n_lon_chunks
 
         # Iterate over spatial chunks with progress bar
+        # We process sequentially in the main thread to keep overhead low
+        # Dask handles the actual data loading/computation in the background threads
         spatial_pbar = tqdm(
             total=total_spatial_chunks,
             desc="      Spatial chunks",
@@ -419,6 +431,8 @@ def process_nc_hazard(
             ncols=80,
             position=1,
         )
+
+        from shapely.geometry import box
 
         for lat_start in range(0, n_lat, lat_chunk_size):
             lat_end = min(lat_start + lat_chunk_size, n_lat)
@@ -433,11 +447,10 @@ def process_nc_hazard(
                 lon_min, lon_max = float(chunk_lons.min()), float(chunk_lons.max())
 
                 # 2. Find overlapping regions using spatial index (FAST lookup!)
-                from shapely.geometry import box
-
-                chunk_bbox = box(lon_min, lat_min, lon_max, lat_max)
+                # Note: bounds are (minx, miny, maxx, maxy)
+                chunk_bbox_bounds = (lon_min, lat_min, lon_max, lat_max)
                 possible_matches_idx = list(
-                    adm_gdf.sindex.intersection(chunk_bbox.bounds)
+                    adm_gdf.sindex.intersection(chunk_bbox_bounds)
                 )
 
                 if len(possible_matches_idx) == 0:
@@ -448,26 +461,24 @@ def process_nc_hazard(
                 # Get only the overlapping regions
                 overlapping_regions = adm_gdf.iloc[possible_matches_idx]
 
-                # 3. Select spatial chunk (this is still lazy - NO computation yet)
+                # 3. Select spatial chunk (lazy dask slice)
                 da_chunk = da_slice.isel(
                     lat=slice(lat_start, lat_end), lon=slice(lon_start, lon_end)
                 )
 
-                # 4. NOW compute just this small chunk
-                # Since we didn't force dask chunks at open, this might be a numpy slice
-                # or a dask slice depending on how open_dataset handled it.
-                # safely handle both.
+                # 4. Compute chunk
+                # If the file is chunked appropriately, this only fetches necessary data
+                # If not, we might need to rechunk the dataset once after opening
                 if isinstance(da_chunk.data, dask.array.Array):
-                    # It's a dask array, compute it
-                    # with ProgressBar(dt=0.5): # Progress bar is too noisy for 50x50 chunks
                     da_chunk_loaded = da_chunk.compute()
                 else:
-                    # It's already numpy/memory (unlikely for big files, but possible)
                     da_chunk_loaded = da_chunk
 
                 spatial_pbar.update(1)
 
                 # 5. Convert to dataframe
+                # Optimized conversion: standard to_dataframe() can be slow
+                # but for small chunks (50x50 = 2500 rows) it's fine
                 df_chunk = (
                     da_chunk_loaded.to_dataframe(name="value")
                     .reset_index()
@@ -476,7 +487,7 @@ def process_nc_hazard(
 
                 if len(df_chunk) == 0:
                     del da_chunk_loaded
-                    continue  # Skip empty chunks
+                    continue
 
                 # 6. Create point geometries for this chunk
                 gdf_chunk = gpd.GeoDataFrame(
@@ -485,8 +496,7 @@ def process_nc_hazard(
                     crs="EPSG:4326",
                 )
 
-                # 7. Spatial join ONLY with overlapping regions (MUCH FASTER!)
-                # Instead of joining with all 5570 regions, we only join with ~5-10 overlapping ones
+                # 7. Spatial join
                 joined = gpd.sjoin(
                     gdf_chunk,
                     overlapping_regions[["region", "geometry"]],
@@ -495,8 +505,7 @@ def process_nc_hazard(
                 )
 
                 if len(joined) > 0:
-                    # 8. Accumulate (region, value, dimension_cols) for later aggregation
-                    # Keep all dimension columns needed for grouping
+                    # 8. Accumulate
                     cols_to_keep = ["region", "value"]
                     for col in joined.columns:
                         if (
@@ -507,11 +516,12 @@ def process_nc_hazard(
 
                     accumulated_points.append(joined[cols_to_keep])
 
-                # Clean up chunk data
+                # Cleanup per chunk
                 del da_chunk_loaded, df_chunk, gdf_chunk, joined
-                gc.collect()
+                # gc.collect() # Don't GC every chunk, it's expensive. Let Python handle it.
 
         spatial_pbar.close()
+        gc.collect()  # GC once after the loop
 
         # 9. After processing all chunks, aggregate accumulated points by region
         if len(accumulated_points) == 0:
@@ -901,9 +911,10 @@ def main():
     ENSEMBLE_FILTER = "median"
 
     # Chunk size for spatial processing (larger = faster but more memory)
-    # 100x100 is a good balance (~10,000 cells per chunk)
-    CHUNK_SIZE_LAT = 100
-    CHUNK_SIZE_LON = 100
+    # 200x200 reduces graph size and task overhead significantly
+    # (~40,000 cells per chunk)
+    CHUNK_SIZE_LAT = 5000
+    CHUNK_SIZE_LON = 5000
 
     # ========================================================================
     # DASK CLUSTER & DASHBOARD
