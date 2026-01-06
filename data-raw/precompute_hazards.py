@@ -20,6 +20,9 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import xarray as xr
+import dask
+from dask.diagnostics import ProgressBar
+from dask.distributed import Client, LocalCluster
 from unidecode import unidecode
 from tqdm import tqdm
 
@@ -183,12 +186,91 @@ def compute_statistics(values):
     }
 
 
+def build_coordinate_region_lookup(
+    lats,
+    lons,
+    adm_gdf,
+    max_points=5_000_000,
+    target_batch_size=250_000,
+):
+    """
+    Build a lookup table that maps every coordinate in the dataset grid to a region.
+
+    This allows us to skip running a spatial join for every chunk and reuse the same mapping
+    when processing every dimension combination.
+    """
+    total_points = len(lats) * len(lons)
+
+    if total_points == 0:
+        return pd.DataFrame(columns=["lat", "lon", "region"])
+
+    if total_points > max_points:
+        print(
+            f"    ⚠️  Coordinate grid ({total_points:,} points) exceeds "
+            f"{max_points:,} – falling back to chunk-level spatial joins."
+        )
+        return None
+
+    print(
+        f"    Building coordinate→region lookup ({total_points:,} grid points, "
+        f"{len(lats)} lat × {len(lons)} lon)..."
+    )
+
+    per_lat_quota = max(1, target_batch_size // max(1, len(lons)))
+    batch_lat_size = min(len(lats), per_lat_quota)
+
+    coords_batches = []
+
+    for lat_start in range(0, len(lats), batch_lat_size):
+        lat_slice = lats[lat_start : lat_start + batch_lat_size]
+        lat_repeat = np.repeat(lat_slice, len(lons))
+        lon_tile = np.tile(lons, len(lat_slice))
+
+        batch_df = pd.DataFrame({"lat": lat_repeat, "lon": lon_tile})
+        gdf_batch = gpd.GeoDataFrame(
+            batch_df,
+            geometry=gpd.points_from_xy(batch_df["lon"], batch_df["lat"]),
+            crs="EPSG:4326",
+        )
+
+        coords_with_region = gpd.sjoin(
+            gdf_batch,
+            adm_gdf[["region", "geometry"]],
+            how="inner",
+            predicate="within",
+        )
+
+        coords_batches.append(coords_with_region[["lat", "lon", "region"]])
+
+        del batch_df, gdf_batch, coords_with_region
+        gc.collect()
+
+    if not coords_batches:
+        return pd.DataFrame(columns=["lat", "lon", "region"])
+
+    lookup_df = pd.concat(coords_batches, ignore_index=True)
+    lookup_df = (
+        lookup_df.drop_duplicates(subset=["lat", "lon"])
+        .reset_index(drop=True)
+        .astype({"lat": float, "lon": float})
+    )
+
+    print(
+        f"    Coordinate lookup cached for {len(lookup_df):,} points "
+        f"({len(coords_batches)} batch(es))."
+    )
+
+    return lookup_df
+
+
 # ============================================================================
 # FILE TYPE PROCESSORS
 # ============================================================================
 
 
-def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
+def process_nc_hazard(
+    nc_path, adm_gdf, adm_level, ensemble_filter, lat_chunk_size=100, lon_chunk_size=100
+):
     """
     Process NetCDF hazard file directly and aggregate over regions.
 
@@ -216,7 +298,12 @@ def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
     if not adm_gdf.sindex:
         adm_gdf.sindex
 
-    ds = xr.open_dataset(nc_path, chunks={"lat": 100, "lon": 100})
+    # Open WITHOUT specifying chunks first to respect native file structure
+    # This prevents the "chunks separate stored chunks" warning and inefficiency
+    ds = xr.open_dataset(nc_path)
+
+    # Check if we need to chunk manually (e.g. if file is not chunked)
+    # We'll rely on explicit slicing later rather than dask chunking at open time
 
     # Get the data variable
     var_names = list(ds.data_vars.keys())
@@ -261,6 +348,11 @@ def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
     # Identify non-spatial dimensions (scenario, return_period, season, etc.)
     non_spatial_dims = [d for d in dims if d not in ["lon", "lat"]]
 
+    # Build coordinate -> region lookup to avoid repeated spatial joins
+    lats = da.coords["lat"].values
+    lons = da.coords["lon"].values
+    coord_region_lookup = build_coordinate_region_lookup(lats, lons, adm_gdf)
+
     # Build list of all dimension combinations to iterate over
     dim_combinations = []
     if non_spatial_dims:
@@ -280,44 +372,170 @@ def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
 
     # Add progress bar for dimension combinations
     print(
-        f"    Processing {len(dim_combinations)} dimension combination(s) across {len(adm_gdf)} regions..."
+        f"    Processing {len(dim_combinations)} dimension combination(s) for {len(adm_gdf)} regions..."
     )
     for dim_combo in tqdm(
-        dim_combinations, desc="    Slices", leave=False, ncols=80, position=0
+        dim_combinations, desc="    Processing", leave=False, ncols=80
     ):
         # Select this specific slice
         da_slice = da
         for dim_name, dim_val in dim_combo.items():
             da_slice = da_slice.sel({dim_name: dim_val})
 
-        # Load only this slice into memory
-        da_slice_loaded = da_slice.load()
+        # Process in smaller spatial chunks to avoid loading everything at once
+        # Get lat/lon dimensions - CRITICAL: Ensure we don't load 2D coords if not needed
+        # For rectilinear grids, lats/lons are 1D arrays (tiny).
+        # For curvilinear, they might be 2D (huge).
+        lats = da_slice.coords["lat"].values
+        lons = da_slice.coords["lon"].values
 
-        # Convert to dataframe
-        df_slice = (
-            da_slice_loaded.to_dataframe(name="value")
-            .reset_index()
-            .dropna(subset=["value"])
+        # Check if coordinates are 1D or 2D
+        is_rectilinear = (lats.ndim == 1) and (lons.ndim == 1)
+
+        if not is_rectilinear:
+            # Handle 2D coordinates (curvilinear grid) - rarer but possible
+            print("    ⚠️  2D Coordinates detected! Memory usage may be higher.")
+            # Flatten logic would be needed here, but for now assuming standard 1D lat/lon vectors
+
+        # Define chunk size for processing
+        # lat_chunk_size and lon_chunk_size are passed as arguments
+
+        # ACCUMULATOR: Store (region, value, dimension_cols...) as we go through chunks
+        accumulated_points = []
+
+        # Calculate total number of spatial chunks for progress tracking
+        n_lat = len(lats)
+        n_lon = len(lons)
+
+        n_lat_chunks = (n_lat + lat_chunk_size - 1) // lat_chunk_size
+        n_lon_chunks = (n_lon + lon_chunk_size - 1) // lon_chunk_size
+        total_spatial_chunks = n_lat_chunks * n_lon_chunks
+
+        # Iterate over spatial chunks with progress bar
+        spatial_pbar = tqdm(
+            total=total_spatial_chunks,
+            desc="      Spatial chunks",
+            leave=False,
+            ncols=80,
+            position=1,
         )
 
-        if len(df_slice) == 0:
-            continue  # Skip empty slices
+        for lat_start in range(0, n_lat, lat_chunk_size):
+            lat_end = min(lat_start + lat_chunk_size, n_lat)
+
+            for lon_start in range(0, n_lon, lon_chunk_size):
+                lon_end = min(lon_start + lon_chunk_size, n_lon)
+
+                # 1. Get chunk bounding box to find overlapping regions
+                chunk_lats = lats[lat_start:lat_end]
+                chunk_lons = lons[lon_start:lon_end]
+                lat_min, lat_max = float(chunk_lats.min()), float(chunk_lats.max())
+                lon_min, lon_max = float(chunk_lons.min()), float(chunk_lons.max())
+
+                # 2. Find overlapping regions using spatial index (FAST lookup!)
+                from shapely.geometry import box
+
+                chunk_bbox = box(lon_min, lat_min, lon_max, lat_max)
+                possible_matches_idx = list(
+                    adm_gdf.sindex.intersection(chunk_bbox.bounds)
+                )
+
+                if len(possible_matches_idx) == 0:
+                    # No regions overlap this chunk - skip it entirely
+                    spatial_pbar.update(1)
+                    continue
+
+                # Get only the overlapping regions
+                overlapping_regions = adm_gdf.iloc[possible_matches_idx]
+
+                # 3. Select spatial chunk (this is still lazy - NO computation yet)
+                da_chunk = da_slice.isel(
+                    lat=slice(lat_start, lat_end), lon=slice(lon_start, lon_end)
+                )
+
+                # 4. NOW compute just this small chunk
+                # Since we didn't force dask chunks at open, this might be a numpy slice
+                # or a dask slice depending on how open_dataset handled it.
+                # safely handle both.
+                if isinstance(da_chunk.data, dask.array.Array):
+                    # It's a dask array, compute it
+                    # with ProgressBar(dt=0.5): # Progress bar is too noisy for 50x50 chunks
+                    da_chunk_loaded = da_chunk.compute()
+                else:
+                    # It's already numpy/memory (unlikely for big files, but possible)
+                    da_chunk_loaded = da_chunk
+
+                spatial_pbar.update(1)
+
+                # 5. Convert to dataframe
+                df_chunk = (
+                    da_chunk_loaded.to_dataframe(name="value")
+                    .reset_index()
+                    .dropna(subset=["value"])
+                )
+
+                if len(df_chunk) == 0:
+                    del da_chunk_loaded
+                    continue  # Skip empty chunks
+
+                # 6. Create point geometries for this chunk
+                gdf_chunk = gpd.GeoDataFrame(
+                    df_chunk,
+                    geometry=gpd.points_from_xy(df_chunk["lon"], df_chunk["lat"]),
+                    crs="EPSG:4326",
+                )
+
+                # 7. Spatial join ONLY with overlapping regions (MUCH FASTER!)
+                # Instead of joining with all 5570 regions, we only join with ~5-10 overlapping ones
+                joined = gpd.sjoin(
+                    gdf_chunk,
+                    overlapping_regions[["region", "geometry"]],
+                    how="inner",
+                    predicate="within",
+                )
+
+                if len(joined) > 0:
+                    # 8. Accumulate (region, value, dimension_cols) for later aggregation
+                    # Keep all dimension columns needed for grouping
+                    cols_to_keep = ["region", "value"]
+                    for col in joined.columns:
+                        if (
+                            col not in ["geometry", "index_right", "lon", "lat"]
+                            and col not in cols_to_keep
+                        ):
+                            cols_to_keep.append(col)
+
+                    accumulated_points.append(joined[cols_to_keep])
+
+                # Clean up chunk data
+                del da_chunk_loaded, df_chunk, gdf_chunk, joined
+                gc.collect()
+
+        spatial_pbar.close()
+
+        # 9. After processing all chunks, aggregate accumulated points by region
+        if len(accumulated_points) == 0:
+            continue  # Skip if no data in this dimension slice
+
+        df_all_points = pd.concat(accumulated_points, ignore_index=True)
+        del accumulated_points
+        gc.collect()
 
         # Add metadata columns
-        df_slice["hazard_type"] = hazard_type
-        df_slice["hazard_indicator"] = hazard_indicator
+        df_all_points["hazard_type"] = hazard_type
+        df_all_points["hazard_indicator"] = hazard_indicator
 
         # Only set ensemble if dimension actually exists and was filtered
         if has_ensemble:
-            df_slice["ensemble"] = ensemble_value_used
+            df_all_points["ensemble"] = ensemble_value_used
         else:
-            df_slice["ensemble"] = None
+            df_all_points["ensemble"] = None
 
         # Rename GWL and return_period columns if they exist
-        if "GWL" in df_slice.columns:
-            df_slice = df_slice.rename(columns={"GWL": "scenario_name"})
-        if "return_period" in df_slice.columns:
-            df_slice = df_slice.rename(
+        if "GWL" in df_all_points.columns:
+            df_all_points = df_all_points.rename(columns={"GWL": "scenario_name"})
+        if "return_period" in df_all_points.columns:
+            df_all_points = df_all_points.rename(
                 columns={"return_period": "hazard_return_period"}
             )
 
@@ -333,93 +551,52 @@ def process_nc_hazard(nc_path, adm_gdf, adm_level, ensemble_filter):
             "value",
             "geometry",
             "index_right",
+            "region",
         ]
-        extra_groupby_cols = [c for c in df_slice.columns if c not in metadata_cols]
+        extra_groupby_cols = [
+            c for c in df_all_points.columns if c not in metadata_cols
+        ]
 
-        # Create point geometries (only for unique lat/lon to save memory)
-        unique_coords = df_slice[["lon", "lat"]].drop_duplicates()
+        # 10. Aggregate statistics per region (ONCE, with ALL accumulated points)
+        group_cols = ["hazard_type", "hazard_indicator", "region", "ensemble"]
+        if "scenario_name" in df_all_points.columns:
+            group_cols.insert(0, "scenario_name")
+        if "hazard_return_period" in df_all_points.columns:
+            group_cols.insert(1, "hazard_return_period")
+        for col in extra_groupby_cols:
+            if col in df_all_points.columns:
+                group_cols.append(col)
 
-        # Skip if no unique coordinates
-        if len(unique_coords) == 0:
-            continue
+        def q(p):
+            return lambda x: float(np.nanpercentile(x, p))
 
-        gdf_coords = gpd.GeoDataFrame(
-            unique_coords,
-            geometry=gpd.points_from_xy(unique_coords["lon"], unique_coords["lat"]),
-            crs="EPSG:4326",
+        agg_slice = (
+            df_all_points.groupby(group_cols, dropna=False)
+            .agg(
+                min=("value", "min"),
+                max=("value", "max"),
+                mean=("value", "mean"),
+                median=("value", "median"),
+                p2_5=("value", q(2.5)),
+                p5=("value", q(5)),
+                p10=("value", q(10)),
+                p90=("value", q(90)),
+                p95=("value", q(95)),
+                p97_5=("value", q(97.5)),
+            )
+            .reset_index()
         )
 
-        # Process each region individually with progress bar
-        region_results = []
-
-        for _, region_row in tqdm(
-            adm_gdf.iterrows(),
-            total=len(adm_gdf),
-            desc="    Regions",
-            leave=False,
-            ncols=80,
-            position=1,
-        ):
-            region_name = region_row["region"]
-            region_geom = region_row["geometry"]
-
-            # Find points within this specific region
-            points_in_region = gdf_coords[gdf_coords.within(region_geom)]
-
-            if len(points_in_region) == 0:
-                continue  # No points in this region
-
-            # Get data for points in this region
-            df_region = df_slice.merge(
-                points_in_region[["lon", "lat"]], on=["lon", "lat"], how="inner"
-            )
-
-            if len(df_region) == 0:
-                continue
-
-            # Add region name
-            df_region["region"] = region_name
-
-            # Aggregate statistics for this region
-            group_cols = ["hazard_type", "hazard_indicator", "region", "ensemble"]
-            if "scenario_name" in df_region.columns:
-                group_cols.insert(0, "scenario_name")
-            if "hazard_return_period" in df_region.columns:
-                group_cols.insert(1, "hazard_return_period")
-            for col in extra_groupby_cols:
-                if col in df_region.columns:
-                    group_cols.append(col)
-
-            def q(p):
-                return lambda x: float(np.nanpercentile(x, p))
-
-            agg_region = (
-                df_region.groupby(group_cols, dropna=False)
-                .agg(
-                    min=("value", "min"),
-                    max=("value", "max"),
-                    mean=("value", "mean"),
-                    median=("value", "median"),
-                    p2_5=("value", q(2.5)),
-                    p5=("value", q(5)),
-                    p10=("value", q(10)),
-                    p90=("value", q(90)),
-                    p95=("value", q(95)),
-                    p97_5=("value", q(97.5)),
-                )
-                .reset_index()
-            )
-
-            region_results.append(agg_region)
-
-        # Combine all region results for this slice
-        if len(region_results) > 0:
-            agg_slice = pd.concat(region_results, ignore_index=True)
-            all_chunk_results.append(agg_slice)
+        all_chunk_results.append(agg_slice)
 
         # Explicitly delete large objects to free memory
-        del df_slice, gdf_coords, da_slice_loaded, region_results
+        del df_all_points, agg_slice
         gc.collect()  # Force garbage collection
+
+    # Release cached lookup to free memory before aggregation
+    if coord_region_lookup is not None:
+        del coord_region_lookup
+        gc.collect()
 
     # Close dataset
     ds.close()
@@ -723,6 +900,38 @@ def main():
     # Processing parameters
     ENSEMBLE_FILTER = "median"
 
+    # Chunk size for spatial processing (larger = faster but more memory)
+    # 100x100 is a good balance (~10,000 cells per chunk)
+    CHUNK_SIZE_LAT = 100
+    CHUNK_SIZE_LON = 100
+
+    # ========================================================================
+    # DASK CLUSTER & DASHBOARD
+    # ========================================================================
+
+    print("\n" + "=" * 60)
+    print("STARTING DASK CLUSTER & DASHBOARD")
+    print("=" * 60)
+
+    # Start local Dask cluster with dashboard
+    cluster = LocalCluster(
+        n_workers=4,
+        threads_per_worker=1,
+        memory_limit="2GB",  # Limit per worker to prevent OOM
+        dashboard_address=":8787",  # Dashboard at http://localhost:8787
+    )
+    client = Client(cluster)
+
+    print(f"  ✅ Dask cluster started with {len(cluster.workers)} workers")
+    print(f"  📊 Dashboard available at: {client.dashboard_link}")
+    print(f"  🌐 Open in browser: http://localhost:8787")
+    print(f"  Dask version: {dask.__version__}")
+    print("\n  💡 TIP: Open the dashboard in your browser to see:")
+    print("     - Real-time task progress")
+    print("     - Memory usage per worker")
+    print("     - Task graphs and computation flow")
+    print("     - Worker CPU utilization")
+
     # ========================================================================
     # LOAD EXISTING PRECOMPUTED DATA
     # ========================================================================
@@ -834,7 +1043,14 @@ def main():
                 f"  📊 Aggregating {hazard_type}/{hazard_indicator} over {adm_level} ({len(adm_gdf)} regions)..."
             )
             adm_start_time = time.time()
-            result = process_nc_hazard(nc_path, adm_gdf, adm_level, ENSEMBLE_FILTER)
+            result = process_nc_hazard(
+                nc_path,
+                adm_gdf,
+                adm_level,
+                ENSEMBLE_FILTER,
+                lat_chunk_size=CHUNK_SIZE_LAT,
+                lon_chunk_size=CHUNK_SIZE_LON,
+            )
             all_results.append(result)
             adm_elapsed = time.time() - adm_start_time
             print(
@@ -1022,6 +1238,17 @@ def main():
     print(f"\n✅ Successfully saved results to:\n{OUTPUT_PATH}")
     print("\nFirst few rows:")
     print(final_df.head())
+
+    # ========================================================================
+    # CLEANUP - CLOSE DASK CLIENT
+    # ========================================================================
+
+    print("\n" + "=" * 60)
+    print("CLOSING DASK CLUSTER")
+    print("=" * 60)
+    client.close()
+    cluster.close()
+    print("  ✅ Dask cluster and dashboard closed")
 
     return final_df
 
