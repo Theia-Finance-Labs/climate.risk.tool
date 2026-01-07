@@ -343,14 +343,11 @@ def process_nc_hazard(
         # Prepare shapes and scatter once
         shapes_pkg = prepare_region_shapes(adm_gdf)
         region_id_to_name = shapes_pkg["region_id_to_name"]
-        region_name_to_id = {v: k for k, v in region_id_to_name.items()}
 
         shapes_future = client.scatter(shapes_pkg, broadcast=True)
 
-        # Fallback indices for every region (in case of zero covered pixels)
-        fallbacks = build_missing_region_fallbacks_by_row_order(
-            lats, lons, adm_gdf, region_name_to_id
-        )
+        # Fallback indices for every region_id (row-order IDs)
+        fallbacks = build_missing_region_fallbacks_by_row_order(lats, lons, adm_gdf)
 
         # Build list of all dimension combinations
         if non_spatial_dims:
