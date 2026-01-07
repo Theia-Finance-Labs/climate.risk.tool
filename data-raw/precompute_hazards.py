@@ -18,6 +18,7 @@ import gc
 import itertools
 import time
 import warnings
+import argparse
 from typing import Dict, List, Tuple, Any
 from dataclasses import dataclass
 
@@ -745,7 +746,14 @@ def is_already_processed(
 # ---------------------------------------------------------------------------
 
 
-def main():
+def main(n_workers: int = None, memory_limit: str = "2GB"):
+    """
+    Main function to precompute hazard statistics.
+
+    Args:
+        n_workers: Number of Dask workers. If None, uses CPU count.
+        memory_limit: Memory limit per worker (e.g., "2GB", "4GB").
+    """
     # Paths
     HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
     ADM1_PATH = "workspace/demo_inputs_fullnc/areas/state/geoBoundaries-BRA-ADM1.shp"
@@ -766,13 +774,16 @@ def main():
     # -----------------------------------------------------------------------
     # DASK CLUSTER
     # -----------------------------------------------------------------------
-    num_cpus = os.cpu_count() or 4
-    print(f"  🔍 Detected {num_cpus} CPU(s)")
+    if n_workers is None:
+        n_workers = os.cpu_count() or 4
+
+    print(f"  🔍 Using {n_workers} worker(s)")
+    print(f"  💾 Memory limit per worker: {memory_limit}")
 
     cluster = LocalCluster(
-        n_workers=num_cpus,
+        n_workers=n_workers,
         threads_per_worker=1,
-        memory_limit="2GB",
+        memory_limit=memory_limit,
         dashboard_address="0.0.0.0:8787",
     )
     client = Client(cluster)
@@ -953,4 +964,22 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Precompute hazard statistics aggregated over administrative regions (ADM1/ADM2)."
+    )
+    parser.add_argument(
+        "--n-workers",
+        type=int,
+        default=None,
+        help="Number of Dask workers (default: CPU count)",
+    )
+    parser.add_argument(
+        "--memory-limit",
+        type=str,
+        default="2GB",
+        help="Memory limit per worker (e.g., '2GB', '4GB', '8GB') (default: '2GB')",
+    )
+
+    args = parser.parse_args()
+
+    main(n_workers=args.n_workers, memory_limit=args.memory_limit)
