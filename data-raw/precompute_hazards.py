@@ -187,25 +187,25 @@ def compute_exact_stats(values: np.ndarray) -> Dict[str, float]:
     }
 
 
-def build_missing_region_fallbacks(
+def build_missing_region_fallbacks_by_row_order(
     lats: np.ndarray,
     lons: np.ndarray,
     adm_gdf: gpd.GeoDataFrame,
-    region_name_to_id: Dict[str, int],
 ) -> Dict[int, Tuple[int, int]]:
     """
-    For regions that might have zero pixels covered, assign a fallback grid cell nearest to centroid.
-    Returns {region_id: (ilat, ilon)}.
+    Fallback cell per region_id using the SAME region_id definition as rasterization:
+      region_id = row order + 1
+    This works even if region names are duplicated.
     """
-    fallbacks = {}
-    for _, row in adm_gdf.iterrows():
-        name = row["region"]
-        rid = region_name_to_id[name]
-        geom = row.geometry
+    fallbacks: Dict[int, Tuple[int, int]] = {}
+
+    for i, geom in enumerate(adm_gdf.geometry):
+        rid = i + 1  # critical: consistent with prepare_region_shapes()
         c = geom.centroid
         ilat = int(np.argmin(np.abs(lats - c.y)))
         ilon = int(np.argmin(np.abs(lons - c.x)))
         fallbacks[rid] = (ilat, ilon)
+
     return fallbacks
 
 
@@ -348,7 +348,7 @@ def process_nc_hazard(
         shapes_future = client.scatter(shapes_pkg, broadcast=True)
 
         # Fallback indices for every region (in case of zero covered pixels)
-        fallbacks = build_missing_region_fallbacks(
+        fallbacks = build_missing_region_fallbacks_by_row_order(
             lats, lons, adm_gdf, region_name_to_id
         )
 
