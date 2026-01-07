@@ -216,14 +216,12 @@ def build_missing_region_fallbacks_by_row_order(
 
 
 @dataclass
-class BlockIndex:
+class BlockRegionIds:
     lat_start: int
     lat_end: int
     lon_start: int
     lon_end: int
-    idx_by_rid: Dict[
-        int, np.ndarray
-    ]  # rid -> 1D np.ndarray (flat indices within block)
+    region_ids: np.ndarray  # int32 (lat, lon)
 
 
 def _rasterize_block_region_ids(
@@ -247,15 +245,15 @@ def _rasterize_block_region_ids(
     return region_ids
 
 
-def _precompute_block_indices_for_adm(
+def _precompute_block_region_ids(
     lats: np.ndarray,
     lons: np.ndarray,
-    da_2d: xr.DataArray,  # only used for its chunks layout
+    da_2d: xr.DataArray,
     shapes_pkg: Dict[str, Any],
     all_touched: bool = False,
-) -> List[BlockIndex]:
+) -> List[BlockRegionIds]:
     """
-    Precompute, for each dask block, a mapping rid -> flat indices within that block.
+    Precompute, for each dask block, the region_ids grid.
     This is computed ONCE per file+adm (and reused for all dimension combos).
     """
     darr = da_2d.data
@@ -263,17 +261,13 @@ def _precompute_block_indices_for_adm(
     if not isinstance(darr, dask.array.Array):
         # single block covering full array
         region_ids = _rasterize_block_region_ids(lats, lons, shapes_pkg, all_touched)
-        rid_flat = region_ids.ravel()
-        present = np.unique(rid_flat)
-        present = present[present > 0]
-        idx_by_rid = {int(r): np.flatnonzero(rid_flat == r) for r in present}
         return [
-            BlockIndex(
+            BlockRegionIds(
                 lat_start=0,
                 lat_end=len(lats),
                 lon_start=0,
                 lon_end=len(lons),
-                idx_by_rid=idx_by_rid,
+                region_ids=region_ids.astype(np.int32, copy=False),
             )
         ]
 
@@ -283,7 +277,7 @@ def _precompute_block_indices_for_adm(
     lat_starts = np.cumsum((0,) + lat_chunks[:-1])
     lon_starts = np.cumsum((0,) + lon_chunks[:-1])
 
-    blocks: List[BlockIndex] = []
+    out: List[BlockRegionIds] = []
     for ls, lsz in zip(lat_starts, lat_chunks):
         ls = int(ls)
         le = ls + int(lsz)
@@ -298,116 +292,43 @@ def _precompute_block_indices_for_adm(
                 lat_block, lon_block, shapes_pkg, all_touched
             )
 
-            rid_flat = region_ids.ravel()
-            present = np.unique(rid_flat)
-            present = present[present > 0]
-            if present.size == 0:
-                idx_by_rid = {}
-            else:
-                idx_by_rid = {int(r): np.flatnonzero(rid_flat == r) for r in present}
-
-            blocks.append(
-                BlockIndex(
+            out.append(
+                BlockRegionIds(
                     lat_start=ls,
                     lat_end=le,
                     lon_start=cs,
                     lon_end=ce,
-                    idx_by_rid=idx_by_rid,
+                    region_ids=region_ids.astype(np.int32, copy=False),
                 )
             )
-
-    return blocks
-
-
-def _extract_with_precomputed_indices(
-    values_block: np.ndarray,
-    idx_by_rid: Dict[int, np.ndarray],
-    hazard_type: str,
-) -> Dict[int, np.ndarray]:
-    """
-    Worker-side extraction using precomputed rid->indices for this block.
-    """
-    if values_block.ndim != 2:
-        raise ValueError(f"Expected 2D block, got shape {values_block.shape}")
-
-    if hazard_type == "Heat":
-        values_block = np.where(values_block > 300, values_block, np.nan)
-
-    if not idx_by_rid:
-        return {}
-
-    vflat = values_block.ravel()
-    if np.all(np.isnan(vflat)):
-        return {}
-
-    out: Dict[int, np.ndarray] = {}
-    for rid, idx in idx_by_rid.items():
-        vals = vflat[idx]
-        if vals.size == 0:
-            continue
-        vals = vals[~np.isnan(vals)]
-        if vals.size == 0:
-            continue
-        out[int(rid)] = vals
 
     return out
 
 
-# ---------------------------------------------------------------------------
-# DASK BLOCK EXTRACTION TASK
-# ---------------------------------------------------------------------------
-
-
-def _block_extract_region_values(
+def _extract_with_region_ids(
     values_block: np.ndarray,
-    lat_block: np.ndarray,
-    lon_block: np.ndarray,
-    shapes_pkg: Dict[str, Any],
+    region_ids: np.ndarray,
     hazard_type: str,
 ) -> Dict[int, np.ndarray]:
     """
-    Run on workers. Given a computed values block and its 1D lat/lon coordinate arrays,
-    rasterize polygons onto the block grid and return raw values per region_id.
-
-    Returns:
-        dict {region_id: 1D np.ndarray of values (float32/float64), NaNs removed}
+    Worker-side extraction using precomputed region_ids for this block.
     """
-    # values_block is 2D (lat, lon)
     if values_block.ndim != 2:
         raise ValueError(f"Expected 2D block, got shape {values_block.shape}")
 
-    # nodata filtering example: Heat rule
     if hazard_type == "Heat":
-        # Kelvin HI values should be > 300
         values_block = np.where(values_block > 300, values_block, np.nan)
 
-    # fast skip if all nan
     if np.all(np.isnan(values_block)):
         return {}
 
-    # Build transform for this block
-    lon_min, lat_min, lon_max, lat_max = _grid_bounds(lat_block, lon_block)
-    transform = from_bounds(
-        lon_min, lat_min, lon_max, lat_max, len(lon_block), len(lat_block)
-    )
-
-    region_ids = rasterio.features.rasterize(
-        shapes_pkg["shapes"],
-        out_shape=(len(lat_block), len(lon_block)),
-        transform=transform,
-        fill=0,
-        dtype=np.int32,
-        all_touched=False,  # pixel center inside polygon
-    )
-
-    out: Dict[int, np.ndarray] = {}
-
-    # extract per present region
+    # region_ids same shape as values_block
     present = np.unique(region_ids)
     present = present[present > 0]
     if present.size == 0:
         return {}
 
+    out: Dict[int, np.ndarray] = {}
     for rid in present:
         mask = region_ids == rid
         vals = values_block[mask]
@@ -492,6 +413,11 @@ def process_nc_hazard(
         # If you want strict pixel-center rule keep False; if you want fewer missing muni set True.
         all_touched = adm_level == "ADM2"
 
+        # Reduce chunk size for AFlood to manage memory
+        if hazard_type == "AFlood":
+            chunk_lat, chunk_lon = 2048, 2048
+            da = da.chunk({"lat": chunk_lat, "lon": chunk_lon})
+
         # Precompute block rid->indices ONCE (huge win for ADM2)
         # We need a 2D representative array with same chunking.
         da_probe = da
@@ -499,17 +425,13 @@ def process_nc_hazard(
             sel = {d: da[d].values[0] for d in non_spatial_dims}
             da_probe = da.sel(sel)
         da_probe = da_probe.transpose("lat", "lon")
-        block_indices = _precompute_block_indices_for_adm(
+        block_rids = _precompute_block_region_ids(
             lats=lats,
             lons=lons,
             da_2d=da_probe,
             shapes_pkg=shapes_pkg,
             all_touched=all_touched,
         )
-
-        # Scatter block index dicts to workers (keeps graphs smaller)
-        idx_by_rid_list = [b.idx_by_rid for b in block_indices]
-        idx_by_rid_futures = client.scatter(idx_by_rid_list, broadcast=True)
 
         # Fallback indices for every region_id (row-order IDs)
         fallbacks = build_missing_region_fallbacks_by_row_order(lats, lons, adm_gdf)
@@ -548,27 +470,24 @@ def process_nc_hazard(
                 # fallback: just compute the full array (small data)
                 values_full = da_slice.values
                 block_dicts = [
-                    _extract_with_precomputed_indices(
-                        values_full, idx_by_rid_list[0], hazard_type
+                    _extract_with_region_ids(
+                        values_full, block_rids[0].region_ids, hazard_type
                     )
                 ]
             else:
                 blocks = darr.to_delayed().ravel()
-                if len(blocks) != len(idx_by_rid_list):
+                if len(blocks) != len(block_rids):
                     raise ValueError(
                         f"Block layout mismatch: slice has {len(blocks)} blocks but precomputed "
-                        f"{len(idx_by_rid_list)} blocks. (Check chunking consistency.)"
+                        f"{len(block_rids)} blocks. (Check chunking consistency.)"
                     )
 
                 tasks = []
                 for b_idx, block_delayed in enumerate(blocks):
-                    t = delayed(
-                        _extract_with_precomputed_indices,
-                        pure=False,
-                        name=f"extract2-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{b_idx}",
-                    )(
+                    region_ids = block_rids[b_idx].region_ids  # numpy array on driver
+                    t = delayed(_extract_with_region_ids, pure=False)(
                         block_delayed,
-                        idx_by_rid_futures[b_idx],
+                        region_ids,
                         hazard_type,
                     )
                     tasks.append(t)
