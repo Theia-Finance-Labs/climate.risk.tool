@@ -208,6 +208,9 @@ def build_coordinate_region_lookup(
 
     This allows us to skip running a spatial join for every chunk and reuse the same mapping
     when processing every dimension combination.
+
+    Includes a fallback mechanism: for regions that contain no grid point centers,
+    the nearest grid point center is assigned to ensure every region has data.
     """
     total_points = len(lats) * len(lons)
 
@@ -256,19 +259,66 @@ def build_coordinate_region_lookup(
         gc.collect()
 
     if not coords_batches:
-        return pd.DataFrame(columns=["lat", "lon", "region"])
-
-    lookup_df = pd.concat(coords_batches, ignore_index=True)
+        lookup_df = pd.DataFrame(columns=["lat", "lon", "region"])
+    else:
+        lookup_df = pd.concat(coords_batches, ignore_index=True)
     lookup_df = (
-        lookup_df.drop_duplicates(subset=["lat", "lon"])
+        lookup_df.drop_duplicates(subset=["lat", "lon", "region"])
         .reset_index(drop=True)
         .astype({"lat": float, "lon": float})
     )
 
-    print(
-        f"    Coordinate lookup cached for {len(lookup_df):,} points "
-        f"({len(coords_batches)} batch(es))."
-    )
+    # Fallback for missing regions: assign nearest point to centroid
+    assigned_regions = set(lookup_df["region"].unique())
+    all_regions = set(adm_gdf["region"].unique())
+    missing_regions_names = all_regions - assigned_regions
+
+    if missing_regions_names:
+        print(
+            f"    📍 {len(missing_regions_names)} regions missing grid points. "
+            "Assigning nearest neighbor fallbacks..."
+        )
+
+        missing_regions_gdf = adm_gdf[
+            adm_gdf["region"].isin(missing_regions_names)
+        ].copy()
+
+        # Create a GeoDataFrame of ALL unique grid points for distance calculation
+        lat_repeat_all = np.repeat(lats, len(lons))
+        lon_tile_all = np.tile(lons, len(lats))
+        all_points_gdf = gpd.GeoDataFrame(
+            {"lat": lat_repeat_all, "lon": lon_tile_all},
+            geometry=gpd.points_from_xy(lon_tile_all, lat_repeat_all),
+            crs="EPSG:4326",
+        )
+
+        # Project to a metric CRS for accurate distance (Web Mercator is usually fine for this scale)
+        # Using a more local projection could be better but 3857 is generally acceptable for center-of-Brazil
+        all_points_proj = all_points_gdf.to_crs(epsg=3857)
+        missing_regions_proj = missing_regions_gdf.to_crs(epsg=3857)
+
+        fallbacks = []
+        for idx, region_row in missing_regions_proj.iterrows():
+            region_name = region_row["region"]
+            centroid = region_row.geometry.centroid
+
+            # Find index of nearest point
+            distances = all_points_proj.distance(centroid)
+            nearest_idx = distances.idxmin()
+
+            nearest_lat = all_points_gdf.loc[nearest_idx, "lat"]
+            nearest_lon = all_points_gdf.loc[nearest_idx, "lon"]
+
+            fallbacks.append(
+                {"lat": nearest_lat, "lon": nearest_lon, "region": region_name}
+            )
+
+        if fallbacks:
+            fallback_df = pd.DataFrame(fallbacks)
+            lookup_df = pd.concat([lookup_df, fallback_df], ignore_index=True)
+            print(f"    ✅ Added {len(fallbacks)} fallback assignments.")
+
+    print(f"    Coordinate lookup cached for {len(lookup_df):,} point-region pairs.")
 
     return lookup_df
 
@@ -286,34 +336,12 @@ def process_nc_hazard(
 
     Uses chunked processing to handle large files efficiently without loading
     entire dataset into memory at once.
-
-    Args:
-        nc_path: Path to NetCDF file
-        adm_gdf: GeoDataFrame with administrative boundaries (should have spatial index)
-        adm_level: Administrative level name (e.g., 'ADM1', 'ADM2')
-        ensemble_filter: Ensemble value to filter for (e.g., 'mean')
-
-    Returns:
-        pd.DataFrame: Aggregated statistics per region
-
-    Raises:
-        FileNotFoundError: If NC file doesn't exist
-        ValueError: If required dimensions/variables are missing
-        RuntimeError: If spatial operations fail
     """
     if not os.path.exists(nc_path):
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
 
-    # Ensure spatial index exists for faster spatial joins
-    if not adm_gdf.sindex:
-        adm_gdf.sindex
-
     # Open with chunks={} to ensure we get Dask arrays (using native chunking)
-    # This enables parallel computation via the Dask cluster
     ds = xr.open_dataset(nc_path, chunks={})
-
-    # Check if we need to chunk manually (e.g. if file is not chunked)
-    # We'll rely on explicit slicing later rather than dask chunking at open time
 
     # Get the data variable
     var_names = list(ds.data_vars.keys())
@@ -326,23 +354,18 @@ def process_nc_hazard(
     has_ensemble = False
     ensemble_value_used = None
     if "ensemble" in da.dims:
-        # Check if the requested ensemble value exists
         available_ensembles = da.coords["ensemble"].values.tolist()
-
-        # Convert numpy types to Python strings for comparison
         available_ensembles_str = [str(e) for e in available_ensembles]
 
         if ensemble_filter in available_ensembles_str:
-            # Use the requested ensemble
             idx = available_ensembles_str.index(ensemble_filter)
             da = da.sel(ensemble=available_ensembles[idx])
             has_ensemble = True
             ensemble_value_used = ensemble_filter
         else:
-            # If requested ensemble not found, use the first available one
-            print(f"    ⚠️  Ensemble '{ensemble_filter}' not found in this file.")
-            print(f"    Available ensembles: {available_ensembles_str}")
-            print(f"    Using: '{available_ensembles_str[0]}'")
+            print(
+                f"    ⚠️  Ensemble '{ensemble_filter}' not found. Using: '{available_ensembles_str[0]}'"
+            )
             da = da.sel(ensemble=available_ensembles[0])
             has_ensemble = True
             ensemble_value_used = str(available_ensembles[0])
@@ -350,39 +373,32 @@ def process_nc_hazard(
     # Extract hazard info from path
     hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
 
-    # Get dimension information for chunking
+    # Get dimension information
     dims = list(da.dims)
     if "lon" not in dims or "lat" not in dims:
         raise ValueError(f"Missing required coordinates (lon/lat) in {nc_path}")
 
-    # Identify non-spatial dimensions (scenario, return_period, season, etc.)
     non_spatial_dims = [d for d in dims if d not in ["lon", "lat"]]
 
-    # Build coordinate -> region lookup to avoid repeated spatial joins
+    # Build coordinate -> region lookup (with fallbacks for missing regions)
     lats = da.coords["lat"].values
     lons = da.coords["lon"].values
     coord_region_lookup = build_coordinate_region_lookup(lats, lons, adm_gdf)
 
-    # Build list of all dimension combinations to iterate over
+    # Build list of all dimension combinations
     dim_combinations = []
     if non_spatial_dims:
-        # Get all unique values for each non-spatial dimension
         dim_values = {dim: da[dim].values for dim in non_spatial_dims}
-
-        # Create all combinations
         keys = list(dim_values.keys())
         for combo in itertools.product(*[dim_values[k] for k in keys]):
             dim_combinations.append(dict(zip(keys, combo)))
     else:
-        # No non-spatial dimensions, process entire array
         dim_combinations = [{}]
 
-    # Process each combination separately to avoid loading entire dataset
     all_chunk_results = []
 
-    # Add progress bar for dimension combinations
     print(
-        f"    Processing {len(dim_combinations)} dimension combination(s) for {len(adm_gdf)} regions..."
+        f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
     )
     for dim_combo in tqdm(
         dim_combinations, desc="    Processing", leave=False, ncols=80
@@ -392,38 +408,20 @@ def process_nc_hazard(
         for dim_name, dim_val in dim_combo.items():
             da_slice = da_slice.sel({dim_name: dim_val})
 
-        # Process in smaller spatial chunks to avoid loading everything at once
-        # Get lat/lon dimensions - CRITICAL: Ensure we don't load 2D coords if not needed
-        # For rectilinear grids, lats/lons are 1D arrays (tiny).
-        # For curvilinear, they might be 2D (huge).
-        lats = da_slice.coords["lat"].values
-        lons = da_slice.coords["lon"].values
+        # --- Mistake Fix: Nodata Handling ---
+        # Specific fix for Heat HI which has 76.02 and other low values as nodata
+        # Real Heat Index values in Kelvin are typically > 300 (27°C)
+        if hazard_type == "Heat":
+            da_slice = da_slice.where(da_slice > 300)
+        # ------------------------------------
 
-        # Check if coordinates are 1D or 2D
-        is_rectilinear = (lats.ndim == 1) and (lons.ndim == 1)
-
-        if not is_rectilinear:
-            # Handle 2D coordinates (curvilinear grid) - rarer but possible
-            print("    ⚠️  2D Coordinates detected! Memory usage may be higher.")
-            # Flatten logic would be needed here, but for now assuming standard 1D lat/lon vectors
-
-        # Define chunk size for processing
-        # lat_chunk_size and lon_chunk_size are passed as arguments
-
-        # ACCUMULATOR: Store (region, value, dimension_cols...) as we go through chunks
         accumulated_points = []
-
-        # Calculate total number of spatial chunks for progress tracking
         n_lat = len(lats)
         n_lon = len(lons)
-
         n_lat_chunks = (n_lat + lat_chunk_size - 1) // lat_chunk_size
         n_lon_chunks = (n_lon + lon_chunk_size - 1) // lon_chunk_size
         total_spatial_chunks = n_lat_chunks * n_lon_chunks
 
-        # Iterate over spatial chunks with progress bar
-        # We process sequentially in the main thread to keep overhead low
-        # Dask handles the actual data loading/computation in the background threads
         spatial_pbar = tqdm(
             total=total_spatial_chunks,
             desc="      Spatial chunks",
@@ -432,43 +430,17 @@ def process_nc_hazard(
             position=1,
         )
 
-        from shapely.geometry import box
-
         for lat_start in range(0, n_lat, lat_chunk_size):
             lat_end = min(lat_start + lat_chunk_size, n_lat)
-
             for lon_start in range(0, n_lon, lon_chunk_size):
                 lon_end = min(lon_start + lon_chunk_size, n_lon)
 
-                # 1. Get chunk bounding box to find overlapping regions
-                chunk_lats = lats[lat_start:lat_end]
-                chunk_lons = lons[lon_start:lon_end]
-                lat_min, lat_max = float(chunk_lats.min()), float(chunk_lats.max())
-                lon_min, lon_max = float(chunk_lons.min()), float(chunk_lons.max())
-
-                # 2. Find overlapping regions using spatial index (FAST lookup!)
-                # Note: bounds are (minx, miny, maxx, maxy)
-                chunk_bbox_bounds = (lon_min, lat_min, lon_max, lat_max)
-                possible_matches_idx = list(
-                    adm_gdf.sindex.intersection(chunk_bbox_bounds)
-                )
-
-                if len(possible_matches_idx) == 0:
-                    # No regions overlap this chunk - skip it entirely
-                    spatial_pbar.update(1)
-                    continue
-
-                # Get only the overlapping regions
-                overlapping_regions = adm_gdf.iloc[possible_matches_idx]
-
-                # 3. Select spatial chunk (lazy dask slice)
+                # Select spatial chunk (lazy)
                 da_chunk = da_slice.isel(
                     lat=slice(lat_start, lat_end), lon=slice(lon_start, lon_end)
                 )
 
-                # 4. Compute chunk
-                # If the file is chunked appropriately, this only fetches necessary data
-                # If not, we might need to rechunk the dataset once after opening
+                # Compute and convert to dataframe
                 if isinstance(da_chunk.data, dask.array.Array):
                     da_chunk_loaded = da_chunk.compute()
                 else:
@@ -476,9 +448,6 @@ def process_nc_hazard(
 
                 spatial_pbar.update(1)
 
-                # 5. Convert to dataframe
-                # Optimized conversion: standard to_dataframe() can be slow
-                # but for small chunks (50x50 = 2500 rows) it's fine
                 df_chunk = (
                     da_chunk_loaded.to_dataframe(name="value")
                     .reset_index()
@@ -489,59 +458,54 @@ def process_nc_hazard(
                     del da_chunk_loaded
                     continue
 
-                # 6. Create point geometries for this chunk
-                gdf_chunk = gpd.GeoDataFrame(
-                    df_chunk,
-                    geometry=gpd.points_from_xy(df_chunk["lon"], df_chunk["lat"]),
-                    crs="EPSG:4326",
-                )
-
-                # 7. Spatial join
-                joined = gpd.sjoin(
-                    gdf_chunk,
-                    overlapping_regions[["region", "geometry"]],
-                    how="inner",
-                    predicate="within",
-                )
+                # --- Mistake Fix: Handle fallback when lookup table is None ---
+                if coord_region_lookup is not None:
+                    joined = pd.merge(
+                        df_chunk, coord_region_lookup, on=["lat", "lon"], how="inner"
+                    )
+                else:
+                    # Fallback: spatial join for this specific chunk
+                    gdf_chunk = gpd.GeoDataFrame(
+                        df_chunk,
+                        geometry=gpd.points_from_xy(df_chunk["lon"], df_chunk["lat"]),
+                        crs="EPSG:4326",
+                    )
+                    joined = gpd.sjoin(
+                        gdf_chunk,
+                        adm_gdf[["region", "geometry"]],
+                        how="inner",
+                        predicate="within",
+                    )
+                    # Convert back to DataFrame and drop geometry for consistency
+                    joined = pd.DataFrame(joined.drop(columns="geometry"))
+                # -----------------------------------------------------------
 
                 if len(joined) > 0:
-                    # 8. Accumulate
+                    # Accumulate only necessary columns
                     cols_to_keep = ["region", "value"]
                     for col in joined.columns:
-                        if (
-                            col not in ["geometry", "index_right", "lon", "lat"]
-                            and col not in cols_to_keep
-                        ):
+                        if col in dim_combo and col not in cols_to_keep:
                             cols_to_keep.append(col)
-
                     accumulated_points.append(joined[cols_to_keep])
 
-                # Cleanup per chunk
-                del da_chunk_loaded, df_chunk, gdf_chunk, joined
-                # gc.collect() # Don't GC every chunk, it's expensive. Let Python handle it.
+                del da_chunk_loaded, df_chunk, joined
 
         spatial_pbar.close()
-        gc.collect()  # GC once after the loop
+        gc.collect()
 
-        # 9. After processing all chunks, aggregate accumulated points by region
         if len(accumulated_points) == 0:
-            continue  # Skip if no data in this dimension slice
+            continue
 
         df_all_points = pd.concat(accumulated_points, ignore_index=True)
         del accumulated_points
         gc.collect()
 
-        # Add metadata columns
+        # Add metadata
         df_all_points["hazard_type"] = hazard_type
         df_all_points["hazard_indicator"] = hazard_indicator
+        df_all_points["ensemble"] = ensemble_value_used if has_ensemble else None
 
-        # Only set ensemble if dimension actually exists and was filtered
-        if has_ensemble:
-            df_all_points["ensemble"] = ensemble_value_used
-        else:
-            df_all_points["ensemble"] = None
-
-        # Rename GWL and return_period columns if they exist
+        # Standardize column names
         if "GWL" in df_all_points.columns:
             df_all_points = df_all_points.rename(columns={"GWL": "scenario_name"})
         if "return_period" in df_all_points.columns:
@@ -549,33 +513,25 @@ def process_nc_hazard(
                 columns={"return_period": "hazard_return_period"}
             )
 
-        # Detect additional categorical columns
+        # Identify groupby columns
         metadata_cols = [
             "scenario_name",
-            "lon",
-            "lat",
             "hazard_return_period",
             "ensemble",
             "hazard_type",
             "hazard_indicator",
             "value",
-            "geometry",
-            "index_right",
             "region",
         ]
-        extra_groupby_cols = [
-            c for c in df_all_points.columns if c not in metadata_cols
-        ]
-
-        # 10. Aggregate statistics per region (ONCE, with ALL accumulated points)
         group_cols = ["hazard_type", "hazard_indicator", "region", "ensemble"]
         if "scenario_name" in df_all_points.columns:
             group_cols.insert(0, "scenario_name")
         if "hazard_return_period" in df_all_points.columns:
             group_cols.insert(1, "hazard_return_period")
-        for col in extra_groupby_cols:
-            if col in df_all_points.columns:
-                group_cols.append(col)
+
+        # Add any extra dimensions (like season)
+        extra_dims = [c for c in df_all_points.columns if c not in metadata_cols]
+        group_cols.extend(extra_dims)
 
         def q(p):
             return lambda x: float(np.nanpercentile(x, p))
@@ -598,26 +554,19 @@ def process_nc_hazard(
         )
 
         all_chunk_results.append(agg_slice)
-
-        # Explicitly delete large objects to free memory
         del df_all_points, agg_slice
-        gc.collect()  # Force garbage collection
-
-    # Release cached lookup to free memory before aggregation
-    if coord_region_lookup is not None:
-        del coord_region_lookup
         gc.collect()
 
-    # Close dataset
+    if coord_region_lookup is not None:
+        del coord_region_lookup
     ds.close()
 
     if len(all_chunk_results) == 0:
         raise ValueError(f"No valid data in NetCDF after filtering: {nc_path}")
 
-    # Combine all chunk results
     agg = pd.concat(all_chunk_results, ignore_index=True)
 
-    # Format output
+    # Fill missing columns for consistency
     if "scenario_name" not in agg.columns:
         agg["scenario_name"] = np.nan
     if "hazard_return_period" not in agg.columns:
@@ -625,8 +574,8 @@ def process_nc_hazard(
 
     agg["adm_level"] = adm_level
 
-    # Build output columns list
-    cols = [
+    # Final column ordering
+    base_cols = [
         "region",
         "adm_level",
         "scenario_name",
@@ -645,29 +594,9 @@ def process_nc_hazard(
         "p97_5",
         "ensemble",
     ]
+    extra_cols = [c for c in agg.columns if c not in base_cols]
 
-    # Detect extra groupby columns from aggregated results
-    metadata_cols = [
-        "scenario_name",
-        "lon",
-        "lat",
-        "hazard_return_period",
-        "ensemble",
-        "hazard_type",
-        "hazard_indicator",
-        "value",
-        "geometry",
-        "index_right",
-    ]
-    extra_groupby_cols = [
-        c for c in agg.columns if c not in metadata_cols and c not in cols
-    ]
-
-    for col in extra_groupby_cols:
-        if col in agg.columns and col not in cols:
-            cols.append(col)
-
-    return agg[cols]
+    return agg[base_cols + extra_cols]
 
 
 # ============================================================================
@@ -898,7 +827,7 @@ def main():
     # ========================================================================
 
     # Input paths
-    HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
+    HAZARDS_DIR = "workspace/demo_inputs_fullnc copy small/hazards"
     ADM1_PATH = "tests/tests_data/areas/state/geoBoundaries-BRA-ADM1.shp"
     ADM2_PATH = "tests/tests_data/areas/municipality/geoBoundaries-BRA-ADM2.shp"
 
@@ -924,18 +853,26 @@ def main():
     print("STARTING DASK CLUSTER & DASHBOARD")
     print("=" * 60)
 
+    # Detect number of CPUs
+    num_cpus = os.cpu_count() or 4  # Fallback to 4 if detection fails
+    print(f"  🔍 Detected {num_cpus} CPU(s)")
+
     # Start local Dask cluster with dashboard
+    # Bind to 0.0.0.0 to allow external access (e.g., from Google Cloud VM)
     cluster = LocalCluster(
-        n_workers=4,
+        n_workers=num_cpus,
         threads_per_worker=1,
         memory_limit="2GB",  # Limit per worker to prevent OOM
-        dashboard_address=":8787",  # Dashboard at http://localhost:8787
+        dashboard_address="0.0.0.0:8787",  # Bind to all interfaces for cloud access
     )
     client = Client(cluster)
 
     print(f"  ✅ Dask cluster started with {len(cluster.workers)} workers")
     print(f"  📊 Dashboard available at: {client.dashboard_link}")
-    print(f"  🌐 Open in browser: http://localhost:8787")
+    print(f"  🌐 Local access: http://localhost:8787")
+    print(f"  ☁️  Cloud VM access: http://<EXTERNAL_IP>:8787")
+    print(f"     (Replace <EXTERNAL_IP> with your VM's external IP address)")
+    print(f"  ⚠️  Note: Ensure firewall rule allows TCP port 8787")
     print(f"  Dask version: {dask.__version__}")
     print("\n  💡 TIP: Open the dashboard in your browser to see:")
     print("     - Real-time task progress")
