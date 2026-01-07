@@ -827,9 +827,11 @@ def main():
     # ========================================================================
 
     # Input paths
-    HAZARDS_DIR = "workspace/demo_inputs_fullnc copy small/hazards"
-    ADM1_PATH = "tests/tests_data/areas/state/geoBoundaries-BRA-ADM1.shp"
-    ADM2_PATH = "tests/tests_data/areas/municipality/geoBoundaries-BRA-ADM2.shp"
+    HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
+    ADM1_PATH = "workspace/demo_inputs_fullnc/areas/state/geoBoundaries-BRA-ADM1.shp"
+    ADM2_PATH = (
+        "workspace/demo_inputs_fullnc/areas/municipality/geoBoundaries-BRA-ADM2.shp"
+    )
 
     # Output path
     OUTPUT_PATH = (
