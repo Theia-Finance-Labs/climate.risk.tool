@@ -1,14 +1,15 @@
 """
-Precompute hazard statistics aggregated over administrative regions.
+Precompute hazard statistics aggregated over administrative regions (ADM1/ADM2).
 
-This script processes NetCDF (.nc) hazard files, extracting statistical summaries
-(min, max, mean, percentiles) for each administrative region (ADM1 and ADM2 levels).
+This version computes EXACT statistics (min/max/mean/median/percentiles) by:
+  1) Using Dask workers to extract RAW values per region from each chunk (block).
+  2) Returning those region cutouts to the driver.
+  3) Concatenating per-region values on the driver and computing exact stats.
 
-The output is a single CSV file combining all hazard types and regions.
-
-Hazard-specific dimensions (such as 'season' for drought hazards) are automatically
-detected and preserved in the output. Hazards without these dimensions will have
-NaN values for those columns, allowing flexible processing of mixed dimension sets.
+Notes:
+- Mean is computed from raw values (but could be reduced via sum/count too).
+- Quantiles are exact because they are computed from the full raw value set.
+- Requires the NetCDF grid to be a regular lat/lon grid (1D lat, 1D lon).
 """
 
 import os
@@ -16,626 +17,532 @@ import glob
 import gc
 import itertools
 import time
+import warnings
+from typing import Dict, List, Tuple, Any
+
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 import xarray as xr
-import rasterio
+
 import rasterio.features
 from rasterio.transform import from_bounds
+
 import dask
-from dask.diagnostics import ProgressBar
+from dask import delayed
 from dask.distributed import Client, LocalCluster
 from unidecode import unidecode
 from tqdm import tqdm
 
 
-import warnings
+# ---------------------------------------------------------------------------
+# WARNINGS
+# ---------------------------------------------------------------------------
 
-# Silence Dask's "Sending large graph" warning
-# We know we have many chunks (necessary for 2.5B points), so the graph is large.
-# This warning is just advisory and we accept the overhead.
 warnings.filterwarnings("ignore", message="Sending large graph")
 warnings.filterwarnings(
     "ignore", message="The specified chunks separate the stored chunks"
 )
 
-# ============================================================================
-# HELPER FUNCTIONS
-# ============================================================================
+
+# ---------------------------------------------------------------------------
+# HELPERS
+# ---------------------------------------------------------------------------
 
 
-def parse_hazard_from_path(path):
+def parse_hazard_from_path(path: str) -> Tuple[str, str]:
     """
     Extract hazard_type and hazard_indicator from directory structure.
 
     Expected path format: .../hazards/HazardType/HazardIndicator/...
 
-    Args:
-        path: File path containing hazard directory structure
-
-    Returns:
-        tuple: (hazard_type, hazard_indicator)
-
-    Raises:
-        ValueError: If path structure is invalid
+    Returns: (hazard_type, hazard_indicator)
     """
-    path_parts = path.split(os.sep)
-
-    if "hazards" not in path_parts:
+    parts = path.split(os.sep)
+    if "hazards" not in parts:
         raise ValueError(
             f"Invalid path structure - 'hazards' directory not found: {path}"
         )
-
-    hazards_idx = path_parts.index("hazards")
-
-    if hazards_idx + 2 >= len(path_parts):
+    i = parts.index("hazards")
+    if i + 2 >= len(parts):
         raise ValueError(
             f"Invalid path structure - missing hazard type/indicator: {path}"
         )
-
-    hazard_type = path_parts[hazards_idx + 1]
-    hazard_indicator = path_parts[hazards_idx + 2]
-
-    return hazard_type, hazard_indicator
+    return parts[i + 1], parts[i + 2]
 
 
 def fix_text(text):
-    """
-    Normalize text by removing accents and converting to ASCII.
-
-    This is equivalent to R's stri_trans_general("Latin-ASCII") and ensures
-    region names from shapefiles are consistently normalized (no accents).
-
-    Args:
-        text: Input string (typically region names from shapefiles)
-
-    Returns:
-        str: Cleaned text with accents converted to ASCII
-    """
     if not isinstance(text, str):
         return text
-
-    # Simply unidecode - this removes accents and converts to ASCII
-    # This matches what R does with stri_trans_general("Latin-ASCII")
     return unidecode(text)
 
 
-def load_adm_shapefile(adm_path):
-    """
-    Load administrative boundary shapefile with strict validation.
-
-    Args:
-        adm_path: Path to shapefile
-
-    Returns:
-        gpd.GeoDataFrame: Loaded and validated geodataframe with 'region' column
-
-    Raises:
-        FileNotFoundError: If shapefile doesn't exist
-        ValueError: If CRS is missing or region name column not found
-    """
+def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
     if not os.path.exists(adm_path):
         raise FileNotFoundError(f"Shapefile not found: {adm_path}")
 
-    # Try reading with UTF-8 encoding first, then latin1 if that fails
     try:
         gdf = gpd.read_file(adm_path, encoding="utf-8")
     except (UnicodeDecodeError, Exception):
-        print(f"  ⚠️  UTF-8 encoding failed, trying latin1 for {adm_path}")
         try:
             gdf = gpd.read_file(adm_path, encoding="latin1")
-        except:
-            # Fall back to default encoding
+        except Exception:
             gdf = gpd.read_file(adm_path)
 
-    # Strict CRS validation - fail if not defined
     if gdf.crs is None:
         raise ValueError(f"CRS not defined in shapefile: {adm_path}")
 
-    # Transform to WGS84 if needed
-    if gdf.crs != "EPSG:4326":
+    if str(gdf.crs) != "EPSG:4326":
         gdf = gdf.to_crs("EPSG:4326")
 
-    # Find region name column
     name_col = None
     for col in ["shapeName", "NAME_2", "NAME_1", "NAME", "name", "prov_name"]:
         if col in gdf.columns:
             name_col = col
             break
-
     if name_col is None:
         raise ValueError(f"No valid region name column found in shapefile: {adm_path}")
 
-    # Apply unidecode to ALL region names to remove accents
-    # This ensures consistent ASCII-only names throughout
-    print(f"  🔧 Applying unidecode to region names from column '{name_col}'...")
-
-    # Show a few examples before/after
-    sample_originals = gdf[name_col].head(5).tolist()
+    gdf = gdf.copy()
     gdf["region"] = gdf[name_col].apply(fix_text)
-    sample_fixed = gdf["region"].head(5).tolist()
-
-    print(f"  📝 Sample region name transformations:")
-    for orig, fixed in zip(sample_originals, sample_fixed):
-        if orig != fixed:
-            print(f"     '{orig}' → '{fixed}'")
-        else:
-            print(f"     '{orig}' (unchanged)")
 
     return gdf
 
 
-def compute_statistics(values):
+def _is_regular_1d_grid(lat: np.ndarray, lon: np.ndarray, rtol=1e-5, atol=1e-8) -> bool:
     """
-    Compute statistical summaries for a set of values.
-
-    Args:
-        values: numpy array of values
-
-    Returns:
-        dict: Dictionary with keys: min, max, mean, median, p2_5, p5, p10, p90, p95, p97_5
-
-    Raises:
-        ValueError: If values array is empty
+    Checks whether 1D lat and lon are regularly spaced.
+    Accepts descending or ascending.
     """
-    if values.size == 0:
-        raise ValueError("Cannot compute statistics on empty array")
+    if lat.ndim != 1 or lon.ndim != 1:
+        return False
+    if len(lat) < 3 or len(lon) < 3:
+        return True
 
-    def percentile(arr, q):
-        return float(np.percentile(arr, q))
+    dlat = np.diff(lat)
+    dlon = np.diff(lon)
 
+    # allow descending too; compare absolute step sizes
+    dlat_abs = np.abs(dlat)
+    dlon_abs = np.abs(dlon)
+
+    return np.allclose(dlat_abs, dlat_abs[0], rtol=rtol, atol=atol) and np.allclose(
+        dlon_abs, dlon_abs[0], rtol=rtol, atol=atol
+    )
+
+
+def _grid_bounds(lat: np.ndarray, lon: np.ndarray) -> Tuple[float, float, float, float]:
+    """
+    Compute bounds for from_bounds.
+    Works for ascending or descending lat/lon arrays (interpreted as cell centers).
+    """
+    lat_min, lat_max = float(np.min(lat)), float(np.max(lat))
+    lon_min, lon_max = float(np.min(lon)), float(np.max(lon))
+    return lon_min, lat_min, lon_max, lat_max
+
+
+def prepare_region_shapes(adm_gdf: gpd.GeoDataFrame) -> Dict[str, Any]:
+    """
+    Prepare lightweight shapes package for rasterization. Uses integer region_id.
+    """
+    regions = adm_gdf["region"].tolist()
+    region_name_to_id = {name: i + 1 for i, name in enumerate(regions)}
+    region_id_to_name = {i + 1: name for i, name in enumerate(regions)}
+
+    shapes = [
+        (geom, region_name_to_id[name])
+        for geom, name in zip(adm_gdf.geometry, adm_gdf["region"])
+    ]
+
+    bounds = adm_gdf.total_bounds  # (minx, miny, maxx, maxy)
     return {
-        "min": float(np.min(values)),
-        "max": float(np.max(values)),
-        "mean": float(np.mean(values)),
-        "median": percentile(values, 50),
-        "p2_5": percentile(values, 2.5),
-        "p5": percentile(values, 5),
-        "p10": percentile(values, 10),
-        "p90": percentile(values, 90),
-        "p95": percentile(values, 95),
-        "p97_5": percentile(values, 97.5),
+        "shapes": shapes,  # list of (shapely geom, int id)
+        "region_id_to_name": region_id_to_name,
+        "bounds": bounds,
+        "n_regions": len(regions),
     }
 
 
-def build_region_id_raster(lats, lons, adm_gdf):
+def compute_exact_stats(values: np.ndarray) -> Dict[str, float]:
     """
-    Build a region ID raster that maps every grid cell to a region integer ID.
+    Exact stats from raw values (NaNs already removed).
+    """
+    # Ensure float64 for stable stats
+    v = values.astype(np.float64, copy=False)
 
-    This rasterizes polygons once, then all subsequent operations can use
-    array operations instead of spatial joins.
+    # exact via selection-based quantile implementation in numpy
+    qs = np.quantile(v, [0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], method="linear")
 
-    Args:
-        lats: Array of latitude coordinates (from NetCDF)
-        lons: Array of longitude coordinates (from NetCDF)
-        adm_gdf: GeoDataFrame with administrative boundaries and 'region' column
+    return {
+        "min": float(np.min(v)),
+        "max": float(np.max(v)),
+        "mean": float(np.mean(v)),
+        "median": float(qs[3]),
+        "p2_5": float(qs[0]),
+        "p5": float(qs[1]),
+        "p10": float(qs[2]),
+        "p90": float(qs[4]),
+        "p95": float(qs[5]),
+        "p97_5": float(qs[6]),
+    }
+
+
+def build_missing_region_fallbacks(
+    lats: np.ndarray,
+    lons: np.ndarray,
+    adm_gdf: gpd.GeoDataFrame,
+    region_name_to_id: Dict[str, int],
+) -> Dict[int, Tuple[int, int]]:
+    """
+    For regions that might have zero pixels covered, assign a fallback grid cell nearest to centroid.
+    Returns {region_id: (ilat, ilon)}.
+    """
+    fallbacks = {}
+    for _, row in adm_gdf.iterrows():
+        name = row["region"]
+        rid = region_name_to_id[name]
+        geom = row.geometry
+        c = geom.centroid
+        ilat = int(np.argmin(np.abs(lats - c.y)))
+        ilon = int(np.argmin(np.abs(lons - c.x)))
+        fallbacks[rid] = (ilat, ilon)
+    return fallbacks
+
+
+# ---------------------------------------------------------------------------
+# DASK BLOCK EXTRACTION TASK
+# ---------------------------------------------------------------------------
+
+
+def _block_extract_region_values(
+    values_block: np.ndarray,
+    lat_block: np.ndarray,
+    lon_block: np.ndarray,
+    shapes_pkg: Dict[str, Any],
+    hazard_type: str,
+) -> Dict[int, np.ndarray]:
+    """
+    Run on workers. Given a computed values block and its 1D lat/lon coordinate arrays,
+    rasterize polygons onto the block grid and return raw values per region_id.
 
     Returns:
-        tuple: (region_id_array, region_id_to_name_dict)
-            - region_id_array: 2D numpy array (lat, lon) with integer region IDs
-            - region_id_to_name_dict: dict mapping integer ID to region name
+        dict {region_id: 1D np.ndarray of values (float32/float64), NaNs removed}
     """
-    print(
-        f"    🎨 Rasterizing {len(adm_gdf)} regions onto {len(lats)} × {len(lons)} grid..."
+    # values_block is 2D (lat, lon)
+    if values_block.ndim != 2:
+        raise ValueError(f"Expected 2D block, got shape {values_block.shape}")
+
+    # nodata filtering example: Heat rule
+    if hazard_type == "Heat":
+        # Kelvin HI values should be > 300
+        values_block = np.where(values_block > 300, values_block, np.nan)
+
+    # fast skip if all nan
+    if np.all(np.isnan(values_block)):
+        return {}
+
+    # Build transform for this block
+    lon_min, lat_min, lon_max, lat_max = _grid_bounds(lat_block, lon_block)
+    transform = from_bounds(
+        lon_min, lat_min, lon_max, lat_max, len(lon_block), len(lat_block)
     )
 
-    # Create mapping from region name to integer ID
-    region_name_to_id = {name: idx + 1 for idx, name in enumerate(adm_gdf["region"])}
-    region_id_to_name = {idx + 1: name for idx, name in enumerate(adm_gdf["region"])}
-
-    # Add integer ID column to geodataframe
-    adm_gdf_indexed = adm_gdf.copy()
-    adm_gdf_indexed["region_id"] = adm_gdf_indexed["region"].map(region_name_to_id)
-
-    # Calculate transform from lat/lon bounds
-    # Note: lats may be descending or ascending
-    lat_min, lat_max = float(np.min(lats)), float(np.max(lats))
-    lon_min, lon_max = float(np.min(lons)), float(np.max(lons))
-
-    # Create transform (maps pixel coords to geographic coords)
-    transform = from_bounds(lon_min, lat_min, lon_max, lat_max, len(lons), len(lats))
-
-    # Rasterize all polygons at once
-    # shapes format: [(geometry, value), ...]
-    shapes = [
-        (geom, region_id)
-        for geom, region_id in zip(
-            adm_gdf_indexed.geometry, adm_gdf_indexed["region_id"]
-        )
-    ]
-
-    # Rasterize (0 = no region, >0 = region ID)
-    region_id_raster = rasterio.features.rasterize(
-        shapes,
-        out_shape=(len(lats), len(lons)),
+    region_ids = rasterio.features.rasterize(
+        shapes_pkg["shapes"],
+        out_shape=(len(lat_block), len(lon_block)),
         transform=transform,
-        fill=0,  # Background value for pixels not in any region
-        dtype=np.uint16,  # Support up to 65535 regions
-        all_touched=False,  # Only pixels whose center is in polygon
+        fill=0,
+        dtype=np.int32,
+        all_touched=False,  # pixel center inside polygon
     )
 
-    # Check for regions with no pixels
-    assigned_ids = set(np.unique(region_id_raster))
-    assigned_ids.discard(0)  # Remove background
-    all_ids = set(region_id_to_name.keys())
-    missing_ids = all_ids - assigned_ids
+    out: Dict[int, np.ndarray] = {}
 
-    if missing_ids:
-        print(
-            f"    ⚠️  {len(missing_ids)} regions have no grid cell centers within their boundaries"
-        )
-        print(f"    📍 Assigning nearest grid cell to these regions...")
+    # extract per present region
+    present = np.unique(region_ids)
+    present = present[present > 0]
+    if present.size == 0:
+        return {}
 
-        # For each missing region, find nearest grid cell
-        for region_id in missing_ids:
-            region_name = region_id_to_name[region_id]
-            region_geom = adm_gdf[adm_gdf["region"] == region_name].iloc[0].geometry
-
-            # Get centroid
-            centroid = region_geom.centroid
-            centroid_lon, centroid_lat = centroid.x, centroid.y
-
-            # Find nearest grid cell
-            lat_diffs = np.abs(lats - centroid_lat)
-            lon_diffs = np.abs(lons - centroid_lon)
-
-            nearest_lat_idx = np.argmin(lat_diffs)
-            nearest_lon_idx = np.argmin(lon_diffs)
-
-            # Assign this grid cell to the region
-            region_id_raster[nearest_lat_idx, nearest_lon_idx] = region_id
-
-    assigned_after = len(set(np.unique(region_id_raster)) - {0})
-    print(f"    ✅ Rasterized {assigned_after} regions onto grid")
-
-    return region_id_raster, region_id_to_name
-
-
-# ============================================================================
-# FILE TYPE PROCESSORS
-# ============================================================================
-
-
-def compute_region_statistics_from_arrays(
-    values_array, region_id_array, region_id_to_name
-):
-    """
-    Compute statistics for each region using array operations (no pandas/point geometry).
-
-    Args:
-        values_array: 2D numpy array (lat, lon) with hazard values
-        region_id_array: 2D numpy array (lat, lon) with region IDs
-        region_id_to_name: dict mapping region ID to region name
-
-    Returns:
-        dict: {region_name: {min, max, mean, median, p2_5, ...}}
-    """
-    results = {}
-
-    # Get unique region IDs (excluding 0 = background)
-    unique_region_ids = np.unique(region_id_array)
-    unique_region_ids = unique_region_ids[unique_region_ids > 0]
-
-    for region_id in unique_region_ids:
-        # Get all values for this region (where region_id_array matches)
-        mask = region_id_array == region_id
-        region_values = values_array[mask]
-
-        # Remove NaN values
-        region_values = region_values[~np.isnan(region_values)]
-
-        if len(region_values) == 0:
-            # No valid values for this region
+    for rid in present:
+        mask = region_ids == rid
+        vals = values_block[mask]
+        if vals.size == 0:
             continue
+        vals = vals[~np.isnan(vals)]
+        if vals.size == 0:
+            continue
+        out[int(rid)] = vals
 
-        region_name = region_id_to_name[region_id]
+    return out
 
-        # Compute statistics using numpy (fast array operations)
-        results[region_name] = {
-            "min": float(np.min(region_values)),
-            "max": float(np.max(region_values)),
-            "mean": float(np.mean(region_values)),
-            "median": float(np.percentile(region_values, 50)),
-            "p2_5": float(np.percentile(region_values, 2.5)),
-            "p5": float(np.percentile(region_values, 5)),
-            "p10": float(np.percentile(region_values, 10)),
-            "p90": float(np.percentile(region_values, 90)),
-            "p95": float(np.percentile(region_values, 95)),
-            "p97_5": float(np.percentile(region_values, 97.5)),
-        }
 
-    return results
+# ---------------------------------------------------------------------------
+# CORE PROCESSOR (EXACT)
+# ---------------------------------------------------------------------------
 
 
 def process_nc_hazard(
-    nc_path,
-    adm_gdf,
-    adm_level,
-    ensemble_filter,
-    lat_chunk_size=2000,
-    lon_chunk_size=2000,
-):
+    nc_path: str,
+    adm_gdf: gpd.GeoDataFrame,
+    adm_level: str,
+    ensemble_filter: str,
+    client: Client,
+    chunk_lat: int = 1024,
+    chunk_lon: int = 1024,
+) -> pd.DataFrame:
     """
-    Process NetCDF hazard file using rasterized region IDs and array operations.
-
-    This avoids converting to DataFrame and uses efficient array-based zonal statistics.
-
-    Args:
-        nc_path: Path to NetCDF file
-        adm_gdf: GeoDataFrame with administrative boundaries
-        adm_level: Administrative level name (e.g., 'ADM1', 'ADM2')
-        ensemble_filter: Ensemble value to filter for (e.g., 'median')
-        lat_chunk_size: Chunk size for latitude (default 2000)
-        lon_chunk_size: Chunk size for longitude (default 2000)
-
-    Returns:
-        pd.DataFrame: Aggregated statistics per region
+    Exact zonal stats per region for one NetCDF file and one ADM level.
     """
     if not os.path.exists(nc_path):
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
 
-    # Open with chunks for lazy loading
-    ds = xr.open_dataset(nc_path, chunks={}, engine="netcdf4")
-
-    # Get the data variable
-    var_names = list(ds.data_vars.keys())
-    if not var_names:
-        raise ValueError(f"No data variables found in NetCDF: {nc_path}")
-    var_name = var_names[0]
-    da = ds[var_name]
-
-    # Filter to specified ensemble (if dimension exists and value is present)
-    has_ensemble = False
-    ensemble_value_used = None
-    if "ensemble" in da.dims:
-        available_ensembles = da.coords["ensemble"].values.tolist()
-        available_ensembles_str = [str(e) for e in available_ensembles]
-
-        if ensemble_filter in available_ensembles_str:
-            idx = available_ensembles_str.index(ensemble_filter)
-            da = da.sel(ensemble=available_ensembles[idx])
-            has_ensemble = True
-            ensemble_value_used = ensemble_filter
-        else:
-            print(
-                f"    ⚠️  Ensemble '{ensemble_filter}' not found. Using: '{available_ensembles_str[0]}'"
-            )
-            da = da.sel(ensemble=available_ensembles[0])
-            has_ensemble = True
-            ensemble_value_used = str(available_ensembles[0])
-
-    # Extract hazard info from path
     hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
 
-    # Get dimension information
-    dims = list(da.dims)
-    if "lon" not in dims or "lat" not in dims:
-        raise ValueError(f"Missing required coordinates (lon/lat) in {nc_path}")
+    # Open lazily. Let xarray choose chunking if present; otherwise we rechunk.
+    ds = xr.open_dataset(nc_path, chunks={}, engine="netcdf4")
+    try:
+        var_names = list(ds.data_vars.keys())
+        if not var_names:
+            raise ValueError(f"No data variables found in NetCDF: {nc_path}")
+        var_name = var_names[0]
+        da = ds[var_name]
 
-    non_spatial_dims = [d for d in dims if d not in ["lon", "lat"]]
+        if "lat" not in da.dims or "lon" not in da.dims:
+            raise ValueError(f"Missing required coordinates (lat/lon) in {nc_path}")
 
-    # Build region ID raster ONCE for this file (reused for all dimension combos)
-    lats = da.coords["lat"].values
-    lons = da.coords["lon"].values
-    region_id_raster, region_id_to_name = build_region_id_raster(lats, lons, adm_gdf)
+        # Ensure 1D regular grid (required for rasterize-from-bounds logic)
+        lats = da["lat"].values
+        lons = da["lon"].values
+        if not _is_regular_1d_grid(lats, lons):
+            raise ValueError(
+                f"Grid in {nc_path} is not a regular 1D lat/lon grid. "
+                "Exact rasterization approach here assumes a regular grid."
+            )
 
-    # Build list of all dimension combinations
-    dim_combinations = []
-    if non_spatial_dims:
-        dim_values = {dim: da[dim].values for dim in non_spatial_dims}
-        keys = list(dim_values.keys())
-        for combo in itertools.product(*[dim_values[k] for k in keys]):
-            dim_combinations.append(dict(zip(keys, combo)))
-    else:
-        dim_combinations = [{}]
-
-    all_results = []
-
-    print(
-        f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
-    )
-
-    for dim_combo in tqdm(
-        dim_combinations, desc="    Processing", leave=False, ncols=80
-    ):
-        # Select this specific slice
-        da_slice = da
-        for dim_name, dim_val in dim_combo.items():
-            da_slice = da_slice.sel({dim_name: dim_val})
-
-        # Apply nodata filtering
-        if hazard_type == "Heat":
-            # Heat Index values in Kelvin should be > 300 (27°C)
-            da_slice = da_slice.where(da_slice > 300)
-
-        # Load the 2D array into memory (or process in chunks if too large)
-        # Check size to decide if we can load all at once
-        n_lat = len(lats)
-        n_lon = len(lons)
-        total_cells = n_lat * n_lon
-
-        # If small enough, compute entire slice at once
-        if total_cells <= 10_000_000:  # ~10M cells = ~40MB for float32
-            # Compute entire array at once
-            if isinstance(da_slice.data, dask.array.Array):
-                values_array = da_slice.compute().values
+        # Ensemble selection
+        has_ensemble = False
+        ensemble_value_used = None
+        if "ensemble" in da.dims:
+            available = da["ensemble"].values.tolist()
+            available_str = [str(x) for x in available]
+            if ensemble_filter in available_str:
+                da = da.sel(ensemble=available[available_str.index(ensemble_filter)])
+                ensemble_value_used = ensemble_filter
             else:
-                values_array = da_slice.values
+                da = da.sel(ensemble=available[0])
+                ensemble_value_used = str(available[0])
+            has_ensemble = True
 
-            # Compute statistics for all regions using array operations
-            region_stats = compute_region_statistics_from_arrays(
-                values_array, region_id_raster, region_id_to_name
-            )
+        # Rechunk to a reasonable block size for extraction tasks
+        da = da.chunk({"lat": chunk_lat, "lon": chunk_lon})
 
+        # Non-spatial dims
+        non_spatial_dims = [d for d in da.dims if d not in ["lat", "lon"]]
+
+        # Prepare shapes and scatter once
+        shapes_pkg = prepare_region_shapes(adm_gdf)
+        region_id_to_name = shapes_pkg["region_id_to_name"]
+        region_name_to_id = {v: k for k, v in region_id_to_name.items()}
+
+        shapes_future = client.scatter(shapes_pkg, broadcast=True)
+
+        # Fallback indices for every region (in case of zero covered pixels)
+        fallbacks = build_missing_region_fallbacks(
+            lats, lons, adm_gdf, region_name_to_id
+        )
+
+        # Build list of all dimension combinations
+        if non_spatial_dims:
+            dim_values = {dim: da[dim].values for dim in non_spatial_dims}
+            keys = list(dim_values.keys())
+            dim_combinations = [
+                dict(zip(keys, combo))
+                for combo in itertools.product(*[dim_values[k] for k in keys])
+            ]
         else:
-            # For very large arrays, process in spatial chunks and accumulate per-region values
-            print(
-                f"      Large array ({n_lat}×{n_lon}={total_cells:,} cells), processing in chunks..."
-            )
+            dim_combinations = [{}]
 
-            # Accumulate values per region across chunks
-            region_values_accum = {
-                region_name: [] for region_name in region_id_to_name.values()
-            }
+        print(
+            f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
+        )
 
-            n_lat_chunks = (n_lat + lat_chunk_size - 1) // lat_chunk_size
-            n_lon_chunks = (n_lon + lon_chunk_size - 1) // lon_chunk_size
-            total_chunks = n_lat_chunks * n_lon_chunks
+        all_rows: List[Dict[str, Any]] = []
 
-            chunk_pbar = tqdm(
-                total=total_chunks,
-                desc="      Spatial chunks",
-                leave=False,
-                ncols=80,
-                position=1,
-            )
+        for combo_i, dim_combo in enumerate(
+            tqdm(dim_combinations, desc="    Processing", leave=False, ncols=80), 1
+        ):
+            # Select slice lazily
+            da_slice = da
+            for dim_name, dim_val in dim_combo.items():
+                da_slice = da_slice.sel({dim_name: dim_val})
 
-            for lat_start in range(0, n_lat, lat_chunk_size):
-                lat_end = min(lat_start + lat_chunk_size, n_lat)
-                for lon_start in range(0, n_lon, lon_chunk_size):
-                    lon_end = min(lon_start + lon_chunk_size, n_lon)
+            # Ensure 2D now
+            da_slice = da_slice.transpose("lat", "lon")
 
-                    # Select spatial chunk
-                    da_chunk = da_slice.isel(
-                        lat=slice(lat_start, lat_end), lon=slice(lon_start, lon_end)
-                    )
+            # Build delayed tasks per block
+            # dask.array.Array has .to_delayed() blocks in same chunk grid.
+            darr = da_slice.data
+            if not isinstance(darr, dask.array.Array):
+                # fallback: just compute the full array (small data)
+                values_full = da_slice.values
+                region_vals = _block_extract_region_values(
+                    values_full, lats, lons, shapes_pkg, hazard_type
+                )
+                block_dicts = [region_vals]
+            else:
+                blocks = darr.to_delayed().ravel()
 
-                    # Compute this chunk
-                    if isinstance(da_chunk.data, dask.array.Array):
-                        values_chunk = da_chunk.compute().values
-                    else:
-                        values_chunk = da_chunk.values
+                # We need lat/lon coordinates for each block.
+                # Because chunks are regular, we can compute block index -> lat/lon slices.
+                lat_chunks = darr.chunks[0]
+                lon_chunks = darr.chunks[1]
 
-                    # Get corresponding region ID chunk
-                    region_id_chunk = region_id_raster[
-                        lat_start:lat_end, lon_start:lon_end
-                    ]
+                # prefix sums for chunk boundaries
+                lat_starts = np.cumsum((0,) + lat_chunks[:-1])
+                lon_starts = np.cumsum((0,) + lon_chunks[:-1])
 
-                    # Accumulate values per region
-                    unique_ids = np.unique(region_id_chunk)
-                    unique_ids = unique_ids[unique_ids > 0]
+                n_lat_blocks = len(lat_chunks)
+                n_lon_blocks = len(lon_chunks)
 
-                    for region_id in unique_ids:
-                        mask = region_id_chunk == region_id
-                        region_vals = values_chunk[mask]
-                        region_vals = region_vals[~np.isnan(region_vals)]
+                tasks = []
+                b = 0
+                for bi in range(n_lat_blocks):
+                    ls = int(lat_starts[bi])
+                    le = ls + int(lat_chunks[bi])
+                    lat_block = lats[ls:le]
 
-                        if len(region_vals) > 0:
-                            region_name = region_id_to_name[region_id]
-                            region_values_accum[region_name].append(region_vals)
+                    for bj in range(n_lon_blocks):
+                        cs = int(lon_starts[bj])
+                        ce = cs + int(lon_chunks[bj])
+                        lon_block = lons[cs:ce]
 
-                    chunk_pbar.update(1)
-                    del values_chunk, region_id_chunk
+                        block_delayed = blocks[b]
+                        b += 1
 
-            chunk_pbar.close()
+                        key_name = f"extract-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}"
+                        t = delayed(
+                            _block_extract_region_values,
+                            name=key_name,
+                            pure=False,
+                        )(
+                            block_delayed,
+                            lat_block,
+                            lon_block,
+                            shapes_future,
+                            hazard_type,
+                        )
+                        tasks.append(t)
 
-            # Compute statistics from accumulated values
-            region_stats = {}
-            for region_name, vals_list in region_values_accum.items():
-                if len(vals_list) == 0:
+                # Compute all block dicts in parallel
+                block_dicts = list(dask.compute(*tasks))
+
+            # Merge dicts into per-region lists of arrays on driver
+            accum: Dict[int, List[np.ndarray]] = {}
+            for dct in block_dicts:
+                if not dct:
+                    continue
+                for rid, arr in dct.items():
+                    accum.setdefault(rid, []).append(arr)
+
+            # Ensure all regions appear (fallback if needed)
+            for rid in region_id_to_name.keys():
+                if rid in accum and sum(a.size for a in accum[rid]) > 0:
                     continue
 
-                # Concatenate all chunks for this region
-                all_vals = np.concatenate(vals_list)
+                # fetch one fallback point from the slice
+                ilat, ilon = fallbacks[rid]
+                try:
+                    v = da_slice.isel(lat=ilat, lon=ilon).compute().item()
+                except Exception:
+                    # if compute fails, skip
+                    continue
+                if v is None or (isinstance(v, float) and np.isnan(v)):
+                    continue
+                accum[rid] = [np.array([v], dtype=np.float64)]
 
-                if len(all_vals) == 0:
+            # Compute exact stats per region and emit rows
+            for rid, arrays in accum.items():
+                if not arrays:
+                    continue
+                vals = np.concatenate(arrays)
+                vals = vals[~np.isnan(vals)]
+                if vals.size == 0:
                     continue
 
-                region_stats[region_name] = {
-                    "min": float(np.min(all_vals)),
-                    "max": float(np.max(all_vals)),
-                    "mean": float(np.mean(all_vals)),
-                    "median": float(np.percentile(all_vals, 50)),
-                    "p2_5": float(np.percentile(all_vals, 2.5)),
-                    "p5": float(np.percentile(all_vals, 5)),
-                    "p10": float(np.percentile(all_vals, 10)),
-                    "p90": float(np.percentile(all_vals, 90)),
-                    "p95": float(np.percentile(all_vals, 95)),
-                    "p97_5": float(np.percentile(all_vals, 97.5)),
+                stats = compute_exact_stats(vals)
+
+                row: Dict[str, Any] = {
+                    "region": region_id_to_name[rid],
+                    "adm_level": adm_level,
+                    "hazard_type": hazard_type,
+                    "hazard_indicator": hazard_indicator,
+                    "ensemble": ensemble_value_used if has_ensemble else None,
+                    **stats,
                 }
 
-            del region_values_accum
+                # Dimension combo into canonical names
+                for dim_name, dim_val in dim_combo.items():
+                    if dim_name == "GWL":
+                        row["scenario_name"] = str(dim_val)
+                    elif dim_name == "return_period":
+                        row["hazard_return_period"] = int(dim_val)
+                    else:
+                        row[dim_name] = dim_val
 
-        # Convert to DataFrame rows
-        for region_name, stats in region_stats.items():
-            row = {
-                "region": region_name,
-                "adm_level": adm_level,
-                "hazard_type": hazard_type,
-                "hazard_indicator": hazard_indicator,
-                "ensemble": ensemble_value_used if has_ensemble else None,
-                **stats,
-            }
+                all_rows.append(row)
 
-            # Add dimension combo values
-            for dim_name, dim_val in dim_combo.items():
-                # Standardize dimension names
-                if dim_name == "GWL":
-                    row["scenario_name"] = str(dim_val)
-                elif dim_name == "return_period":
-                    row["hazard_return_period"] = int(dim_val)
-                else:
-                    row[dim_name] = dim_val
+            # Reduce driver memory spikes
+            del block_dicts, accum
+            gc.collect()
 
-            all_results.append(row)
+        if not all_rows:
+            raise ValueError(f"No valid data produced for {nc_path} ({adm_level})")
 
-        gc.collect()
+        df = pd.DataFrame(all_rows)
 
-    ds.close()
+        # Ensure columns exist
+        if "scenario_name" not in df.columns:
+            df["scenario_name"] = np.nan
+        if "hazard_return_period" not in df.columns:
+            df["hazard_return_period"] = np.nan
 
-    if len(all_results) == 0:
-        raise ValueError(f"No valid data in NetCDF after filtering: {nc_path}")
+        # Order columns
+        base_cols = [
+            "region",
+            "adm_level",
+            "scenario_name",
+            "hazard_return_period",
+            "hazard_type",
+            "hazard_indicator",
+            "min",
+            "max",
+            "mean",
+            "median",
+            "p2_5",
+            "p5",
+            "p10",
+            "p90",
+            "p95",
+            "p97_5",
+            "ensemble",
+        ]
+        extra_cols = [c for c in df.columns if c not in base_cols]
+        return df[base_cols + extra_cols]
 
-    # Convert to DataFrame
-    agg = pd.DataFrame(all_results)
-
-    # Fill missing columns for consistency
-    if "scenario_name" not in agg.columns:
-        agg["scenario_name"] = np.nan
-    if "hazard_return_period" not in agg.columns:
-        agg["hazard_return_period"] = np.nan
-
-    # Final column ordering
-    base_cols = [
-        "region",
-        "adm_level",
-        "scenario_name",
-        "hazard_return_period",
-        "hazard_type",
-        "hazard_indicator",
-        "min",
-        "max",
-        "mean",
-        "median",
-        "p2_5",
-        "p5",
-        "p10",
-        "p90",
-        "p95",
-        "p97_5",
-        "ensemble",
-    ]
-    extra_cols = [c for c in agg.columns if c not in base_cols]
-
-    return agg[base_cols + extra_cols]
+    finally:
+        try:
+            ds.close()
+        except Exception:
+            pass
 
 
-# ============================================================================
-# INCREMENTAL PROCESSING HELPERS
-# ============================================================================
+# ---------------------------------------------------------------------------
+# INCREMENTAL HELPERS (UNCHANGED LOGIC, MINIMAL)
+# ---------------------------------------------------------------------------
 
 
-def load_existing_precomputed(output_path):
-    """
-    Load existing precomputed file if it exists.
-
-    Args:
-        output_path: Path to precomputed CSV file
-
-    Returns:
-        pd.DataFrame: Existing data, or empty DataFrame if file doesn't exist
-    """
+def load_existing_precomputed(output_path: str) -> pd.DataFrame:
     if not os.path.exists(output_path):
         print(f"  📄 No existing precomputed file found at {output_path}")
         return pd.DataFrame()
@@ -651,23 +558,10 @@ def load_existing_precomputed(output_path):
         return pd.DataFrame()
 
 
-def get_file_signature(file_path, file_type, adm_levels, ensemble_filter):
-    """
-    Get the signature of what combinations a NetCDF file would produce.
-
-    Args:
-        file_path: Path to NetCDF file
-        file_type: Type of file (must be 'nc')
-        adm_levels: List of ADM level names that would be processed
-        ensemble_filter: Ensemble filter value
-
-    Returns:
-        list: List of dictionaries, each representing a combination that would be produced
-    """
+def get_file_signature(
+    file_path: str, file_type: str, adm_levels: List[str], ensemble_filter: str
+):
     hazard_type, hazard_indicator = parse_hazard_from_path(file_path)
-    signatures = []
-
-    # Only NC files are supported now
     if file_type != "nc":
         return []
 
@@ -677,11 +571,8 @@ def get_file_signature(file_path, file_type, adm_levels, ensemble_filter):
         if not var_names:
             ds.close()
             return []
+        da = ds[var_names[0]]
 
-        var_name = var_names[0]
-        da = ds[var_name]
-
-        # Get scenario dimension
         scenario_dim = None
         for dim in ["scenario", "GWL", "gwl"]:
             if dim in da.dims:
@@ -692,538 +583,304 @@ def get_file_signature(file_path, file_type, adm_levels, ensemble_filter):
             ds.close()
             return []
 
-        # Get unique values
         scenarios = da[scenario_dim].values
-        return_periods = da["return_period"].values
+        rps = da["return_period"].values
 
-        # Check for extra dimensions
-        known_extra_dimensions = ["season"]
-        extra_dims_present = [dim for dim in known_extra_dimensions if dim in da.dims]
+        known_extra = ["season"]
+        extra_present = [d for d in known_extra if d in da.dims]
 
-        for scenario in scenarios:
-            for rp in return_periods:
-                for adm_level in adm_levels:
+        sigs = []
+        for scn in scenarios:
+            for rp in rps:
+                for adm in adm_levels:
                     sig = {
                         "hazard_type": hazard_type,
                         "hazard_indicator": hazard_indicator,
-                        "scenario_name": str(scenario),
+                        "scenario_name": str(scn),
                         "hazard_return_period": int(rp),
-                        "adm_level": adm_level,
+                        "adm_level": adm,
                         "ensemble": ensemble_filter,
                     }
-                    for dim in extra_dims_present:
-                        sig[dim] = np.nan
-                    signatures.append(sig)
+                    for d in extra_present:
+                        sig[d] = np.nan
+                    sigs.append(sig)
 
         ds.close()
+        return sigs
 
     except Exception as e:
         print(f"      ⚠️  Error peeking into NetCDF file: {e}")
         return []
 
-    return signatures
-
 
 def is_already_processed(
-    file_path,
-    file_type,
-    existing_df,
-    adm_levels,
-    ensemble_filter,
-):
-    """
-    Check if a NetCDF file has already been processed based on existing precomputed data.
-
-    Args:
-        file_path: Path to NetCDF file
-        file_type: Type of file (must be 'nc')
-        existing_df: DataFrame with existing precomputed data
-        adm_levels: List of ADM level names
-        ensemble_filter: Ensemble filter value
-
-    Returns:
-        bool: True if file appears to be already processed, False otherwise
-    """
-    if len(existing_df) == 0:
+    file_path: str,
+    file_type: str,
+    existing_df: pd.DataFrame,
+    adm_levels: List[str],
+    ensemble_filter: str,
+) -> bool:
+    if existing_df.empty:
         return False
 
-    # Get signatures this file would produce
-    signatures = get_file_signature(file_path, file_type, adm_levels, ensemble_filter)
-
-    if len(signatures) == 0:
-        # Can't determine signature, assume not processed
+    sigs = get_file_signature(file_path, file_type, adm_levels, ensemble_filter)
+    if not sigs:
         return False
 
-    # Convert signatures to DataFrame for comparison
-    sigs_df = pd.DataFrame(signatures)
-
+    sigs_df = pd.DataFrame(sigs)
     if sigs_df.empty:
         return False
 
-    existing_df_copy = existing_df.copy()
-
-    def _normalize_scenario(value):
-        """Normalize scenario names for comparison."""
-        if pd.isna(value):
+    def _norm(x):
+        if pd.isna(x):
             return "__NA__"
-        value_str = str(value).strip().lower()
-        return value_str
+        return str(x).strip().lower()
 
-    if "scenario_name" in sigs_df.columns:
-        sigs_df["scenario_key"] = sigs_df["scenario_name"].apply(_normalize_scenario)
-    else:
-        sigs_df["scenario_key"] = "__NA__"
+    sigs_df["scenario_key"] = sigs_df["scenario_name"].apply(_norm)
+    ex = existing_df.copy()
+    ex["scenario_key"] = (
+        ex["scenario_name"].apply(_norm) if "scenario_name" in ex.columns else "__NA__"
+    )
 
-    if "scenario_name" in existing_df_copy.columns:
-        existing_df_copy["scenario_key"] = existing_df_copy["scenario_name"].apply(
-            _normalize_scenario
-        )
-    else:
-        existing_df_copy["scenario_key"] = "__NA__"
-
-    # Key columns to match on
     key_cols = [
         "hazard_type",
         "hazard_indicator",
-        "scenario_name",
+        "scenario_key",
         "hazard_return_period",
         "adm_level",
     ]
 
-    if "scenario_name" in key_cols:
-        key_cols[key_cols.index("scenario_name")] = "scenario_key"
-
-    # Check for extra dimensions that might exist in both
-    extra_dims = ["season"]
-    for dim in extra_dims:
-        if dim in sigs_df.columns and dim in existing_df.columns:
-            # Normalize the dimension to handle NaN values
+    for dim in ["season"]:
+        if dim in sigs_df.columns and dim in ex.columns:
             sigs_df[dim] = sigs_df[dim].fillna("__NA__").astype(str)
-            existing_df_copy[dim] = existing_df_copy[dim].fillna("__NA__").astype(str)
+            ex[dim] = ex[dim].fillna("__NA__").astype(str)
             key_cols.append(dim)
 
-    # Handle ensemble column separately (it might be NaN in existing data)
-    sigs_df_copy = sigs_df.copy()
-    if "ensemble" in sigs_df.columns:
-        # For ensemble, we need to handle NaN values specially
-        sigs_df_copy["ensemble"] = sigs_df_copy["ensemble"].fillna("__NA__").astype(str)
-        if "ensemble" in existing_df.columns:
-            existing_df_copy["ensemble"] = (
-                existing_df_copy["ensemble"].fillna("__NA__").astype(str)
-            )
-            key_cols.append("ensemble")
-        else:
-            # Existing data doesn't have ensemble, but we're looking for it
-            # This is a mismatch, so assume not processed
-            return False
-    else:
-        existing_df_copy = existing_df.copy()
-        # If existing has ensemble but sigs doesn't, that's OK - just don't include it in key_cols
+    if "ensemble" in sigs_df.columns and "ensemble" in ex.columns:
+        sigs_df["ensemble"] = sigs_df["ensemble"].fillna("__NA__").astype(str)
+        ex["ensemble"] = ex["ensemble"].fillna("__NA__").astype(str)
+        key_cols.append("ensemble")
 
-    # Check if all signatures exist in existing data
-    # Use merge to find matches
     merged = pd.merge(
-        sigs_df_copy[key_cols],
-        existing_df_copy[key_cols],
+        sigs_df[key_cols],
+        ex[key_cols],
         on=key_cols,
         how="left",
         indicator=True,
     )
-
-    # Check if all signatures were found
-    all_found = (merged["_merge"] == "both").all()
-
-    return all_found
+    return (merged["_merge"] == "both").all()
 
 
-# ============================================================================
-# MAIN EXECUTION
-# ============================================================================
+# ---------------------------------------------------------------------------
+# MAIN
+# ---------------------------------------------------------------------------
 
 
 def main():
-    """Main execution function."""
-
-    # ========================================================================
-    # HARDCODED PARAMETERS
-    # ========================================================================
-
-    # Input paths
+    # Paths
     HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
     ADM1_PATH = "workspace/demo_inputs_fullnc/areas/state/geoBoundaries-BRA-ADM1.shp"
     ADM2_PATH = (
         "workspace/demo_inputs_fullnc/areas/municipality/geoBoundaries-BRA-ADM2.shp"
     )
-
-    # Output path
     OUTPUT_PATH = (
         "workspace/Climate Data/Precomputed Regional Data/precomputed_adm_hazards.csv"
     )
 
-    # Processing parameters
     ENSEMBLE_FILTER = "median"
 
-    # Chunk size for spatial processing
-    # With the new rasterization approach, larger chunks are more efficient
-    # 2000x2000 = ~4M cells per chunk (~16MB for float32)
-    # Only used for very large arrays (>10M total cells)
-    CHUNK_SIZE_LAT = 2000
-    CHUNK_SIZE_LON = 2000
+    # Chunk sizes for Dask extraction
+    # Adjust depending on memory and region granularity
+    CHUNK_LAT = 4096
+    CHUNK_LON = 4096
 
-    # ========================================================================
-    # DASK CLUSTER & DASHBOARD
-    # ========================================================================
-
-    print("\n" + "=" * 60)
-    print("STARTING DASK CLUSTER & DASHBOARD")
-    print("=" * 60)
-
-    # Detect number of CPUs
-    num_cpus = os.cpu_count() or 4  # Fallback to 4 if detection fails
+    # -----------------------------------------------------------------------
+    # DASK CLUSTER
+    # -----------------------------------------------------------------------
+    num_cpus = os.cpu_count() or 4
     print(f"  🔍 Detected {num_cpus} CPU(s)")
 
-    # Start local Dask cluster with dashboard
-    # Bind to 0.0.0.0 to allow external access (e.g., from Google Cloud VM)
     cluster = LocalCluster(
         n_workers=num_cpus,
         threads_per_worker=1,
-        memory_limit="2GB",  # Limit per worker to prevent OOM
-        dashboard_address="0.0.0.0:8787",  # Bind to all interfaces for cloud access
+        memory_limit="2GB",
+        dashboard_address="0.0.0.0:8787",
     )
     client = Client(cluster)
 
-    print(f"  ✅ Dask cluster started with {len(cluster.workers)} workers")
-    print(f"  📊 Dashboard available at: {client.dashboard_link}")
-    print(f"  🌐 Local access: http://localhost:8787")
-    print(f"  ☁️  Cloud VM access: http://<EXTERNAL_IP>:8787")
-    print(f"     (Replace <EXTERNAL_IP> with your VM's external IP address)")
-    print(f"  ⚠️  Note: Ensure firewall rule allows TCP port 8787")
-    print(f"  Dask version: {dask.__version__}")
-    print("\n  💡 TIP: Open the dashboard in your browser to see:")
-    print("     - Real-time task progress")
-    print("     - Memory usage per worker")
-    print("     - Task graphs and computation flow")
-    print("     - Worker CPU utilization")
+    try:
+        print(f"  ✅ Dask cluster started with {len(cluster.workers)} workers")
+        print(f"  📊 Dashboard: {client.dashboard_link}")
 
-    # ========================================================================
-    # LOAD EXISTING PRECOMPUTED DATA
-    # ========================================================================
+        # Existing data
+        existing_df = load_existing_precomputed(OUTPUT_PATH)
 
-    print("\n" + "=" * 60)
-    print("CHECKING FOR EXISTING PRECOMPUTED DATA")
-    print("=" * 60)
-    existing_df = load_existing_precomputed(OUTPUT_PATH)
+        # Load boundaries
+        adm_levels = [("ADM1", ADM1_PATH), ("ADM2", ADM2_PATH)]
+        adm_gdfs = {}
+        adm_level_names = []
+        for level, path in adm_levels:
+            print(f"  Loading {level}: {path}")
+            adm_gdfs[level] = load_adm_shapefile(path)
+            adm_level_names.append(level)
 
-    # ========================================================================
-    # LOAD ADMINISTRATIVE BOUNDARIES
-    # ========================================================================
+        # Find hazard files
+        nc_pattern = os.path.join(HAZARDS_DIR, "**", "*ensemble_return_period*.nc")
+        nc_files = sorted(glob.glob(nc_pattern, recursive=True))
+        print(f"  Found {len(nc_files)} NetCDF file(s)")
+        if not nc_files:
+            raise FileNotFoundError(f"No hazard files found in {HAZARDS_DIR}")
 
-    print("\nLoading administrative boundaries...")
-    adm_levels = [
-        ("ADM1", ADM1_PATH),
-        ("ADM2", ADM2_PATH),
-    ]
+        # Filter files
+        nc_files_to_process = []
+        for nc_path in nc_files:
+            label = os.path.basename(nc_path)
+            try:
+                ht, hi = parse_hazard_from_path(nc_path)
+                label = f"{ht}/{hi} - {label}"
+            except Exception:
+                pass
 
-    adm_gdfs = {}
-    adm_level_names = []
-    for adm_level, adm_path in adm_levels:
-        print(f"  Loading {adm_level}: {adm_path}")
-        adm_gdfs[adm_level] = load_adm_shapefile(adm_path)
-        adm_level_names.append(adm_level)
+            if is_already_processed(
+                nc_path, "nc", existing_df, adm_level_names, ENSEMBLE_FILTER
+            ):
+                print(f"  ⏭️  Skipping (already processed): {label}")
+            else:
+                print(f"  ✅ Will process: {label}")
+                nc_files_to_process.append(nc_path)
 
-    # ========================================================================
-    # FIND ALL HAZARD FILES
-    # ========================================================================
+        if not nc_files_to_process:
+            print("✅ ALL FILES ALREADY PROCESSED")
+            return existing_df
 
-    print("\nSearching for hazard files...")
+        all_results = []
 
-    # Find NetCDF files with ensemble_return_period in name
-    nc_pattern = os.path.join(HAZARDS_DIR, "**", "*ensemble_return_period*.nc")
-    nc_files = sorted(glob.glob(nc_pattern, recursive=True))
-    print(f"  Found {len(nc_files)} NetCDF file(s)")
+        for i, nc_path in enumerate(nc_files_to_process, 1):
+            try:
+                ht, hi = parse_hazard_from_path(nc_path)
+                label = f"{ht}/{hi} - {os.path.basename(nc_path)}"
+            except Exception:
+                label = os.path.basename(nc_path)
 
-    if not nc_files:
-        raise FileNotFoundError(f"No hazard files found in {HAZARDS_DIR}")
+            print(f"\n[{i}/{len(nc_files_to_process)}] Processing NetCDF: {label}")
+            file_start = time.time()
 
-    # ========================================================================
-    # FILTER FILES - SKIP ALREADY PROCESSED
-    # ========================================================================
+            for adm_level, adm_gdf in adm_gdfs.items():
+                print(f"  📊 Aggregating over {adm_level} ({len(adm_gdf)} regions)...")
+                t0 = time.time()
 
-    print("\n" + "=" * 60)
-    print("CHECKING WHICH FILES NEED PROCESSING")
-    print("=" * 60)
+                df = process_nc_hazard(
+                    nc_path=nc_path,
+                    adm_gdf=adm_gdf,
+                    adm_level=adm_level,
+                    ensemble_filter=ENSEMBLE_FILTER,
+                    client=client,
+                    chunk_lat=CHUNK_LAT,
+                    chunk_lon=CHUNK_LON,
+                )
 
-    nc_files_to_process = []
+                all_results.append(df)
+                print(
+                    f"    ✅ {adm_level}: {len(df)} records created in {time.time() - t0:.1f}s"
+                )
+                gc.collect()
 
-    print(f"\n📁 Checking {len(nc_files)} NetCDF file(s)...")
-    for nc_path in nc_files:
-        try:
-            hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
-            file_label = (
-                f"{hazard_type}/{hazard_indicator} - {os.path.basename(nc_path)}"
-            )
-        except:
-            file_label = os.path.basename(nc_path)
+            print(f"  ⏱️  Total time for this file: {time.time() - file_start:.1f}s")
 
-        if is_already_processed(
-            nc_path,
-            "nc",
-            existing_df,
-            adm_level_names,
-            ENSEMBLE_FILTER,
-        ):
-            print(f"  ⏭️  Skipping (already processed): {file_label}")
-        else:
-            print(f"  ✅ Will process: {file_label}")
-            nc_files_to_process.append(nc_path)
+        # Combine new results
+        new_df = pd.concat(all_results, ignore_index=True)
 
-    total_files_to_process = len(nc_files_to_process)
-    if total_files_to_process == 0:
-        print("\n" + "=" * 60)
-        print("✅ ALL FILES ALREADY PROCESSED - NO WORK TO DO")
-        print("=" * 60)
-        if len(existing_df) > 0:
-            print(f"\nExisting precomputed file has {len(existing_df)} records.")
-            print(f"Output file: {OUTPUT_PATH}")
-        return existing_df
-
-    # ========================================================================
-    # PROCESS NEW FILES
-    # ========================================================================
-
-    print("\n" + "=" * 60)
-    print("STARTING FILE PROCESSING")
-    print("=" * 60)
-    print(f"Processing {total_files_to_process} new file(s)...")
-
-    all_results = []
-
-    print(f"\n📁 Processing {len(nc_files_to_process)} NetCDF file(s)...")
-    for i, nc_path in enumerate(nc_files_to_process, 1):
-        try:
-            hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
-            file_label = (
-                f"{hazard_type}/{hazard_indicator} - {os.path.basename(nc_path)}"
-            )
-        except:
-            file_label = os.path.basename(nc_path)
-
-        print(f"\n[{i}/{len(nc_files_to_process)}] Processing NetCDF: {file_label}")
-        file_start_time = time.time()
-
-        for adm_level, adm_gdf in adm_gdfs.items():
-            print(
-                f"  📊 Aggregating {hazard_type}/{hazard_indicator} over {adm_level} ({len(adm_gdf)} regions)..."
-            )
-            adm_start_time = time.time()
-            result = process_nc_hazard(
-                nc_path,
-                adm_gdf,
-                adm_level,
-                ENSEMBLE_FILTER,
-                lat_chunk_size=CHUNK_SIZE_LAT,
-                lon_chunk_size=CHUNK_SIZE_LON,
-            )
-            all_results.append(result)
-            adm_elapsed = time.time() - adm_start_time
-            print(
-                f"    ✅ {adm_level}: {len(result)} records created in {adm_elapsed:.1f}s"
-            )
-
-            # Force garbage collection after each ADM level to free memory
-            gc.collect()
-
-        file_elapsed = time.time() - file_start_time
-        print(f"  ⏱️  Total time for this file: {file_elapsed:.1f}s")
-
-    # ========================================================================
-    # COMBINE AND SAVE RESULTS
-    # ========================================================================
-
-    print("\n" + "=" * 60)
-    print("COMBINING AND SAVING RESULTS")
-    print("=" * 60)
-
-    if len(all_results) == 0:
-        print("\n⚠️  No new results to add")
-        if len(existing_df) > 0:
-            print(f"Existing precomputed file has {len(existing_df)} records.")
-            print(f"Output file: {OUTPUT_PATH}")
-        return existing_df
-
-    print("\nCombining new results...")
-    new_df = pd.concat(all_results, ignore_index=True)
-    print(f"New records (before deduplication): {len(new_df)}")
-
-    # Deduplicate new results (in case same file was processed multiple times)
-    # Key columns that uniquely identify a record
-    dedup_key_cols = [
-        "region",
-        "adm_level",
-        "scenario_name",
-        "hazard_return_period",
-        "hazard_type",
-        "hazard_indicator",
-    ]
-    # Add optional columns if they exist
-    if "ensemble" in new_df.columns:
-        dedup_key_cols.append("ensemble")
-    if "season" in new_df.columns:
-        dedup_key_cols.append("season")
-
-    # Check for duplicates
-    duplicates_before = new_df.duplicated(subset=dedup_key_cols, keep="first").sum()
-    if duplicates_before > 0:
-        print(f"  ⚠️  Found {duplicates_before} duplicate records in new results")
-        print(f"  🧹 Removing duplicates (keeping first occurrence)...")
-        new_df = new_df.drop_duplicates(subset=dedup_key_cols, keep="first")
-        print(f"  ✅ After deduplication: {len(new_df)} records")
-    else:
-        print(f"  ✅ No duplicates found in new results")
-
-    print(f"New records (after deduplication): {len(new_df)}")
-
-    # Append to existing data if it exists
-    if len(existing_df) > 0:
-        print(f"Appending to existing {len(existing_df)} records...")
-        # Ensure column order matches
-        # Get all columns from both dataframes
-        all_cols = list(set(existing_df.columns) | set(new_df.columns))
-
-        # Reorder to match existing order if possible, then add any new columns
-        existing_cols = list(existing_df.columns)
-        new_cols = [col for col in all_cols if col not in existing_cols]
-        ordered_cols = existing_cols + new_cols
-
-        # Ensure both dataframes have the same columns (fill missing with NaN)
-        for col in ordered_cols:
-            if col not in existing_df.columns:
-                existing_df[col] = np.nan
-            if col not in new_df.columns:
-                new_df[col] = np.nan
-
-        # Remove records that are being recomputed to avoid duplicates
-        key_columns = [
-            col
-            for col in [
-                "region",
-                "adm_level",
-                "scenario_name",
-                "hazard_return_period",
-                "hazard_type",
-                "hazard_indicator",
-                "ensemble",
-                "season",
-            ]
-            if col in existing_df.columns and col in new_df.columns
+        # Deduplicate
+        dedup_key = [
+            "region",
+            "adm_level",
+            "scenario_name",
+            "hazard_return_period",
+            "hazard_type",
+            "hazard_indicator",
         ]
+        if "ensemble" in new_df.columns:
+            dedup_key.append("ensemble")
+        if "season" in new_df.columns:
+            dedup_key.append("season")
 
-        if key_columns:
-            print(
-                f"  Filtering existing data using key columns: {', '.join(key_columns)}"
-            )
+        new_df = new_df.drop_duplicates(subset=dedup_key, keep="first")
 
-            # Normalize ensemble column to string for merge compatibility
-            for col in ["ensemble", "season"]:
-                if col in key_columns:
-                    if col in existing_df.columns:
-                        existing_df[col] = existing_df[col].fillna("__NA__").astype(str)
-                    if col in new_df.columns:
-                        new_df[col] = new_df[col].fillna("__NA__").astype(str)
+        # Append / replace into existing
+        if not existing_df.empty:
+            # Align columns
+            all_cols = list(set(existing_df.columns) | set(new_df.columns))
+            for c in all_cols:
+                if c not in existing_df.columns:
+                    existing_df[c] = np.nan
+                if c not in new_df.columns:
+                    new_df[c] = np.nan
 
-            new_keys = new_df[key_columns].drop_duplicates()
-            marker_col = "_recomputed_match"
-            existing_df = existing_df.merge(
-                new_keys.assign(**{marker_col: 1}), on=key_columns, how="left"
-            )
-            replaced_rows = existing_df[marker_col].notna().sum()
-            if replaced_rows > 0:
-                print(f"  Removed {replaced_rows} existing record(s) being replaced")
-            existing_df = existing_df[existing_df[marker_col].isna()].drop(
-                columns=marker_col
-            )
+            key_cols = [
+                c
+                for c in [
+                    "region",
+                    "adm_level",
+                    "scenario_name",
+                    "hazard_return_period",
+                    "hazard_type",
+                    "hazard_indicator",
+                    "ensemble",
+                    "season",
+                ]
+                if c in existing_df.columns and c in new_df.columns
+            ]
+
+            if key_cols:
+                ex = existing_df.copy()
+                nd = new_df.copy()
+                for c in ["ensemble", "season"]:
+                    if c in key_cols:
+                        ex[c] = ex[c].fillna("__NA__").astype(str)
+                        nd[c] = nd[c].fillna("__NA__").astype(str)
+
+                ex["_k"] = 1
+                nd_keys = nd[key_cols].drop_duplicates()
+                ex = ex.merge(nd_keys.assign(_repl=1), on=key_cols, how="left")
+                ex = ex[ex["_repl"].isna()].drop(columns=["_repl"])
+                ex = ex.drop(columns=["_k"], errors="ignore")
+
+                final_df = pd.concat(
+                    [ex[all_cols], new_df[all_cols]], ignore_index=True
+                )
+            else:
+                final_df = pd.concat(
+                    [existing_df[all_cols], new_df[all_cols]], ignore_index=True
+                )
         else:
-            print(
-                "  ⚠️  No shared key columns found to filter existing data; appending all rows"
-            )
+            final_df = new_df
 
-        # Combine dataframes
-        final_df = pd.concat(
-            [existing_df[ordered_cols], new_df[ordered_cols]], ignore_index=True
-        )
-        print(
-            f"Total records: {len(final_df)} (existing: {len(existing_df)}, new: {len(new_df)})"
-        )
-    else:
-        final_df = new_df
-        print(f"Total records: {len(final_df)} (all new)")
+        # Final dedup safety
+        tmp = final_df.copy()
+        for c in ["ensemble", "season"]:
+            if c in tmp.columns:
+                tmp[c] = tmp[c].fillna("__NA__").astype(str)
+        final_df = final_df.loc[
+            ~tmp.duplicated(subset=dedup_key, keep="first")
+        ].reset_index(drop=True)
 
-    # Final deduplication check before saving (safety net)
-    print("\n🔍 Final deduplication check...")
-    dedup_key_cols_final = [
-        "region",
-        "adm_level",
-        "scenario_name",
-        "hazard_return_period",
-        "hazard_type",
-        "hazard_indicator",
-    ]
-    # Add optional columns if they exist
-    if "ensemble" in final_df.columns:
-        dedup_key_cols_final.append("ensemble")
-    if "season" in final_df.columns:
-        dedup_key_cols_final.append("season")
+        os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
+        final_df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
+        print(f"\n✅ Saved results to: {OUTPUT_PATH}")
+        print(final_df.head())
 
-    # Normalize ensemble and season for deduplication check
-    final_df_check = final_df.copy()
-    for col in ["ensemble", "season"]:
-        if col in final_df_check.columns:
-            final_df_check[col] = final_df_check[col].fillna("__NA__").astype(str)
+        return final_df
 
-    duplicates_final = final_df_check.duplicated(
-        subset=dedup_key_cols_final, keep="first"
-    ).sum()
-    if duplicates_final > 0:
-        print(f"  ⚠️  Found {duplicates_final} duplicate records in final dataset")
-        print(f"  🧹 Removing duplicates (keeping first occurrence)...")
-
-        # Use the normalized check dataframe to identify duplicates, then filter original
-        keep_mask = ~final_df_check.duplicated(
-            subset=dedup_key_cols_final, keep="first"
-        )
-        final_df = final_df[keep_mask].reset_index(drop=True)
-
-        print(f"  ✅ After final deduplication: {len(final_df)} records")
-    else:
-        print(f"  ✅ No duplicates in final dataset")
-
-    # Ensure output directory exists
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-
-    # Clean up __NA__ strings before saving (convert back to actual NaN)
-    for col in ["ensemble", "season"]:
-        if col in final_df.columns:
-            final_df[col] = final_df[col].replace("__NA__", np.nan)
-
-    # Save with UTF-8 encoding (with BOM for Excel compatibility)
-    final_df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
-
-    print(f"\n✅ Successfully saved results to:\n{OUTPUT_PATH}")
-    print("\nFirst few rows:")
-    print(final_df.head())
-
-    # ========================================================================
-    # CLEANUP - CLOSE DASK CLIENT
-    # ========================================================================
-
-    print("\n" + "=" * 60)
-    print("CLOSING DASK CLUSTER")
-    print("=" * 60)
-    client.close()
-    cluster.close()
-    print("  ✅ Dask cluster and dashboard closed")
-
-    return final_df
+    finally:
+        # Clean shutdown to avoid noisy worker-loss messages after exceptions
+        try:
+            client.close()
+        except Exception:
+            pass
+        try:
+            cluster.close()
+        except Exception:
+            pass
 
 
 if __name__ == "__main__":
