@@ -20,6 +20,9 @@ import numpy as np
 import pandas as pd
 import geopandas as gpd
 import xarray as xr
+import rasterio
+import rasterio.features
+from rasterio.transform import from_bounds
 import dask
 from dask.diagnostics import ProgressBar
 from dask.distributed import Client, LocalCluster
@@ -196,131 +199,97 @@ def compute_statistics(values):
     }
 
 
-def build_coordinate_region_lookup(
-    lats,
-    lons,
-    adm_gdf,
-    max_points=5_000_000,
-    target_batch_size=250_000,
-):
+def build_region_id_raster(lats, lons, adm_gdf):
     """
-    Build a lookup table that maps every coordinate in the dataset grid to a region.
+    Build a region ID raster that maps every grid cell to a region integer ID.
 
-    This allows us to skip running a spatial join for every chunk and reuse the same mapping
-    when processing every dimension combination.
+    This rasterizes polygons once, then all subsequent operations can use
+    array operations instead of spatial joins.
 
-    Includes a fallback mechanism: for regions that contain no grid point centers,
-    the nearest grid point center is assigned to ensure every region has data.
+    Args:
+        lats: Array of latitude coordinates (from NetCDF)
+        lons: Array of longitude coordinates (from NetCDF)
+        adm_gdf: GeoDataFrame with administrative boundaries and 'region' column
+
+    Returns:
+        tuple: (region_id_array, region_id_to_name_dict)
+            - region_id_array: 2D numpy array (lat, lon) with integer region IDs
+            - region_id_to_name_dict: dict mapping integer ID to region name
     """
-    total_points = len(lats) * len(lons)
-
-    if total_points == 0:
-        return pd.DataFrame(columns=["lat", "lon", "region"])
-
-    if total_points > max_points:
-        print(
-            f"    ⚠️  Coordinate grid ({total_points:,} points) exceeds "
-            f"{max_points:,} – falling back to chunk-level spatial joins."
-        )
-        return None
-
     print(
-        f"    Building coordinate→region lookup ({total_points:,} grid points, "
-        f"{len(lats)} lat × {len(lons)} lon)..."
+        f"    🎨 Rasterizing {len(adm_gdf)} regions onto {len(lats)} × {len(lons)} grid..."
     )
 
-    per_lat_quota = max(1, target_batch_size // max(1, len(lons)))
-    batch_lat_size = min(len(lats), per_lat_quota)
+    # Create mapping from region name to integer ID
+    region_name_to_id = {name: idx + 1 for idx, name in enumerate(adm_gdf["region"])}
+    region_id_to_name = {idx + 1: name for idx, name in enumerate(adm_gdf["region"])}
 
-    coords_batches = []
+    # Add integer ID column to geodataframe
+    adm_gdf_indexed = adm_gdf.copy()
+    adm_gdf_indexed["region_id"] = adm_gdf_indexed["region"].map(region_name_to_id)
 
-    for lat_start in range(0, len(lats), batch_lat_size):
-        lat_slice = lats[lat_start : lat_start + batch_lat_size]
-        lat_repeat = np.repeat(lat_slice, len(lons))
-        lon_tile = np.tile(lons, len(lat_slice))
+    # Calculate transform from lat/lon bounds
+    # Note: lats may be descending or ascending
+    lat_min, lat_max = float(np.min(lats)), float(np.max(lats))
+    lon_min, lon_max = float(np.min(lons)), float(np.max(lons))
 
-        batch_df = pd.DataFrame({"lat": lat_repeat, "lon": lon_tile})
-        gdf_batch = gpd.GeoDataFrame(
-            batch_df,
-            geometry=gpd.points_from_xy(batch_df["lon"], batch_df["lat"]),
-            crs="EPSG:4326",
+    # Create transform (maps pixel coords to geographic coords)
+    transform = from_bounds(lon_min, lat_min, lon_max, lat_max, len(lons), len(lats))
+
+    # Rasterize all polygons at once
+    # shapes format: [(geometry, value), ...]
+    shapes = [
+        (geom, region_id)
+        for geom, region_id in zip(
+            adm_gdf_indexed.geometry, adm_gdf_indexed["region_id"]
         )
+    ]
 
-        coords_with_region = gpd.sjoin(
-            gdf_batch,
-            adm_gdf[["region", "geometry"]],
-            how="inner",
-            predicate="within",
-        )
-
-        coords_batches.append(coords_with_region[["lat", "lon", "region"]])
-
-        del batch_df, gdf_batch, coords_with_region
-        gc.collect()
-
-    if not coords_batches:
-        lookup_df = pd.DataFrame(columns=["lat", "lon", "region"])
-    else:
-        lookup_df = pd.concat(coords_batches, ignore_index=True)
-    lookup_df = (
-        lookup_df.drop_duplicates(subset=["lat", "lon", "region"])
-        .reset_index(drop=True)
-        .astype({"lat": float, "lon": float})
+    # Rasterize (0 = no region, >0 = region ID)
+    region_id_raster = rasterio.features.rasterize(
+        shapes,
+        out_shape=(len(lats), len(lons)),
+        transform=transform,
+        fill=0,  # Background value for pixels not in any region
+        dtype=np.uint16,  # Support up to 65535 regions
+        all_touched=False,  # Only pixels whose center is in polygon
     )
 
-    # Fallback for missing regions: assign nearest point to centroid
-    assigned_regions = set(lookup_df["region"].unique())
-    all_regions = set(adm_gdf["region"].unique())
-    missing_regions_names = all_regions - assigned_regions
+    # Check for regions with no pixels
+    assigned_ids = set(np.unique(region_id_raster))
+    assigned_ids.discard(0)  # Remove background
+    all_ids = set(region_id_to_name.keys())
+    missing_ids = all_ids - assigned_ids
 
-    if missing_regions_names:
+    if missing_ids:
         print(
-            f"    📍 {len(missing_regions_names)} regions missing grid points. "
-            "Assigning nearest neighbor fallbacks..."
+            f"    ⚠️  {len(missing_ids)} regions have no grid cell centers within their boundaries"
         )
+        print(f"    📍 Assigning nearest grid cell to these regions...")
 
-        missing_regions_gdf = adm_gdf[
-            adm_gdf["region"].isin(missing_regions_names)
-        ].copy()
+        # For each missing region, find nearest grid cell
+        for region_id in missing_ids:
+            region_name = region_id_to_name[region_id]
+            region_geom = adm_gdf[adm_gdf["region"] == region_name].iloc[0].geometry
 
-        # Create a GeoDataFrame of ALL unique grid points for distance calculation
-        lat_repeat_all = np.repeat(lats, len(lons))
-        lon_tile_all = np.tile(lons, len(lats))
-        all_points_gdf = gpd.GeoDataFrame(
-            {"lat": lat_repeat_all, "lon": lon_tile_all},
-            geometry=gpd.points_from_xy(lon_tile_all, lat_repeat_all),
-            crs="EPSG:4326",
-        )
+            # Get centroid
+            centroid = region_geom.centroid
+            centroid_lon, centroid_lat = centroid.x, centroid.y
 
-        # Project to a metric CRS for accurate distance (Web Mercator is usually fine for this scale)
-        # Using a more local projection could be better but 3857 is generally acceptable for center-of-Brazil
-        all_points_proj = all_points_gdf.to_crs(epsg=3857)
-        missing_regions_proj = missing_regions_gdf.to_crs(epsg=3857)
+            # Find nearest grid cell
+            lat_diffs = np.abs(lats - centroid_lat)
+            lon_diffs = np.abs(lons - centroid_lon)
 
-        fallbacks = []
-        for idx, region_row in missing_regions_proj.iterrows():
-            region_name = region_row["region"]
-            centroid = region_row.geometry.centroid
+            nearest_lat_idx = np.argmin(lat_diffs)
+            nearest_lon_idx = np.argmin(lon_diffs)
 
-            # Find index of nearest point
-            distances = all_points_proj.distance(centroid)
-            nearest_idx = distances.idxmin()
+            # Assign this grid cell to the region
+            region_id_raster[nearest_lat_idx, nearest_lon_idx] = region_id
 
-            nearest_lat = all_points_gdf.loc[nearest_idx, "lat"]
-            nearest_lon = all_points_gdf.loc[nearest_idx, "lon"]
+    assigned_after = len(set(np.unique(region_id_raster)) - {0})
+    print(f"    ✅ Rasterized {assigned_after} regions onto grid")
 
-            fallbacks.append(
-                {"lat": nearest_lat, "lon": nearest_lon, "region": region_name}
-            )
-
-        if fallbacks:
-            fallback_df = pd.DataFrame(fallbacks)
-            lookup_df = pd.concat([lookup_df, fallback_df], ignore_index=True)
-            print(f"    ✅ Added {len(fallbacks)} fallback assignments.")
-
-    print(f"    Coordinate lookup cached for {len(lookup_df):,} point-region pairs.")
-
-    return lookup_df
+    return region_id_raster, region_id_to_name
 
 
 # ============================================================================
@@ -328,20 +297,86 @@ def build_coordinate_region_lookup(
 # ============================================================================
 
 
-def process_nc_hazard(
-    nc_path, adm_gdf, adm_level, ensemble_filter, lat_chunk_size=100, lon_chunk_size=100
+def compute_region_statistics_from_arrays(
+    values_array, region_id_array, region_id_to_name
 ):
     """
-    Process NetCDF hazard file directly and aggregate over regions.
+    Compute statistics for each region using array operations (no pandas/point geometry).
 
-    Uses chunked processing to handle large files efficiently without loading
-    entire dataset into memory at once.
+    Args:
+        values_array: 2D numpy array (lat, lon) with hazard values
+        region_id_array: 2D numpy array (lat, lon) with region IDs
+        region_id_to_name: dict mapping region ID to region name
+
+    Returns:
+        dict: {region_name: {min, max, mean, median, p2_5, ...}}
+    """
+    results = {}
+
+    # Get unique region IDs (excluding 0 = background)
+    unique_region_ids = np.unique(region_id_array)
+    unique_region_ids = unique_region_ids[unique_region_ids > 0]
+
+    for region_id in unique_region_ids:
+        # Get all values for this region (where region_id_array matches)
+        mask = region_id_array == region_id
+        region_values = values_array[mask]
+
+        # Remove NaN values
+        region_values = region_values[~np.isnan(region_values)]
+
+        if len(region_values) == 0:
+            # No valid values for this region
+            continue
+
+        region_name = region_id_to_name[region_id]
+
+        # Compute statistics using numpy (fast array operations)
+        results[region_name] = {
+            "min": float(np.min(region_values)),
+            "max": float(np.max(region_values)),
+            "mean": float(np.mean(region_values)),
+            "median": float(np.percentile(region_values, 50)),
+            "p2_5": float(np.percentile(region_values, 2.5)),
+            "p5": float(np.percentile(region_values, 5)),
+            "p10": float(np.percentile(region_values, 10)),
+            "p90": float(np.percentile(region_values, 90)),
+            "p95": float(np.percentile(region_values, 95)),
+            "p97_5": float(np.percentile(region_values, 97.5)),
+        }
+
+    return results
+
+
+def process_nc_hazard(
+    nc_path,
+    adm_gdf,
+    adm_level,
+    ensemble_filter,
+    lat_chunk_size=2000,
+    lon_chunk_size=2000,
+):
+    """
+    Process NetCDF hazard file using rasterized region IDs and array operations.
+
+    This avoids converting to DataFrame and uses efficient array-based zonal statistics.
+
+    Args:
+        nc_path: Path to NetCDF file
+        adm_gdf: GeoDataFrame with administrative boundaries
+        adm_level: Administrative level name (e.g., 'ADM1', 'ADM2')
+        ensemble_filter: Ensemble value to filter for (e.g., 'median')
+        lat_chunk_size: Chunk size for latitude (default 2000)
+        lon_chunk_size: Chunk size for longitude (default 2000)
+
+    Returns:
+        pd.DataFrame: Aggregated statistics per region
     """
     if not os.path.exists(nc_path):
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
 
-    # Open with chunks={} to ensure we get Dask arrays (using native chunking)
-    ds = xr.open_dataset(nc_path, chunks={})
+    # Open with chunks for lazy loading
+    ds = xr.open_dataset(nc_path, chunks={}, engine="netcdf4")
 
     # Get the data variable
     var_names = list(ds.data_vars.keys())
@@ -380,10 +415,10 @@ def process_nc_hazard(
 
     non_spatial_dims = [d for d in dims if d not in ["lon", "lat"]]
 
-    # Build coordinate -> region lookup (with fallbacks for missing regions)
+    # Build region ID raster ONCE for this file (reused for all dimension combos)
     lats = da.coords["lat"].values
     lons = da.coords["lon"].values
-    coord_region_lookup = build_coordinate_region_lookup(lats, lons, adm_gdf)
+    region_id_raster, region_id_to_name = build_region_id_raster(lats, lons, adm_gdf)
 
     # Build list of all dimension combinations
     dim_combinations = []
@@ -395,11 +430,12 @@ def process_nc_hazard(
     else:
         dim_combinations = [{}]
 
-    all_chunk_results = []
+    all_results = []
 
     print(
         f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
     )
+
     for dim_combo in tqdm(
         dim_combinations, desc="    Processing", leave=False, ncols=80
     ):
@@ -408,171 +444,157 @@ def process_nc_hazard(
         for dim_name, dim_val in dim_combo.items():
             da_slice = da_slice.sel({dim_name: dim_val})
 
-        # --- Mistake Fix: Nodata Handling ---
-        # Specific fix for Heat HI which has 76.02 and other low values as nodata
-        # Real Heat Index values in Kelvin are typically > 300 (27°C)
+        # Apply nodata filtering
         if hazard_type == "Heat":
+            # Heat Index values in Kelvin should be > 300 (27°C)
             da_slice = da_slice.where(da_slice > 300)
-        # ------------------------------------
 
-        accumulated_points = []
+        # Load the 2D array into memory (or process in chunks if too large)
+        # Check size to decide if we can load all at once
         n_lat = len(lats)
         n_lon = len(lons)
-        n_lat_chunks = (n_lat + lat_chunk_size - 1) // lat_chunk_size
-        n_lon_chunks = (n_lon + lon_chunk_size - 1) // lon_chunk_size
-        total_spatial_chunks = n_lat_chunks * n_lon_chunks
+        total_cells = n_lat * n_lon
 
-        spatial_pbar = tqdm(
-            total=total_spatial_chunks,
-            desc="      Spatial chunks",
-            leave=False,
-            ncols=80,
-            position=1,
-        )
+        # If small enough, compute entire slice at once
+        if total_cells <= 10_000_000:  # ~10M cells = ~40MB for float32
+            # Compute entire array at once
+            if isinstance(da_slice.data, dask.array.Array):
+                values_array = da_slice.compute().values
+            else:
+                values_array = da_slice.values
 
-        for lat_start in range(0, n_lat, lat_chunk_size):
-            lat_end = min(lat_start + lat_chunk_size, n_lat)
-            for lon_start in range(0, n_lon, lon_chunk_size):
-                lon_end = min(lon_start + lon_chunk_size, n_lon)
+            # Compute statistics for all regions using array operations
+            region_stats = compute_region_statistics_from_arrays(
+                values_array, region_id_raster, region_id_to_name
+            )
 
-                # Select spatial chunk (lazy)
-                da_chunk = da_slice.isel(
-                    lat=slice(lat_start, lat_end), lon=slice(lon_start, lon_end)
-                )
+        else:
+            # For very large arrays, process in spatial chunks and accumulate per-region values
+            print(
+                f"      Large array ({n_lat}×{n_lon}={total_cells:,} cells), processing in chunks..."
+            )
 
-                # Compute and convert to dataframe
-                if isinstance(da_chunk.data, dask.array.Array):
-                    da_chunk_loaded = da_chunk.compute()
-                else:
-                    da_chunk_loaded = da_chunk
+            # Accumulate values per region across chunks
+            region_values_accum = {
+                region_name: [] for region_name in region_id_to_name.values()
+            }
 
-                spatial_pbar.update(1)
+            n_lat_chunks = (n_lat + lat_chunk_size - 1) // lat_chunk_size
+            n_lon_chunks = (n_lon + lon_chunk_size - 1) // lon_chunk_size
+            total_chunks = n_lat_chunks * n_lon_chunks
 
-                df_chunk = (
-                    da_chunk_loaded.to_dataframe(name="value")
-                    .reset_index()
-                    .dropna(subset=["value"])
-                )
+            chunk_pbar = tqdm(
+                total=total_chunks,
+                desc="      Spatial chunks",
+                leave=False,
+                ncols=80,
+                position=1,
+            )
 
-                if len(df_chunk) == 0:
-                    del da_chunk_loaded
+            for lat_start in range(0, n_lat, lat_chunk_size):
+                lat_end = min(lat_start + lat_chunk_size, n_lat)
+                for lon_start in range(0, n_lon, lon_chunk_size):
+                    lon_end = min(lon_start + lon_chunk_size, n_lon)
+
+                    # Select spatial chunk
+                    da_chunk = da_slice.isel(
+                        lat=slice(lat_start, lat_end), lon=slice(lon_start, lon_end)
+                    )
+
+                    # Compute this chunk
+                    if isinstance(da_chunk.data, dask.array.Array):
+                        values_chunk = da_chunk.compute().values
+                    else:
+                        values_chunk = da_chunk.values
+
+                    # Get corresponding region ID chunk
+                    region_id_chunk = region_id_raster[
+                        lat_start:lat_end, lon_start:lon_end
+                    ]
+
+                    # Accumulate values per region
+                    unique_ids = np.unique(region_id_chunk)
+                    unique_ids = unique_ids[unique_ids > 0]
+
+                    for region_id in unique_ids:
+                        mask = region_id_chunk == region_id
+                        region_vals = values_chunk[mask]
+                        region_vals = region_vals[~np.isnan(region_vals)]
+
+                        if len(region_vals) > 0:
+                            region_name = region_id_to_name[region_id]
+                            region_values_accum[region_name].append(region_vals)
+
+                    chunk_pbar.update(1)
+                    del values_chunk, region_id_chunk
+
+            chunk_pbar.close()
+
+            # Compute statistics from accumulated values
+            region_stats = {}
+            for region_name, vals_list in region_values_accum.items():
+                if len(vals_list) == 0:
                     continue
 
-                # --- Mistake Fix: Handle fallback when lookup table is None ---
-                if coord_region_lookup is not None:
-                    joined = pd.merge(
-                        df_chunk, coord_region_lookup, on=["lat", "lon"], how="inner"
-                    )
+                # Concatenate all chunks for this region
+                all_vals = np.concatenate(vals_list)
+
+                if len(all_vals) == 0:
+                    continue
+
+                region_stats[region_name] = {
+                    "min": float(np.min(all_vals)),
+                    "max": float(np.max(all_vals)),
+                    "mean": float(np.mean(all_vals)),
+                    "median": float(np.percentile(all_vals, 50)),
+                    "p2_5": float(np.percentile(all_vals, 2.5)),
+                    "p5": float(np.percentile(all_vals, 5)),
+                    "p10": float(np.percentile(all_vals, 10)),
+                    "p90": float(np.percentile(all_vals, 90)),
+                    "p95": float(np.percentile(all_vals, 95)),
+                    "p97_5": float(np.percentile(all_vals, 97.5)),
+                }
+
+            del region_values_accum
+
+        # Convert to DataFrame rows
+        for region_name, stats in region_stats.items():
+            row = {
+                "region": region_name,
+                "adm_level": adm_level,
+                "hazard_type": hazard_type,
+                "hazard_indicator": hazard_indicator,
+                "ensemble": ensemble_value_used if has_ensemble else None,
+                **stats,
+            }
+
+            # Add dimension combo values
+            for dim_name, dim_val in dim_combo.items():
+                # Standardize dimension names
+                if dim_name == "GWL":
+                    row["scenario_name"] = str(dim_val)
+                elif dim_name == "return_period":
+                    row["hazard_return_period"] = int(dim_val)
                 else:
-                    # Fallback: spatial join for this specific chunk
-                    gdf_chunk = gpd.GeoDataFrame(
-                        df_chunk,
-                        geometry=gpd.points_from_xy(df_chunk["lon"], df_chunk["lat"]),
-                        crs="EPSG:4326",
-                    )
-                    joined = gpd.sjoin(
-                        gdf_chunk,
-                        adm_gdf[["region", "geometry"]],
-                        how="inner",
-                        predicate="within",
-                    )
-                    # Convert back to DataFrame and drop geometry for consistency
-                    joined = pd.DataFrame(joined.drop(columns="geometry"))
-                # -----------------------------------------------------------
+                    row[dim_name] = dim_val
 
-                if len(joined) > 0:
-                    # Accumulate only necessary columns
-                    cols_to_keep = ["region", "value"]
-                    for col in joined.columns:
-                        if col in dim_combo and col not in cols_to_keep:
-                            cols_to_keep.append(col)
-                    accumulated_points.append(joined[cols_to_keep])
+            all_results.append(row)
 
-                del da_chunk_loaded, df_chunk, joined
-
-        spatial_pbar.close()
         gc.collect()
 
-        if len(accumulated_points) == 0:
-            continue
-
-        df_all_points = pd.concat(accumulated_points, ignore_index=True)
-        del accumulated_points
-        gc.collect()
-
-        # Add metadata
-        df_all_points["hazard_type"] = hazard_type
-        df_all_points["hazard_indicator"] = hazard_indicator
-        df_all_points["ensemble"] = ensemble_value_used if has_ensemble else None
-
-        # Standardize column names
-        if "GWL" in df_all_points.columns:
-            df_all_points = df_all_points.rename(columns={"GWL": "scenario_name"})
-        if "return_period" in df_all_points.columns:
-            df_all_points = df_all_points.rename(
-                columns={"return_period": "hazard_return_period"}
-            )
-
-        # Identify groupby columns
-        metadata_cols = [
-            "scenario_name",
-            "hazard_return_period",
-            "ensemble",
-            "hazard_type",
-            "hazard_indicator",
-            "value",
-            "region",
-        ]
-        group_cols = ["hazard_type", "hazard_indicator", "region", "ensemble"]
-        if "scenario_name" in df_all_points.columns:
-            group_cols.insert(0, "scenario_name")
-        if "hazard_return_period" in df_all_points.columns:
-            group_cols.insert(1, "hazard_return_period")
-
-        # Add any extra dimensions (like season)
-        extra_dims = [c for c in df_all_points.columns if c not in metadata_cols]
-        group_cols.extend(extra_dims)
-
-        def q(p):
-            return lambda x: float(np.nanpercentile(x, p))
-
-        agg_slice = (
-            df_all_points.groupby(group_cols, dropna=False)
-            .agg(
-                min=("value", "min"),
-                max=("value", "max"),
-                mean=("value", "mean"),
-                median=("value", "median"),
-                p2_5=("value", q(2.5)),
-                p5=("value", q(5)),
-                p10=("value", q(10)),
-                p90=("value", q(90)),
-                p95=("value", q(95)),
-                p97_5=("value", q(97.5)),
-            )
-            .reset_index()
-        )
-
-        all_chunk_results.append(agg_slice)
-        del df_all_points, agg_slice
-        gc.collect()
-
-    if coord_region_lookup is not None:
-        del coord_region_lookup
     ds.close()
 
-    if len(all_chunk_results) == 0:
+    if len(all_results) == 0:
         raise ValueError(f"No valid data in NetCDF after filtering: {nc_path}")
 
-    agg = pd.concat(all_chunk_results, ignore_index=True)
+    # Convert to DataFrame
+    agg = pd.DataFrame(all_results)
 
     # Fill missing columns for consistency
     if "scenario_name" not in agg.columns:
         agg["scenario_name"] = np.nan
     if "hazard_return_period" not in agg.columns:
         agg["hazard_return_period"] = np.nan
-
-    agg["adm_level"] = adm_level
 
     # Final column ordering
     base_cols = [
@@ -650,7 +672,7 @@ def get_file_signature(file_path, file_type, adm_levels, ensemble_filter):
         return []
 
     try:
-        ds = xr.open_dataset(file_path)
+        ds = xr.open_dataset(file_path, engine="netcdf4")
         var_names = list(ds.data_vars.keys())
         if not var_names:
             ds.close()
@@ -841,11 +863,12 @@ def main():
     # Processing parameters
     ENSEMBLE_FILTER = "median"
 
-    # Chunk size for spatial processing (larger = faster but more memory)
-    # 200x200 reduces graph size and task overhead significantly
-    # (~40,000 cells per chunk)
-    CHUNK_SIZE_LAT = 5000
-    CHUNK_SIZE_LON = 5000
+    # Chunk size for spatial processing
+    # With the new rasterization approach, larger chunks are more efficient
+    # 2000x2000 = ~4M cells per chunk (~16MB for float32)
+    # Only used for very large arrays (>10M total cells)
+    CHUNK_SIZE_LAT = 2000
+    CHUNK_SIZE_LON = 2000
 
     # ========================================================================
     # DASK CLUSTER & DASHBOARD
