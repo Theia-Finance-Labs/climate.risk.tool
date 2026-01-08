@@ -157,7 +157,7 @@ def rasterize_regions_full_grid(
         transform=transform,
         fill=0,
         dtype=np.int32,
-        all_touched=False,
+        all_touched=True,
     )
     return region_ids
 
