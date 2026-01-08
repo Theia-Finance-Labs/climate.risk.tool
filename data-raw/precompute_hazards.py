@@ -540,7 +540,8 @@ def process_nc_hazard_bottomk(
         # Precompute region-id rasters ONCE per block for this ADM level
         # (reused for all dimension combinations; avoids rasterize in hot loop)
         # -------------------------------------------------------------------
-        rid_blocks: Dict[Tuple[int, int], np.ndarray] = {}
+        # Keep region-id blocks on workers as Futures (do NOT gather to driver).
+        rid_futures: Dict[Tuple[int, int], Any] = {}
 
         # Build a cheap template Dask array so we know the block grid shape.
         # If non-spatial dims exist, take the first element so we end up 2D.
@@ -555,9 +556,6 @@ def process_nc_hazard_bottomk(
         if isinstance(template_data, dask_da.Array):
             template_blocks = template_data.to_delayed()
 
-            rid_futures: List[Any] = []
-            rid_keys: List[Tuple[int, int]] = []
-
             for bi in range(template_blocks.shape[0]):
                 for bj in range(template_blocks.shape[1]):
                     start_lat = bi * chunk_lat
@@ -569,7 +567,7 @@ def process_nc_hazard_bottomk(
                     lons_block = lons[start_lon:end_lon]
 
                     # Submit directly so the scattered shapes are a true dependency
-                    fut = client.submit(
+                    rid_futures[(bi, bj)] = client.submit(
                         _block_rasterize_only,
                         lats_block,
                         lons_block,
@@ -577,13 +575,6 @@ def process_nc_hazard_bottomk(
                         True,
                         pure=False,
                     )
-                    rid_futures.append(fut)
-                    rid_keys.append((bi, bj))
-
-            # Materialize once
-            rid_arrays_list = client.gather(rid_futures)
-            for key, arr in zip(rid_keys, rid_arrays_list):
-                rid_blocks[key] = arr
 
         # Small-array fast path: one full-grid rasterization, reused for combos
         region_ids_full: Optional[np.ndarray] = None
@@ -636,12 +627,9 @@ def process_nc_hazard_bottomk(
             else:
                 blocks = darr.to_delayed()  # 2D grid
 
-                # Defensive: in the rare case xarray handed us a Dask array here but
-                # our earlier template detection didn't (e.g., odd backend behavior),
-                # build the per-block region rasters from the actual block grid.
-                if not rid_blocks:
-                    rid_futures = []
-                    rid_keys = []
+                # Defensive: if template-based precompute didn't run, precompute rid futures
+                # from the actual block grid shape (still keep them on workers).
+                if not rid_futures:
                     for bi in range(blocks.shape[0]):
                         for bj in range(blocks.shape[1]):
                             start_lat = bi * chunk_lat
@@ -652,7 +640,7 @@ def process_nc_hazard_bottomk(
                             lats_block = lats[start_lat:end_lat]
                             lons_block = lons[start_lon:end_lon]
 
-                            fut = client.submit(
+                            rid_futures[(bi, bj)] = client.submit(
                                 _block_rasterize_only,
                                 lats_block,
                                 lons_block,
@@ -660,40 +648,49 @@ def process_nc_hazard_bottomk(
                                 True,
                                 pure=False,
                             )
-                            rid_futures.append(fut)
-                            rid_keys.append((bi, bj))
 
-                    rid_arrays_list = client.gather(rid_futures)
-                    for key, arr in zip(rid_keys, rid_arrays_list):
-                        rid_blocks[key] = arr
+                # Turn hazard blocks into Futures (data stays on workers)
+                val_keys: List[Tuple[int, int]] = []
+                val_delayed: List[Any] = []
+                for bi in range(blocks.shape[0]):
+                    for bj in range(blocks.shape[1]):
+                        val_keys.append((bi, bj))
+                        val_delayed.append(blocks[bi, bj])
 
-                tasks = []
+                val_futures_list = client.compute(val_delayed)
+                val_futures = {k: f for k, f in zip(val_keys, val_futures_list)}
+
+                # Submit reductions: each task depends on (values_future, rid_future)
+                reduce_futures = []
                 for bi in range(blocks.shape[0]):
                     for bj in range(blocks.shape[1]):
                         start_lat = bi * chunk_lat
                         start_lon = bj * chunk_lon
-                        # Reuse precomputed region ids for this block
-                        region_ids_block = rid_blocks[(bi, bj)]
 
-                        t = delayed(
-                            _block_reduce_bottomk,
-                            name=f"reduce-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}",
-                            pure=False,
-                        )(
-                            blocks[bi, bj],
-                            region_ids_block,
-                            hazard_type,
-                            start_lat,
-                            start_lon,
-                            nlon_full,
-                            seed,
-                            k_samples,
-                            nodata_value,
+                        reduce_futures.append(
+                            client.submit(
+                                _block_reduce_bottomk,
+                                val_futures[(bi, bj)],
+                                rid_futures[(bi, bj)],
+                                hazard_type,
+                                start_lat,
+                                start_lon,
+                                nlon_full,
+                                seed,
+                                k_samples,
+                                nodata_value,
+                                pure=False,
+                            )
                         )
-                        tasks.append(t)
 
-                futures = client.compute(tasks)
-                block_dicts = client.gather(futures)
+                block_dicts = client.gather(reduce_futures)
+
+                # Release per-combo value/reduce futures promptly to avoid buildup.
+                try:
+                    client.cancel(list(val_futures.values()))
+                    client.cancel(reduce_futures)
+                except Exception:
+                    pass
 
             # Driver merge per rid with bounded bottom-k
             # accum: rid -> (count,sum,min,max, hashes, values)
