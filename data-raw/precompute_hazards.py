@@ -38,7 +38,6 @@ import rasterio.features
 from rasterio.transform import from_bounds
 
 import dask.array as dask_da
-from dask import delayed
 from dask.distributed import Client, LocalCluster
 from unidecode import unidecode
 from tqdm import tqdm
@@ -63,6 +62,10 @@ SEED = 123456789  # int
 
 # Max samples kept per region (memory ~ regions * K_SAMPLES)
 K_SAMPLES = 1024  # 512/1024/2048 are common choices
+
+# For ADM2, the number of touched regions per block can be very high; keeping a
+# smaller sample dramatically reduces driver-side transfer/merge pressure.
+K_SAMPLES_ADM2 = 128
 
 # Quantiles requested
 Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64)
@@ -298,6 +301,38 @@ def merge_bottomk(
             j += 1
 
     return np.array(out_h, dtype=np.uint64), np.array(out_v, dtype=np.float64)
+
+
+def _merge_block_dict_into_accum(
+    dct: Dict[int, Tuple[int, float, float, float, np.ndarray, np.ndarray]],
+    accum_count: Dict[int, int],
+    accum_sum: Dict[int, float],
+    accum_min: Dict[int, float],
+    accum_max: Dict[int, float],
+    accum_h: Dict[int, np.ndarray],
+    accum_v: Dict[int, np.ndarray],
+    k_samples: int,
+) -> None:
+    """Merge one block result dict into driver accumulators."""
+    if not dct:
+        return
+
+    for rid, (cnt, s, mn, mx, sh, sv) in dct.items():
+        if rid not in accum_count:
+            accum_count[rid] = cnt
+            accum_sum[rid] = s
+            accum_min[rid] = mn
+            accum_max[rid] = mx
+            accum_h[rid] = sh
+            accum_v[rid] = sv
+        else:
+            accum_count[rid] += cnt
+            accum_sum[rid] += s
+            accum_min[rid] = min(accum_min[rid], mn)
+            accum_max[rid] = max(accum_max[rid], mx)
+            mh, mv = merge_bottomk(accum_h[rid], accum_v[rid], sh, sv, k_samples)
+            accum_h[rid] = mh
+            accum_v[rid] = mv
 
 
 # ---------------------------------------------------------------------------
@@ -576,8 +611,23 @@ def process_nc_hazard_bottomk(
                         pure=False,
                     )
 
+            # Materialize rid rasters once (kept on workers as Futures)
+            try:
+                from dask.distributed import wait
+
+                wait(list(rid_futures.values()))
+            except Exception:
+                pass
+
         # Small-array fast path: one full-grid rasterization, reused for combos
         region_ids_full: Optional[np.ndarray] = None
+
+        # Effective sample size for this ADM level (quantiles are approximate anyway).
+        k_samples_eff = (
+            min(int(k_samples), int(K_SAMPLES_ADM2))
+            if str(adm_level).upper() == "ADM2"
+            else int(k_samples)
+        )
 
         for combo_i, dim_combo in enumerate(
             tqdm(dim_combinations, desc="    Processing", leave=False, ncols=80), 1
@@ -601,6 +651,15 @@ def process_nc_hazard_bottomk(
             except Exception:
                 nodata_value = None
 
+            # Driver accumulators per rid (bounded bottom-k)
+            # accum: rid -> (count,sum,min,max, hashes, values)
+            accum_count: Dict[int, int] = {}
+            accum_sum: Dict[int, float] = {}
+            accum_min: Dict[int, float] = {}
+            accum_max: Dict[int, float] = {}
+            accum_h: Dict[int, np.ndarray] = {}
+            accum_v: Dict[int, np.ndarray] = {}
+
             if not isinstance(darr, dask_da.Array):
                 # small array: compute in one go as a single block
                 values_full = da_slice.values
@@ -620,10 +679,19 @@ def process_nc_hazard_bottomk(
                     start_lon=0,
                     nlon_full=nlon_full,
                     seed=seed,
-                    k=k_samples,
+                    k=k_samples_eff,
                     nodata_value=nodata_value,
                 )
-                block_dicts = [block_res]
+                _merge_block_dict_into_accum(
+                    block_res,
+                    accum_count,
+                    accum_sum,
+                    accum_min,
+                    accum_max,
+                    accum_h,
+                    accum_v,
+                    k_samples_eff,
+                )
             else:
                 blocks = darr.to_delayed()  # 2D grid
 
@@ -649,18 +717,8 @@ def process_nc_hazard_bottomk(
                                 pure=False,
                             )
 
-                # Turn hazard blocks into Futures (data stays on workers)
-                val_keys: List[Tuple[int, int]] = []
-                val_delayed: List[Any] = []
-                for bi in range(blocks.shape[0]):
-                    for bj in range(blocks.shape[1]):
-                        val_keys.append((bi, bj))
-                        val_delayed.append(blocks[bi, bj])
-
-                val_futures_list = client.compute(val_delayed)
-                val_futures = {k: f for k, f in zip(val_keys, val_futures_list)}
-
-                # Submit reductions: each task depends on (values_future, rid_future)
+                # Submit reductions, then STREAM results back to the driver to avoid
+                # materializing all per-block dicts at once (which can OOM the client).
                 reduce_futures = []
                 for bi in range(blocks.shape[0]):
                     for bj in range(blocks.shape[1]):
@@ -670,58 +728,53 @@ def process_nc_hazard_bottomk(
                         reduce_futures.append(
                             client.submit(
                                 _block_reduce_bottomk,
-                                val_futures[(bi, bj)],
+                                blocks[bi, bj],
                                 rid_futures[(bi, bj)],
                                 hazard_type,
                                 start_lat,
                                 start_lon,
                                 nlon_full,
                                 seed,
-                                k_samples,
+                                k_samples_eff,
                                 nodata_value,
+                                key=f"reduce-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}",
                                 pure=False,
                             )
                         )
 
-                block_dicts = client.gather(reduce_futures)
-
-                # Release per-combo value/reduce futures promptly to avoid buildup.
                 try:
-                    client.cancel(list(val_futures.values()))
-                    client.cancel(reduce_futures)
-                except Exception:
-                    pass
+                    from dask.distributed import as_completed
 
-            # Driver merge per rid with bounded bottom-k
-            # accum: rid -> (count,sum,min,max, hashes, values)
-            accum_count: Dict[int, int] = {}
-            accum_sum: Dict[int, float] = {}
-            accum_min: Dict[int, float] = {}
-            accum_max: Dict[int, float] = {}
-            accum_h: Dict[int, np.ndarray] = {}
-            accum_v: Dict[int, np.ndarray] = {}
-
-            for dct in block_dicts:
-                if not dct:
-                    continue
-                for rid, (cnt, s, mn, mx, sh, sv) in dct.items():
-                    if rid not in accum_count:
-                        accum_count[rid] = cnt
-                        accum_sum[rid] = s
-                        accum_min[rid] = mn
-                        accum_max[rid] = mx
-                        accum_h[rid] = sh
-                        accum_v[rid] = sv
-                    else:
-                        accum_count[rid] += cnt
-                        accum_sum[rid] += s
-                        accum_min[rid] = min(accum_min[rid], mn)
-                        accum_max[rid] = max(accum_max[rid], mx)
-                        mh, mv = merge_bottomk(
-                            accum_h[rid], accum_v[rid], sh, sv, k_samples
+                    for fut, dct in as_completed(reduce_futures, with_results=True):
+                        _merge_block_dict_into_accum(
+                            dct,
+                            accum_count,
+                            accum_sum,
+                            accum_min,
+                            accum_max,
+                            accum_h,
+                            accum_v,
+                            k_samples_eff,
                         )
-                        accum_h[rid] = mh
-                        accum_v[rid] = mv
+                        # Drop references aggressively; data is already merged.
+                        try:
+                            client.cancel(fut)
+                        except Exception:
+                            pass
+                except Exception:
+                    # Fallback: if streaming fails for some reason, gather (may be heavy).
+                    block_dicts = client.gather(reduce_futures)
+                    for dct in block_dicts:
+                        _merge_block_dict_into_accum(
+                            dct,
+                            accum_count,
+                            accum_sum,
+                            accum_min,
+                            accum_max,
+                            accum_h,
+                            accum_v,
+                            k_samples_eff,
+                        )
 
             # Emit rows: include all regions (even if zero pixels) so shapes are complete
             rows: List[Dict[str, Any]] = []
