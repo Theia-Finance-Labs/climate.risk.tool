@@ -230,6 +230,42 @@ def build_missing_region_fallbacks_by_row_order(
     return fallbacks
 
 
+def choose_spatial_chunks(
+    nlat: int,
+    nlon: int,
+    target_chunks_lat: int,
+    target_chunks_lon: int,
+    n_workers: int,
+    min_blocks_per_worker: int = 4,
+    min_chunk: int = 256,
+) -> Tuple[int, int]:
+    """
+    Pick chunk_lat/chunk_lon <= target_* while ensuring enough total blocks.
+
+    Goal: total_blocks >= n_workers * min_blocks_per_worker
+    """
+    # Start with preferred big chunks
+    clat = min(target_chunks_lat, nlat)
+    clon = min(target_chunks_lon, nlon)
+
+    def nblocks(clat_, clon_):
+        return int(np.ceil(nlat / clat_)) * int(np.ceil(nlon / clon_))
+
+    needed = max(1, n_workers * min_blocks_per_worker)
+
+    # If we don't have enough blocks, shrink chunks (down to min_chunk)
+    while nblocks(clat, clon) < needed and (clat > min_chunk or clon > min_chunk):
+        # shrink the dimension that gives the biggest increase in blocks
+        if int(np.ceil(nlat / max(min_chunk, clat // 2))) * int(
+            np.ceil(nlon / clon)
+        ) >= int(np.ceil(nlat / clat)) * int(np.ceil(nlon / max(min_chunk, clon // 2))):
+            clat = max(min_chunk, clat // 2)
+        else:
+            clon = max(min_chunk, clon // 2)
+
+    return clat, clon
+
+
 # ---------------------------------------------------------------------------
 # DASK BLOCK EXTRACTION TASK
 # ---------------------------------------------------------------------------
@@ -307,9 +343,27 @@ def process_nc_hazard(
 
     hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
 
-    # Open lazily with explicit spatial chunking (reduces repeated rechunk graph construction).
+    # 1) Open metadata to get dimensions and worker count
+    with xr.open_dataset(nc_path, engine="netcdf4") as ds_temp:
+        nlat_full = ds_temp.dims["lat"]
+        nlon_full = ds_temp.dims["lon"]
+
+    n_workers = len(client.scheduler_info()["workers"])
+
+    # 2) Choose effective chunks for this specific grid size
+    chunk_lat_eff, chunk_lon_eff = choose_spatial_chunks(
+        nlat=nlat_full,
+        nlon=nlon_full,
+        target_chunks_lat=chunk_lat,
+        target_chunks_lon=chunk_lon,
+        n_workers=n_workers,
+    )
+
+    # 3) Open lazily with explicit spatial chunking (reduces repeated rechunk graph construction).
     ds = xr.open_dataset(
-        nc_path, chunks={"lat": chunk_lat, "lon": chunk_lon}, engine="netcdf4"
+        nc_path,
+        chunks={"lat": chunk_lat_eff, "lon": chunk_lon_eff},
+        engine="netcdf4",
     )
     try:
         var_names = list(ds.data_vars.keys())
@@ -345,7 +399,7 @@ def process_nc_hazard(
             has_ensemble = True
 
         # Ensure expected spatial chunking for extraction tasks
-        da = da.chunk({"lat": chunk_lat, "lon": chunk_lon})
+        da = da.chunk({"lat": chunk_lat_eff, "lon": chunk_lon_eff})
 
         # Non-spatial dims
         non_spatial_dims = [d for d in da.dims if d not in ["lat", "lon"]]
@@ -355,12 +409,14 @@ def process_nc_hazard(
         region_id_to_name = shapes_pkg["region_id_to_name"]
 
         # Pre-rasterize full grid once for this ADM level and this NetCDF grid
-        print(f"    Pre-rasterizing regions for {adm_level}...")
+        print(
+            f"    Pre-rasterizing regions for {adm_level} (chunks: {chunk_lat_eff}x{chunk_lon_eff})..."
+        )
         region_id_map = rasterize_regions_full_grid(lats, lons, shapes_pkg)
 
         # Convert to dask array to easily get blocks matching the data chunking
         region_id_map_da = dask_da.from_array(
-            region_id_map, chunks=(chunk_lat, chunk_lon)
+            region_id_map, chunks=(chunk_lat_eff, chunk_lon_eff)
         )
         region_id_blocks = region_id_map_da.to_delayed().ravel()
 
