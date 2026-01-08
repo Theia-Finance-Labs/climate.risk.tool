@@ -203,6 +203,30 @@ def rasterize_regions_block(
     )
 
 
+def _block_rasterize_only(
+    lats_block: np.ndarray,
+    lons_block: np.ndarray,
+    shapes: List[Tuple[Any, int]],
+    all_touched: bool = True,
+) -> np.ndarray:
+    """
+    Rasterize-only worker helper.
+
+    Keeping rasterio/GDAL scoped to this call helps reduce unmanaged/native memory
+    growth in long-running distributed workers.
+    """
+    from rasterio.env import Env
+
+    # Limit GDAL cache (in MB) to reduce native allocator growth/fragmentation.
+    with Env(GDAL_CACHEMAX=128):
+        return rasterize_regions_block(
+            lats_block=lats_block,
+            lons_block=lons_block,
+            shapes=shapes,
+            all_touched=all_touched,
+        )
+
+
 # ---------------------------------------------------------------------------
 # CHUNKING
 # ---------------------------------------------------------------------------
@@ -494,6 +518,8 @@ def process_nc_hazard_bottomk(
         shapes_pkg = prepare_region_shapes(adm_gdf)
         region_id_to_name = shapes_pkg["region_id_to_name"]
         shapes = shapes_pkg["shapes"]
+        # Broadcast once; avoids repeatedly serializing geometries into every task
+        shapes_fut = client.scatter(shapes, broadcast=True)
 
         print(
             f"    Rasterizing regions per block for {adm_level} (chunks: {chunk_lat}x{chunk_lon})..."
@@ -509,6 +535,58 @@ def process_nc_hazard_bottomk(
         print(
             f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
         )
+
+        # -------------------------------------------------------------------
+        # Precompute region-id rasters ONCE per block for this ADM level
+        # (reused for all dimension combinations; avoids rasterize in hot loop)
+        # -------------------------------------------------------------------
+        rid_blocks: Dict[Tuple[int, int], np.ndarray] = {}
+
+        # Build a cheap template Dask array so we know the block grid shape.
+        # If non-spatial dims exist, take the first element so we end up 2D.
+        template_da = da
+        for dim in non_spatial_dims:
+            template_da = template_da.isel({dim: 0})
+        template_data = template_da.transpose("lat", "lon").data
+
+        # Only precompute per-block region rasters if the hazard data is actually chunked
+        # as a Dask array. (If it's already an in-memory NumPy array, we'll use the
+        # single-block path below.)
+        if isinstance(template_data, dask_da.Array):
+            template_blocks = template_data.to_delayed()
+
+            rid_futures: List[Any] = []
+            rid_keys: List[Tuple[int, int]] = []
+
+            for bi in range(template_blocks.shape[0]):
+                for bj in range(template_blocks.shape[1]):
+                    start_lat = bi * chunk_lat
+                    start_lon = bj * chunk_lon
+                    end_lat = min(start_lat + chunk_lat, nlat_full)
+                    end_lon = min(start_lon + chunk_lon, nlon_full)
+
+                    lats_block = lats[start_lat:end_lat]
+                    lons_block = lons[start_lon:end_lon]
+
+                    # Submit directly so the scattered shapes are a true dependency
+                    fut = client.submit(
+                        _block_rasterize_only,
+                        lats_block,
+                        lons_block,
+                        shapes_fut,
+                        True,
+                        pure=False,
+                    )
+                    rid_futures.append(fut)
+                    rid_keys.append((bi, bj))
+
+            # Materialize once
+            rid_arrays_list = client.gather(rid_futures)
+            for key, arr in zip(rid_keys, rid_arrays_list):
+                rid_blocks[key] = arr
+
+        # Small-array fast path: one full-grid rasterization, reused for combos
+        region_ids_full: Optional[np.ndarray] = None
 
         for combo_i, dim_combo in enumerate(
             tqdm(dim_combinations, desc="    Processing", leave=False, ncols=80), 1
@@ -535,11 +613,17 @@ def process_nc_hazard_bottomk(
             if not isinstance(darr, dask_da.Array):
                 # small array: compute in one go as a single block
                 values_full = da_slice.values
-                block_res = _block_reduce_with_rasterize_bottomk(
+                if region_ids_full is None:
+                    region_ids_full = _block_rasterize_only(
+                        lats_block=lats,
+                        lons_block=lons,
+                        shapes=shapes,
+                        all_touched=True,
+                    )
+
+                block_res = _block_reduce_bottomk(
                     values_block=values_full,
-                    lats_block=lats,
-                    lons_block=lons,
-                    shapes=shapes,
+                    region_ids_block=region_ids_full,
                     hazard_type=hazard_type,
                     start_lat=0,
                     start_lon=0,
@@ -552,26 +636,52 @@ def process_nc_hazard_bottomk(
             else:
                 blocks = darr.to_delayed()  # 2D grid
 
+                # Defensive: in the rare case xarray handed us a Dask array here but
+                # our earlier template detection didn't (e.g., odd backend behavior),
+                # build the per-block region rasters from the actual block grid.
+                if not rid_blocks:
+                    rid_futures = []
+                    rid_keys = []
+                    for bi in range(blocks.shape[0]):
+                        for bj in range(blocks.shape[1]):
+                            start_lat = bi * chunk_lat
+                            start_lon = bj * chunk_lon
+                            end_lat = min(start_lat + chunk_lat, nlat_full)
+                            end_lon = min(start_lon + chunk_lon, nlon_full)
+
+                            lats_block = lats[start_lat:end_lat]
+                            lons_block = lons[start_lon:end_lon]
+
+                            fut = client.submit(
+                                _block_rasterize_only,
+                                lats_block,
+                                lons_block,
+                                shapes_fut,
+                                True,
+                                pure=False,
+                            )
+                            rid_futures.append(fut)
+                            rid_keys.append((bi, bj))
+
+                    rid_arrays_list = client.gather(rid_futures)
+                    for key, arr in zip(rid_keys, rid_arrays_list):
+                        rid_blocks[key] = arr
+
                 tasks = []
                 for bi in range(blocks.shape[0]):
                     for bj in range(blocks.shape[1]):
                         start_lat = bi * chunk_lat
                         start_lon = bj * chunk_lon
-                        end_lat = min(start_lat + chunk_lat, nlat_full)
-                        end_lon = min(start_lon + chunk_lon, nlon_full)
-
-                        lats_block = lats[start_lat:end_lat]
-                        lons_block = lons[start_lon:end_lon]
+                        # Reuse precomputed region ids for this block
+                        region_ids_block = rid_blocks[(bi, bj)]
 
                         t = delayed(
-                            _block_reduce_with_rasterize_bottomk,
+                            _block_reduce_bottomk,
                             name=f"reduce-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}",
                             pure=False,
                         )(
                             blocks[bi, bj],
-                            lats_block,
-                            lons_block,
-                            shapes,
+                            region_ids_block,
                             hazard_type,
                             start_lat,
                             start_lon,
