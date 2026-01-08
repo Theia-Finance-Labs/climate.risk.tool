@@ -796,6 +796,26 @@ def main():
     )
     client = Client(cluster)
 
+    # DEBUG
+    print("DEBUG:")
+    info = client.scheduler_info()["workers"]
+    print("per-worker memory_limit GiB:")
+    print(
+        (
+            pd.Series({k: v["memory_limit"] for k, v in info.items()}) / 2**30
+        ).sort_values()
+    )
+
+    def vm_total():
+        import psutil
+
+        return psutil.virtual_memory().total
+
+    print("psutil total GiB seen by workers:")
+    print({k: v / 2**30 for k, v in client.run(vm_total).items()})
+    print("DEBUG END")
+    # DEBUG END
+
     try:
         print(f"  ✅ Dask cluster started with {len(cluster.workers)} workers")
         print(f"  📊 Dashboard: {client.dashboard_link}")
