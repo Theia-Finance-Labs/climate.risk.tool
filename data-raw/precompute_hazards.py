@@ -38,6 +38,7 @@ import rasterio.features
 from rasterio.transform import from_bounds
 
 import dask.array as dask_da
+from dask import delayed
 from dask.distributed import Client, LocalCluster
 from unidecode import unidecode
 from tqdm import tqdm
@@ -62,10 +63,6 @@ SEED = 123456789  # int
 
 # Max samples kept per region (memory ~ regions * K_SAMPLES)
 K_SAMPLES = 1024  # 512/1024/2048 are common choices
-
-# For ADM2, the number of touched regions per block can be very high; keeping a
-# smaller sample dramatically reduces driver-side transfer/merge pressure.
-K_SAMPLES_ADM2 = 128
 
 # Quantiles requested
 Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64)
@@ -206,30 +203,6 @@ def rasterize_regions_block(
     )
 
 
-def _block_rasterize_only(
-    lats_block: np.ndarray,
-    lons_block: np.ndarray,
-    shapes: List[Tuple[Any, int]],
-    all_touched: bool = True,
-) -> np.ndarray:
-    """
-    Rasterize-only worker helper.
-
-    Keeping rasterio/GDAL scoped to this call helps reduce unmanaged/native memory
-    growth in long-running distributed workers.
-    """
-    from rasterio.env import Env
-
-    # Limit GDAL cache (in MB) to reduce native allocator growth/fragmentation.
-    with Env(GDAL_CACHEMAX=128):
-        return rasterize_regions_block(
-            lats_block=lats_block,
-            lons_block=lons_block,
-            shapes=shapes,
-            all_touched=all_touched,
-        )
-
-
 # ---------------------------------------------------------------------------
 # CHUNKING
 # ---------------------------------------------------------------------------
@@ -301,38 +274,6 @@ def merge_bottomk(
             j += 1
 
     return np.array(out_h, dtype=np.uint64), np.array(out_v, dtype=np.float64)
-
-
-def _merge_block_dict_into_accum(
-    dct: Dict[int, Tuple[int, float, float, float, np.ndarray, np.ndarray]],
-    accum_count: Dict[int, int],
-    accum_sum: Dict[int, float],
-    accum_min: Dict[int, float],
-    accum_max: Dict[int, float],
-    accum_h: Dict[int, np.ndarray],
-    accum_v: Dict[int, np.ndarray],
-    k_samples: int,
-) -> None:
-    """Merge one block result dict into driver accumulators."""
-    if not dct:
-        return
-
-    for rid, (cnt, s, mn, mx, sh, sv) in dct.items():
-        if rid not in accum_count:
-            accum_count[rid] = cnt
-            accum_sum[rid] = s
-            accum_min[rid] = mn
-            accum_max[rid] = mx
-            accum_h[rid] = sh
-            accum_v[rid] = sv
-        else:
-            accum_count[rid] += cnt
-            accum_sum[rid] += s
-            accum_min[rid] = min(accum_min[rid], mn)
-            accum_max[rid] = max(accum_max[rid], mx)
-            mh, mv = merge_bottomk(accum_h[rid], accum_v[rid], sh, sv, k_samples)
-            accum_h[rid] = mh
-            accum_v[rid] = mv
 
 
 # ---------------------------------------------------------------------------
@@ -553,8 +494,6 @@ def process_nc_hazard_bottomk(
         shapes_pkg = prepare_region_shapes(adm_gdf)
         region_id_to_name = shapes_pkg["region_id_to_name"]
         shapes = shapes_pkg["shapes"]
-        # Broadcast once; avoids repeatedly serializing geometries into every task
-        shapes_fut = client.scatter(shapes, broadcast=True)
 
         print(
             f"    Rasterizing regions per block for {adm_level} (chunks: {chunk_lat}x{chunk_lon})..."
@@ -569,64 +508,6 @@ def process_nc_hazard_bottomk(
 
         print(
             f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
-        )
-
-        # -------------------------------------------------------------------
-        # Precompute region-id rasters ONCE per block for this ADM level
-        # (reused for all dimension combinations; avoids rasterize in hot loop)
-        # -------------------------------------------------------------------
-        # Keep region-id blocks on workers as Futures (do NOT gather to driver).
-        rid_futures: Dict[Tuple[int, int], Any] = {}
-
-        # Build a cheap template Dask array so we know the block grid shape.
-        # If non-spatial dims exist, take the first element so we end up 2D.
-        template_da = da
-        for dim in non_spatial_dims:
-            template_da = template_da.isel({dim: 0})
-        template_data = template_da.transpose("lat", "lon").data
-
-        # Only precompute per-block region rasters if the hazard data is actually chunked
-        # as a Dask array. (If it's already an in-memory NumPy array, we'll use the
-        # single-block path below.)
-        if isinstance(template_data, dask_da.Array):
-            template_blocks = template_data.to_delayed()
-
-            for bi in range(template_blocks.shape[0]):
-                for bj in range(template_blocks.shape[1]):
-                    start_lat = bi * chunk_lat
-                    start_lon = bj * chunk_lon
-                    end_lat = min(start_lat + chunk_lat, nlat_full)
-                    end_lon = min(start_lon + chunk_lon, nlon_full)
-
-                    lats_block = lats[start_lat:end_lat]
-                    lons_block = lons[start_lon:end_lon]
-
-                    # Submit directly so the scattered shapes are a true dependency
-                    rid_futures[(bi, bj)] = client.submit(
-                        _block_rasterize_only,
-                        lats_block,
-                        lons_block,
-                        shapes_fut,
-                        True,
-                        pure=False,
-                    )
-
-            # Materialize rid rasters once (kept on workers as Futures)
-            try:
-                from dask.distributed import wait
-
-                wait(list(rid_futures.values()))
-            except Exception:
-                pass
-
-        # Small-array fast path: one full-grid rasterization, reused for combos
-        region_ids_full: Optional[np.ndarray] = None
-
-        # Effective sample size for this ADM level (quantiles are approximate anyway).
-        k_samples_eff = (
-            min(int(k_samples), int(K_SAMPLES_ADM2))
-            if str(adm_level).upper() == "ADM2"
-            else int(k_samples)
         )
 
         for combo_i, dim_combo in enumerate(
@@ -651,7 +532,60 @@ def process_nc_hazard_bottomk(
             except Exception:
                 nodata_value = None
 
-            # Driver accumulators per rid (bounded bottom-k)
+            if not isinstance(darr, dask_da.Array):
+                # small array: compute in one go as a single block
+                values_full = da_slice.values
+                block_res = _block_reduce_with_rasterize_bottomk(
+                    values_block=values_full,
+                    lats_block=lats,
+                    lons_block=lons,
+                    shapes=shapes,
+                    hazard_type=hazard_type,
+                    start_lat=0,
+                    start_lon=0,
+                    nlon_full=nlon_full,
+                    seed=seed,
+                    k=k_samples,
+                    nodata_value=nodata_value,
+                )
+                block_dicts = [block_res]
+            else:
+                blocks = darr.to_delayed()  # 2D grid
+
+                tasks = []
+                for bi in range(blocks.shape[0]):
+                    for bj in range(blocks.shape[1]):
+                        start_lat = bi * chunk_lat
+                        start_lon = bj * chunk_lon
+                        end_lat = min(start_lat + chunk_lat, nlat_full)
+                        end_lon = min(start_lon + chunk_lon, nlon_full)
+
+                        lats_block = lats[start_lat:end_lat]
+                        lons_block = lons[start_lon:end_lon]
+
+                        t = delayed(
+                            _block_reduce_with_rasterize_bottomk,
+                            name=f"reduce-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}",
+                            pure=False,
+                        )(
+                            blocks[bi, bj],
+                            lats_block,
+                            lons_block,
+                            shapes,
+                            hazard_type,
+                            start_lat,
+                            start_lon,
+                            nlon_full,
+                            seed,
+                            k_samples,
+                            nodata_value,
+                        )
+                        tasks.append(t)
+
+                futures = client.compute(tasks)
+                block_dicts = client.gather(futures)
+
+            # Driver merge per rid with bounded bottom-k
             # accum: rid -> (count,sum,min,max, hashes, values)
             accum_count: Dict[int, int] = {}
             accum_sum: Dict[int, float] = {}
@@ -660,121 +594,27 @@ def process_nc_hazard_bottomk(
             accum_h: Dict[int, np.ndarray] = {}
             accum_v: Dict[int, np.ndarray] = {}
 
-            if not isinstance(darr, dask_da.Array):
-                # small array: compute in one go as a single block
-                values_full = da_slice.values
-                if region_ids_full is None:
-                    region_ids_full = _block_rasterize_only(
-                        lats_block=lats,
-                        lons_block=lons,
-                        shapes=shapes,
-                        all_touched=True,
-                    )
-
-                block_res = _block_reduce_bottomk(
-                    values_block=values_full,
-                    region_ids_block=region_ids_full,
-                    hazard_type=hazard_type,
-                    start_lat=0,
-                    start_lon=0,
-                    nlon_full=nlon_full,
-                    seed=seed,
-                    k=k_samples_eff,
-                    nodata_value=nodata_value,
-                )
-                _merge_block_dict_into_accum(
-                    block_res,
-                    accum_count,
-                    accum_sum,
-                    accum_min,
-                    accum_max,
-                    accum_h,
-                    accum_v,
-                    k_samples_eff,
-                )
-            else:
-                blocks = darr.to_delayed()  # 2D grid
-
-                # Defensive: if template-based precompute didn't run, precompute rid futures
-                # from the actual block grid shape (still keep them on workers).
-                if not rid_futures:
-                    for bi in range(blocks.shape[0]):
-                        for bj in range(blocks.shape[1]):
-                            start_lat = bi * chunk_lat
-                            start_lon = bj * chunk_lon
-                            end_lat = min(start_lat + chunk_lat, nlat_full)
-                            end_lon = min(start_lon + chunk_lon, nlon_full)
-
-                            lats_block = lats[start_lat:end_lat]
-                            lons_block = lons[start_lon:end_lon]
-
-                            rid_futures[(bi, bj)] = client.submit(
-                                _block_rasterize_only,
-                                lats_block,
-                                lons_block,
-                                shapes_fut,
-                                True,
-                                pure=False,
-                            )
-
-                # Submit reductions, then STREAM results back to the driver to avoid
-                # materializing all per-block dicts at once (which can OOM the client).
-                reduce_futures = []
-                for bi in range(blocks.shape[0]):
-                    for bj in range(blocks.shape[1]):
-                        start_lat = bi * chunk_lat
-                        start_lon = bj * chunk_lon
-
-                        reduce_futures.append(
-                            client.submit(
-                                _block_reduce_bottomk,
-                                blocks[bi, bj],
-                                rid_futures[(bi, bj)],
-                                hazard_type,
-                                start_lat,
-                                start_lon,
-                                nlon_full,
-                                seed,
-                                k_samples_eff,
-                                nodata_value,
-                                key=f"reduce-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}",
-                                pure=False,
-                            )
+            for dct in block_dicts:
+                if not dct:
+                    continue
+                for rid, (cnt, s, mn, mx, sh, sv) in dct.items():
+                    if rid not in accum_count:
+                        accum_count[rid] = cnt
+                        accum_sum[rid] = s
+                        accum_min[rid] = mn
+                        accum_max[rid] = mx
+                        accum_h[rid] = sh
+                        accum_v[rid] = sv
+                    else:
+                        accum_count[rid] += cnt
+                        accum_sum[rid] += s
+                        accum_min[rid] = min(accum_min[rid], mn)
+                        accum_max[rid] = max(accum_max[rid], mx)
+                        mh, mv = merge_bottomk(
+                            accum_h[rid], accum_v[rid], sh, sv, k_samples
                         )
-
-                try:
-                    from dask.distributed import as_completed
-
-                    for fut, dct in as_completed(reduce_futures, with_results=True):
-                        _merge_block_dict_into_accum(
-                            dct,
-                            accum_count,
-                            accum_sum,
-                            accum_min,
-                            accum_max,
-                            accum_h,
-                            accum_v,
-                            k_samples_eff,
-                        )
-                        # Drop references aggressively; data is already merged.
-                        try:
-                            client.cancel(fut)
-                        except Exception:
-                            pass
-                except Exception:
-                    # Fallback: if streaming fails for some reason, gather (may be heavy).
-                    block_dicts = client.gather(reduce_futures)
-                    for dct in block_dicts:
-                        _merge_block_dict_into_accum(
-                            dct,
-                            accum_count,
-                            accum_sum,
-                            accum_min,
-                            accum_max,
-                            accum_h,
-                            accum_v,
-                            k_samples_eff,
-                        )
+                        accum_h[rid] = mh
+                        accum_v[rid] = mv
 
             # Emit rows: include all regions (even if zero pixels) so shapes are complete
             rows: List[Dict[str, Any]] = []
@@ -940,8 +780,8 @@ def main():
     ENSEMBLE_FILTER = "median"
 
     # HARD CAP chunk sizes (never exceeded) for stable memory use across hazards.
-    TARGET_CHUNK_LAT = 2048
-    TARGET_CHUNK_LON = 2048
+    TARGET_CHUNK_LAT = 4096
+    TARGET_CHUNK_LON = 4096
 
     # Dask cluster
     num_cpus = os.cpu_count() or 4
