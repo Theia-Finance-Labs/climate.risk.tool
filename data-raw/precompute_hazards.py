@@ -701,7 +701,7 @@ def main():
     print(f"  🔍 Detected {num_cpus} CPU(s)")
 
     cluster = LocalCluster(
-        n_workers=8,
+        n_workers=num_cpus,
         threads_per_worker=1,
         memory_limit="2GB",
         dashboard_address="0.0.0.0:8787",
@@ -716,7 +716,7 @@ def main():
         existing_df = load_existing_precomputed(OUTPUT_PATH)
 
         # Load boundaries
-        adm_levels = [("ADM2", ADM2_PATH), ("ADM1", ADM1_PATH)]
+        adm_levels = [("ADM1", ADM1_PATH), ("ADM2", ADM2_PATH)]
         adm_gdfs = {}
         adm_level_names = []
         for level, path in adm_levels:
