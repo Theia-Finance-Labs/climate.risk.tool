@@ -18,6 +18,7 @@ import gc
 import itertools
 import time
 import warnings
+import uuid
 from typing import Dict, List, Tuple, Any
 
 import numpy as np
@@ -28,7 +29,6 @@ import xarray as xr
 import rasterio.features
 from rasterio.transform import from_bounds
 
-import dask
 import dask.array as dask_da
 from dask import delayed
 from dask.distributed import Client, LocalCluster
@@ -76,6 +76,21 @@ def fix_text(text):
     if not isinstance(text, str):
         return text
     return unidecode(text)
+
+
+def ensure_parent_dir(path: str) -> None:
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+
+
+def append_df_to_csv(df: pd.DataFrame, path: str) -> None:
+    ensure_parent_dir(path)
+    header = not os.path.exists(path)
+    df.to_csv(path, mode="a", header=header, index=False, encoding="utf-8-sig")
+
+
+def make_tmp_path(base_dir: str, stem: str, suffix: str = ".csv") -> str:
+    ensure_parent_dir(os.path.join(base_dir, "x"))
+    return os.path.join(base_dir, f"{stem}.{uuid.uuid4().hex}{suffix}")
 
 
 def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
@@ -334,9 +349,10 @@ def process_nc_hazard(
     client: Client,
     chunk_lat: int = 1024,
     chunk_lon: int = 1024,
-) -> pd.DataFrame:
+) -> str:
     """
     Exact zonal stats per region for one NetCDF file and one ADM level.
+    Returns path to a CSV containing results for this (nc_path, adm_level).
     """
     if not os.path.exists(nc_path):
         raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
@@ -444,11 +460,18 @@ def process_nc_hazard(
             f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
         )
 
-        all_rows: List[Dict[str, Any]] = []
+        # Setup temp output path
+        tmp_dir = os.path.join("workspace", "tmp_precompute")
+        tmp_out = make_tmp_path(
+            tmp_dir,
+            stem=f"zonal_{adm_level}_{os.path.basename(nc_path)}".replace(".nc", ""),
+        )
 
         for combo_i, dim_combo in enumerate(
             tqdm(dim_combinations, desc="    Processing", leave=False, ncols=80), 1
         ):
+            combo_rows: List[Dict[str, Any]] = []
+
             # Select slice lazily
             da_slice = da
             for dim_name, dim_val in dim_combo.items():
@@ -489,9 +512,16 @@ def process_nc_hazard(
                     )
                     tasks.append(t)
 
-                # Compute all block dicts via the distributed scheduler
+                # Compute block dicts via the distributed scheduler
                 futures = client.compute(tasks)
-                block_dicts = client.gather(futures)
+
+                # BATCHED GATHER to avoid driver spikes
+                BATCH_SIZE = 32
+                block_dicts = []
+                for i in range(0, len(futures), BATCH_SIZE):
+                    batch = client.gather(futures[i : i + BATCH_SIZE])
+                    block_dicts.extend(batch)
+                    del batch
 
             # Merge dicts into per-region lists of arrays on driver
             accum: Dict[int, List[np.ndarray]] = {}
@@ -546,45 +576,54 @@ def process_nc_hazard(
                     else:
                         row[dim_name] = dim_val
 
-                all_rows.append(row)
+                combo_rows.append(row)
+
+            # Flush this combo to disk and free memory
+            if combo_rows:
+                df_combo = pd.DataFrame(combo_rows)
+
+                # Ensure these columns always exist (so append is consistent)
+                if "scenario_name" not in df_combo.columns:
+                    df_combo["scenario_name"] = np.nan
+                if "hazard_return_period" not in df_combo.columns:
+                    df_combo["hazard_return_period"] = np.nan
+
+                base_cols = [
+                    "region",
+                    "adm_level",
+                    "scenario_name",
+                    "hazard_return_period",
+                    "hazard_type",
+                    "hazard_indicator",
+                    "min",
+                    "max",
+                    "mean",
+                    "median",
+                    "p2_5",
+                    "p5",
+                    "p10",
+                    "p90",
+                    "p95",
+                    "p97_5",
+                    "ensemble",
+                ]
+                for c in base_cols:
+                    if c not in df_combo.columns:
+                        df_combo[c] = np.nan
+                extra_cols = [c for c in df_combo.columns if c not in base_cols]
+                df_combo = df_combo[base_cols + extra_cols]
+
+                append_df_to_csv(df_combo, tmp_out)
+                del df_combo
 
             # Reduce driver memory spikes
-            del block_dicts, accum
+            del combo_rows, block_dicts, accum
             gc.collect()
 
-        if not all_rows:
+        if not os.path.exists(tmp_out):
             raise ValueError(f"No valid data produced for {nc_path} ({adm_level})")
 
-        df = pd.DataFrame(all_rows)
-
-        # Ensure columns exist
-        if "scenario_name" not in df.columns:
-            df["scenario_name"] = np.nan
-        if "hazard_return_period" not in df.columns:
-            df["hazard_return_period"] = np.nan
-
-        # Order columns
-        base_cols = [
-            "region",
-            "adm_level",
-            "scenario_name",
-            "hazard_return_period",
-            "hazard_type",
-            "hazard_indicator",
-            "min",
-            "max",
-            "mean",
-            "median",
-            "p2_5",
-            "p5",
-            "p10",
-            "p90",
-            "p95",
-            "p97_5",
-            "ensemble",
-        ]
-        extra_cols = [c for c in df.columns if c not in base_cols]
-        return df[base_cols + extra_cols]
+        return tmp_out
 
     finally:
         try:
@@ -809,8 +848,6 @@ def main():
             print("✅ ALL FILES ALREADY PROCESSED")
             return existing_df
 
-        all_results = []
-
         for i, nc_path in enumerate(nc_files_to_process, 1):
             try:
                 ht, hi = parse_hazard_from_path(nc_path)
@@ -825,7 +862,7 @@ def main():
                 print(f"  📊 Aggregating over {adm_level} ({len(adm_gdf)} regions)...")
                 t0 = time.time()
 
-                df = process_nc_hazard(
+                tmp_path = process_nc_hazard(
                     nc_path=nc_path,
                     adm_gdf=adm_gdf,
                     adm_level=adm_level,
@@ -835,97 +872,94 @@ def main():
                     chunk_lon=CHUNK_LON,
                 )
 
-                all_results.append(df)
-                print(
-                    f"    ✅ {adm_level}: {len(df)} records created in {time.time() - t0:.1f}s"
-                )
-                gc.collect()
+                # load only this chunk of results
+                new_df = pd.read_csv(tmp_path, encoding="utf-8-sig", low_memory=False)
 
-            print(f"  ⏱️  Total time for this file: {time.time() - file_start:.1f}s")
+                # (optional) delete tmp file to save disk
+                try:
+                    os.remove(tmp_path)
+                except Exception:
+                    pass
 
-        # Combine new results
-        new_df = pd.concat(all_results, ignore_index=True)
-
-        # Deduplicate
-        dedup_key = [
-            "region",
-            "adm_level",
-            "scenario_name",
-            "hazard_return_period",
-            "hazard_type",
-            "hazard_indicator",
-        ]
-        if "ensemble" in new_df.columns:
-            dedup_key.append("ensemble")
-        if "season" in new_df.columns:
-            dedup_key.append("season")
-
-        new_df = new_df.drop_duplicates(subset=dedup_key, keep="first")
-
-        # Append / replace into existing
-        if not existing_df.empty:
-            # Align columns
-            all_cols = list(set(existing_df.columns) | set(new_df.columns))
-            for c in all_cols:
-                if c not in existing_df.columns:
-                    existing_df[c] = np.nan
-                if c not in new_df.columns:
-                    new_df[c] = np.nan
-
-            key_cols = [
-                c
-                for c in [
+                # dedup within the chunk
+                dedup_key = [
                     "region",
                     "adm_level",
                     "scenario_name",
                     "hazard_return_period",
                     "hazard_type",
                     "hazard_indicator",
-                    "ensemble",
-                    "season",
                 ]
-                if c in existing_df.columns and c in new_df.columns
-            ]
+                if "ensemble" in new_df.columns:
+                    dedup_key.append("ensemble")
+                if "season" in new_df.columns:
+                    dedup_key.append("season")
+                new_df = new_df.drop_duplicates(subset=dedup_key, keep="first")
 
-            if key_cols:
-                ex = existing_df.copy()
-                nd = new_df.copy()
-                for c in ["ensemble", "season"]:
-                    if c in key_cols:
-                        ex[c] = ex[c].fillna("__NA__").astype(str)
-                        nd[c] = nd[c].fillna("__NA__").astype(str)
+                # merge with existing_df incrementally
+                if existing_df.empty:
+                    existing_df = new_df
+                else:
+                    all_cols = list(set(existing_df.columns) | set(new_df.columns))
+                    for c in all_cols:
+                        if c not in existing_df.columns:
+                            existing_df[c] = np.nan
+                        if c not in new_df.columns:
+                            new_df[c] = np.nan
 
-                ex["_k"] = 1
-                nd_keys = nd[key_cols].drop_duplicates()
-                ex = ex.merge(nd_keys.assign(_repl=1), on=key_cols, how="left")
-                ex = ex[ex["_repl"].isna()].drop(columns=["_repl"])
-                ex = ex.drop(columns=["_k"], errors="ignore")
+                    key_cols = [
+                        c
+                        for c in [
+                            "region",
+                            "adm_level",
+                            "scenario_name",
+                            "hazard_return_period",
+                            "hazard_type",
+                            "hazard_indicator",
+                            "ensemble",
+                            "season",
+                        ]
+                        if c in existing_df.columns and c in new_df.columns
+                    ]
 
-                final_df = pd.concat(
-                    [ex[all_cols], new_df[all_cols]], ignore_index=True
+                    if key_cols:
+                        ex = existing_df.copy()
+                        nd = new_df.copy()
+                        for c in ["ensemble", "season"]:
+                            if c in key_cols:
+                                ex[c] = ex[c].fillna("__NA__").astype(str)
+                                nd[c] = nd[c].fillna("__NA__").astype(str)
+
+                        nd_keys = nd[key_cols].drop_duplicates()
+                        ex = ex.merge(nd_keys.assign(_repl=1), on=key_cols, how="left")
+                        ex = ex[ex["_repl"].isna()].drop(
+                            columns=["_repl"], errors="ignore"
+                        )
+
+                        existing_df = pd.concat(
+                            [ex[all_cols], new_df[all_cols]], ignore_index=True
+                        )
+                    else:
+                        existing_df = pd.concat(
+                            [existing_df[all_cols], new_df[all_cols]], ignore_index=True
+                        )
+
+                # periodic write to disk so a crash doesn’t lose progress
+                ensure_parent_dir(OUTPUT_PATH)
+                existing_df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
+
+                print(
+                    f"    ✅ {adm_level}: {len(new_df)} records merged in {time.time() - t0:.1f}s"
                 )
-            else:
-                final_df = pd.concat(
-                    [existing_df[all_cols], new_df[all_cols]], ignore_index=True
-                )
-        else:
-            final_df = new_df
+                del new_df
+                gc.collect()
 
-        # Final dedup safety
-        tmp = final_df.copy()
-        for c in ["ensemble", "season"]:
-            if c in tmp.columns:
-                tmp[c] = tmp[c].fillna("__NA__").astype(str)
-        final_df = final_df.loc[
-            ~tmp.duplicated(subset=dedup_key, keep="first")
-        ].reset_index(drop=True)
+            print(f"  ⏱️  Total time for this file: {time.time() - file_start:.1f}s")
 
-        os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-        final_df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
-        print(f"\n✅ Saved results to: {OUTPUT_PATH}")
-        print(final_df.head())
+        print(f"\n✅ All processing complete. Final results saved to: {OUTPUT_PATH}")
+        print(existing_df.head())
 
-        return final_df
+        return existing_df
 
     finally:
         # Clean shutdown to avoid noisy worker-loss messages after exceptions
