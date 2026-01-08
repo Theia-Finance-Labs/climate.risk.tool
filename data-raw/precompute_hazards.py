@@ -67,9 +67,6 @@ K_SAMPLES = 1024  # 512/1024/2048 are common choices
 # Quantiles requested
 Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64)
 
-# To avoid giant per-block temporary arrays, cap block size (in pixels)
-MAX_BLOCK_ELEMS = 1_000_000  # 1e6 is a safe default
-
 
 # ---------------------------------------------------------------------------
 # HELPERS: IO / TEXT
@@ -176,24 +173,34 @@ def prepare_region_shapes(adm_gdf: gpd.GeoDataFrame) -> Dict[str, Any]:
     }
 
 
-def rasterize_regions_full_grid(
-    lats: np.ndarray,
-    lons: np.ndarray,
-    shapes_pkg: Dict[str, Any],
+# ---------------------------------------------------------------------------
+# HELPERS: RASTERIZE PER BLOCK (avoid materializing full-grid region_id_map)
+# ---------------------------------------------------------------------------
+
+
+def rasterize_regions_block(
+    lats_block: np.ndarray,
+    lons_block: np.ndarray,
+    shapes: List[Tuple[Any, int]],
     all_touched: bool = True,
 ) -> np.ndarray:
-    lon_min, lat_min, lon_max, lat_max = _grid_bounds(lats, lons)
-    transform = from_bounds(lon_min, lat_min, lon_max, lat_max, len(lons), len(lats))
+    """
+    Rasterize region IDs for a single (lat, lon) block only.
+    This avoids allocating a full-grid region_id_map which can OOM on very large rasters.
+    """
+    lon_min, lat_min, lon_max, lat_max = _grid_bounds(lats_block, lons_block)
+    transform = from_bounds(
+        lon_min, lat_min, lon_max, lat_max, len(lons_block), len(lats_block)
+    )
 
-    region_ids = rasterio.features.rasterize(
-        shapes_pkg["shapes"],
-        out_shape=(len(lats), len(lons)),
+    return rasterio.features.rasterize(
+        shapes,
+        out_shape=(len(lats_block), len(lons_block)),
         transform=transform,
         fill=0,
         dtype=np.int32,
         all_touched=all_touched,
     )
-    return region_ids
 
 
 # ---------------------------------------------------------------------------
@@ -207,58 +214,13 @@ def choose_spatial_chunks(
     target_chunks_lat: int,
     target_chunks_lon: int,
     n_workers: int,
-    min_blocks_per_worker: int = 4,
-    min_chunk: int = 128,
-    max_block_elems: int = MAX_BLOCK_ELEMS,
 ) -> Tuple[int, int]:
     """
-    Choose chunk_lat/chunk_lon <= targets while ensuring:
-      - enough blocks to use workers (if possible)
-      - block size not too large (cap temporary arrays in worker)
+    HARD-CAPPED spatial chunking.
+    Never exceeds target sizes. No auto growth/shrinking.
     """
-    clat = min(target_chunks_lat, nlat)
-    clon = min(target_chunks_lon, nlon)
-
-    def nblocks(clat_, clon_):
-        return int(np.ceil(nlat / clat_)) * int(np.ceil(nlon / clon_))
-
-    needed = max(1, n_workers * min_blocks_per_worker)
-
-    # First: cap block elems
-    while clat * clon > max_block_elems and (clat > min_chunk or clon > min_chunk):
-        if clat >= clon and clat > min_chunk:
-            clat = max(min_chunk, clat // 2)
-        elif clon > min_chunk:
-            clon = max(min_chunk, clon // 2)
-        else:
-            break
-
-    # Second: ensure enough blocks if possible
-    while nblocks(clat, clon) < needed and (clat > min_chunk or clon > min_chunk):
-        # prefer shrinking the dimension that increases blocks more
-        cand_clat = max(min_chunk, clat // 2)
-        cand_clon = max(min_chunk, clon // 2)
-
-        blocks_if_clat = nblocks(cand_clat, clon)
-        blocks_if_clon = nblocks(clat, cand_clon)
-
-        if blocks_if_clat >= blocks_if_clon and clat > min_chunk:
-            clat = cand_clat
-        elif clon > min_chunk:
-            clon = cand_clon
-        else:
-            break
-
-        # keep block elems capped
-        while clat * clon > max_block_elems and (clat > min_chunk or clon > min_chunk):
-            if clat >= clon and clat > min_chunk:
-                clat = max(min_chunk, clat // 2)
-            elif clon > min_chunk:
-                clon = max(min_chunk, clon // 2)
-            else:
-                break
-
-    return clat, clon
+    _ = n_workers  # intentionally unused; kept for call-site simplicity
+    return min(target_chunks_lat, nlat), min(target_chunks_lon, nlon)
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +290,7 @@ def _block_reduce_bottomk(
     nlon_full: int,
     seed: int,
     k: int,
+    nodata_value: Optional[float] = None,
 ) -> Dict[int, Tuple[int, float, float, float, np.ndarray, np.ndarray]]:
     """
     Returns dict:
@@ -345,7 +308,18 @@ def _block_reduce_bottomk(
     v = values_block.ravel()
     r = region_ids_block.ravel()
 
-    m = (r > 0) & ~np.isnan(v)
+    # Valid mask:
+    # - floating: drop NaNs
+    # - integer/categorical: keep all pixels unless a nodata_value is provided
+    if np.issubdtype(v.dtype, np.floating):
+        m = (r > 0) & ~np.isnan(v)
+    else:
+        if nodata_value is None:
+            m = r > 0
+        else:
+            # compare in native dtype to avoid float casting edge cases
+            m = (r > 0) & (v != np.asarray(nodata_value, dtype=v.dtype))
+
     if not np.any(m):
         return {}
 
@@ -392,6 +366,41 @@ def _block_reduce_bottomk(
         out[rid_int] = (int(cnt), float(s), float(mn), float(mx), sh, sv)
 
     return out
+
+
+def _block_reduce_with_rasterize_bottomk(
+    values_block: np.ndarray,
+    lats_block: np.ndarray,
+    lons_block: np.ndarray,
+    shapes: List[Tuple[Any, int]],
+    hazard_type: str,
+    start_lat: int,
+    start_lon: int,
+    nlon_full: int,
+    seed: int,
+    k: int,
+    nodata_value: Optional[float] = None,
+) -> Dict[int, Tuple[int, float, float, float, np.ndarray, np.ndarray]]:
+    """
+    Worker helper: rasterize region IDs for *this block only* and then run reductions.
+    """
+    region_ids_block = rasterize_regions_block(
+        lats_block=lats_block,
+        lons_block=lons_block,
+        shapes=shapes,
+        all_touched=True,
+    )
+    return _block_reduce_bottomk(
+        values_block=values_block,
+        region_ids_block=region_ids_block,
+        hazard_type=hazard_type,
+        start_lat=start_lat,
+        start_lon=start_lon,
+        nlon_full=nlon_full,
+        seed=seed,
+        k=k,
+        nodata_value=nodata_value,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -484,17 +493,10 @@ def process_nc_hazard_bottomk(
         # Rasterize regions once
         shapes_pkg = prepare_region_shapes(adm_gdf)
         region_id_to_name = shapes_pkg["region_id_to_name"]
+        shapes = shapes_pkg["shapes"]
 
         print(
-            f"    Pre-rasterizing regions for {adm_level} (chunks: {chunk_lat}x{chunk_lon})..."
-        )
-        region_id_map = rasterize_regions_full_grid(
-            lats, lons, shapes_pkg, all_touched=True
-        )
-
-        # Dask array for region ids (same chunking)
-        region_id_map_da = dask_da.from_array(
-            region_id_map, chunks=(chunk_lat, chunk_lon)
+            f"    Rasterizing regions per block for {adm_level} (chunks: {chunk_lat}x{chunk_lon})..."
         )
 
         # Prepare output file fresh
@@ -517,43 +519,66 @@ def process_nc_hazard_bottomk(
             da_slice = da_slice.transpose("lat", "lon")
 
             darr = da_slice.data
+
+            # best-effort nodata detection (useful for integer/categorical rasters)
+            nodata_value = None
+            try:
+                if "_FillValue" in da_slice.attrs:
+                    nodata_value = da_slice.attrs["_FillValue"]
+                elif hasattr(da_slice, "encoding") and isinstance(
+                    da_slice.encoding, dict
+                ):
+                    nodata_value = da_slice.encoding.get("_FillValue", None)
+            except Exception:
+                nodata_value = None
+
             if not isinstance(darr, dask_da.Array):
                 # small array: compute in one go as a single block
                 values_full = da_slice.values
-                rid_full = region_id_map
-                block_res = _block_reduce_bottomk(
-                    values_full,
-                    rid_full,
-                    hazard_type,
+                block_res = _block_reduce_with_rasterize_bottomk(
+                    values_block=values_full,
+                    lats_block=lats,
+                    lons_block=lons,
+                    shapes=shapes,
+                    hazard_type=hazard_type,
                     start_lat=0,
                     start_lon=0,
                     nlon_full=nlon_full,
                     seed=seed,
                     k=k_samples,
+                    nodata_value=nodata_value,
                 )
                 block_dicts = [block_res]
             else:
                 blocks = darr.to_delayed()  # 2D grid
-                rid_blocks = region_id_map_da.to_delayed()
 
                 tasks = []
                 for bi in range(blocks.shape[0]):
                     for bj in range(blocks.shape[1]):
                         start_lat = bi * chunk_lat
                         start_lon = bj * chunk_lon
+                        end_lat = min(start_lat + chunk_lat, nlat_full)
+                        end_lon = min(start_lon + chunk_lon, nlon_full)
+
+                        lats_block = lats[start_lat:end_lat]
+                        lons_block = lons[start_lon:end_lon]
+
                         t = delayed(
-                            _block_reduce_bottomk,
+                            _block_reduce_with_rasterize_bottomk,
                             name=f"reduce-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}",
                             pure=False,
                         )(
                             blocks[bi, bj],
-                            rid_blocks[bi, bj],
+                            lats_block,
+                            lons_block,
+                            shapes,
                             hazard_type,
                             start_lat,
                             start_lon,
                             nlon_full,
                             seed,
                             k_samples,
+                            nodata_value,
                         )
                         tasks.append(t)
 
@@ -754,9 +779,9 @@ def main():
 
     ENSEMBLE_FILTER = "median"
 
-    # Preferred chunk sizes (auto-adjusted per file by choose_spatial_chunks)
-    TARGET_CHUNK_LAT = 4096
-    TARGET_CHUNK_LON = 4096
+    # HARD CAP chunk sizes (never exceeded) for stable memory use across hazards.
+    TARGET_CHUNK_LAT = 128
+    TARGET_CHUNK_LON = 128
 
     # Dask cluster
     num_cpus = os.cpu_count() or 4
