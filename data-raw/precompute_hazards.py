@@ -780,8 +780,8 @@ def main():
     ENSEMBLE_FILTER = "median"
 
     # HARD CAP chunk sizes (never exceeded) for stable memory use across hazards.
-    TARGET_CHUNK_LAT = 128
-    TARGET_CHUNK_LON = 128
+    TARGET_CHUNK_LAT = 2048
+    TARGET_CHUNK_LON = 2048
 
     # Dask cluster
     num_cpus = os.cpu_count() or 4
