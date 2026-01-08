@@ -260,23 +260,27 @@ def _block_extract_region_values(
     if np.all(np.isnan(values_block)):
         return {}
 
-    out: Dict[int, np.ndarray] = {}
+    # Vectorized group-by on region id (critical for many-polygons cases like ADM2)
+    v = values_block.ravel()
+    r = region_ids_block.ravel()
 
-    # extract per present region
-    present = np.unique(region_ids_block)
-    present = present[present > 0]
-    if present.size == 0:
+    m = (r > 0) & ~np.isnan(v)
+    if not np.any(m):
         return {}
 
-    for rid in present:
-        mask = region_ids_block == rid
-        vals = values_block[mask]
-        if vals.size == 0:
-            continue
-        vals = vals[~np.isnan(vals)]
-        if vals.size == 0:
-            continue
-        out[int(rid)] = vals
+    v = v[m]
+    r = r[m].astype(np.int32, copy=False)
+
+    order = np.argsort(r, kind="mergesort")
+    r = r[order]
+    v = v[order]
+
+    ids, idx, counts = np.unique(r, return_index=True, return_counts=True)
+
+    out: Dict[int, np.ndarray] = {}
+    for rid, start, cnt in zip(ids, idx, counts):
+        # Copy so each region array is independent (avoids keeping one big base array alive)
+        out[int(rid)] = v[start : start + cnt].copy()
 
     return out
 
@@ -303,8 +307,10 @@ def process_nc_hazard(
 
     hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
 
-    # Open lazily. Let xarray choose chunking if present; otherwise we rechunk.
-    ds = xr.open_dataset(nc_path, chunks={}, engine="netcdf4")
+    # Open lazily with explicit spatial chunking (reduces repeated rechunk graph construction).
+    ds = xr.open_dataset(
+        nc_path, chunks={"lat": chunk_lat, "lon": chunk_lon}, engine="netcdf4"
+    )
     try:
         var_names = list(ds.data_vars.keys())
         if not var_names:
@@ -338,7 +344,7 @@ def process_nc_hazard(
                 ensemble_value_used = str(available[0])
             has_ensemble = True
 
-        # Rechunk to a reasonable block size for extraction tasks
+        # Ensure expected spatial chunking for extraction tasks
         da = da.chunk({"lat": chunk_lat, "lon": chunk_lon})
 
         # Non-spatial dims
@@ -360,6 +366,12 @@ def process_nc_hazard(
 
         # Fallback indices for every region_id (row-order IDs)
         fallbacks = build_missing_region_fallbacks_by_row_order(lats, lons, adm_gdf)
+        # Build stable (rid -> fallback) arrays once (avoid per-rid compute storms)
+        all_rids = np.array(sorted(region_id_to_name.keys()), dtype=np.int32)
+        fb_lat = np.array([fallbacks[int(r)][0] for r in all_rids], dtype=np.int64)
+        fb_lon = np.array([fallbacks[int(r)][1] for r in all_rids], dtype=np.int64)
+        lat_idx = xr.DataArray(fb_lat, dims="rid")
+        lon_idx = xr.DataArray(fb_lon, dims="rid")
 
         # Build list of all dimension combinations
         if non_spatial_dims:
@@ -392,7 +404,7 @@ def process_nc_hazard(
             # Build delayed tasks per block
             # dask.array.Array has .to_delayed() blocks in same chunk grid.
             darr = da_slice.data
-            if not isinstance(darr, dask.array.Array):
+            if not isinstance(darr, dask_da.Array):
                 # fallback: just compute the full array (small data)
                 values_full = da_slice.values
                 region_vals = _block_extract_region_values(
@@ -421,8 +433,9 @@ def process_nc_hazard(
                     )
                     tasks.append(t)
 
-                # Compute all block dicts in parallel
-                block_dicts = list(dask.compute(*tasks))
+                # Compute all block dicts via the distributed scheduler
+                futures = client.compute(tasks)
+                block_dicts = client.gather(futures)
 
             # Merge dicts into per-region lists of arrays on driver
             accum: Dict[int, List[np.ndarray]] = {}
@@ -432,21 +445,21 @@ def process_nc_hazard(
                 for rid, arr in dct.items():
                     accum.setdefault(rid, []).append(arr)
 
-            # Ensure all regions appear (fallback if needed)
-            for rid in region_id_to_name.keys():
-                if rid in accum and sum(a.size for a in accum[rid]) > 0:
-                    continue
+            # Ensure all regions appear (fallback if needed), but batch the sampling:
+            # one vectorized point-sample compute per combo instead of thousands.
+            try:
+                fb_vals = da_slice.isel(lat=lat_idx, lon=lon_idx).compute().values
+            except Exception:
+                fb_vals = None
 
-                # fetch one fallback point from the slice
-                ilat, ilon = fallbacks[rid]
-                try:
-                    v = da_slice.isel(lat=ilat, lon=ilon).compute().item()
-                except Exception:
-                    # if compute fails, skip
-                    continue
-                if v is None or (isinstance(v, float) and np.isnan(v)):
-                    continue
-                accum[rid] = [np.array([v], dtype=np.float64)]
+            if fb_vals is not None:
+                for rid, v in zip(all_rids, fb_vals):
+                    rid_int = int(rid)
+                    if rid_int in accum and sum(a.size for a in accum[rid_int]) > 0:
+                        continue
+                    if v is None or (isinstance(v, float) and np.isnan(v)):
+                        continue
+                    accum[rid_int] = [np.array([v], dtype=np.float64)]
 
             # Compute exact stats per region and emit rows
             for rid, arrays in accum.items():
