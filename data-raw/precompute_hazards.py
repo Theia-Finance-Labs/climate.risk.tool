@@ -18,9 +18,7 @@ import gc
 import itertools
 import time
 import warnings
-import argparse
 from typing import Dict, List, Tuple, Any
-from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
@@ -212,124 +210,60 @@ def build_missing_region_fallbacks_by_row_order(
 
 
 # ---------------------------------------------------------------------------
-# PRECOMPUTED BLOCK REGION INDICES (FAST PATH)
+# DASK BLOCK EXTRACTION TASK
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class BlockRegionIds:
-    lat_start: int
-    lat_end: int
-    lon_start: int
-    lon_end: int
-    region_ids: np.ndarray  # int32 (lat, lon)
-
-
-def _rasterize_block_region_ids(
+def _block_extract_region_values(
+    values_block: np.ndarray,
     lat_block: np.ndarray,
     lon_block: np.ndarray,
     shapes_pkg: Dict[str, Any],
-    all_touched: bool = False,
-) -> np.ndarray:
+    hazard_type: str,
+) -> Dict[int, np.ndarray]:
+    """
+    Run on workers. Given a computed values block and its 1D lat/lon coordinate arrays,
+    rasterize polygons onto the block grid and return raw values per region_id.
+
+    Returns:
+        dict {region_id: 1D np.ndarray of values (float32/float64), NaNs removed}
+    """
+    # values_block is 2D (lat, lon)
+    if values_block.ndim != 2:
+        raise ValueError(f"Expected 2D block, got shape {values_block.shape}")
+
+    # nodata filtering example: Heat rule
+    if hazard_type == "Heat":
+        # Kelvin HI values should be > 300
+        values_block = np.where(values_block > 300, values_block, np.nan)
+
+    # fast skip if all nan
+    if np.all(np.isnan(values_block)):
+        return {}
+
+    # Build transform for this block
     lon_min, lat_min, lon_max, lat_max = _grid_bounds(lat_block, lon_block)
     transform = from_bounds(
         lon_min, lat_min, lon_max, lat_max, len(lon_block), len(lat_block)
     )
+
     region_ids = rasterio.features.rasterize(
         shapes_pkg["shapes"],
         out_shape=(len(lat_block), len(lon_block)),
         transform=transform,
         fill=0,
         dtype=np.int32,
-        all_touched=all_touched,
+        all_touched=False,  # pixel center inside polygon
     )
-    return region_ids
 
+    out: Dict[int, np.ndarray] = {}
 
-def _precompute_block_region_ids(
-    lats: np.ndarray,
-    lons: np.ndarray,
-    da_2d: xr.DataArray,
-    shapes_pkg: Dict[str, Any],
-    all_touched: bool = False,
-) -> List[BlockRegionIds]:
-    """
-    Precompute, for each dask block, the region_ids grid.
-    This is computed ONCE per file+adm (and reused for all dimension combos).
-    """
-    darr = da_2d.data
-
-    if not isinstance(darr, dask.array.Array):
-        # single block covering full array
-        region_ids = _rasterize_block_region_ids(lats, lons, shapes_pkg, all_touched)
-        return [
-            BlockRegionIds(
-                lat_start=0,
-                lat_end=len(lats),
-                lon_start=0,
-                lon_end=len(lons),
-                region_ids=region_ids.astype(np.int32, copy=False),
-            )
-        ]
-
-    lat_chunks = darr.chunks[0]
-    lon_chunks = darr.chunks[1]
-
-    lat_starts = np.cumsum((0,) + lat_chunks[:-1])
-    lon_starts = np.cumsum((0,) + lon_chunks[:-1])
-
-    out: List[BlockRegionIds] = []
-    for ls, lsz in zip(lat_starts, lat_chunks):
-        ls = int(ls)
-        le = ls + int(lsz)
-        lat_block = lats[ls:le]
-
-        for cs, csz in zip(lon_starts, lon_chunks):
-            cs = int(cs)
-            ce = cs + int(csz)
-            lon_block = lons[cs:ce]
-
-            region_ids = _rasterize_block_region_ids(
-                lat_block, lon_block, shapes_pkg, all_touched
-            )
-
-            out.append(
-                BlockRegionIds(
-                    lat_start=ls,
-                    lat_end=le,
-                    lon_start=cs,
-                    lon_end=ce,
-                    region_ids=region_ids.astype(np.int32, copy=False),
-                )
-            )
-
-    return out
-
-
-def _extract_with_region_ids(
-    values_block: np.ndarray,
-    region_ids: np.ndarray,
-    hazard_type: str,
-) -> Dict[int, np.ndarray]:
-    """
-    Worker-side extraction using precomputed region_ids for this block.
-    """
-    if values_block.ndim != 2:
-        raise ValueError(f"Expected 2D block, got shape {values_block.shape}")
-
-    if hazard_type == "Heat":
-        values_block = np.where(values_block > 300, values_block, np.nan)
-
-    if np.all(np.isnan(values_block)):
-        return {}
-
-    # region_ids same shape as values_block
+    # extract per present region
     present = np.unique(region_ids)
     present = present[present > 0]
     if present.size == 0:
         return {}
 
-    out: Dict[int, np.ndarray] = {}
     for rid in present:
         mask = region_ids == rid
         vals = values_block[mask]
@@ -406,33 +340,11 @@ def process_nc_hazard(
         # Non-spatial dims
         non_spatial_dims = [d for d in da.dims if d not in ["lat", "lon"]]
 
-        # Prepare shapes once
+        # Prepare shapes and scatter once
         shapes_pkg = prepare_region_shapes(adm_gdf)
         region_id_to_name = shapes_pkg["region_id_to_name"]
 
-        # Decide rasterization semantics
-        # If you want strict pixel-center rule keep False; if you want fewer missing muni set True.
-        all_touched = adm_level == "ADM2"
-
-        # Reduce chunk size for AFlood to manage memory
-        if hazard_type == "AFlood":
-            chunk_lat, chunk_lon = 2048, 2048
-            da = da.chunk({"lat": chunk_lat, "lon": chunk_lon})
-
-        # Precompute block rid->indices ONCE (huge win for ADM2)
-        # We need a 2D representative array with same chunking.
-        da_probe = da
-        if non_spatial_dims:
-            sel = {d: da[d].values[0] for d in non_spatial_dims}
-            da_probe = da.sel(sel)
-        da_probe = da_probe.transpose("lat", "lon")
-        block_rids = _precompute_block_region_ids(
-            lats=lats,
-            lons=lons,
-            da_2d=da_probe,
-            shapes_pkg=shapes_pkg,
-            all_touched=all_touched,
-        )
+        shapes_future = client.scatter(shapes_pkg, broadcast=True)
 
         # Fallback indices for every region_id (row-order IDs)
         fallbacks = build_missing_region_fallbacks_by_row_order(lats, lons, adm_gdf)
@@ -465,34 +377,61 @@ def process_nc_hazard(
             # Ensure 2D now
             da_slice = da_slice.transpose("lat", "lon")
 
-            # Build tasks over blocks using precomputed indices
+            # Build delayed tasks per block
+            # dask.array.Array has .to_delayed() blocks in same chunk grid.
             darr = da_slice.data
             if not isinstance(darr, dask.array.Array):
                 # fallback: just compute the full array (small data)
                 values_full = da_slice.values
-                block_dicts = [
-                    _extract_with_region_ids(
-                        values_full, block_rids[0].region_ids, hazard_type
-                    )
-                ]
+                region_vals = _block_extract_region_values(
+                    values_full, lats, lons, shapes_pkg, hazard_type
+                )
+                block_dicts = [region_vals]
             else:
                 blocks = darr.to_delayed().ravel()
-                if len(blocks) != len(block_rids):
-                    raise ValueError(
-                        f"Block layout mismatch: slice has {len(blocks)} blocks but precomputed "
-                        f"{len(block_rids)} blocks. (Check chunking consistency.)"
-                    )
+
+                # We need lat/lon coordinates for each block.
+                # Because chunks are regular, we can compute block index -> lat/lon slices.
+                lat_chunks = darr.chunks[0]
+                lon_chunks = darr.chunks[1]
+
+                # prefix sums for chunk boundaries
+                lat_starts = np.cumsum((0,) + lat_chunks[:-1])
+                lon_starts = np.cumsum((0,) + lon_chunks[:-1])
+
+                n_lat_blocks = len(lat_chunks)
+                n_lon_blocks = len(lon_chunks)
 
                 tasks = []
-                for b_idx, block_delayed in enumerate(blocks):
-                    region_ids = block_rids[b_idx].region_ids  # numpy array on driver
-                    t = delayed(_extract_with_region_ids, pure=False)(
-                        block_delayed,
-                        region_ids,
-                        hazard_type,
-                    )
-                    tasks.append(t)
+                b = 0
+                for bi in range(n_lat_blocks):
+                    ls = int(lat_starts[bi])
+                    le = ls + int(lat_chunks[bi])
+                    lat_block = lats[ls:le]
 
+                    for bj in range(n_lon_blocks):
+                        cs = int(lon_starts[bj])
+                        ce = cs + int(lon_chunks[bj])
+                        lon_block = lons[cs:ce]
+
+                        block_delayed = blocks[b]
+                        b += 1
+
+                        key_name = f"extract-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}"
+                        t = delayed(
+                            _block_extract_region_values,
+                            name=key_name,
+                            pure=False,
+                        )(
+                            block_delayed,
+                            lat_block,
+                            lon_block,
+                            shapes_future,
+                            hazard_type,
+                        )
+                        tasks.append(t)
+
+                # Compute all block dicts in parallel
                 block_dicts = list(dask.compute(*tasks))
 
             # Merge dicts into per-region lists of arrays on driver
@@ -503,33 +442,21 @@ def process_nc_hazard(
                 for rid, arr in dct.items():
                     accum.setdefault(rid, []).append(arr)
 
-            # Vectorized fallback: compute all missing region values in ONE go
-            missing = []
+            # Ensure all regions appear (fallback if needed)
             for rid in region_id_to_name.keys():
                 if rid in accum and sum(a.size for a in accum[rid]) > 0:
                     continue
-                missing.append(rid)
 
-            if missing:
-                ilats = np.array([fallbacks[r][0] for r in missing], dtype=int)
-                ilons = np.array([fallbacks[r][1] for r in missing], dtype=int)
+                # fetch one fallback point from the slice
+                ilat, ilon = fallbacks[rid]
                 try:
-                    vals = (
-                        da_slice.isel(
-                            lat=xr.DataArray(ilats, dims="points"),
-                            lon=xr.DataArray(ilons, dims="points"),
-                        )
-                        .compute()
-                        .values
-                    )
-                    for rid, v in zip(missing, vals):
-                        if v is None:
-                            continue
-                        if isinstance(v, float) and np.isnan(v):
-                            continue
-                        accum[rid] = [np.array([v], dtype=np.float64)]
+                    v = da_slice.isel(lat=ilat, lon=ilon).compute().item()
                 except Exception:
-                    pass
+                    # if compute fails, skip
+                    continue
+                if v is None or (isinstance(v, float) and np.isnan(v)):
+                    continue
+                accum[rid] = [np.array([v], dtype=np.float64)]
 
             # Compute exact stats per region and emit rows
             for rid, arrays in accum.items():
@@ -746,14 +673,7 @@ def is_already_processed(
 # ---------------------------------------------------------------------------
 
 
-def main(n_workers: int = None, memory_limit: str = "2GB"):
-    """
-    Main function to precompute hazard statistics.
-
-    Args:
-        n_workers: Number of Dask workers. If None, uses CPU count.
-        memory_limit: Memory limit per worker (e.g., "2GB", "4GB").
-    """
+def main():
     # Paths
     HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
     ADM1_PATH = "workspace/demo_inputs_fullnc/areas/state/geoBoundaries-BRA-ADM1.shp"
@@ -774,16 +694,13 @@ def main(n_workers: int = None, memory_limit: str = "2GB"):
     # -----------------------------------------------------------------------
     # DASK CLUSTER
     # -----------------------------------------------------------------------
-    if n_workers is None:
-        n_workers = os.cpu_count() or 4
-
-    print(f"  🔍 Using {n_workers} worker(s)")
-    print(f"  💾 Memory limit per worker: {memory_limit}")
+    num_cpus = os.cpu_count() or 4
+    print(f"  🔍 Detected {num_cpus} CPU(s)")
 
     cluster = LocalCluster(
-        n_workers=n_workers,
+        n_workers=num_cpus,
         threads_per_worker=1,
-        memory_limit=memory_limit,
+        memory_limit="2GB",
         dashboard_address="0.0.0.0:8787",
     )
     client = Client(cluster)
@@ -964,22 +881,4 @@ def main(n_workers: int = None, memory_limit: str = "2GB"):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Precompute hazard statistics aggregated over administrative regions (ADM1/ADM2)."
-    )
-    parser.add_argument(
-        "--n-workers",
-        type=int,
-        default=None,
-        help="Number of Dask workers (default: CPU count)",
-    )
-    parser.add_argument(
-        "--memory-limit",
-        type=str,
-        default="2GB",
-        help="Memory limit per worker (e.g., '2GB', '4GB', '8GB') (default: '2GB')",
-    )
-
-    args = parser.parse_args()
-
-    main(n_workers=args.n_workers, memory_limit=args.memory_limit)
+    main()
