@@ -29,6 +29,7 @@ import rasterio.features
 from rasterio.transform import from_bounds
 
 import dask
+import dask.array as dask_da
 from dask import delayed
 from dask.distributed import Client, LocalCluster
 from unidecode import unidecode
@@ -141,6 +142,26 @@ def _grid_bounds(lat: np.ndarray, lon: np.ndarray) -> Tuple[float, float, float,
     return lon_min, lat_min, lon_max, lat_max
 
 
+def rasterize_regions_full_grid(
+    lats: np.ndarray, lons: np.ndarray, shapes_pkg: Dict[str, Any]
+) -> np.ndarray:
+    """
+    One-time rasterization of all polygons onto the full NetCDF grid.
+    """
+    lon_min, lat_min, lon_max, lat_max = _grid_bounds(lats, lons)
+    transform = from_bounds(lon_min, lat_min, lon_max, lat_max, len(lons), len(lats))
+
+    region_ids = rasterio.features.rasterize(
+        shapes_pkg["shapes"],
+        out_shape=(len(lats), len(lons)),
+        transform=transform,
+        fill=0,
+        dtype=np.int32,
+        all_touched=False,
+    )
+    return region_ids
+
+
 def prepare_region_shapes(adm_gdf: gpd.GeoDataFrame) -> Dict[str, Any]:
     """
     Prepare lightweight shapes package for rasterization. Uses integer region_id.
@@ -216,14 +237,12 @@ def build_missing_region_fallbacks_by_row_order(
 
 def _block_extract_region_values(
     values_block: np.ndarray,
-    lat_block: np.ndarray,
-    lon_block: np.ndarray,
-    shapes_pkg: Dict[str, Any],
+    region_ids_block: np.ndarray,
     hazard_type: str,
 ) -> Dict[int, np.ndarray]:
     """
-    Run on workers. Given a computed values block and its 1D lat/lon coordinate arrays,
-    rasterize polygons onto the block grid and return raw values per region_id.
+    Run on workers. Given a computed values block and a pre-rasterized block of region IDs,
+    return raw values per region_id.
 
     Returns:
         dict {region_id: 1D np.ndarray of values (float32/float64), NaNs removed}
@@ -241,31 +260,16 @@ def _block_extract_region_values(
     if np.all(np.isnan(values_block)):
         return {}
 
-    # Build transform for this block
-    lon_min, lat_min, lon_max, lat_max = _grid_bounds(lat_block, lon_block)
-    transform = from_bounds(
-        lon_min, lat_min, lon_max, lat_max, len(lon_block), len(lat_block)
-    )
-
-    region_ids = rasterio.features.rasterize(
-        shapes_pkg["shapes"],
-        out_shape=(len(lat_block), len(lon_block)),
-        transform=transform,
-        fill=0,
-        dtype=np.int32,
-        all_touched=False,  # pixel center inside polygon
-    )
-
     out: Dict[int, np.ndarray] = {}
 
     # extract per present region
-    present = np.unique(region_ids)
+    present = np.unique(region_ids_block)
     present = present[present > 0]
     if present.size == 0:
         return {}
 
     for rid in present:
-        mask = region_ids == rid
+        mask = region_ids_block == rid
         vals = values_block[mask]
         if vals.size == 0:
             continue
@@ -340,11 +344,19 @@ def process_nc_hazard(
         # Non-spatial dims
         non_spatial_dims = [d for d in da.dims if d not in ["lat", "lon"]]
 
-        # Prepare shapes and scatter once
+        # Prepare shapes
         shapes_pkg = prepare_region_shapes(adm_gdf)
         region_id_to_name = shapes_pkg["region_id_to_name"]
 
-        shapes_future = client.scatter(shapes_pkg, broadcast=True)
+        # Pre-rasterize full grid once for this ADM level and this NetCDF grid
+        print(f"    Pre-rasterizing regions for {adm_level}...")
+        region_id_map = rasterize_regions_full_grid(lats, lons, shapes_pkg)
+
+        # Convert to dask array to easily get blocks matching the data chunking
+        region_id_map_da = dask_da.from_array(
+            region_id_map, chunks=(chunk_lat, chunk_lon)
+        )
+        region_id_blocks = region_id_map_da.to_delayed().ravel()
 
         # Fallback indices for every region_id (row-order IDs)
         fallbacks = build_missing_region_fallbacks_by_row_order(lats, lons, adm_gdf)
@@ -384,52 +396,30 @@ def process_nc_hazard(
                 # fallback: just compute the full array (small data)
                 values_full = da_slice.values
                 region_vals = _block_extract_region_values(
-                    values_full, lats, lons, shapes_pkg, hazard_type
+                    values_full, region_id_map, hazard_type
                 )
                 block_dicts = [region_vals]
             else:
                 blocks = darr.to_delayed().ravel()
 
-                # We need lat/lon coordinates for each block.
-                # Because chunks are regular, we can compute block index -> lat/lon slices.
-                lat_chunks = darr.chunks[0]
-                lon_chunks = darr.chunks[1]
-
-                # prefix sums for chunk boundaries
-                lat_starts = np.cumsum((0,) + lat_chunks[:-1])
-                lon_starts = np.cumsum((0,) + lon_chunks[:-1])
-
-                n_lat_blocks = len(lat_chunks)
-                n_lon_blocks = len(lon_chunks)
-
                 tasks = []
-                b = 0
-                for bi in range(n_lat_blocks):
-                    ls = int(lat_starts[bi])
-                    le = ls + int(lat_chunks[bi])
-                    lat_block = lats[ls:le]
+                for b in range(len(blocks)):
+                    block_delayed = blocks[b]
+                    rid_block_delayed = region_id_blocks[b]
 
-                    for bj in range(n_lon_blocks):
-                        cs = int(lon_starts[bj])
-                        ce = cs + int(lon_chunks[bj])
-                        lon_block = lons[cs:ce]
-
-                        block_delayed = blocks[b]
-                        b += 1
-
-                        key_name = f"extract-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}"
-                        t = delayed(
-                            _block_extract_region_values,
-                            name=key_name,
-                            pure=False,
-                        )(
-                            block_delayed,
-                            lat_block,
-                            lon_block,
-                            shapes_future,
-                            hazard_type,
-                        )
-                        tasks.append(t)
+                    key_name = (
+                        f"extract-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{b}"
+                    )
+                    t = delayed(
+                        _block_extract_region_values,
+                        name=key_name,
+                        pure=False,
+                    )(
+                        block_delayed,
+                        rid_block_delayed,
+                        hazard_type,
+                    )
+                    tasks.append(t)
 
                 # Compute all block dicts in parallel
                 block_dicts = list(dask.compute(*tasks))
@@ -698,7 +688,7 @@ def main():
     print(f"  🔍 Detected {num_cpus} CPU(s)")
 
     cluster = LocalCluster(
-        n_workers=num_cpus,
+        n_workers=8,
         threads_per_worker=1,
         memory_limit="2GB",
         dashboard_address="0.0.0.0:8787",
@@ -713,7 +703,7 @@ def main():
         existing_df = load_existing_precomputed(OUTPUT_PATH)
 
         # Load boundaries
-        adm_levels = [("ADM1", ADM1_PATH), ("ADM2", ADM2_PATH)]
+        adm_levels = [("ADM2", ADM2_PATH), ("ADM1", ADM1_PATH)]
         adm_gdfs = {}
         adm_level_names = []
         for level, path in adm_levels:
