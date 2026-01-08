@@ -1,15 +1,24 @@
+#!/usr/bin/env python3
 """
 Precompute hazard statistics aggregated over administrative regions (ADM1/ADM2).
 
-This version computes EXACT statistics (min/max/mean/median/percentiles) by:
-  1) Using Dask workers to extract RAW values per region from each chunk (block).
-  2) Returning those region cutouts to the driver.
-  3) Concatenating per-region values on the driver and computing exact stats.
+Approximate-quantile version (bounded memory, scalable):
+  - Workers do per-block reductions per region:
+      count, sum, min, max  (exact)
+      bottom-k hash sample of pixel values (bounded) -> quantiles (approx)
+  - Driver merges block results per region:
+      count/sum/min/max merged exactly
+      bottom-k samples merged deterministically
+  - Quantiles computed from the deterministic sample.
 
-Notes:
-- Mean is computed from raw values (but could be reduced via sum/count too).
-- Quantiles are exact because they are computed from the full raw value set.
-- Requires the NetCDF grid to be a regular lat/lon grid (1D lat, 1D lon).
+Reproducibility:
+  - Sample membership is determined by a deterministic hash of the GLOBAL pixel index
+    + a fixed SEED. This makes results stable across runs and independent of chunking.
+
+Output:
+  - Writes one PART csv per (nc file, adm level) into OUTPUT_PARTS_DIR.
+  - Creates a ".done" marker when a part is fully written.
+  - At the end concatenates all parts into OUTPUT_PATH (streaming, no big memory).
 """
 
 import os
@@ -18,8 +27,7 @@ import gc
 import itertools
 import time
 import warnings
-import uuid
-from typing import Dict, List, Tuple, Any
+from typing import Dict, List, Tuple, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -47,18 +55,28 @@ warnings.filterwarnings(
 
 
 # ---------------------------------------------------------------------------
-# HELPERS
+# CONFIG
+# ---------------------------------------------------------------------------
+
+# Deterministic sampling seed (change to change the sample)
+SEED = 123456789  # int
+
+# Max samples kept per region (memory ~ regions * K_SAMPLES)
+K_SAMPLES = 1024  # 512/1024/2048 are common choices
+
+# Quantiles requested
+Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64)
+
+# To avoid giant per-block temporary arrays, cap block size (in pixels)
+MAX_BLOCK_ELEMS = 1_000_000  # 1e6 is a safe default
+
+
+# ---------------------------------------------------------------------------
+# HELPERS: IO / TEXT
 # ---------------------------------------------------------------------------
 
 
 def parse_hazard_from_path(path: str) -> Tuple[str, str]:
-    """
-    Extract hazard_type and hazard_indicator from directory structure.
-
-    Expected path format: .../hazards/HazardType/HazardIndicator/...
-
-    Returns: (hazard_type, hazard_indicator)
-    """
     parts = path.split(os.sep)
     if "hazards" not in parts:
         raise ValueError(
@@ -80,17 +98,6 @@ def fix_text(text):
 
 def ensure_parent_dir(path: str) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
-
-
-def append_df_to_csv(df: pd.DataFrame, path: str) -> None:
-    ensure_parent_dir(path)
-    header = not os.path.exists(path)
-    df.to_csv(path, mode="a", header=header, index=False, encoding="utf-8-sig")
-
-
-def make_tmp_path(base_dir: str, stem: str, suffix: str = ".csv") -> str:
-    ensure_parent_dir(os.path.join(base_dir, "x"))
-    return os.path.join(base_dir, f"{stem}.{uuid.uuid4().hex}{suffix}")
 
 
 def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
@@ -125,11 +132,12 @@ def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
     return gdf
 
 
+# ---------------------------------------------------------------------------
+# HELPERS: GRID / RASTERIZE
+# ---------------------------------------------------------------------------
+
+
 def _is_regular_1d_grid(lat: np.ndarray, lon: np.ndarray, rtol=1e-5, atol=1e-8) -> bool:
-    """
-    Checks whether 1D lat and lon are regularly spaced.
-    Accepts descending or ascending.
-    """
     if lat.ndim != 1 or lon.ndim != 1:
         return False
     if len(lat) < 3 or len(lon) < 3:
@@ -138,7 +146,6 @@ def _is_regular_1d_grid(lat: np.ndarray, lon: np.ndarray, rtol=1e-5, atol=1e-8) 
     dlat = np.diff(lat)
     dlon = np.diff(lon)
 
-    # allow descending too; compare absolute step sizes
     dlat_abs = np.abs(dlat)
     dlon_abs = np.abs(dlon)
 
@@ -148,21 +155,33 @@ def _is_regular_1d_grid(lat: np.ndarray, lon: np.ndarray, rtol=1e-5, atol=1e-8) 
 
 
 def _grid_bounds(lat: np.ndarray, lon: np.ndarray) -> Tuple[float, float, float, float]:
-    """
-    Compute bounds for from_bounds.
-    Works for ascending or descending lat/lon arrays (interpreted as cell centers).
-    """
     lat_min, lat_max = float(np.min(lat)), float(np.max(lat))
     lon_min, lon_max = float(np.min(lon)), float(np.max(lon))
     return lon_min, lat_min, lon_max, lat_max
 
 
+def prepare_region_shapes(adm_gdf: gpd.GeoDataFrame) -> Dict[str, Any]:
+    # IMPORTANT: row-order IDs (1..N). Do not key on name (names can repeat).
+    regions = adm_gdf["region"].tolist()
+    region_id_to_name = {i + 1: name for i, name in enumerate(regions)}
+
+    shapes = [(geom, i + 1) for i, geom in enumerate(adm_gdf.geometry)]
+
+    bounds = adm_gdf.total_bounds
+    return {
+        "shapes": shapes,
+        "region_id_to_name": region_id_to_name,
+        "bounds": bounds,
+        "n_regions": len(regions),
+    }
+
+
 def rasterize_regions_full_grid(
-    lats: np.ndarray, lons: np.ndarray, shapes_pkg: Dict[str, Any]
+    lats: np.ndarray,
+    lons: np.ndarray,
+    shapes_pkg: Dict[str, Any],
+    all_touched: bool = True,
 ) -> np.ndarray:
-    """
-    One-time rasterization of all polygons onto the full NetCDF grid.
-    """
     lon_min, lat_min, lon_max, lat_max = _grid_bounds(lats, lons)
     transform = from_bounds(lon_min, lat_min, lon_max, lat_max, len(lons), len(lats))
 
@@ -172,77 +191,14 @@ def rasterize_regions_full_grid(
         transform=transform,
         fill=0,
         dtype=np.int32,
-        all_touched=True,
+        all_touched=all_touched,
     )
     return region_ids
 
 
-def prepare_region_shapes(adm_gdf: gpd.GeoDataFrame) -> Dict[str, Any]:
-    """
-    Prepare lightweight shapes package for rasterization. Uses integer region_id.
-    """
-    regions = adm_gdf["region"].tolist()
-    region_name_to_id = {name: i + 1 for i, name in enumerate(regions)}
-    region_id_to_name = {i + 1: name for i, name in enumerate(regions)}
-
-    shapes = [
-        (geom, region_name_to_id[name])
-        for geom, name in zip(adm_gdf.geometry, adm_gdf["region"])
-    ]
-
-    bounds = adm_gdf.total_bounds  # (minx, miny, maxx, maxy)
-    return {
-        "shapes": shapes,  # list of (shapely geom, int id)
-        "region_id_to_name": region_id_to_name,
-        "bounds": bounds,
-        "n_regions": len(regions),
-    }
-
-
-def compute_exact_stats(values: np.ndarray) -> Dict[str, float]:
-    """
-    Exact stats from raw values (NaNs already removed).
-    """
-    # Ensure float64 for stable stats
-    v = values.astype(np.float64, copy=False)
-
-    # exact via selection-based quantile implementation in numpy
-    qs = np.quantile(v, [0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], method="linear")
-
-    return {
-        "min": float(np.min(v)),
-        "max": float(np.max(v)),
-        "mean": float(np.mean(v)),
-        "median": float(qs[3]),
-        "p2_5": float(qs[0]),
-        "p5": float(qs[1]),
-        "p10": float(qs[2]),
-        "p90": float(qs[4]),
-        "p95": float(qs[5]),
-        "p97_5": float(qs[6]),
-    }
-
-
-def build_missing_region_fallbacks_by_row_order(
-    lats: np.ndarray,
-    lons: np.ndarray,
-    adm_gdf: gpd.GeoDataFrame,
-) -> Dict[int, Tuple[int, int]]:
-    """
-    Fallback cell per region_id using the SAME region_id definition as rasterization:
-      region_id = row order + 1
-    This works even if region names are duplicated.
-    """
-    fallbacks: Dict[int, Tuple[int, int]] = {}
-
-    for i, geom in enumerate(adm_gdf.geometry):
-        rid = i + 1  # critical: consistent with prepare_region_shapes()
-        c = geom.centroid
-        ilat = int(np.argmin(np.abs(lats - c.y)))
-        ilon = int(np.argmin(np.abs(lons - c.x)))
-        fallbacks[rid] = (ilat, ilon)
-
-    return fallbacks
+# ---------------------------------------------------------------------------
+# CHUNKING
+# ---------------------------------------------------------------------------
 
 
 def choose_spatial_chunks(
@@ -252,14 +208,14 @@ def choose_spatial_chunks(
     target_chunks_lon: int,
     n_workers: int,
     min_blocks_per_worker: int = 4,
-    min_chunk: int = 256,
+    min_chunk: int = 128,
+    max_block_elems: int = MAX_BLOCK_ELEMS,
 ) -> Tuple[int, int]:
     """
-    Pick chunk_lat/chunk_lon <= target_* while ensuring enough total blocks.
-
-    Goal: total_blocks >= n_workers * min_blocks_per_worker
+    Choose chunk_lat/chunk_lon <= targets while ensuring:
+      - enough blocks to use workers (if possible)
+      - block size not too large (cap temporary arrays in worker)
     """
-    # Start with preferred big chunks
     clat = min(target_chunks_lat, nlat)
     clon = min(target_chunks_lon, nlon)
 
@@ -268,50 +224,124 @@ def choose_spatial_chunks(
 
     needed = max(1, n_workers * min_blocks_per_worker)
 
-    # If we don't have enough blocks, shrink chunks (down to min_chunk)
-    while nblocks(clat, clon) < needed and (clat > min_chunk or clon > min_chunk):
-        # shrink the dimension that gives the biggest increase in blocks
-        if int(np.ceil(nlat / max(min_chunk, clat // 2))) * int(
-            np.ceil(nlon / clon)
-        ) >= int(np.ceil(nlat / clat)) * int(np.ceil(nlon / max(min_chunk, clon // 2))):
+    # First: cap block elems
+    while clat * clon > max_block_elems and (clat > min_chunk or clon > min_chunk):
+        if clat >= clon and clat > min_chunk:
             clat = max(min_chunk, clat // 2)
-        else:
+        elif clon > min_chunk:
             clon = max(min_chunk, clon // 2)
+        else:
+            break
+
+    # Second: ensure enough blocks if possible
+    while nblocks(clat, clon) < needed and (clat > min_chunk or clon > min_chunk):
+        # prefer shrinking the dimension that increases blocks more
+        cand_clat = max(min_chunk, clat // 2)
+        cand_clon = max(min_chunk, clon // 2)
+
+        blocks_if_clat = nblocks(cand_clat, clon)
+        blocks_if_clon = nblocks(clat, cand_clon)
+
+        if blocks_if_clat >= blocks_if_clon and clat > min_chunk:
+            clat = cand_clat
+        elif clon > min_chunk:
+            clon = cand_clon
+        else:
+            break
+
+        # keep block elems capped
+        while clat * clon > max_block_elems and (clat > min_chunk or clon > min_chunk):
+            if clat >= clon and clat > min_chunk:
+                clat = max(min_chunk, clat // 2)
+            elif clon > min_chunk:
+                clon = max(min_chunk, clon // 2)
+            else:
+                break
 
     return clat, clon
 
 
 # ---------------------------------------------------------------------------
-# DASK BLOCK EXTRACTION TASK
+# DETERMINISTIC HASH (splitmix64) FOR BOTTOM-K
 # ---------------------------------------------------------------------------
 
 
-def _block_extract_region_values(
+def _splitmix64(x: np.ndarray) -> np.ndarray:
+    """
+    Vectorized splitmix64 for uint64 arrays. Deterministic across runs.
+    """
+    x = (x + np.uint64(0x9E3779B97F4A7C15)) & np.uint64(0xFFFFFFFFFFFFFFFF)
+    z = x
+    z = (z ^ (z >> np.uint64(30))) * np.uint64(0xBF58476D1CE4E5B9) & np.uint64(
+        0xFFFFFFFFFFFFFFFF
+    )
+    z = (z ^ (z >> np.uint64(27))) * np.uint64(0x94D049BB133111EB) & np.uint64(
+        0xFFFFFFFFFFFFFFFF
+    )
+    z = z ^ (z >> np.uint64(31))
+    return z
+
+
+def merge_bottomk(
+    h1: Optional[np.ndarray],
+    v1: Optional[np.ndarray],
+    h2: np.ndarray,
+    v2: np.ndarray,
+    k: int,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Merge two bottom-k sets that are already sorted by hash ascending.
+    Deterministic merge independent of task order.
+    """
+    if h1 is None or v1 is None or h1.size == 0:
+        return h2[:k].copy(), v2[:k].copy()
+    if h2.size == 0:
+        return h1[:k].copy(), v1[:k].copy()
+
+    i = j = 0
+    out_h = []
+    out_v = []
+    while len(out_h) < k and (i < h1.size or j < h2.size):
+        if j >= h2.size or (i < h1.size and h1[i] <= h2[j]):
+            out_h.append(h1[i])
+            out_v.append(v1[i])
+            i += 1
+        else:
+            out_h.append(h2[j])
+            out_v.append(v2[j])
+            j += 1
+
+    return np.array(out_h, dtype=np.uint64), np.array(out_v, dtype=np.float64)
+
+
+# ---------------------------------------------------------------------------
+# WORKER TASK: PER-BLOCK AGGREGATION + BOTTOM-K SAMPLE
+# ---------------------------------------------------------------------------
+
+
+def _block_reduce_bottomk(
     values_block: np.ndarray,
     region_ids_block: np.ndarray,
     hazard_type: str,
-) -> Dict[int, np.ndarray]:
+    start_lat: int,
+    start_lon: int,
+    nlon_full: int,
+    seed: int,
+    k: int,
+) -> Dict[int, Tuple[int, float, float, float, np.ndarray, np.ndarray]]:
     """
-    Run on workers. Given a computed values block and a pre-rasterized block of region IDs,
-    return raw values per region_id.
-
-    Returns:
-        dict {region_id: 1D np.ndarray of values (float32/float64), NaNs removed}
+    Returns dict:
+      rid -> (count, sum, min, max, sample_hashes_sorted, sample_values_sorted)
     """
-    # values_block is 2D (lat, lon)
     if values_block.ndim != 2:
         raise ValueError(f"Expected 2D block, got shape {values_block.shape}")
 
-    # nodata filtering example: Heat rule
+    # Hazard-specific nodata filtering
     if hazard_type == "Heat":
-        # Kelvin HI values should be > 300
         values_block = np.where(values_block > 300, values_block, np.nan)
 
-    # fast skip if all nan
-    if np.all(np.isnan(values_block)):
-        return {}
-
-    # Vectorized group-by on region id (critical for many-polygons cases like ADM2)
+    # Flatten
+    h, w = values_block.shape
     v = values_block.ravel()
     r = region_ids_block.ravel()
 
@@ -319,68 +349,94 @@ def _block_extract_region_values(
     if not np.any(m):
         return {}
 
-    v = v[m]
+    v = v[m].astype(np.float64, copy=False)
     r = r[m].astype(np.int32, copy=False)
 
-    order = np.argsort(r, kind="mergesort")
+    # global pixel index for deterministic hashing
+    # local flat index -> (ilat, ilon)
+    flat_idx = np.nonzero(m)[0].astype(
+        np.int64, copy=False
+    )  # indices in full ravel order
+    ilat = flat_idx // w
+    ilon = flat_idx - ilat * w
+    glat = ilat + int(start_lat)
+    glon = ilon + int(start_lon)
+    gidx = glat.astype(np.uint64) * np.uint64(nlon_full) + glon.astype(np.uint64)
+
+    seed_u = np.uint64(seed)
+    hh = _splitmix64(gidx ^ seed_u)
+
+    # Sort by (rid asc, hash asc) so first k per rid is bottom-k
+    order = np.lexsort((hh, r))  # primary r, secondary hh
     r = r[order]
     v = v[order]
+    hh = hh[order]
 
+    # Group boundaries
     ids, idx, counts = np.unique(r, return_index=True, return_counts=True)
 
-    out: Dict[int, np.ndarray] = {}
-    for rid, start, cnt in zip(ids, idx, counts):
-        # Copy so each region array is independent (avoids keeping one big base array alive)
-        out[int(rid)] = v[start : start + cnt].copy()
+    out: Dict[int, Tuple[int, float, float, float, np.ndarray, np.ndarray]] = {}
+
+    # Exact reductions per rid
+    # Sum: reduceat
+    sums = np.add.reduceat(v, idx)
+    mins = np.minimum.reduceat(v, idx)
+    maxs = np.maximum.reduceat(v, idx)
+
+    for rid, start, cnt, s, mn, mx in zip(ids, idx, counts, sums, mins, maxs):
+        rid_int = int(rid)
+        take = int(min(k, cnt))
+        sh = hh[start : start + take].copy()
+        sv = v[start : start + take].copy()
+        # Already sorted by hash within rid due to lexsort
+        out[rid_int] = (int(cnt), float(s), float(mn), float(mx), sh, sv)
 
     return out
 
 
 # ---------------------------------------------------------------------------
-# CORE PROCESSOR (EXACT)
+# PROCESS ONE (NetCDF, ADM_LEVEL) -> PART CSV
 # ---------------------------------------------------------------------------
 
 
-def process_nc_hazard(
+def process_nc_hazard_bottomk(
     nc_path: str,
     adm_gdf: gpd.GeoDataFrame,
     adm_level: str,
     ensemble_filter: str,
     client: Client,
-    chunk_lat: int = 1024,
-    chunk_lon: int = 1024,
-) -> str:
+    out_part_csv: str,
+    target_chunk_lat: int,
+    target_chunk_lon: int,
+    seed: int,
+    k_samples: int,
+) -> None:
     """
-    Exact zonal stats per region for one NetCDF file and one ADM level.
-    Returns path to a CSV containing results for this (nc_path, adm_level).
+    Writes results directly to out_part_csv (appending combo by combo).
+    Creates the file from scratch (overwrites if exists).
     """
-    if not os.path.exists(nc_path):
-        raise FileNotFoundError(f"NetCDF file not found: {nc_path}")
-
     hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
 
-    # 1) Open metadata to get dimensions and worker count
+    # Open metadata for dims
     with xr.open_dataset(nc_path, engine="netcdf4") as ds_temp:
-        nlat_full = ds_temp.dims["lat"]
-        nlon_full = ds_temp.dims["lon"]
+        nlat_full = int(ds_temp.sizes["lat"])
+        nlon_full = int(ds_temp.sizes["lon"])
 
     n_workers = len(client.scheduler_info()["workers"])
-
-    # 2) Choose effective chunks for this specific grid size
-    chunk_lat_eff, chunk_lon_eff = choose_spatial_chunks(
+    chunk_lat, chunk_lon = choose_spatial_chunks(
         nlat=nlat_full,
         nlon=nlon_full,
-        target_chunks_lat=chunk_lat,
-        target_chunks_lon=chunk_lon,
+        target_chunks_lat=target_chunk_lat,
+        target_chunks_lon=target_chunk_lon,
         n_workers=n_workers,
     )
 
-    # 3) Open lazily with explicit spatial chunking (reduces repeated rechunk graph construction).
     ds = xr.open_dataset(
         nc_path,
-        chunks={"lat": chunk_lat_eff, "lon": chunk_lon_eff},
+        chunks={"lat": chunk_lat, "lon": chunk_lon},
         engine="netcdf4",
     )
+
     try:
         var_names = list(ds.data_vars.keys())
         if not var_names:
@@ -391,14 +447,10 @@ def process_nc_hazard(
         if "lat" not in da.dims or "lon" not in da.dims:
             raise ValueError(f"Missing required coordinates (lat/lon) in {nc_path}")
 
-        # Ensure 1D regular grid (required for rasterize-from-bounds logic)
         lats = da["lat"].values
         lons = da["lon"].values
         if not _is_regular_1d_grid(lats, lons):
-            raise ValueError(
-                f"Grid in {nc_path} is not a regular 1D lat/lon grid. "
-                "Exact rasterization approach here assumes a regular grid."
-            )
+            raise ValueError(f"Grid in {nc_path} is not a regular 1D lat/lon grid.")
 
         # Ensemble selection
         has_ensemble = False
@@ -414,38 +466,11 @@ def process_nc_hazard(
                 ensemble_value_used = str(available[0])
             has_ensemble = True
 
-        # Ensure expected spatial chunking for extraction tasks
-        da = da.chunk({"lat": chunk_lat_eff, "lon": chunk_lon_eff})
+        # Ensure chunking
+        da = da.chunk({"lat": chunk_lat, "lon": chunk_lon})
 
-        # Non-spatial dims
+        # Non-spatial dims to iterate
         non_spatial_dims = [d for d in da.dims if d not in ["lat", "lon"]]
-
-        # Prepare shapes
-        shapes_pkg = prepare_region_shapes(adm_gdf)
-        region_id_to_name = shapes_pkg["region_id_to_name"]
-
-        # Pre-rasterize full grid once for this ADM level and this NetCDF grid
-        print(
-            f"    Pre-rasterizing regions for {adm_level} (chunks: {chunk_lat_eff}x{chunk_lon_eff})..."
-        )
-        region_id_map = rasterize_regions_full_grid(lats, lons, shapes_pkg)
-
-        # Convert to dask array to easily get blocks matching the data chunking
-        region_id_map_da = dask_da.from_array(
-            region_id_map, chunks=(chunk_lat_eff, chunk_lon_eff)
-        )
-        region_id_blocks = region_id_map_da.to_delayed().ravel()
-
-        # Fallback indices for every region_id (row-order IDs)
-        fallbacks = build_missing_region_fallbacks_by_row_order(lats, lons, adm_gdf)
-        # Build stable (rid -> fallback) arrays once (avoid per-rid compute storms)
-        all_rids = np.array(sorted(region_id_to_name.keys()), dtype=np.int32)
-        fb_lat = np.array([fallbacks[int(r)][0] for r in all_rids], dtype=np.int64)
-        fb_lon = np.array([fallbacks[int(r)][1] for r in all_rids], dtype=np.int64)
-        lat_idx = xr.DataArray(fb_lat, dims="rid")
-        lon_idx = xr.DataArray(fb_lon, dims="rid")
-
-        # Build list of all dimension combinations
         if non_spatial_dims:
             dim_values = {dim: da[dim].values for dim in non_spatial_dims}
             keys = list(dim_values.keys())
@@ -456,118 +481,170 @@ def process_nc_hazard(
         else:
             dim_combinations = [{}]
 
+        # Rasterize regions once
+        shapes_pkg = prepare_region_shapes(adm_gdf)
+        region_id_to_name = shapes_pkg["region_id_to_name"]
+
         print(
-            f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
+            f"    Pre-rasterizing regions for {adm_level} (chunks: {chunk_lat}x{chunk_lon})..."
+        )
+        region_id_map = rasterize_regions_full_grid(
+            lats, lons, shapes_pkg, all_touched=True
         )
 
-        # Setup temp output path
-        tmp_dir = os.path.join("workspace", "tmp_precompute")
-        tmp_out = make_tmp_path(
-            tmp_dir,
-            stem=f"zonal_{adm_level}_{os.path.basename(nc_path)}".replace(".nc", ""),
+        # Dask array for region ids (same chunking)
+        region_id_map_da = dask_da.from_array(
+            region_id_map, chunks=(chunk_lat, chunk_lon)
+        )
+
+        # Prepare output file fresh
+        ensure_parent_dir(out_part_csv)
+        if os.path.exists(out_part_csv):
+            os.remove(out_part_csv)
+
+        header_written = False
+
+        print(
+            f"    Processing {len(dim_combinations)} dimension combinations for {len(adm_gdf)} regions..."
         )
 
         for combo_i, dim_combo in enumerate(
             tqdm(dim_combinations, desc="    Processing", leave=False, ncols=80), 1
         ):
-            combo_rows: List[Dict[str, Any]] = []
-
-            # Select slice lazily
             da_slice = da
             for dim_name, dim_val in dim_combo.items():
                 da_slice = da_slice.sel({dim_name: dim_val})
-
-            # Ensure 2D now
             da_slice = da_slice.transpose("lat", "lon")
 
-            # Build delayed tasks per block
-            # dask.array.Array has .to_delayed() blocks in same chunk grid.
             darr = da_slice.data
             if not isinstance(darr, dask_da.Array):
-                # fallback: just compute the full array (small data)
+                # small array: compute in one go as a single block
                 values_full = da_slice.values
-                region_vals = _block_extract_region_values(
-                    values_full, region_id_map, hazard_type
+                rid_full = region_id_map
+                block_res = _block_reduce_bottomk(
+                    values_full,
+                    rid_full,
+                    hazard_type,
+                    start_lat=0,
+                    start_lon=0,
+                    nlon_full=nlon_full,
+                    seed=seed,
+                    k=k_samples,
                 )
-                block_dicts = [region_vals]
+                block_dicts = [block_res]
             else:
-                blocks = darr.to_delayed().ravel()
+                blocks = darr.to_delayed()  # 2D grid
+                rid_blocks = region_id_map_da.to_delayed()
 
                 tasks = []
-                for b in range(len(blocks)):
-                    block_delayed = blocks[b]
-                    rid_block_delayed = region_id_blocks[b]
+                for bi in range(blocks.shape[0]):
+                    for bj in range(blocks.shape[1]):
+                        start_lat = bi * chunk_lat
+                        start_lon = bj * chunk_lon
+                        t = delayed(
+                            _block_reduce_bottomk,
+                            name=f"reduce-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{bi}-{bj}",
+                            pure=False,
+                        )(
+                            blocks[bi, bj],
+                            rid_blocks[bi, bj],
+                            hazard_type,
+                            start_lat,
+                            start_lon,
+                            nlon_full,
+                            seed,
+                            k_samples,
+                        )
+                        tasks.append(t)
 
-                    key_name = (
-                        f"extract-{os.path.basename(nc_path)}-{adm_level}-{combo_i}-{b}"
-                    )
-                    t = delayed(
-                        _block_extract_region_values,
-                        name=key_name,
-                        pure=False,
-                    )(
-                        block_delayed,
-                        rid_block_delayed,
-                        hazard_type,
-                    )
-                    tasks.append(t)
-
-                # Compute block dicts via the distributed scheduler
                 futures = client.compute(tasks)
+                block_dicts = client.gather(futures)
 
-                # BATCHED GATHER to avoid driver spikes
-                BATCH_SIZE = 32
-                block_dicts = []
-                for i in range(0, len(futures), BATCH_SIZE):
-                    batch = client.gather(futures[i : i + BATCH_SIZE])
-                    block_dicts.extend(batch)
-                    del batch
+            # Driver merge per rid with bounded bottom-k
+            # accum: rid -> (count,sum,min,max, hashes, values)
+            accum_count: Dict[int, int] = {}
+            accum_sum: Dict[int, float] = {}
+            accum_min: Dict[int, float] = {}
+            accum_max: Dict[int, float] = {}
+            accum_h: Dict[int, np.ndarray] = {}
+            accum_v: Dict[int, np.ndarray] = {}
 
-            # Merge dicts into per-region lists of arrays on driver
-            accum: Dict[int, List[np.ndarray]] = {}
             for dct in block_dicts:
                 if not dct:
                     continue
-                for rid, arr in dct.items():
-                    accum.setdefault(rid, []).append(arr)
+                for rid, (cnt, s, mn, mx, sh, sv) in dct.items():
+                    if rid not in accum_count:
+                        accum_count[rid] = cnt
+                        accum_sum[rid] = s
+                        accum_min[rid] = mn
+                        accum_max[rid] = mx
+                        accum_h[rid] = sh
+                        accum_v[rid] = sv
+                    else:
+                        accum_count[rid] += cnt
+                        accum_sum[rid] += s
+                        accum_min[rid] = min(accum_min[rid], mn)
+                        accum_max[rid] = max(accum_max[rid], mx)
+                        mh, mv = merge_bottomk(
+                            accum_h[rid], accum_v[rid], sh, sv, k_samples
+                        )
+                        accum_h[rid] = mh
+                        accum_v[rid] = mv
 
-            # Ensure all regions appear (fallback if needed), but batch the sampling:
-            # one vectorized point-sample compute per combo instead of thousands.
-            try:
-                fb_vals = da_slice.isel(lat=lat_idx, lon=lon_idx).compute().values
-            except Exception:
-                fb_vals = None
+            # Emit rows: include all regions (even if zero pixels) so shapes are complete
+            rows: List[Dict[str, Any]] = []
+            for rid, name in region_id_to_name.items():
+                cnt = accum_count.get(rid, 0)
+                if cnt == 0:
+                    row = {
+                        "region": name,
+                        "adm_level": adm_level,
+                        "scenario_name": np.nan,
+                        "hazard_return_period": np.nan,
+                        "hazard_type": hazard_type,
+                        "hazard_indicator": hazard_indicator,
+                        "count": 0,
+                        "min": np.nan,
+                        "max": np.nan,
+                        "mean": np.nan,
+                        "median": np.nan,
+                        "p2_5": np.nan,
+                        "p5": np.nan,
+                        "p10": np.nan,
+                        "p90": np.nan,
+                        "p95": np.nan,
+                        "p97_5": np.nan,
+                        "ensemble": ensemble_value_used if has_ensemble else None,
+                    }
+                else:
+                    mean = accum_sum[rid] / float(cnt)
+                    mn = accum_min[rid]
+                    mx = accum_max[rid]
+                    sample_vals = accum_v[rid]
+                    # approximate quantiles from deterministic sample
+                    qs = np.quantile(sample_vals, Q_LIST, method="linear")
+                    row = {
+                        "region": name,
+                        "adm_level": adm_level,
+                        "scenario_name": np.nan,
+                        "hazard_return_period": np.nan,
+                        "hazard_type": hazard_type,
+                        "hazard_indicator": hazard_indicator,
+                        "count": int(cnt),
+                        "min": float(mn),
+                        "max": float(mx),
+                        "mean": float(mean),
+                        "median": float(qs[3]),
+                        "p2_5": float(qs[0]),
+                        "p5": float(qs[1]),
+                        "p10": float(qs[2]),
+                        "p90": float(qs[4]),
+                        "p95": float(qs[5]),
+                        "p97_5": float(qs[6]),
+                        "ensemble": ensemble_value_used if has_ensemble else None,
+                    }
 
-            if fb_vals is not None:
-                for rid, v in zip(all_rids, fb_vals):
-                    rid_int = int(rid)
-                    if rid_int in accum and sum(a.size for a in accum[rid_int]) > 0:
-                        continue
-                    if v is None or (isinstance(v, float) and np.isnan(v)):
-                        continue
-                    accum[rid_int] = [np.array([v], dtype=np.float64)]
-
-            # Compute exact stats per region and emit rows
-            for rid, arrays in accum.items():
-                if not arrays:
-                    continue
-                vals = np.concatenate(arrays)
-                vals = vals[~np.isnan(vals)]
-                if vals.size == 0:
-                    continue
-
-                stats = compute_exact_stats(vals)
-
-                row: Dict[str, Any] = {
-                    "region": region_id_to_name[rid],
-                    "adm_level": adm_level,
-                    "hazard_type": hazard_type,
-                    "hazard_indicator": hazard_indicator,
-                    "ensemble": ensemble_value_used if has_ensemble else None,
-                    **stats,
-                }
-
-                # Dimension combo into canonical names
+                # map non-spatial dims into canonical columns
                 for dim_name, dim_val in dim_combo.items():
                     if dim_name == "GWL":
                         row["scenario_name"] = str(dim_val)
@@ -576,54 +653,50 @@ def process_nc_hazard(
                     else:
                         row[dim_name] = dim_val
 
-                combo_rows.append(row)
+                rows.append(row)
 
-            # Flush this combo to disk and free memory
-            if combo_rows:
-                df_combo = pd.DataFrame(combo_rows)
+            df = pd.DataFrame(rows)
 
-                # Ensure these columns always exist (so append is consistent)
-                if "scenario_name" not in df_combo.columns:
-                    df_combo["scenario_name"] = np.nan
-                if "hazard_return_period" not in df_combo.columns:
-                    df_combo["hazard_return_period"] = np.nan
+            # stable column order
+            base_cols = [
+                "region",
+                "adm_level",
+                "scenario_name",
+                "hazard_return_period",
+                "hazard_type",
+                "hazard_indicator",
+                "count",
+                "min",
+                "max",
+                "mean",
+                "median",
+                "p2_5",
+                "p5",
+                "p10",
+                "p90",
+                "p95",
+                "p97_5",
+                "ensemble",
+            ]
+            for c in base_cols:
+                if c not in df.columns:
+                    df[c] = np.nan
+            extra_cols = [c for c in df.columns if c not in base_cols]
+            df = df[base_cols + extra_cols]
 
-                base_cols = [
-                    "region",
-                    "adm_level",
-                    "scenario_name",
-                    "hazard_return_period",
-                    "hazard_type",
-                    "hazard_indicator",
-                    "min",
-                    "max",
-                    "mean",
-                    "median",
-                    "p2_5",
-                    "p5",
-                    "p10",
-                    "p90",
-                    "p95",
-                    "p97_5",
-                    "ensemble",
-                ]
-                for c in base_cols:
-                    if c not in df_combo.columns:
-                        df_combo[c] = np.nan
-                extra_cols = [c for c in df_combo.columns if c not in base_cols]
-                df_combo = df_combo[base_cols + extra_cols]
+            # append to part csv
+            df.to_csv(
+                out_part_csv,
+                mode="a",
+                header=(not header_written),
+                index=False,
+                encoding="utf-8-sig",
+            )
+            header_written = True
 
-                append_df_to_csv(df_combo, tmp_out)
-                del df_combo
-
-            # Reduce driver memory spikes
-            del combo_rows, block_dicts, accum
+            # cleanup
+            del df, rows, block_dicts
             gc.collect()
-
-        if not os.path.exists(tmp_out):
-            raise ValueError(f"No valid data produced for {nc_path} ({adm_level})")
-
-        return tmp_out
 
     finally:
         try:
@@ -633,137 +706,32 @@ def process_nc_hazard(
 
 
 # ---------------------------------------------------------------------------
-# INCREMENTAL HELPERS (UNCHANGED LOGIC, MINIMAL)
+# CONCAT PARTS -> FINAL CSV (STREAMING)
 # ---------------------------------------------------------------------------
 
 
-def load_existing_precomputed(output_path: str) -> pd.DataFrame:
-    if not os.path.exists(output_path):
-        print(f"  📄 No existing precomputed file found at {output_path}")
-        return pd.DataFrame()
+def concat_parts_to_final(parts_dir: str, final_csv: str) -> None:
+    part_files = sorted(glob.glob(os.path.join(parts_dir, "*.csv")))
+    if not part_files:
+        raise FileNotFoundError(f"No part CSVs found in {parts_dir}")
 
-    print(f"  📄 Loading existing precomputed file: {output_path}")
-    try:
-        df = pd.read_csv(output_path, encoding="utf-8-sig", low_memory=False)
-        print(f"  ✅ Loaded {len(df)} existing records")
-        return df
-    except Exception as e:
-        print(f"  ⚠️  Error loading existing file: {e}")
-        print(f"  📝 Will create new file")
-        return pd.DataFrame()
+    ensure_parent_dir(final_csv)
+    tmp_final = final_csv + ".tmp"
 
+    with open(tmp_final, "w", encoding="utf-8-sig") as out_f:
+        wrote_header = False
+        for p in part_files:
+            with open(p, "r", encoding="utf-8-sig") as in_f:
+                for line_i, line in enumerate(in_f):
+                    if line_i == 0:
+                        if not wrote_header:
+                            out_f.write(line)
+                            wrote_header = True
+                        # else skip header
+                    else:
+                        out_f.write(line)
 
-def get_file_signature(
-    file_path: str, file_type: str, adm_levels: List[str], ensemble_filter: str
-):
-    hazard_type, hazard_indicator = parse_hazard_from_path(file_path)
-    if file_type != "nc":
-        return []
-
-    try:
-        ds = xr.open_dataset(file_path, engine="netcdf4")
-        var_names = list(ds.data_vars.keys())
-        if not var_names:
-            ds.close()
-            return []
-        da = ds[var_names[0]]
-
-        scenario_dim = None
-        for dim in ["scenario", "GWL", "gwl"]:
-            if dim in da.dims:
-                scenario_dim = dim
-                break
-
-        if scenario_dim is None or "return_period" not in da.dims:
-            ds.close()
-            return []
-
-        scenarios = da[scenario_dim].values
-        rps = da["return_period"].values
-
-        known_extra = ["season"]
-        extra_present = [d for d in known_extra if d in da.dims]
-
-        sigs = []
-        for scn in scenarios:
-            for rp in rps:
-                for adm in adm_levels:
-                    sig = {
-                        "hazard_type": hazard_type,
-                        "hazard_indicator": hazard_indicator,
-                        "scenario_name": str(scn),
-                        "hazard_return_period": int(rp),
-                        "adm_level": adm,
-                        "ensemble": ensemble_filter,
-                    }
-                    for d in extra_present:
-                        sig[d] = np.nan
-                    sigs.append(sig)
-
-        ds.close()
-        return sigs
-
-    except Exception as e:
-        print(f"      ⚠️  Error peeking into NetCDF file: {e}")
-        return []
-
-
-def is_already_processed(
-    file_path: str,
-    file_type: str,
-    existing_df: pd.DataFrame,
-    adm_levels: List[str],
-    ensemble_filter: str,
-) -> bool:
-    if existing_df.empty:
-        return False
-
-    sigs = get_file_signature(file_path, file_type, adm_levels, ensemble_filter)
-    if not sigs:
-        return False
-
-    sigs_df = pd.DataFrame(sigs)
-    if sigs_df.empty:
-        return False
-
-    def _norm(x):
-        if pd.isna(x):
-            return "__NA__"
-        return str(x).strip().lower()
-
-    sigs_df["scenario_key"] = sigs_df["scenario_name"].apply(_norm)
-    ex = existing_df.copy()
-    ex["scenario_key"] = (
-        ex["scenario_name"].apply(_norm) if "scenario_name" in ex.columns else "__NA__"
-    )
-
-    key_cols = [
-        "hazard_type",
-        "hazard_indicator",
-        "scenario_key",
-        "hazard_return_period",
-        "adm_level",
-    ]
-
-    for dim in ["season"]:
-        if dim in sigs_df.columns and dim in ex.columns:
-            sigs_df[dim] = sigs_df[dim].fillna("__NA__").astype(str)
-            ex[dim] = ex[dim].fillna("__NA__").astype(str)
-            key_cols.append(dim)
-
-    if "ensemble" in sigs_df.columns and "ensemble" in ex.columns:
-        sigs_df["ensemble"] = sigs_df["ensemble"].fillna("__NA__").astype(str)
-        ex["ensemble"] = ex["ensemble"].fillna("__NA__").astype(str)
-        key_cols.append("ensemble")
-
-    merged = pd.merge(
-        sigs_df[key_cols],
-        ex[key_cols],
-        on=key_cols,
-        how="left",
-        indicator=True,
-    )
-    return (merged["_merge"] == "both").all()
+    os.replace(tmp_final, final_csv)
 
 
 # ---------------------------------------------------------------------------
@@ -778,26 +746,26 @@ def main():
     ADM2_PATH = (
         "workspace/demo_inputs_fullnc/areas/municipality/geoBoundaries-BRA-ADM2.shp"
     )
+
     OUTPUT_PATH = (
         "workspace/Climate Data/Precomputed Regional Data/precomputed_adm_hazards.csv"
     )
+    OUTPUT_PARTS_DIR = "workspace/Climate Data/Precomputed Regional Data/parts"
 
     ENSEMBLE_FILTER = "median"
 
-    # Chunk sizes for Dask extraction
-    # Adjust depending on memory and region granularity
-    CHUNK_LAT = 4096
-    CHUNK_LON = 4096
+    # Preferred chunk sizes (auto-adjusted per file by choose_spatial_chunks)
+    TARGET_CHUNK_LAT = 4096
+    TARGET_CHUNK_LON = 4096
 
-    # -----------------------------------------------------------------------
-    # DASK CLUSTER
-    # -----------------------------------------------------------------------
+    # Dask cluster
     num_cpus = os.cpu_count() or 4
     print(f"  🔍 Detected {num_cpus} CPU(s)")
 
     cluster = LocalCluster(
         n_workers=num_cpus,
         threads_per_worker=1,
+        # IMPORTANT: if you have small RAM, lower this or lower n_workers
         memory_limit="2GB",
         dashboard_address="0.0.0.0:8787",
     )
@@ -807,17 +775,12 @@ def main():
         print(f"  ✅ Dask cluster started with {len(cluster.workers)} workers")
         print(f"  📊 Dashboard: {client.dashboard_link}")
 
-        # Existing data
-        existing_df = load_existing_precomputed(OUTPUT_PATH)
-
         # Load boundaries
         adm_levels = [("ADM1", ADM1_PATH), ("ADM2", ADM2_PATH)]
         adm_gdfs = {}
-        adm_level_names = []
         for level, path in adm_levels:
             print(f"  Loading {level}: {path}")
             adm_gdfs[level] = load_adm_shapefile(path)
-            adm_level_names.append(level)
 
         # Find hazard files
         nc_pattern = os.path.join(HAZARDS_DIR, "**", "*ensemble_return_period*.nc")
@@ -826,143 +789,53 @@ def main():
         if not nc_files:
             raise FileNotFoundError(f"No hazard files found in {HAZARDS_DIR}")
 
-        # Filter files
-        nc_files_to_process = []
-        for nc_path in nc_files:
-            label = os.path.basename(nc_path)
-            try:
-                ht, hi = parse_hazard_from_path(nc_path)
-                label = f"{ht}/{hi} - {label}"
-            except Exception:
-                pass
+        ensure_parent_dir(os.path.join(OUTPUT_PARTS_DIR, "x"))
 
-            if is_already_processed(
-                nc_path, "nc", existing_df, adm_level_names, ENSEMBLE_FILTER
-            ):
-                print(f"  ⏭️  Skipping (already processed): {label}")
-            else:
-                print(f"  ✅ Will process: {label}")
-                nc_files_to_process.append(nc_path)
-
-        if not nc_files_to_process:
-            print("✅ ALL FILES ALREADY PROCESSED")
-            return existing_df
-
-        for i, nc_path in enumerate(nc_files_to_process, 1):
-            try:
-                ht, hi = parse_hazard_from_path(nc_path)
-                label = f"{ht}/{hi} - {os.path.basename(nc_path)}"
-            except Exception:
-                label = os.path.basename(nc_path)
-
-            print(f"\n[{i}/{len(nc_files_to_process)}] Processing NetCDF: {label}")
+        for i, nc_path in enumerate(nc_files, 1):
+            ht, hi = parse_hazard_from_path(nc_path)
+            label = f"{ht}/{hi} - {os.path.basename(nc_path)}"
+            print(f"\n[{i}/{len(nc_files)}] Processing NetCDF: {label}")
             file_start = time.time()
 
             for adm_level, adm_gdf in adm_gdfs.items():
+                part_name = f"{ht}__{hi}__{adm_level}__{os.path.basename(nc_path).replace('.nc','')}"
+                part_csv = os.path.join(OUTPUT_PARTS_DIR, part_name + ".csv")
+                done_flag = part_csv + ".done"
+
+                if os.path.exists(done_flag):
+                    print(f"  ⏭️  Skipping {adm_level} (done): {part_name}")
+                    continue
+
                 print(f"  📊 Aggregating over {adm_level} ({len(adm_gdf)} regions)...")
                 t0 = time.time()
 
-                tmp_path = process_nc_hazard(
+                process_nc_hazard_bottomk(
                     nc_path=nc_path,
                     adm_gdf=adm_gdf,
                     adm_level=adm_level,
                     ensemble_filter=ENSEMBLE_FILTER,
                     client=client,
-                    chunk_lat=CHUNK_LAT,
-                    chunk_lon=CHUNK_LON,
+                    out_part_csv=part_csv,
+                    target_chunk_lat=TARGET_CHUNK_LAT,
+                    target_chunk_lon=TARGET_CHUNK_LON,
+                    seed=SEED,
+                    k_samples=K_SAMPLES,
                 )
 
-                # load only this chunk of results
-                new_df = pd.read_csv(tmp_path, encoding="utf-8-sig", low_memory=False)
+                # mark done only after success
+                with open(done_flag, "w") as f:
+                    f.write("ok\n")
 
-                # (optional) delete tmp file to save disk
-                try:
-                    os.remove(tmp_path)
-                except Exception:
-                    pass
-
-                # dedup within the chunk
-                dedup_key = [
-                    "region",
-                    "adm_level",
-                    "scenario_name",
-                    "hazard_return_period",
-                    "hazard_type",
-                    "hazard_indicator",
-                ]
-                if "ensemble" in new_df.columns:
-                    dedup_key.append("ensemble")
-                if "season" in new_df.columns:
-                    dedup_key.append("season")
-                new_df = new_df.drop_duplicates(subset=dedup_key, keep="first")
-
-                # merge with existing_df incrementally
-                if existing_df.empty:
-                    existing_df = new_df
-                else:
-                    all_cols = list(set(existing_df.columns) | set(new_df.columns))
-                    for c in all_cols:
-                        if c not in existing_df.columns:
-                            existing_df[c] = np.nan
-                        if c not in new_df.columns:
-                            new_df[c] = np.nan
-
-                    key_cols = [
-                        c
-                        for c in [
-                            "region",
-                            "adm_level",
-                            "scenario_name",
-                            "hazard_return_period",
-                            "hazard_type",
-                            "hazard_indicator",
-                            "ensemble",
-                            "season",
-                        ]
-                        if c in existing_df.columns and c in new_df.columns
-                    ]
-
-                    if key_cols:
-                        ex = existing_df.copy()
-                        nd = new_df.copy()
-                        for c in ["ensemble", "season"]:
-                            if c in key_cols:
-                                ex[c] = ex[c].fillna("__NA__").astype(str)
-                                nd[c] = nd[c].fillna("__NA__").astype(str)
-
-                        nd_keys = nd[key_cols].drop_duplicates()
-                        ex = ex.merge(nd_keys.assign(_repl=1), on=key_cols, how="left")
-                        ex = ex[ex["_repl"].isna()].drop(
-                            columns=["_repl"], errors="ignore"
-                        )
-
-                        existing_df = pd.concat(
-                            [ex[all_cols], new_df[all_cols]], ignore_index=True
-                        )
-                    else:
-                        existing_df = pd.concat(
-                            [existing_df[all_cols], new_df[all_cols]], ignore_index=True
-                        )
-
-                # periodic write to disk so a crash doesn’t lose progress
-                ensure_parent_dir(OUTPUT_PATH)
-                existing_df.to_csv(OUTPUT_PATH, index=False, encoding="utf-8-sig")
-
-                print(
-                    f"    ✅ {adm_level}: {len(new_df)} records merged in {time.time() - t0:.1f}s"
-                )
-                del new_df
+                print(f"    ✅ {adm_level}: wrote part in {time.time() - t0:.1f}s")
                 gc.collect()
 
             print(f"  ⏱️  Total time for this file: {time.time() - file_start:.1f}s")
 
-        print(f"\n✅ All processing complete. Final results saved to: {OUTPUT_PATH}")
-        print(existing_df.head())
-
-        return existing_df
+        print("\n🧩 Concatenating parts into final CSV...")
+        concat_parts_to_final(OUTPUT_PARTS_DIR, OUTPUT_PATH)
+        print(f"✅ Saved final results to: {OUTPUT_PATH}")
 
     finally:
-        # Clean shutdown to avoid noisy worker-loss messages after exceptions
         try:
             client.close()
         except Exception:
