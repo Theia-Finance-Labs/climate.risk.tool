@@ -791,7 +791,7 @@ def main():
         n_workers=num_cpus,
         threads_per_worker=1,
         # IMPORTANT: if you have small RAM, lower this or lower n_workers
-        memory_limit="4GB",
+        memory_limit="6GB",
         dashboard_address="0.0.0.0:8787",
     )
     client = Client(cluster)
