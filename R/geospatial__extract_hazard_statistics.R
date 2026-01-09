@@ -433,18 +433,13 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     asset_hazard_data <- matched_data |>
       dplyr::filter(.data$aggregation_method == aggregation_method)
 
-    if (nrow(required_lookup) > 0) {
-      missing_agg_bases <- setdiff(required_lookup$hazard_name_base, unique(asset_hazard_data$hazard_name_base))
-      if (length(missing_agg_bases) > 0) {
-        missing_agg_original <- required_lookup |>
-          dplyr::filter(.data$hazard_name_base %in% missing_agg_bases) |>
-          dplyr::pull(.data$required_hazard_name) |>
-          unique()
-
+    if (length(required_hazard_names) > 0) {
+      missing_agg_hazards <- setdiff(required_hazard_names, unique(asset_hazard_data$hazard_name))
+      if (length(missing_agg_hazards) > 0) {
         stop(
           "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
           "Aggregation method '", aggregation_method, "' not available for hazards: ",
-          paste(missing_agg_original, collapse = ", "),
+          paste(missing_agg_hazards, collapse = ", "),
           ". Checked municipality='", municipality, "' and state='", state, "'."
         )
       }

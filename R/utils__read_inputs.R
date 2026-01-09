@@ -504,12 +504,9 @@ read_precomputed_hazards <- function(base_dir) {
             "",
             paste0("__season=", .data$season)
           ),
-          # Only add ensemble suffix if ensemble value exists and is not empty
-          ensemble_suffix = dplyr::if_else(
-            is.na(.data$ensemble) | .data$ensemble == "",
-            "",
-            paste0("__ensemble=", .data$ensemble)
-          ),
+          # App policy: the representative ensemble is always labeled 'mean' internally
+          # regardless of what the CSV's ensemble column contains.
+          ensemble_suffix = "__ensemble=mean",
           hazard_name = paste0(
             .data$hazard_type, "__", .data$hazard_indicator,
             "__GWL=", .data$scenario_name,
@@ -525,12 +522,8 @@ read_precomputed_hazards <- function(base_dir) {
       ensemble_data <- precomputed_df |>
         dplyr::mutate(
           # Unified hazard_name WITHOUT season
-          # Only add ensemble suffix if ensemble value exists and is not empty
-          ensemble_suffix = dplyr::if_else(
-            is.na(.data$ensemble) | .data$ensemble == "",
-            "",
-            paste0("__ensemble=", .data$ensemble)
-          ),
+          # App policy: the representative ensemble is always labeled 'mean' internally
+          ensemble_suffix = "__ensemble=mean",
           hazard_name = paste0(
             .data$hazard_type, "__", .data$hazard_indicator,
             "__GWL=", .data$scenario_name,

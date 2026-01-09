@@ -257,6 +257,8 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
         ensemble_values <- list(list(idx = as.integer(mean_idx[1]), label = "mean"))
       } else {
         # If no 'mean' ensemble found, use the first one but label it as 'mean'
+        # This ensures consistency: the representative ensemble is always labeled 'mean'
+        # regardless of whether the source NC called it 'mean', 'median', or nothing.
         ensemble_values <- list(list(idx = 1L, label = "mean"))
       }
     }
@@ -399,25 +401,24 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
             season_label <- if (inherits(season_vals, "try-error")) NA_character_ else as.character(season_vals[is])
 
             # Check if dimensions actually exist (not just defaulted values)
-            has_ensemble <- !inherits(ens_vals, "try-error") && length(ens_dim) > 0
             has_season <- !inherits(season_vals, "try-error") && length(season_dim) > 0 && !is.na(season_label)
 
-            # Build hazard name conditionally based on actual dimensions
+            # Build hazard name
+            # App policy: always include ensemble (defaulting to "mean") for consistency
             hazard_name <- paste0(
               hazard_type, "__", hazard_indicator,
               "__GWL=", gwl_label,
               "__RP=", rp_label
             )
-            
+
             # Only include season if dimension actually exists
             if (has_season) {
               hazard_name <- paste0(hazard_name, "__season=", season_label)
             }
-            
-            # Only include ensemble if dimension actually exists
-            if (has_ensemble) {
-              hazard_name <- paste0(hazard_name, "__ensemble=", ens_label)
-            }
+
+            # Always include ensemble suffix (defaults to "mean")
+            # This ensures consistent naming with precomputed results
+            hazard_name <- paste0(hazard_name, "__ensemble=", ens_label)
 
             results[[hazard_name]] <- r
 
@@ -431,7 +432,7 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
               scenario_name = gwl_label,
               hazard_return_period = rp_numeric,
               hazard_name = hazard_name,
-              ensemble = if (has_ensemble) ens_label else NA_character_,
+              ensemble = ens_label,
               season = if (has_season) season_label else NA_character_,
               source = "nc"
             )
