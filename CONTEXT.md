@@ -178,6 +178,8 @@ Pre-aggregated hazard statistics for administrative regions. Eliminates need for
 
 - Incremental refresh logic: `data-raw/precompute_hazards.py` drops any existing rows sharing the same (`region`, `adm_level`, `hazard_type`, `hazard_indicator`, `scenario_name`, `hazard_return_period`, `ensemble`, `season`) keys before appending newly computed results. This guarantees a clean overwrite when hazards are reprocessed.
 - Metadata alignment: `load_hazards_metadata(metadata_path)` (Python helper in `data-raw/precompute_hazards.py`) loads `hazards_metadata.csv` and enforces that GeoTIFF-derived scenario names and indicators use the curated metadata instead of filename heuristics.
+- Spatial index optimization: For each spatial chunk, uses `adm_gdf.sindex.intersection(chunk_bbox)` to find only overlapping regions (typically 5-10) instead of joining against all 5570 regions. Accumulates point→region mappings across chunks, then aggregates once at the end. This reduces spatial join overhead by ~1000x for large region datasets.
+- Coordinate cache helper: `build_coordinate_region_lookup(lats, lons, adm_gdf)` (Python helper in `data-raw/precompute_hazards.py`) constructs a reusable `lon`/`lat` → `region` lookup before iterating dimension chunks; it returns a DataFrame with columns (`lon`, `lat`, `region`) when the grid has ≤5M points and otherwise falls back to chunk-level spatial joins. This keeps spatial joins constant cost across every hazard dimension slice while staying memory-bounded.
 
 #### 5. `hazards_name_mapping.csv`
 Columns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
@@ -348,7 +350,7 @@ inventory <- hazard_data$inventory
 **`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, events)`** → long format data.frame
 - **Main orchestrator** that dispatches to specialized extraction functions:
   - **Coordinate-based assets** → `extract_spatial_statistics()` for spatial extraction (NetCDF)
-  - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup
+  - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup (matches hazards by base hazard name; ensemble suffix in inventory does not need to exist in precomputed CSV)
 - **Priority cascade** for asset location:
   1. Coordinates → spatial extraction (polygon-based for NetCDF)
   2. No coordinates + municipality → precomputed ADM2 lookup
@@ -364,6 +366,7 @@ inventory <- hazard_data$inventory
 - Adds `__extraction_method={aggregation_method}` suffix to hazard names
 
 **`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
+- Uses a normalized **base hazard name** (ensemble stripped) to match inventory hazards to precomputed hazards; output `hazard_name` is always emitted using the inventory hazard name plus `__extraction_method=...` so downstream joins stay consistent.
 - Lookup from precomputed administrative hazard data
 - Used for assets WITHOUT coordinates
 - Priority: municipality (ADM2) > state (ADM1)
