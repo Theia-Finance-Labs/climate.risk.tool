@@ -1,7 +1,25 @@
 #!/usr/bin/env python3
+"""
+Precompute hazard statistics aggregated over administrative regions (ADM1/ADM2).
+
+Multiprocessing strategy (best ROI):
+  - Parallelize over NetCDF files (and ADM level), i.e. independent "parts".
+  - Each worker writes one CSV part + a ".done" marker.
+  - Parent concatenates parts deterministically into the final CSV.
+
+Key performance/correctness choices:
+  - Region-id raster (polygon -> region_id per pixel) is cached on disk as a memmap:
+      cache_dir/region_ids_{adm_level}_{grid_sig}.dat
+    so it is computed once per (ADM level, grid) and reused across processes.
+  - Bottom-k deterministic sampling per region for approximate quantiles.
+  - Block streaming reads to keep RAM bounded.
+"""
+
 import os
 import glob
 import gc
+import time
+import hashlib
 import itertools
 import warnings
 from typing import Dict, List, Tuple, Any, Optional
@@ -17,6 +35,8 @@ from rasterio.env import Env
 from affine import Affine
 from unidecode import unidecode
 from tqdm import tqdm
+
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 warnings.filterwarnings(
     "ignore", message="The specified chunks separate the stored chunks"
@@ -36,8 +56,8 @@ K_SAMPLES_ADM2 = 128
 BLOCK_LAT = 4096
 BLOCK_LON = 4096
 
-# If region-id raster would exceed this in-RAM size, use memmap instead
-MAX_RID_RAM_BYTES = 1_200_000_000  # ~1.2GB
+# GDAL cache (MB-ish)
+GDAL_CACHEMAX = 128
 
 
 # -----------------------
@@ -116,6 +136,29 @@ def grid_transform_from_latlon(lats: np.ndarray, lons: np.ndarray) -> Affine:
     return from_bounds(lon_min, lat_min, lon_max, lat_max, len(lons), len(lats))
 
 
+def _grid_signature(lats: np.ndarray, lons: np.ndarray) -> str:
+    """
+    Signature for caching region-id rasters.
+
+    Assumes regular grids. Uses endpoints + sizes + approx resolution.
+    Avoids hashing entire arrays (fast) and is stable across processes.
+    """
+    nlat, nlon = len(lats), len(lons)
+
+    def _fmt(x: float) -> str:
+        return f"{x:.10f}"
+
+    lat0, lat1 = float(lats[0]), float(lats[-1])
+    lon0, lon1 = float(lons[0]), float(lons[-1])
+
+    dlat = float(lats[1] - lats[0]) if nlat > 1 else 0.0
+    dlon = float(lons[1] - lons[0]) if nlon > 1 else 0.0
+
+    s = f"nlat={nlat}|nlon={nlon}|lat0={_fmt(lat0)}|lat1={_fmt(lat1)}|lon0={_fmt(lon0)}|lon1={_fmt(lon1)}|dlat={_fmt(dlat)}|dlon={_fmt(dlon)}"
+    # shorten filename
+    return hashlib.sha1(s.encode("utf-8")).hexdigest()[:16]
+
+
 # -----------------------
 # Deterministic bottom-k sampling (splitmix64)
 # -----------------------
@@ -156,68 +199,108 @@ def merge_bottomk(
 
 
 # -----------------------
-# Region-id rasterization (once per ADM)
-#   - If huge, writes to memmap file (still accessible like ndarray)
+# Region-id rasterization with cross-process cache (memmap)
 # -----------------------
-def build_region_id_raster(
+def _acquire_lock(lock_path: str, poll_s: float = 0.2) -> Optional[int]:
+    """
+    Try to create an exclusive lock file. If it exists, wait until removed.
+    Returns an fd for the lock file if acquired, else None.
+    """
+    while True:
+        try:
+            fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_RDWR)
+            return fd
+        except FileExistsError:
+            # someone else is building; wait
+            time.sleep(poll_s)
+
+
+def _release_lock(fd: int, lock_path: str) -> None:
+    try:
+        os.close(fd)
+    finally:
+        try:
+            os.remove(lock_path)
+        except FileNotFoundError:
+            pass
+
+
+def build_region_id_raster_cached(
+    *,
     shapes: List[Tuple[Any, int]],
     lats: np.ndarray,
     lons: np.ndarray,
     adm_level: str,
     cache_dir: str,
-) -> np.ndarray:
+) -> np.memmap:
+    """
+    Returns a memmap array (int32) of shape (nlat, nlon) with region ids.
+
+    Cache is shared across processes:
+      - If cache exists: open read-only
+      - Else: one process creates it, others wait on lock, then open read-only
+    """
     os.makedirs(cache_dir, exist_ok=True)
+
     nlat, nlon = len(lats), len(lons)
-    bytes_needed = nlat * nlon * np.dtype(np.int32).itemsize
+    sig = _grid_signature(lats, lons)
+    mm_path = os.path.join(cache_dir, f"region_ids_{adm_level}_{sig}_{nlat}x{nlon}.dat")
+    lock_path = mm_path + ".lock"
+    meta_path = mm_path + ".meta"
 
-    transform = grid_transform_from_latlon(lats, lons)
+    # Fast path: already exists (and meta exists)
+    if os.path.exists(mm_path) and os.path.exists(meta_path):
+        return np.memmap(mm_path, mode="r", dtype=np.int32, shape=(nlat, nlon))
 
-    # Decide RAM vs memmap
-    if bytes_needed <= MAX_RID_RAM_BYTES:
-        region_ids = np.zeros((nlat, nlon), dtype=np.int32)
-        # One-shot rasterize (fast, but needs RAM)
-        with Env(GDAL_CACHEMAX=128):
-            region_ids[:, :] = rasterio.features.rasterize(
-                shapes,
-                out_shape=(nlat, nlon),
-                transform=transform,
-                fill=0,
-                dtype=np.int32,
-                all_touched=True,
-            )
-        return region_ids
+    # Try to become the builder
+    fd = _acquire_lock(lock_path)
+    try:
+        # Re-check after acquiring lock
+        if os.path.exists(mm_path) and os.path.exists(meta_path):
+            return np.memmap(mm_path, mode="r", dtype=np.int32, shape=(nlat, nlon))
 
-    # Memmap path
-    mm_path = os.path.join(cache_dir, f"region_ids_{adm_level}_{nlat}x{nlon}.dat")
-    region_ids = np.memmap(mm_path, mode="w+", dtype=np.int32, shape=(nlat, nlon))
+        # Build
+        transform = grid_transform_from_latlon(lats, lons)
+        region_ids = np.memmap(mm_path, mode="w+", dtype=np.int32, shape=(nlat, nlon))
 
-    # Blockwise rasterize into memmap (aligned using global transform + translation)
-    n_block_lat = (nlat + BLOCK_LAT - 1) // BLOCK_LAT
-    n_block_lon = (nlon + BLOCK_LON - 1) // BLOCK_LON
-    total_blocks = n_block_lat * n_block_lon
+        with Env(GDAL_CACHEMAX=GDAL_CACHEMAX):
+            # Blockwise rasterize into memmap (avoids huge temporary allocations)
+            n_block_lat = (nlat + BLOCK_LAT - 1) // BLOCK_LAT
+            n_block_lon = (nlon + BLOCK_LON - 1) // BLOCK_LON
+            total_blocks = n_block_lat * n_block_lon
 
-    with Env(GDAL_CACHEMAX=128):
-        with tqdm(
-            total=total_blocks, desc=f"Rasterizing regions ({adm_level})", unit="block"
-        ) as pbar:
-            for i0 in range(0, nlat, BLOCK_LAT):
-                i1 = min(i0 + BLOCK_LAT, nlat)
-                for j0 in range(0, nlon, BLOCK_LON):
-                    j1 = min(j0 + BLOCK_LON, nlon)
-                    block_transform = transform * Affine.translation(j0, i0)
-                    block = rasterio.features.rasterize(
-                        shapes,
-                        out_shape=(i1 - i0, j1 - j0),
-                        transform=block_transform,
-                        fill=0,
-                        dtype=np.int32,
-                        all_touched=True,
-                    )
-                    region_ids[i0:i1, j0:j1] = block
-                    del block
-                    pbar.update(1)
-                region_ids.flush()
-    return region_ids
+            with tqdm(
+                total=total_blocks,
+                desc=f"Rasterizing regions ({adm_level})",
+                unit="block",
+            ) as pbar:
+                for i0 in range(0, nlat, BLOCK_LAT):
+                    i1 = min(i0 + BLOCK_LAT, nlat)
+                    for j0 in range(0, nlon, BLOCK_LON):
+                        j1 = min(j0 + BLOCK_LON, nlon)
+                        block_transform = transform * Affine.translation(j0, i0)
+                        block = rasterio.features.rasterize(
+                            shapes,
+                            out_shape=(i1 - i0, j1 - j0),
+                            transform=block_transform,
+                            fill=0,
+                            dtype=np.int32,
+                            all_touched=True,
+                        )
+                        region_ids[i0:i1, j0:j1] = block
+                        del block
+                        pbar.update(1)
+                    region_ids.flush()
+
+        # Write a tiny meta marker to confirm completeness
+        with open(meta_path, "w", encoding="utf-8") as f:
+            f.write(f"adm_level={adm_level}\nshape={nlat}x{nlon}\nsig={sig}\n")
+
+        region_ids.flush()
+        # Re-open read-only for safety
+        return np.memmap(mm_path, mode="r", dtype=np.int32, shape=(nlat, nlon))
+    finally:
+        _release_lock(fd, lock_path)
 
 
 # -----------------------
@@ -270,7 +353,6 @@ def update_accumulators(
     np.maximum.at(vmax, r, v)
 
     # deterministic bottom-k sample per region (approx quantiles)
-    # global index per kept pixel within this block
     flat_idx = np.nonzero(m)[0].astype(np.int64, copy=False)
     h, w = values_block.shape
     ilat = flat_idx // w
@@ -297,19 +379,24 @@ def update_accumulators(
 
 
 # -----------------------
-# Process one NetCDF file, one ADM level (single-process)
+# Process one NetCDF file, one ADM level (single worker)
 # -----------------------
-def process_nc_file_single_process(
+def process_nc_part(
+    *,
     nc_path: str,
-    adm_gdf: gpd.GeoDataFrame,
+    adm_path: str,
     adm_level: str,
     ensemble_filter: str,
-    out_csv: str,
+    out_part_csv: str,
     cache_dir: str,
-):
+) -> str:
     hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
 
-    ds = xr.open_dataset(nc_path, engine="netcdf4")  # no dask
+    adm_gdf = load_adm_shapefile(adm_path)
+    shapes, rid_to_name = prepare_shapes(adm_gdf)
+    n_regions = len(rid_to_name)
+
+    ds = xr.open_dataset(nc_path, engine="netcdf4")  # each process has its own handle
     try:
         var_name = list(ds.data_vars.keys())[0]
         da = ds[var_name]
@@ -358,11 +445,8 @@ def process_nc_file_single_process(
             else [{}]
         )
 
-        # rasterize regions onto this grid ONCE
-        shapes, rid_to_name = prepare_shapes(adm_gdf)
-        n_regions = len(rid_to_name)
-
-        region_ids = build_region_id_raster(
+        # cached rasterize regions onto this grid ONCE (shared across processes)
+        region_ids = build_region_id_raster_cached(
             shapes=shapes,
             lats=lats,
             lons=lons,
@@ -372,10 +456,10 @@ def process_nc_file_single_process(
 
         k = K_SAMPLES_ADM2 if adm_level.upper() == "ADM2" else K_SAMPLES_ADM1
 
-        # output
-        os.makedirs(os.path.dirname(out_csv), exist_ok=True)
-        if os.path.exists(out_csv):
-            os.remove(out_csv)
+        os.makedirs(os.path.dirname(out_part_csv), exist_ok=True)
+        if os.path.exists(out_part_csv):
+            os.remove(out_part_csv)
+
         header_written = False
 
         for dim_combo in tqdm(
@@ -449,7 +533,6 @@ def process_nc_file_single_process(
                     mx = float(vmax[rid])
                     mean = float(summ[rid] / cnt)
                     sample_vals = samp_v[rid]
-                    # NOTE: quantiles are approximate (sample-based)
                     qs = (
                         np.quantile(sample_vals, Q_LIST, method="linear")
                         if sample_vals.size
@@ -518,7 +601,7 @@ def process_nc_file_single_process(
             df = df[base_cols + extra_cols]
 
             df.to_csv(
-                out_csv,
+                out_part_csv,
                 mode="a",
                 header=(not header_written),
                 index=False,
@@ -529,18 +612,48 @@ def process_nc_file_single_process(
             del df, rows, count, summ, vmin, vmax, samp_h, samp_v
             gc.collect()
 
+        return out_part_csv
     finally:
         ds.close()
 
 
-def main():
-    # Sanity settings to reduce native-memory growth / thread oversubscription
-    os.environ.setdefault("GDAL_CACHEMAX", "128")  # MB-ish (GDAL uses MB units)
+# -----------------------
+# Multiprocessing init (avoid thread oversubscription + native mem growth)
+# -----------------------
+def _worker_init_env():
+    os.environ.setdefault("GDAL_CACHEMAX", str(GDAL_CACHEMAX))
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
     os.environ.setdefault("MKL_NUM_THREADS", "1")
     os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
     os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
+
+
+# -----------------------
+# Concatenate parts (deterministic)
+# -----------------------
+def concat_csv_parts(parts: List[str], out_csv: str) -> None:
+    os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+    if os.path.exists(out_csv):
+        os.remove(out_csv)
+
+    first = True
+    for part in parts:
+        with open(part, "r", encoding="utf-8-sig") as f_in:
+            lines = f_in.readlines()
+        with open(out_csv, "a", encoding="utf-8-sig") as f_out:
+            if first:
+                f_out.writelines(lines)
+                first = False
+            else:
+                f_out.writelines(lines[1:])  # skip header
+
+
+# -----------------------
+# Main
+# -----------------------
+def main():
+    _worker_init_env()
 
     HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
     ADM1_PATH = "workspace/demo_inputs_fullnc/areas/state/geoBoundaries-BRA-ADM1.shp"
@@ -552,6 +665,7 @@ def main():
     OUT_DIR = "workspace/Climate Data/Precomputed Regional Data"
     OUT_CSV = os.path.join(OUT_DIR, "precomputed_adm_hazards.csv")
     CACHE_DIR = os.path.join(OUT_DIR, "_cache_region_ids")
+    PARTS_DIR = os.path.join(OUT_DIR, "_parts")
 
     # collect netcdfs
     nc_files = sorted(
@@ -563,41 +677,95 @@ def main():
     if not nc_files:
         raise FileNotFoundError("No matching NetCDF files found")
 
-    adm1 = load_adm_shapefile(ADM1_PATH)
-    adm2 = load_adm_shapefile(ADM2_PATH)
+    os.makedirs(PARTS_DIR, exist_ok=True)
 
-    # write per-part then concat (simple version: append everything to OUT_CSV)
-    # If you want per-part + done flags again, keep your part logic; call process_nc_file_single_process per part.
-    if os.path.exists(OUT_CSV):
-        os.remove(OUT_CSV)
-
-    first = True
-    for i, nc_path in enumerate(nc_files, 1):
+    # Build tasks: per (nc, adm_level)
+    tasks = []
+    for nc_path in nc_files:
         ht, hi = parse_hazard_from_path(nc_path)
-        print(f"[{i}/{len(nc_files)}] {ht}/{hi} - {os.path.basename(nc_path)}")
+        for adm_level, adm_path in [("ADM1", ADM1_PATH), ("ADM2", ADM2_PATH)]:
+            part_csv = os.path.join(PARTS_DIR, f"{ht}__{hi}__{adm_level}.csv")
+            done_path = part_csv + ".done"
+            tasks.append((nc_path, adm_path, adm_level, part_csv, done_path))
 
-        tmp1 = os.path.join(OUT_DIR, f"_tmp_{ht}__{hi}__ADM1.csv")
-        tmp2 = os.path.join(OUT_DIR, f"_tmp_{ht}__{hi}__ADM2.csv")
+    # Skip already done parts
+    pending = [t for t in tasks if not os.path.exists(t[4])]
 
-        process_nc_file_single_process(
-            nc_path, adm1, "ADM1", ENSEMBLE_FILTER, tmp1, CACHE_DIR
+    # Choose workers: by default use (CPU count - 1), at least 1
+    max_workers = max(1, (os.cpu_count() or 2) - 1)
+
+    # Run parts in parallel
+    failures = []
+    produced_parts = []
+
+    if pending:
+        with ProcessPoolExecutor(
+            max_workers=max_workers, initializer=_worker_init_env
+        ) as ex:
+            futs = {}
+            for nc_path, adm_path, adm_level, part_csv, done_path in pending:
+                fut = ex.submit(
+                    process_nc_part,
+                    nc_path=nc_path,
+                    adm_path=adm_path,
+                    adm_level=adm_level,
+                    ensemble_filter=ENSEMBLE_FILTER,
+                    out_part_csv=part_csv,
+                    cache_dir=CACHE_DIR,
+                )
+                futs[fut] = (part_csv, done_path, nc_path, adm_level)
+
+            for fut in as_completed(futs):
+                part_csv, done_path, nc_path, adm_level = futs[fut]
+                try:
+                    out_path = fut.result()
+                    # mark done only if CSV exists and non-empty
+                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                        with open(done_path, "w", encoding="utf-8") as f:
+                            f.write("done\n")
+                        produced_parts.append(out_path)
+                    else:
+                        failures.append((nc_path, adm_level, "empty_output"))
+                except Exception as e:
+                    failures.append((nc_path, adm_level, repr(e)))
+    else:
+        print("All parts already marked done; skipping compute.")
+
+    if failures:
+        print("\nFAILED parts:")
+        for nc_path, adm_level, err in failures:
+            ht, hi = parse_hazard_from_path(nc_path)
+            print(f"  - {ht}/{hi} {adm_level}: {err}")
+        raise SystemExit(
+            "Some parts failed; fix errors and rerun (done markers prevent recompute)."
         )
-        process_nc_file_single_process(
-            nc_path, adm2, "ADM2", ENSEMBLE_FILTER, tmp2, CACHE_DIR
-        )
 
-        # append tmp files into OUT_CSV
-        for tmp in (tmp1, tmp2):
-            with open(tmp, "r", encoding="utf-8-sig") as f_in:
-                lines = f_in.readlines()
-            with open(OUT_CSV, "a", encoding="utf-8-sig") as f_out:
-                if first:
-                    f_out.writelines(lines)
-                    first = False
-                else:
-                    f_out.writelines(lines[1:])  # skip header
-            os.remove(tmp)
+    # Determine final part order deterministically (hazard order, then ADM1 then ADM2)
+    def _part_sort_key(part_path: str):
+        base = os.path.basename(part_path)
+        # "{ht}__{hi}__{adm}.csv"
+        bits = base.split("__")
+        ht = bits[0]
+        hi = bits[1] if len(bits) > 1 else ""
+        adm = bits[2].replace(".csv", "") if len(bits) > 2 else ""
+        adm_rank = 0 if adm.upper() == "ADM1" else 1
+        return (ht, hi, adm_rank, base)
 
+    # Use done markers as source of truth for concat
+    all_done_parts = []
+    for nc_path in nc_files:
+        ht, hi = parse_hazard_from_path(nc_path)
+        for adm_level in ("ADM1", "ADM2"):
+            part_csv = os.path.join(PARTS_DIR, f"{ht}__{hi}__{adm_level}.csv")
+            if os.path.exists(part_csv + ".done"):
+                all_done_parts.append(part_csv)
+            else:
+                raise SystemExit(f"Missing done marker for part: {part_csv}")
+
+    all_done_parts = sorted(all_done_parts, key=_part_sort_key)
+
+    # concatenate
+    concat_csv_parts(all_done_parts, OUT_CSV)
     print(f"Saved: {OUT_CSV}")
 
 
