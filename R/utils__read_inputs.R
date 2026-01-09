@@ -506,6 +506,7 @@ read_precomputed_hazards <- function(base_dir) {
           ),
           # App policy: the representative ensemble is always labeled 'mean' internally
           # regardless of what the CSV's ensemble column contains.
+          ensemble_val = "mean",
           ensemble_suffix = "__ensemble=mean",
           hazard_name = paste0(
             .data$hazard_type, "__", .data$hazard_indicator,
@@ -515,14 +516,16 @@ read_precomputed_hazards <- function(base_dir) {
             .data$ensemble_suffix
           ),
           aggregation_method = summ_col,
-          hazard_value = .data[[summ_col]]
+          hazard_value = .data[[summ_col]],
+          ensemble = ensemble_val
         ) |>
-        dplyr::select(-"ensemble_suffix", -"season_suffix")
+        dplyr::select(-"ensemble_suffix", -"season_suffix", -"ensemble_val")
     } else {
       ensemble_data <- precomputed_df |>
         dplyr::mutate(
           # Unified hazard_name WITHOUT season
           # App policy: the representative ensemble is always labeled 'mean' internally
+          ensemble_val = "mean",
           ensemble_suffix = "__ensemble=mean",
           hazard_name = paste0(
             .data$hazard_type, "__", .data$hazard_indicator,
@@ -531,9 +534,10 @@ read_precomputed_hazards <- function(base_dir) {
             .data$ensemble_suffix
           ),
           aggregation_method = summ_col,
-          hazard_value = .data[[summ_col]]
+          hazard_value = .data[[summ_col]],
+          ensemble = ensemble_val
         ) |>
-        dplyr::select(-"ensemble_suffix")
+        dplyr::select(-"ensemble_suffix", -"ensemble_val")
     }
 
     transformed_list[[summ_col]] <- ensemble_data

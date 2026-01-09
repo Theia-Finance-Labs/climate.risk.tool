@@ -429,8 +429,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     }
 
     # Transform precomputed data to match expected output format
-    # Filter by the chosen aggregation method (ensemble)
-    asset_hazard_data <- matched_data |>
+    # Filter by the chosen aggregation method (summary column)
+    asset_hazard_data <- hazard_matches |>
       dplyr::filter(.data$aggregation_method == aggregation_method)
 
     if (length(required_hazard_names) > 0) {
