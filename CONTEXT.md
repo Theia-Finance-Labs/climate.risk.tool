@@ -350,7 +350,7 @@ inventory <- hazard_data$inventory
 **`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, events)`** → long format data.frame
 - **Main orchestrator** that dispatches to specialized extraction functions:
   - **Coordinate-based assets** → `extract_spatial_statistics()` for spatial extraction (NetCDF)
-  - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup (matches hazards by base hazard name; ensemble suffix in inventory does not need to exist in precomputed CSV)
+  - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup (matches hazards by exact hazard_name)
 - **Priority cascade** for asset location:
   1. Coordinates → spatial extraction (polygon-based for NetCDF)
   2. No coordinates + municipality → precomputed ADM2 lookup
@@ -363,10 +363,10 @@ inventory <- hazard_data$inventory
 - Polygon-based extraction for NetCDF raster hazards (crop, mask, aggregate)
 - Used for assets WITH coordinates
 - Returns `matching_method = "coordinates"`
-- Adds `__extraction_method={aggregation_method}` suffix to hazard names
+- Includes `season` and `ensemble` columns for traceability
 
 **`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
-- Uses a normalized **base hazard name** (ensemble stripped) to match inventory hazards to precomputed hazards; output `hazard_name` is always emitted using the inventory hazard name plus `__extraction_method=...` so downstream joins stay consistent.
+- Uses exact string equality matching against the inventory; output `hazard_name` is always emitted using the inventory hazard name so downstream joins stay consistent.
 - Lookup from precomputed administrative hazard data
 - Used for assets WITHOUT coordinates
 - Priority: municipality (ADM2) > state (ADM1)

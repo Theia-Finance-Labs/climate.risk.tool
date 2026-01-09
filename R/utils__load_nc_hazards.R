@@ -112,7 +112,23 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
     }
 
     # Open NetCDF and discover structure
-    nc <- ncdf4::nc_open(f)
+    # Wrap in tryCatch to handle files that can't be opened (broken, missing, or invalid format)
+    nc <- tryCatch({
+      ncdf4::nc_open(f)
+    }, error = function(e) {
+      warning(
+        "[load_nc_hazards_with_metadata] Failed to open NetCDF file: ", basename(f),
+        "\n  Full path: ", f,
+        "\n  Error: ", conditionMessage(e),
+        "\n  File may not be a valid NetCDF file or may be corrupted.",
+        "\n  Skipping this file."
+      )
+      return(NULL)
+    })
+    
+    if (is.null(nc)) {
+      next
+    }
 
     # Identify main data variable
     var_names <- names(nc$var)
@@ -257,8 +273,20 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
     nc_path <- normalizePath(f, winslash = "/", mustWork = TRUE)
     gdal_string <- sprintf("NETCDF:%s:%s", nc_path, main_var)
     
+    # Suppress GDAL/ncdf4 C-level warnings that appear as "Error in R_nc4_open" messages
+    # These are cosmetic warnings from the C library, not actual errors - files load successfully
     r_all <- tryCatch({
-      terra::rast(gdal_string)
+      suppressWarnings({
+        # Temporarily redirect stderr to suppress C-level "Error in R_nc4_open" messages
+        # We need to capture the return value, not the output
+        invisible(capture.output(
+          {
+            result <- terra::rast(gdal_string)
+          },
+          type = "message"
+        ))
+        result
+      })
     }, error = function(e) {
       warning(
         "[load_nc_hazards_with_metadata] Failed to load NetCDF via terra: ", basename(f),
@@ -333,6 +361,12 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
             }
 
             r <- r_all[[layer_idx]]
+
+            # Ensure CRS is set - if missing, default to WGS84 (EPSG:4326) for climate data
+            # This is the "root" fix for missing CRS in NetCDF files
+            if (is.na(terra::crs(r)) || terra::crs(r) == "") {
+              terra::crs(r) <- "EPSG:4326"
+            }
 
             # Assign extent if lon/lat vectors are available but missing in GDAL metadata
             if (!inherits(lon_vals, "try-error") && !inherits(lat_vals, "try-error")) {

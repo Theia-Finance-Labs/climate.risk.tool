@@ -1,9 +1,9 @@
 #' Create event-to-hazard mapping for joining with extracted assets
 #'
-#' @description Creates a mapping table from hazard_names (with extraction suffixes)
-#'   to event information (event_id, event_year, season). For multi-indicator
-#'   hazards (Fire), creates multiple rows per event (one per indicator). For
-#'   single-indicator hazards, creates one row per event.
+#' @description Creates a mapping table from hazard_names to event information
+#'   (event_id, event_year, season). For multi-indicator hazards (Fire), creates
+#'   multiple rows per event (one per indicator). For single-indicator hazards,
+#'   creates one row per event.
 #'
 #' @details
 #' This function is used internally in compute_risk() to create a join table
@@ -11,12 +11,11 @@
 #' user-defined events (which have one row per event, not per indicator).
 #'
 #' For single-indicator hazards (Flood, Heat, Drought):
-#'   - Appends extraction_method suffix to hazard_name
 #'   - Returns one row per event
 #'
 #' For multi-indicator hazards (Fire):
 #'   - Creates 3 rows per event (land_cover, FWI, days_danger_total)
-#'   - Each row gets the appropriate hazard_name with extraction_method suffix
+#'   - Each row gets the appropriate hazard_name from inventory
 #'   - All 3 rows share the same event_id, event_year, season
 #'
 #' @param events Tibble. User-defined events (one row per event).
@@ -29,8 +28,8 @@
 #'
 #' @param aggregation_method Character. Extraction method for assets (e.g., "mean")
 #'
-#' @return Tibble with columns: hazard_name (with extraction suffix), event_id,
-#'   event_year, season. May have multiple rows per event_id for multi-indicator hazards.
+#' @return Tibble with columns: hazard_name, event_id, event_year, season.
+#'   May have multiple rows per event_id for multi-indicator hazards.
 #'
 #' @noRd
 create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_method) {
@@ -80,7 +79,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
   single_events <- events |>
     dplyr::filter(!(.data$hazard_type %in% multi_indicator_types)) |>
     dplyr::mutate(
-      hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
+      hazard_name = as.character(.data$hazard_name)
     ) |>
     dplyr::select("hazard_name", "event_id", "event_year")
 
@@ -114,7 +113,6 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
       if (indicator == "land_cover") {
         # Static indicator: use inventory's scenario/RP
         base_hazard_name <- matched$hazard_name[1]
-        extraction_method <- "mode" # land_cover uses mode (categorical)
       } else {
         # Dynamic indicator: match user-selected scenario/RP
         event_rp_numeric <- as.numeric(event$hazard_return_period)
@@ -130,14 +128,10 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
         } else {
           matched$hazard_name[1]
         }
-        extraction_method <- aggregation_method
       }
 
-      # Append extraction_method suffix
-      hazard_name_with_suffix <- paste0(base_hazard_name, "__extraction_method=", extraction_method)
-
       tibble::tibble(
-        hazard_name = hazard_name_with_suffix,
+        hazard_name = base_hazard_name,
         event_id = event$event_id,
         event_year = event$event_year
       )

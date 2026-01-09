@@ -253,10 +253,6 @@ join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
   # Prepare assets: determine matching keys based on what exists in damage factors
   drought_assets_prepared <- drought_assets |>
     dplyr::mutate(
-      # Extract season from hazard_name (format: ...__season=SeasonName__...)
-      season = stringr::str_extract(.data$hazard_name, "__season=([^_]+)__") |>
-        stringr::str_remove("__season=") |>
-        stringr::str_remove("__"),
       # Normalize missing/empty values
       asset_subtype_clean = dplyr::if_else(
         is.na(.data$asset_subtype) | .data$asset_subtype == "",
@@ -505,6 +501,8 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       fwi_hazard_name = "hazard_name",
       fwi_hazard_return_period = "hazard_return_period",
       fwi_scenario_name = "scenario_name",
+      fwi_season = "season",
+      fwi_ensemble = "ensemble",
       fwi_source = "source"
     )
 
@@ -530,6 +528,8 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       hazard_name = "fwi_hazard_name",
       hazard_return_period = "fwi_hazard_return_period",
       scenario_name = "fwi_scenario_name",
+      season = "fwi_season",
+      ensemble = "fwi_ensemble",
       source = "fwi_source"
     )
 
@@ -642,7 +642,7 @@ join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_
       "asset", "company", "latitude", "longitude", "municipality", "state",
       "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
       "cnae", "hazard_name", "hazard_type", "hazard_indicator", "hazard_return_period",
-      "scenario_name", "source", "matching_method", "event_id", "event_year",
+      "scenario_name", "season", "ensemble", "source", "matching_method", "event_id", "event_year",
       "damage_factor", "cost_factor", "business_disruption",
       "land_cover_risk", "hazard_intensity", "days_danger_total"
     )

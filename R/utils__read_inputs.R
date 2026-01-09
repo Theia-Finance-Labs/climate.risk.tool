@@ -497,39 +497,34 @@ read_precomputed_hazards <- function(base_dir) {
     if (has_season) {
       ensemble_data <- precomputed_df |>
         dplyr::mutate(
-          # Unified hazard_name - include season for drought (like NC files do)
-          # Only include ensemble if not empty/NA
+          # Unified hazard_name - identical to load_nc_hazards_with_metadata
+          # Only add season if it exists and is not NA
+          season_suffix = dplyr::if_else(
+            is.na(.data$season) | .data$season == "",
+            "",
+            paste0("__season=", .data$season)
+          ),
           # Only add ensemble suffix if ensemble value exists and is not empty
           ensemble_suffix = dplyr::if_else(
             is.na(.data$ensemble) | .data$ensemble == "",
             "",
             paste0("__ensemble=", .data$ensemble)
           ),
-          hazard_name = dplyr::if_else(
-            .data$hazard_type == "Drought" & !is.na(.data$season),
-            paste0(
-              .data$hazard_type, "__", .data$hazard_indicator,
-              "__GWL=", .data$scenario_name,
-              "__RP=", .data$hazard_return_period,
-              "__season=", .data$season,
-              .data$ensemble_suffix
-            ),
-            paste0(
-              .data$hazard_type, "__", .data$hazard_indicator,
-              "__GWL=", .data$scenario_name,
-              "__RP=", .data$hazard_return_period,
-              .data$ensemble_suffix
-            )
+          hazard_name = paste0(
+            .data$hazard_type, "__", .data$hazard_indicator,
+            "__GWL=", .data$scenario_name,
+            "__RP=", .data$hazard_return_period,
+            .data$season_suffix,
+            .data$ensemble_suffix
           ),
           aggregation_method = summ_col,
           hazard_value = .data[[summ_col]]
         ) |>
-        dplyr::select(-"ensemble_suffix")
+        dplyr::select(-"ensemble_suffix", -"season_suffix")
     } else {
       ensemble_data <- precomputed_df |>
         dplyr::mutate(
           # Unified hazard_name WITHOUT season
-          # Only include ensemble if not empty/NA
           # Only add ensemble suffix if ensemble value exists and is not empty
           ensemble_suffix = dplyr::if_else(
             is.na(.data$ensemble) | .data$ensemble == "",

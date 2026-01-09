@@ -142,6 +142,8 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       hazard_indicator <- hazard_meta$hazard_indicator
       hazard_return_period <- hazard_meta$hazard_return_period
       hazard_scenario_name <- hazard_meta$scenario_name
+      hazard_season <- if ("season" %in% names(hazard_meta)) hazard_meta$season else NA_character_
+      hazard_ensemble <- if ("ensemble" %in% names(hazard_meta)) hazard_meta$ensemble else NA_character_
 
       # Special handling for Fire land_cover: force mode aggregation (categorical data)
       effective_aggregation_method <- aggregation_method
@@ -153,12 +155,9 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       # Get the aggregation function based on effective method
       agg_func <- aggregation_functions[[effective_aggregation_method]]
 
-      # Add extraction_method suffix for output
-      hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", effective_aggregation_method)
-
       message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
 
-      # Get raster CRS
+      # Get raster CRS - should already be set during load_nc_hazards_with_metadata
       r_crs <- terra::crs(hazard_rast)
       if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
@@ -221,12 +220,14 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         stats_df |> dplyr::select(-"ID")
       ) |>
         dplyr::mutate(
-          # Use hazard_name with ensemble suffix added
-          hazard_name = hazard_name_with_ensemble,
+          # Use hazard_name directly (no extra suffix)
+          hazard_name = base_hazard_name,
           hazard_type = hazard_type,
           scenario_name = hazard_scenario_name,
           hazard_indicator = hazard_indicator,
           hazard_return_period = hazard_return_period,
+          season = hazard_season,
+          ensemble = hazard_ensemble,
           source = hazard_source,
           matching_method = "coordinates",
           # Replace NAs with 0
@@ -236,7 +237,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
           "asset", "company", "latitude", "longitude",
           "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
           "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-          "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
+          "hazard_indicator", "hazard_return_period", "scenario_name", "season", "ensemble", "source", "hazard_intensity", "matching_method"
         )
 
       results_list[[i]] <- df_i
@@ -281,16 +282,6 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   }
 
   required_hazards <- hazards_inventory
-
-  # Precomputed hazard names may not carry an ensemble suffix (CSV often has missing ensemble values),
-  # while the hazards inventory (and spatial extraction) can include it (e.g. "__ensemble=mean").
-  # We match using a normalized "base hazard name" (ensemble stripped), but we always emit hazard_name
-  # using the inventory's hazard_name so downstream joins (events mapping) are consistent.
-  normalize_hazard_name_for_matching <- function(hazard_name) {
-    # Strip __ensemble=* suffix if present
-    sub("__ensemble=.*$", "", as.character(hazard_name))
-  }
-
 
   precomp_results_list <- list()
 
@@ -348,36 +339,21 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     required_hazards_other <- required_hazards |>
       dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
 
-    # Get list of required hazard_names (inventory format; may include ensemble suffix)
+    # Get list of required hazard_names (inventory format; must match precomputed exactly)
     required_hazard_names <- required_hazards_other |>
       dplyr::pull(.data$hazard_name) |>
       as.character()
 
-    required_lookup <- required_hazards_other |>
-      dplyr::mutate(
-        required_hazard_name = as.character(.data$hazard_name),
-        hazard_name_base = normalize_hazard_name_for_matching(.data$hazard_name)
-      ) |>
-      dplyr::select("required_hazard_name", "hazard_name_base")
+    # Keep only hazards needed for this run
+    hazard_matches <- matched_data |>
+      dplyr::filter(.data$hazard_name %in% required_hazard_names)
 
-    matched_data_with_base <- matched_data |>
-      dplyr::mutate(hazard_name_base = normalize_hazard_name_for_matching(.data$hazard_name))
-
-    # Keep only hazards needed for this run (matching on base hazard name)
-    hazard_matches <- matched_data_with_base |>
-      dplyr::inner_join(required_lookup, by = "hazard_name_base")
-
-    if (nrow(required_lookup) > 0) {
-      missing_bases <- setdiff(required_lookup$hazard_name_base, unique(hazard_matches$hazard_name_base))
-      if (length(missing_bases) > 0) {
-        missing_original <- required_lookup |>
-          dplyr::filter(.data$hazard_name_base %in% missing_bases) |>
-          dplyr::pull(.data$required_hazard_name) |>
-          unique()
-
+    if (length(required_hazard_names) > 0) {
+      missing_hazards <- setdiff(required_hazard_names, unique(hazard_matches$hazard_name))
+      if (length(missing_hazards) > 0) {
         stop(
           "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
-          "Could not find hazards: ", paste(missing_original, collapse = ", "),
+          "Could not find hazards: ", paste(missing_hazards, collapse = ", "),
           " when matching municipality='", municipality, "' or state='", state, "'."
         )
       }
@@ -478,8 +454,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       dplyr::mutate(
         # Extract the value from the column matching the aggregation method
         hazard_intensity = .data$hazard_value,
-        # Emit the inventory hazard name (keeps any ensemble suffix) so joins downstream are consistent
-        hazard_name = paste0(.data$required_hazard_name, "__extraction_method=", aggregation_method),
+        # Emit the inventory hazard name (already has ensemble suffix if needed)
+        hazard_name = .data$hazard_name,
         matching_method = match_level,
         source = paste0("precomputed (", match_level, ")"), # Add source column indicating municipality or state
         # Add asset information to each hazard row
@@ -499,7 +475,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         "asset", "company", "latitude", "longitude",
         "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
         "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
+        "hazard_indicator", "hazard_return_period", "scenario_name", "season", "ensemble", "source", "hazard_intensity", "matching_method"
       )
 
     # Add fire/land_cover rows with default value 0.5 (not precomputed)
@@ -524,7 +500,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
           size_in_m2 = asset_row$size_in_m2,
           share_of_economic_activity = asset_row$share_of_economic_activity,
           cnae = asset_row$cnae,
-          hazard_name = paste0(land_cover_meta$hazard_name[1], "__extraction_method=mode"),
+          hazard_name = land_cover_meta$hazard_name[1],
           hazard_type = "Fire",
           hazard_indicator = "land_cover",
           hazard_return_period = land_cover_meta$hazard_return_period[1],
