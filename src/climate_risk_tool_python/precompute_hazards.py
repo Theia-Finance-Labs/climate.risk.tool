@@ -236,15 +236,27 @@ def build_region_id_raster_memmap(
 # -----------------------
 # Exact quantiles spill format
 #   Each bucket file is a sequence of chunks:
-#     [uint32 n] [int32 rid * n] [float64 val * n]
+#     [uint32 n] [int32 rid * n] [value_dtype val * n]
+#   Value dtype is chosen per dataset (float32 typically, float64 if source is float64)
 # -----------------------
-def _spill_write_chunk(path: str, r: np.ndarray, v: np.ndarray) -> None:
+def choose_spill_value_dtype(da: xr.DataArray) -> np.dtype:
+    """Choose dtype for spilling values. Keep float64 if source is float64, otherwise use float32."""
+    dt = np.dtype(da.dtype)
+    if dt == np.float64:
+        return np.float64
+    # float32, ints, uints -> float32 spill (good compression, quantiles OK for hazards)
+    return np.float32
+
+
+def _spill_write_chunk(
+    path: str, r: np.ndarray, v: np.ndarray, *, value_dtype: np.dtype
+) -> None:
     if r.size == 0:
         return
     if r.dtype != np.int32:
         r = r.astype(np.int32, copy=False)
-    if v.dtype != np.float64:
-        v = v.astype(np.float64, copy=False)
+    if v.dtype != value_dtype:
+        v = v.astype(value_dtype, copy=False)
 
     # Free space safety (avoid leaving gigantic partial spills)
     base_dir = os.path.dirname(path) or "."
@@ -266,7 +278,7 @@ def _spill_write_chunk(path: str, r: np.ndarray, v: np.ndarray) -> None:
         v.tofile(f)
 
 
-def _spill_iter_chunks(path: str):
+def _spill_iter_chunks(path: str, *, value_dtype: np.dtype):
     with open(path, "rb") as f:
         while True:
             header = f.read(4)
@@ -274,7 +286,7 @@ def _spill_iter_chunks(path: str):
                 break
             (n,) = struct.unpack("<I", header)
             r = np.fromfile(f, dtype=np.int32, count=n)
-            v = np.fromfile(f, dtype=np.float64, count=n)
+            v = np.fromfile(f, dtype=value_dtype, count=n)
             if r.size != n or v.size != n:
                 raise IOError(f"Corrupt spill file (unexpected EOF): {path}")
             yield r, v
@@ -305,6 +317,7 @@ def update_reductions_and_spill(
     nodata_value: Optional[float],
     spill_dir: str,
     n_buckets: int,
+    spill_value_dtype: np.dtype,
 ):
     if hazard_type == "Heat":
         values_block = np.where(values_block > 300, values_block, np.nan)
@@ -324,23 +337,33 @@ def update_reductions_and_spill(
         return
 
     r = r[m].astype(np.int32, copy=False)
-    v = v[m].astype(np.float64, copy=False)
+    v_valid = v[m]
 
+    # reductions: do in float64 to keep mean/min/max accurate
+    v64 = v_valid.astype(np.float64, copy=False)
     count += np.bincount(r, minlength=count.size)
-    summ += np.bincount(r, weights=v, minlength=summ.size)
-    np.minimum.at(vmin, r, v)
-    np.maximum.at(vmax, r, v)
+    summ += np.bincount(r, weights=v64, minlength=summ.size)
+    np.minimum.at(vmin, r, v64)
+    np.maximum.at(vmax, r, v64)
+
+    # spill values in chosen dtype (float32 usually)
+    v_spill = v_valid.astype(spill_value_dtype, copy=False)
 
     buckets = (r % n_buckets).astype(np.int32, copy=False)
     order = np.argsort(buckets, kind="mergesort")
     buckets = buckets[order]
     r = r[order]
-    v = v[order]
+    v_spill = v_spill[order]
 
     uniq_b, idx, cnts = np.unique(buckets, return_index=True, return_counts=True)
     for b, start, c in zip(uniq_b, idx, cnts):
         bpath = os.path.join(spill_dir, f"bucket_{int(b):04d}.bin")
-        _spill_write_chunk(bpath, r[start : start + c], v[start : start + c])
+        _spill_write_chunk(
+            bpath,
+            r[start : start + c],
+            v_spill[start : start + c],
+            value_dtype=spill_value_dtype,
+        )
 
 
 def compute_exact_quantiles_from_spill(
@@ -348,6 +371,7 @@ def compute_exact_quantiles_from_spill(
     spill_dir: str,
     n_buckets: int,
     q_list: np.ndarray,
+    value_dtype: np.dtype,
 ) -> Dict[int, np.ndarray]:
     out: Dict[int, np.ndarray] = {}
 
@@ -358,7 +382,7 @@ def compute_exact_quantiles_from_spill(
 
         rid_to_chunks: Dict[int, List[np.ndarray]] = {}
 
-        for r_chunk, v_chunk in _spill_iter_chunks(bpath):
+        for r_chunk, v_chunk in _spill_iter_chunks(bpath, value_dtype=value_dtype):
             order = np.argsort(r_chunk, kind="mergesort")
             r_sorted = r_chunk[order]
             v_sorted = v_chunk[order]
@@ -371,7 +395,10 @@ def compute_exact_quantiles_from_spill(
 
         for rid, chunks in rid_to_chunks.items():
             vals = np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
-            qs = np.quantile(vals, q_list, method="linear")
+            # quantile in float64 for stable interpolation, even if stored float32
+            qs = np.quantile(
+                vals.astype(np.float64, copy=False), q_list, method="linear"
+            )
             out[rid] = qs.astype(np.float64, copy=False)
 
         rid_to_chunks.clear()
@@ -421,6 +448,9 @@ def process_nc_file_single_process_exact_to_part(
                 ensemble_used = str(da["ensemble"].values)
 
         da = ensure_lat_descending(da)
+
+        # Choose spill dtype once per dataset
+        spill_value_dtype = choose_spill_value_dtype(da)
 
         lats = da["lat"].values
         lons = da["lon"].values
@@ -531,6 +561,7 @@ def process_nc_file_single_process_exact_to_part(
                                 nodata_value=nodata_value,
                                 spill_dir=spill_dir,
                                 n_buckets=n_buckets,
+                                spill_value_dtype=spill_value_dtype,
                             )
                             pbar.update(1)
 
@@ -538,6 +569,7 @@ def process_nc_file_single_process_exact_to_part(
                     spill_dir=spill_dir,
                     n_buckets=n_buckets,
                     q_list=Q_LIST,
+                    value_dtype=spill_value_dtype,
                 )
 
                 rows = []
