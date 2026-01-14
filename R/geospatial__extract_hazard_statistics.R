@@ -69,9 +69,10 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
   message("  [extract_spatial_statistics] Extracting hazard statistics...")
   message("    Using aggregation method: ", aggregation_method)
 
-  # Filter to only NetCDF raster hazards
+  # Filter to only NetCDF raster hazards that actually exist in the hazards list
+  available_hazard_names <- names(hazards)
   raster_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source == "nc")
+    dplyr::filter(.data$source == "nc", .data$hazard_name %in% available_hazard_names)
 
   all_results <- list()
 
@@ -136,6 +137,16 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       base_hazard_name <- hazard_meta$hazard_name
       hazard_source <- hazard_meta$source
       hazard_rast <- hazards[[base_hazard_name]]
+
+      # Skip if hazard raster is not found
+      if (is.null(hazard_rast)) {
+        warning(
+          "Hazard '", base_hazard_name, "' not found in hazards list. ",
+          "Skipping extraction for this hazard."
+        )
+        results_list[[i]] <- NULL
+        next
+      }
 
       # Get metadata
       hazard_type <- hazard_meta$hazard_type
@@ -266,6 +277,11 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean", damage_factors_df = NULL) {
   message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
   message("    Using aggregation method: ", aggregation_method)
+
+  # Check if precomputed_hazards is NULL or empty
+  if (is.null(precomputed_hazards) || (inherits(precomputed_hazards, "data.frame") && nrow(precomputed_hazards) == 0)) {
+    stop("precomputed_hazards is NULL or empty. Cannot perform precomputed lookup.")
+  }
 
   # Precomputed data should have correct hazard indicators already
   message("    Using precomputed hazard indicators directly from data")
@@ -430,8 +446,28 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
 
     # Transform precomputed data to match expected output format
     # Filter by the chosen aggregation method (summary column)
+    # Use .env$ to explicitly reference the parameter (avoids variable name collision with column)
     asset_hazard_data <- hazard_matches |>
-      dplyr::filter(.data$aggregation_method == aggregation_method)
+      dplyr::filter(.data$aggregation_method == .env$aggregation_method)
+    
+    # Validate that only one aggregation method remains after filtering
+    if (nrow(asset_hazard_data) > 0) {
+      unique_agg_methods <- unique(asset_hazard_data$aggregation_method)
+      if (length(unique_agg_methods) > 1) {
+        warning(
+          "Multiple aggregation methods found after filtering for asset ", asset_name,
+          ". Expected 1, found: ", paste(unique_agg_methods, collapse = ", "),
+          ". This indicates a bug in the filter logic."
+        )
+      }
+      # Verify the aggregation method matches what was requested
+      if (!all(unique_agg_methods == aggregation_method)) {
+        warning(
+          "Aggregation method mismatch for asset ", asset_name,
+          ". Requested: '", aggregation_method, "', Found: ", paste(unique_agg_methods, collapse = ", ")
+        )
+      }
+    }
 
     if (length(required_hazard_names) > 0) {
       missing_agg_hazards <- setdiff(required_hazard_names, unique(asset_hazard_data$hazard_name))
@@ -464,7 +500,10 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         asset_subtype = asset_row$asset_subtype,
         size_in_m2 = asset_row$size_in_m2,
         share_of_economic_activity = asset_row$share_of_economic_activity,
-        cnae = asset_row$cnae
+        cnae = asset_row$cnae,
+        # Ensure season/ensemble columns exist (fill with NA if missing in precomputed data)
+        season = if ("season" %in% names(.data)) .data$season else NA_character_,
+        ensemble = if ("ensemble" %in% names(.data)) .data$ensemble else NA_character_
       ) |>
       dplyr::select(
         "asset", "company", "latitude", "longitude",

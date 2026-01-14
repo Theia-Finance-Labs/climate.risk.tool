@@ -456,19 +456,28 @@ read_precomputed_hazards <- function(base_dir) {
   precomputed_df <- readr::read_csv(precomputed_path, show_col_types = FALSE) |>
     tibble::as_tibble()
 
-  # # Ensure numeric columns are numeric
-  # numeric_cols <- c(
-  #   "hazard_return_period", "min", "max", "mean", "median",
-  #   "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y"
-  # )
+  # Filter to a single representative ensemble variant per hazard scenario
+  # Prefer "mean", then "median", then first available.
+  # This prevents duplicates when the CSV contains multiple ensemble versions of the same data.
+  group_cols <- c("region", "adm_level", "scenario_name", "hazard_return_period", "hazard_type", "hazard_indicator")
+  if ("season" %in% names(precomputed_df)) {
+    group_cols <- c(group_cols, "season")
+  }
 
-  # precomputed_df <- precomputed_df |>
-  #   dplyr::mutate(
-  #     dplyr::across(
-  #       dplyr::any_of(numeric_cols),
-  #       ~ as.numeric(.)
-  #     )
-  #   )
+  precomputed_df <- precomputed_df |>
+    dplyr::mutate(
+      ensemble_priority = dplyr::case_when(
+        tolower(.data$ensemble) == "mean" ~ 1,
+        tolower(.data$ensemble) == "median" ~ 2,
+        is.na(.data$ensemble) ~ 3,
+        TRUE ~ 4
+      )
+    ) |>
+    dplyr::group_by(dplyr::across(dplyr::any_of(group_cols))) |>
+    dplyr::arrange(.data$ensemble_priority) |>
+    dplyr::slice(1) |>
+    dplyr::ungroup() |>
+    dplyr::select(-"ensemble_priority")
 
   # Validate adm_level values
   valid_adm_levels <- c("ADM1", "ADM2")

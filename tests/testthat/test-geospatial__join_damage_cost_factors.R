@@ -270,6 +270,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - ex
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
+    season = c("Winter"),
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -318,6 +319,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - of
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
+    season = c("Summer"),
     cnae = NA,
     stringsAsFactors = FALSE
   )
@@ -368,6 +370,7 @@ testthat::test_that("join_drought_damage_factors handles multi-season crops - au
     scenario_name = c("present"),
     event_id = c("event_1"),
     event_year = c(2030),
+    season = c("Autumn"),
     cnae = NA,
     stringsAsFactors = FALSE
   )

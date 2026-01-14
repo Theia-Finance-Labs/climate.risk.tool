@@ -7,7 +7,9 @@
 #' 3. Returns both hazards and inventory
 #'
 #' @param hazards_dir Character path to hazards directory containing subdirectories with NetCDF files
-#' @param aggregate_factor Integer >= 1. Aggregation factor for NetCDF rasters (default: 1, aggregation not currently supported)
+#' @param aggregate_factor Integer >= 1. Aggregation factor for NetCDF rasters (default: `NULL`).
+#'   When `NULL`, reads the `climate_risk_tool_nc_aggregate_factor` option (default: 1).
+#'   Values > 1 spatially aggregate each raster on load so that tests can run with lower resolution.
 #' @return A list with two elements:
 #'   - `hazards`: Named list of SpatRaster objects
 #'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
@@ -27,13 +29,21 @@
 #' inventory <- result$inventory
 #' }
 #' @export
-load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = 1L) {
+load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = NULL) {
   message("[load_hazards_and_inventory] Starting hazard loading and inventory...")
+
+  if (is.null(aggregate_factor)) {
+    aggregate_factor <- getOption("climate_risk_tool_nc_aggregate_factor", 1L)
+  }
+  aggregate_factor <- as.integer(aggregate_factor)
+  if (aggregate_factor < 1) {
+    stop("aggregate_factor must be >= 1")
+  }
 
   # Load NC files and build inventory
   nc_result <- load_nc_hazards_with_metadata(
     hazards_dir = hazards_dir,
-    aggregate_factor = as.integer(aggregate_factor)
+    aggregate_factor = aggregate_factor
   )
   nc_list <- nc_result$hazards
   nc_inventory <- nc_result$inventory

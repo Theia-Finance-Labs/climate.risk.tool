@@ -20,6 +20,9 @@ get_test_data_dir <- function(...) {
   stop("tests/tests_data directory not found. Ensure it is included in the package build or available at runtime.")
 }
 
+# Default aggregation factor for tests (keep non-test runs at full resolution)
+options(climate_risk_tool_nc_aggregate_factor = 16L)
+
 
 get_hazards_dir <- function() {
   get_test_data_dir("hazards")

@@ -79,7 +79,15 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
   single_events <- events |>
     dplyr::filter(!(.data$hazard_type %in% multi_indicator_types)) |>
     dplyr::mutate(
-      hazard_name = as.character(.data$hazard_name)
+      hazard_name = as.character(.data$hazard_name),
+      # NetCDF loader policy: we only load one representative ensemble, labeled 'mean'.
+      # Normalize events that omit ensemble or request a different ensemble (e.g., median)
+      # so joins against extracted asset hazard_name (inventory) succeed.
+      hazard_name = dplyr::if_else(
+        grepl("__ensemble=", .data$hazard_name),
+        sub("__ensemble=.*$", "__ensemble=mean", .data$hazard_name),
+        paste0(.data$hazard_name, "__ensemble=mean")
+      )
     ) |>
     dplyr::select("hazard_name", "event_id", "event_year")
 

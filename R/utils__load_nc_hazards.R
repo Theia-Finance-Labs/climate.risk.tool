@@ -272,23 +272,14 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
     try(ncdf4::nc_close(nc), silent = TRUE)
     
     # Lazy-load the entire NetCDF raster once via terra (keeps data on disk)
+    # Use terra's native subds parameter instead of GDAL string format to avoid
+    # GDAL's internal file checking that triggers "Error in R_nc4_open" messages
     nc_path <- normalizePath(f, winslash = "/", mustWork = TRUE)
-    gdal_string <- sprintf("NETCDF:%s:%s", nc_path, main_var)
     
-    # Suppress GDAL/ncdf4 C-level warnings that appear as "Error in R_nc4_open" messages
-    # These are cosmetic warnings from the C library, not actual errors - files load successfully
     r_all <- tryCatch({
-      suppressWarnings({
-        # Temporarily redirect stderr to suppress C-level "Error in R_nc4_open" messages
-        # We need to capture the return value, not the output
-        invisible(capture.output(
-          {
-            result <- terra::rast(gdal_string)
-          },
-          type = "message"
-        ))
-        result
-      })
+      # Use terra::rast(file, subds=variable) instead of GDAL string format
+      # This avoids GDAL's internal file checking that causes spurious errors
+      terra::rast(nc_path, subds = main_var)
     }, error = function(e) {
       warning(
         "[load_nc_hazards_with_metadata] Failed to load NetCDF via terra: ", basename(f),

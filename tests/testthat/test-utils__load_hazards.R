@@ -62,7 +62,7 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
   nc_names <- names(result$hazards)
 
   # Names should contain hazard_type from folder
-  # e.g., "Drought__CDD__GWL=present__RP=5__ensemble=median"
+  # e.g., "Drought__SPI3__GWL=present__RP=5__ensemble=mean"
   expect_true(any(grepl("Drought", nc_names)))
 
   # Should contain hazard_indicator

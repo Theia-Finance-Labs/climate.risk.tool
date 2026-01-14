@@ -27,14 +27,14 @@ testthat::test_that("compute_risk end-to-end integration across hazards and even
   events <- data.frame(
     hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought", "Fire"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=present__RP=100",
-      "Flood__depth(cm)__GWL=present__RP=100",
-      "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Heat__HI__GWL=present__RP=10__ensemble=median",
-      "Heat__HI__GWL=2__RP=10__ensemble=median",
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
-      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=median",
-      "Fire__FWI__GWL=3__RP=50__ensemble=median"
+      "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean",
+      "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean",
+      "Flood__depth(cm)__GWL=rcp85__RP=100__ensemble=mean",
+      "Heat__HI__GWL=present__RP=10__ensemble=mean",
+      "Heat__HI__GWL=2__RP=10__ensemble=mean",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean",
+      "Fire__FWI__GWL=3__RP=50__ensemble=mean"
     ),
     scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
     scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5", "3"),
@@ -149,7 +149,7 @@ testthat::test_that("compute_risk errors when events contain duplicate event_id 
   input_folder <- file.path(base_dir, "user_input")
   companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+  hazards <- hazard_data$hazards
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
   inventory <- hazard_data$inventory
@@ -158,8 +158,8 @@ testthat::test_that("compute_risk errors when events contain duplicate event_id 
     event_id = c("duplicate_event", "duplicate_event"),
     hazard_type = c("Flood", "Flood"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=present__RP=100",
-      "Flood__depth(cm)__GWL=present__RP=100"
+      "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean",
+      "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean"
     ),
     scenario_name = c("present", "present"),
     scenario_code = c("present", "present"),
@@ -212,13 +212,13 @@ testthat::test_that("compute_risk produces stable snapshot output", {
   events <- data.frame(
     hazard_type = c("Flood", "Flood", "Flood", "Heat", "Heat", "Drought", "Drought"),
     hazard_name = c(
-      "Flood__depth(cm)__GWL=present__RP=100",
-      "Flood__depth(cm)__GWL=present__RP=100",
-      "Flood__depth(cm)__GWL=rcp85__RP=100",
-      "Heat__HI__GWL=present__RP=10__ensemble=median",
-      "Heat__HI__GWL=2__RP=10__ensemble=median",
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
-      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=median"
+      "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean",
+      "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean",
+      "Flood__depth(cm)__GWL=rcp85__RP=100__ensemble=mean",
+      "Heat__HI__GWL=present__RP=10__ensemble=mean",
+      "Heat__HI__GWL=2__RP=10__ensemble=mean",
+      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
+      "Drought__SPI3__GWL=1.5__RP=10__season=Winter__ensemble=mean"
     ),
     scenario_name = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
     scenario_code = c("present", "present", "rcp85", "present", "2", "present", "1.5"),
@@ -254,7 +254,7 @@ testthat::test_that("compute_risk handles Fire events correctly with multi-indic
   input_folder <- file.path(base_dir, "user_input")
   companies <- read_companies(input_folder)
   hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
-  hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+  hazards <- hazard_data$hazards
   precomputed_hazards <- read_precomputed_hazards(base_dir)
   damage_factors <- read_damage_cost_factors(base_dir)
   land_cover_legend <- read_land_cover_legend(base_dir)
@@ -266,8 +266,8 @@ testthat::test_that("compute_risk handles Fire events correctly with multi-indic
     hazard_type = c("Fire", "Fire"),
     hazard_indicator = c("FWI", "FWI"), # Primary indicator for user selection
     hazard_name = c(
-      "Fire__FWI__GWL=present__RP=10",
-      "Fire__FWI__GWL=present__RP=50"
+      "Fire__FWI__GWL=present__RP=10__ensemble=mean",
+      "Fire__FWI__GWL=present__RP=50__ensemble=mean"
     ),
     scenario_name = c("present", "present"),
     scenario_code = c("present", "present"),

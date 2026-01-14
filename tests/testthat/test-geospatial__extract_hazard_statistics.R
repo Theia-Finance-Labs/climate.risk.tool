@@ -1,11 +1,12 @@
 testthat::test_that("geolocated assets extract from NetCDF files", {
   # Load all hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 1L)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir())
 
   # Define events with NetCDF hazard for focused testing (using formatted hazard name)
   events <- tibble::tibble(
-    hazard_name = "Drought__CDD__GWL=present__RP=5__ensemble=mean",
+    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean",
     event_year = 2030,
+    season = "Summer"
   )
 
   # Filter to just the selected hazard (like the real pipeline does)
@@ -40,9 +41,10 @@ testthat::test_that("geolocated assets extract from NetCDF files", {
   # Verify: all matching_method = "coordinates"
   testthat::expect_true(all(out$matching_method == "coordinates"))
 
-  # Verify: hazard statistics are numeric and >= 0
+  # Verify: hazard statistics are numeric
   testthat::expect_true(is.numeric(out$hazard_intensity))
-  testthat::expect_true(all(out$hazard_intensity >= 0))
+  # Drought (SPI3) can have negative values, so we don't expect all >= 0
+  testthat::expect_true(any(!is.na(out$hazard_intensity)))
 
   # Should have results for both assets
   testthat::expect_equal(length(unique(out$asset)), 2)
@@ -57,7 +59,7 @@ testthat::test_that("geolocated assets extract from NC files", {
   # NC hazards expand to all ensemble variants automatically
   # Use GWL=present which exists in test data, and include season for SPI3
   events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
+    hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=mean",
     event_year = 2030,
     season = "Summer"
   )
@@ -180,8 +182,8 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
 
   hazards_inventory <- tibble::tibble(
     hazard_name = c(
-      "Flood__depth(cm)__GWL=pc__RP=10",
-      "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median"
+      "Flood__depth(cm)__GWL=pc__RP=10__ensemble=mean",
+      "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean"
     ),
     hazard_type = c("Flood", "Drought"),
     hazard_indicator = c("depth(cm)", "SPI3"),
@@ -193,7 +195,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
   precomputed_hazards <- tibble::tibble(
     region = "TestMunicipality",
     adm_level = "ADM2",
-    hazard_name = "Flood__depth(cm)__GWL=pc__RP=10",
+    hazard_name = "Flood__depth(cm)__GWL=pc__RP=10__ensemble=mean",
     hazard_type = "Flood",
     hazard_indicator = "depth(cm)",
     hazard_return_period = 10,
@@ -209,7 +211,7 @@ testthat::test_that("extract_precomputed_statistics errors when a required hazar
       hazards_inventory = hazards_inventory,
       aggregation_method = "mean"
     ),
-    regexp = "Missing precomputed hazard data.*Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median"
+    regexp = "Missing precomputed hazard data.*Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean"
   )
 })
 
@@ -243,7 +245,7 @@ testthat::test_that("extract_precomputed_statistics matches precomputed hazards 
   precomputed_hazards <- tibble::tibble(
     region = "Amazonas",
     adm_level = "ADM1",
-    hazard_name = "Flood__depth(cm)__GWL=rcp26__RP=100",
+    hazard_name = "Flood__depth(cm)__GWL=rcp26__RP=100__ensemble=mean",
     hazard_type = "Flood",
     hazard_indicator = "depth(cm)",
     hazard_return_period = 100,
@@ -264,8 +266,82 @@ testthat::test_that("extract_precomputed_statistics matches precomputed hazards 
   testthat::expect_equal(unique(out$hazard_intensity), 4.56)
   testthat::expect_equal(
     unique(out$hazard_name),
-    "Flood__depth(cm)__GWL=rcp26__RP=100__ensemble=mean__extraction_method=median"
+    "Flood__depth(cm)__GWL=rcp26__RP=100__ensemble=mean"
   )
+  # Verify only one row is returned (not multiple aggregation methods)
+  testthat::expect_equal(nrow(out), 1)
+})
+
+testthat::test_that("extract_precomputed_statistics filters to only selected aggregation method", {
+  # Test that the filter correctly returns only one aggregation method
+  assets <- tibble::tibble(
+    asset = "test_asset",
+    company = "company_a",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = "TestState",
+    asset_category = "office",
+    asset_subtype = NA_character_,
+    size_in_m2 = 1000,
+    share_of_economic_activity = 1,
+    cnae = NA_real_
+  )
+
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Flood__depth(cm)__GWL=rcp85__RP=100__ensemble=mean",
+    hazard_type = "Flood",
+    hazard_indicator = "depth(cm)",
+    hazard_return_period = 100,
+    scenario_name = "rcp85",
+    source = "nc"
+  )
+
+  # Precomputed data with all 6 aggregation methods
+  precomputed_hazards <- tibble::tibble(
+    region = "TestState",
+    adm_level = "ADM1",
+    hazard_name = "Flood__depth(cm)__GWL=rcp85__RP=100__ensemble=mean",
+    hazard_type = "Flood",
+    hazard_indicator = "depth(cm)",
+    hazard_return_period = 100,
+    scenario_name = "rcp85",
+    aggregation_method = c("mean", "median", "p2_5", "p5", "p95", "p97_5"),
+    hazard_value = c(963, 882, 41, 82, 2103, 2279)
+  )
+
+  # Test with "mean" aggregation method
+  out_mean <- climate.risk.tool:::extract_precomputed_statistics(
+    assets_df = assets,
+    precomputed_hazards = precomputed_hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "mean"
+  )
+
+  testthat::expect_equal(nrow(out_mean), 1)
+  testthat::expect_equal(unique(out_mean$hazard_intensity), 963)
+  
+  # Test with "median" aggregation method
+  out_median <- climate.risk.tool:::extract_precomputed_statistics(
+    assets_df = assets,
+    precomputed_hazards = precomputed_hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "median"
+  )
+
+  testthat::expect_equal(nrow(out_median), 1)
+  testthat::expect_equal(unique(out_median$hazard_intensity), 882)
+  
+  # Test with "p95" aggregation method
+  out_p95 <- climate.risk.tool:::extract_precomputed_statistics(
+    assets_df = assets,
+    precomputed_hazards = precomputed_hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "p95"
+  )
+
+  testthat::expect_equal(nrow(out_p95), 1)
+  testthat::expect_equal(unique(out_p95$hazard_intensity), 2103)
 })
 
 
@@ -345,7 +421,7 @@ testthat::test_that("extract_hazard_statistics errors for missing precomputed ha
     cnae = NA_real_
   )
   events2 <- tibble::tibble(
-    hazard_name = "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
+    hazard_name = "Flood__depth(cm)__GWL=CurrentClimate__RP=10__ensemble=mean",
     event_year = 2030,
   )
   all_hazards2 <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
@@ -391,7 +467,7 @@ testthat::test_that("agriculture portfolio with state but no municipality works"
   
   # Create drought event (agriculture-specific)
   events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
+    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean",
     event_year = 2030
   )
   
@@ -414,9 +490,8 @@ testthat::test_that("agriculture portfolio with state but no municipality works"
   )
   
   # Verify results
-  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
-  # so we get 6 rows per asset = 12 rows total for 2 assets
-  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
+  # After fix: only one aggregation method (default "mean") is returned per asset
+  testthat::expect_equal(nrow(out), 2)  # 2 assets × 1 aggregation method
   testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
   testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
   testthat::expect_true(all(out$asset_category == "agriculture"))
@@ -451,7 +526,7 @@ testthat::test_that("agriculture portfolio without crop types defaults to Soybea
   
   # Create drought event (agriculture-specific)
   events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
+    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean",
     event_year = 2030
   )
   
@@ -474,9 +549,8 @@ testthat::test_that("agriculture portfolio without crop types defaults to Soybea
   )
   
   # Verify results
-  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
-  # so we get 6 rows per asset = 12 rows total for 2 assets
-  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
+  # After fix: only one aggregation method (default "mean") is returned per asset
+  testthat::expect_equal(nrow(out), 2)  # 2 assets × 1 aggregation method
   testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
   testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
   testthat::expect_true(all(out$asset_category == "agriculture"))
@@ -511,7 +585,7 @@ testthat::test_that("agriculture portfolio with invalid crop types defaults to S
   
   # Create drought event (agriculture-specific)
   events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
+    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=mean",
     event_year = 2030
   )
   
@@ -534,9 +608,8 @@ testthat::test_that("agriculture portfolio with invalid crop types defaults to S
   )
   
   # Verify results
-  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
-  # so we get 6 rows per asset = 12 rows total for 2 assets
-  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
+  # After fix: only one aggregation method (default "mean") is returned per asset
+  testthat::expect_equal(nrow(out), 2)  # 2 assets × 1 aggregation method
   testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
   testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
   testthat::expect_true(all(out$asset_category == "agriculture"))

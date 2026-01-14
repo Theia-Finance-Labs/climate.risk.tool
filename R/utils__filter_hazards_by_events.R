@@ -122,18 +122,30 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) 
   # Since we only load mean ensemble, we match base names directly
   pattern_matches <- character()
   for (desired in desired_names) {
-    # If desired name contains __ensemble=, strip it to get base event
-    if (grepl("__ensemble=", desired)) {
-      # Remove ensemble suffix to get base event
-      base_event <- sub("__ensemble=.*$", "", desired)
-      # Match the base event name (which represents mean ensemble)
-      if (base_event %in% available_names) {
-        pattern_matches <- c(pattern_matches, base_event)
-      }
+    desired <- as.character(desired)
+
+    # Normalize requested ensemble (or missing ensemble) to loaded ensemble=mean
+    desired_mean <- if (grepl("__ensemble=", desired)) {
+      sub("__ensemble=.*$", "__ensemble=mean", desired)
     } else {
-      # Match the base event name directly (represents mean ensemble)
-      if (desired %in% available_names) {
-        pattern_matches <- c(pattern_matches, desired)
+      paste0(desired, "__ensemble=mean")
+    }
+
+    # Also consider the base event name (without ensemble suffix)
+    base_event <- sub("__ensemble=.*$", "", desired)
+    base_event_mean <- paste0(base_event, "__ensemble=mean")
+
+    candidates <- unique(c(desired, desired_mean, base_event, base_event_mean))
+    matched <- candidates[candidates %in% available_names]
+
+    if (length(matched) > 0) {
+      # Prefer the mean-ensemble match if available
+      if (desired_mean %in% matched) {
+        pattern_matches <- c(pattern_matches, desired_mean)
+      } else if (base_event_mean %in% matched) {
+        pattern_matches <- c(pattern_matches, base_event_mean)
+      } else {
+        pattern_matches <- c(pattern_matches, matched[1])
       }
     }
   }
