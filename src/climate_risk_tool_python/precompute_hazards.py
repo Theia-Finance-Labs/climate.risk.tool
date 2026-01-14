@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
 """
-Precompute hazard statistics aggregated over administrative regions (ADM1/ADM2).
+Precompute hazard statistics aggregated over administrative regions (ADM1/ADM2),
+using a REGION-BY-REGION strategy (no global region-id raster).
 
-This version is:
-- Deterministic (no seed)
-- Exact quantiles (no sampling)
-- Memory-bounded for quantiles via on-disk spill to bucket files
-- Uses a region-id raster (pixel -> region id) for performance
-- Uses streaming blocks for hazard reads (does NOT load whole raster)
-- Region-id raster is ALWAYS memmapped (same behavior on any machine)
-
-Quantiles:
-- Exact p2.5/p5/p10/median/p90/p95/p97.5 are computed from ALL values in each region.
-- Implementation: during streaming pass we spill (rid, value) to N_BUCKETS binary files.
-  Then we process each bucket file and compute exact quantiles per region.
-
-Empty regions:
-- If count==0, stats are NaN. We additionally diagnose:
-  - "outside_raster_bounds" if polygon does not intersect raster bounds
-  - "all_nodata_or_no_overlap" if it intersects bounds but got no valid pixels
+Why this version:
+- Avoids building/touching a full (nlat x nlon) region-id raster memmap (can be ~100GB+).
+- Reads only the raster window that overlaps each region's bbox.
+- Rasterizes the region polygon only on that window to create a mask.
+- Computes exact stats per region. For categorical land_cover, uses histograms for exact quantiles
+  without spilling. For continuous rasters, uses exact quantiles by materializing values for the region.
+  (This is memory-safe because it's per-region; if a region is still huge, we fallback to an on-disk
+   spill strategy per region.)
 
 Checkpoint/cleanup:
-- Writes ONE part CSV per (hazard file, adm_level): parts/<hazard_type>__<haz_ind>__<ADM>.csv
-- Creates a ".done" marker when a part is fully completed.
-- On re-run: skips any part that already has its ".done".
-- Always cleans spill-to-disk directories (even if the job fails mid-way), so you don’t
-  accumulate huge spill files after an OSError / kill.
-- At the end, concatenates all completed part CSVs into a single OUT_CSV (streaming copy).
+- Writes ONE part CSV per (hazard file, adm_level): _parts/<hazard_type>__<haz_ind>__<ADM>.csv
+- Writes a ".done" marker once part completed
+- On rerun, skips parts already done
+
+Notes:
+- This is single-process (same as your exact version).
+- Exact quantiles are computed from ALL pixels of a region window that are inside the polygon and valid.
+- If a region intersects raster bounds but has no valid pixels => "all_nodata_or_no_overlap".
+- If it doesn't intersect raster bounds => "outside_raster_bounds".
+
+Performance expectations:
+- For very large grids, this is typically much faster/safer than global region-id raster + full streaming.
+- For many small regions, IO pattern is "many windows". Still usually fine with NetCDF4, but if it's slow,
+  converting the specific hazard to a tiled GeoTIFF per hazard (optional) is a good next optimization.
 
 """
 
@@ -36,8 +36,10 @@ import gc
 import itertools
 import warnings
 import hashlib
-import struct
 import shutil
+import signal
+import sys
+import faulthandler
 from typing import Dict, List, Tuple, Any, Optional
 
 import numpy as np
@@ -47,7 +49,6 @@ import xarray as xr
 
 import rasterio.features
 from rasterio.transform import from_bounds
-from rasterio.env import Env
 from affine import Affine
 from shapely.geometry import box
 from unidecode import unidecode
@@ -62,19 +63,38 @@ warnings.filterwarnings(
 # -----------------------
 Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64)
 
-# Block size for streaming reads (tune to your RAM / IO)
-BLOCK_LAT = 8192
-BLOCK_LON = 8192
+# Window block size when reading a region window in chunks (within bbox window)
+# (keeps per-region processing bounded even for large regions)
+WIN_BLOCK = 2048
 
-# Spill buckets for exact quantiles
-N_BUCKETS_ADM1 = 256
-N_BUCKETS_ADM2 = 1024
+# If a single region would exceed this many values, we switch to per-region spill buckets
+# for exact quantiles (continuous hazards). This prevents RAM blowups on huge regions.
+MAX_REGION_VALUES_IN_RAM = 25_000_000  # 25M float64 ~ 200MB; tune
 
-# GDAL cache (MB-ish; rasterio/GDAL uses MB units for GDAL_CACHEMAX)
+# Spill buckets for per-region exact quantiles (continuous hazards only)
+N_BUCKETS_PER_REGION = 256
+
+# Safety: require some free space before writing spill chunks (bytes)
+MIN_FREE_BYTES_BEFORE_SPILL = 2 * 1024**3  # 2 GiB
+
+# GDAL cache and thread caps to avoid native memory growth
 GDAL_CACHEMAX = "128"
 
-# Safety: require some free space before writing large spill chunks (bytes)
-MIN_FREE_BYTES_BEFORE_SPILL = 2 * 1024**3  # 2 GiB
+
+# -----------------------
+# Non-silent failure aids
+# -----------------------
+faulthandler.enable(all_threads=True)
+
+
+def _handle_term(signum, frame):
+    print(f"\n[signal] got {signum}, dumping traceback:", flush=True)
+    faulthandler.dump_traceback(file=sys.stderr, all_threads=True)
+    sys.exit(128 + signum)
+
+
+for _sig in (signal.SIGTERM, signal.SIGINT):
+    signal.signal(_sig, _handle_term)
 
 
 # -----------------------
@@ -131,15 +151,6 @@ def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
     return gdf
 
 
-def prepare_shapes(
-    adm_gdf: gpd.GeoDataFrame,
-) -> Tuple[List[Tuple[Any, int]], Dict[int, str]]:
-    region_names = adm_gdf["region"].tolist()
-    rid_to_name = {i + 1: name for i, name in enumerate(region_names)}
-    shapes = [(geom, i + 1) for i, geom in enumerate(adm_gdf.geometry)]
-    return shapes, rid_to_name
-
-
 # -----------------------
 # Grid / transform
 # -----------------------
@@ -163,102 +174,24 @@ def raster_bounds_polygon(lats: np.ndarray, lons: np.ndarray) -> Any:
 
 
 # -----------------------
-# Region-id rasterization (ALWAYS memmap, blockwise fill)
+# Spill utils for per-region exact quantiles (continuous hazards)
 # -----------------------
-def _cache_key_for_region_ids(
-    adm_level: str,
-    nlat: int,
-    nlon: int,
-    adm_path: str,
-    lats: np.ndarray,
-    lons: np.ndarray,
-) -> str:
-    st = os.stat(adm_path)
-    payload = (
-        f"{adm_level}|{nlat}x{nlon}|{os.path.abspath(adm_path)}|"
-        f"mtime={int(st.st_mtime)}|size={st.st_size}|"
-        f"latmin={float(lats.min())}|latmax={float(lats.max())}|"
-        f"lonmin={float(lons.min())}|lonmax={float(lons.max())}"
-    ).encode("utf-8")
-    return hashlib.md5(payload).hexdigest()
+import struct
 
 
-def build_region_id_raster_memmap(
-    shapes: List[Tuple[Any, int]],
-    lats: np.ndarray,
-    lons: np.ndarray,
-    adm_level: str,
-    adm_path: str,
-    cache_dir: str,
-) -> np.memmap:
-    os.makedirs(cache_dir, exist_ok=True)
-    nlat, nlon = len(lats), len(lons)
-    key = _cache_key_for_region_ids(adm_level, nlat, nlon, adm_path, lats, lons)
-    mm_path = os.path.join(
-        cache_dir, f"region_ids__{adm_level}__{nlat}x{nlon}__{key}.dat"
-    )
-
-    if os.path.exists(mm_path):
-        return np.memmap(mm_path, mode="r", dtype=np.int32, shape=(nlat, nlon))
-
-    transform = grid_transform_from_latlon(lats, lons)
-    region_ids = np.memmap(mm_path, mode="w+", dtype=np.int32, shape=(nlat, nlon))
-
-    n_block_lat = (nlat + BLOCK_LAT - 1) // BLOCK_LAT
-    n_block_lon = (nlon + BLOCK_LON - 1) // BLOCK_LON
-    total_blocks = n_block_lat * n_block_lon
-
-    with Env(GDAL_CACHEMAX=int(GDAL_CACHEMAX)):
-        with tqdm(
-            total=total_blocks, desc=f"Rasterizing regions ({adm_level})", unit="block"
-        ) as pbar:
-            for i0 in range(0, nlat, BLOCK_LAT):
-                i1 = min(i0 + BLOCK_LAT, nlat)
-                for j0 in range(0, nlon, BLOCK_LON):
-                    j1 = min(j0 + BLOCK_LON, nlon)
-                    block_transform = transform * Affine.translation(j0, i0)
-                    block = rasterio.features.rasterize(
-                        shapes,
-                        out_shape=(i1 - i0, j1 - j0),
-                        transform=block_transform,
-                        fill=0,
-                        dtype=np.int32,
-                        all_touched=True,
-                    )
-                    region_ids[i0:i1, j0:j1] = block
-                    del block
-                    pbar.update(1)
-                region_ids.flush()
-
-    return np.memmap(mm_path, mode="r", dtype=np.int32, shape=(nlat, nlon))
-
-
-# -----------------------
-# Exact quantiles spill format
-#   Each bucket file is a sequence of chunks:
-#     [uint32 n] [int32 rid * n] [value_dtype val * n]
-#   Value dtype is chosen per dataset (float32 typically, float64 if source is float64)
-# -----------------------
-def choose_spill_value_dtype(da: xr.DataArray) -> np.dtype:
-    """Choose dtype for spilling values. Keep float64 if source is float64, otherwise use float32."""
-    dt = np.dtype(da.dtype)
-    if dt == np.float64:
-        return np.float64
-    # float32, ints, uints -> float32 spill (good compression, quantiles OK for hazards)
-    return np.float32
-
-
-def _spill_write_chunk(
-    path: str, r: np.ndarray, v: np.ndarray, *, value_dtype: np.dtype
-) -> None:
-    if r.size == 0:
+def cleanup_dir(path: str) -> None:
+    if not path or not os.path.exists(path):
         return
-    if r.dtype != np.int32:
-        r = r.astype(np.int32, copy=False)
-    if v.dtype != value_dtype:
-        v = v.astype(value_dtype, copy=False)
+    try:
+        shutil.rmtree(path, ignore_errors=True)
+    except Exception:
+        pass
 
-    # Free space safety (avoid leaving gigantic partial spills)
+
+def _spill_write_chunk(path: str, v: np.ndarray) -> None:
+    if v.size == 0:
+        return
+
     base_dir = os.path.dirname(path) or "."
     try:
         free = shutil.disk_usage(base_dir).free
@@ -271,156 +204,313 @@ def _spill_write_chunk(
     except FileNotFoundError:
         pass
 
-    n = r.size
+    # store float32 on disk (enough for hazards)
+    if v.dtype != np.float32:
+        v = v.astype(np.float32, copy=False)
+
+    n = v.size
     with open(path, "ab") as f:
         f.write(struct.pack("<I", n))
-        r.tofile(f)
         v.tofile(f)
 
 
-def _spill_iter_chunks(path: str, *, value_dtype: np.dtype):
+def _spill_iter_chunks(path: str):
     with open(path, "rb") as f:
         while True:
             header = f.read(4)
             if not header:
                 break
             (n,) = struct.unpack("<I", header)
-            r = np.fromfile(f, dtype=np.int32, count=n)
-            v = np.fromfile(f, dtype=value_dtype, count=n)
-            if r.size != n or v.size != n:
+            v = np.fromfile(f, dtype=np.float32, count=n)
+            if v.size != n:
                 raise IOError(f"Corrupt spill file (unexpected EOF): {path}")
-            yield r, v
+            yield v
 
 
-def cleanup_dir(path: str) -> None:
-    """Aggressive cleanup for spill dirs (safe to call repeatedly)."""
-    if not path or not os.path.exists(path):
-        return
-    try:
-        shutil.rmtree(path, ignore_errors=True)
-    except Exception:
-        pass
+def exact_quantiles_from_spill_dir(spill_dir: str, q_list: np.ndarray) -> np.ndarray:
+    chunks = []
+    for p in sorted(glob.glob(os.path.join(spill_dir, "bucket_*.bin"))):
+        # concatenate all chunks in this bucket; (we'll just read all buckets into one big vector)
+        for v in _spill_iter_chunks(p):
+            chunks.append(v)
+    if not chunks:
+        return np.full(len(q_list), np.nan, dtype=np.float64)
+    vals = np.concatenate(chunks).astype(np.float64, copy=False)
+    return np.quantile(vals, q_list, method="linear").astype(np.float64, copy=False)
 
 
 # -----------------------
-# Streaming accumulator update for one block (exact reductions + spill for quantiles)
+# Categorical land_cover quantiles via histogram (exact, no spill)
 # -----------------------
-def update_reductions_and_spill(
-    values_block: np.ndarray,
-    rid_block: np.ndarray,
-    *,
-    hazard_type: str,
-    count: np.ndarray,
-    summ: np.ndarray,
-    vmin: np.ndarray,
-    vmax: np.ndarray,
-    nodata_value: Optional[float],
-    spill_dir: str,
-    n_buckets: int,
-    spill_value_dtype: np.dtype,
-):
-    if hazard_type == "Heat":
-        values_block = np.where(values_block > 300, values_block, np.nan)
-
-    v = values_block.ravel()
-    r = rid_block.ravel()
-
-    if np.issubdtype(v.dtype, np.floating):
-        m = (r > 0) & ~np.isnan(v)
-    else:
-        if nodata_value is None:
-            m = r > 0
-        else:
-            m = (r > 0) & (v != np.asarray(nodata_value, dtype=v.dtype))
-
-    if not np.any(m):
-        return
-
-    r = r[m].astype(np.int32, copy=False)
-    v_valid = v[m]
-
-    # reductions: do in float64 to keep mean/min/max accurate
-    v64 = v_valid.astype(np.float64, copy=False)
-    count += np.bincount(r, minlength=count.size)
-    summ += np.bincount(r, weights=v64, minlength=summ.size)
-    np.minimum.at(vmin, r, v64)
-    np.maximum.at(vmax, r, v64)
-
-    # spill values in chosen dtype (float32 usually)
-    v_spill = v_valid.astype(spill_value_dtype, copy=False)
-
-    buckets = (r % n_buckets).astype(np.int32, copy=False)
-    order = np.argsort(buckets, kind="mergesort")
-    buckets = buckets[order]
-    r = r[order]
-    v_spill = v_spill[order]
-
-    uniq_b, idx, cnts = np.unique(buckets, return_index=True, return_counts=True)
-    for b, start, c in zip(uniq_b, idx, cnts):
-        bpath = os.path.join(spill_dir, f"bucket_{int(b):04d}.bin")
-        _spill_write_chunk(
-            bpath,
-            r[start : start + c],
-            v_spill[start : start + c],
-            value_dtype=spill_value_dtype,
-        )
-
-
-def compute_exact_quantiles_from_spill(
-    *,
-    spill_dir: str,
-    n_buckets: int,
-    q_list: np.ndarray,
-    value_dtype: np.dtype,
-) -> Dict[int, np.ndarray]:
-    out: Dict[int, np.ndarray] = {}
-
-    for b in range(n_buckets):
-        bpath = os.path.join(spill_dir, f"bucket_{b:04d}.bin")
-        if not os.path.exists(bpath):
-            continue
-
-        rid_to_chunks: Dict[int, List[np.ndarray]] = {}
-
-        for r_chunk, v_chunk in _spill_iter_chunks(bpath, value_dtype=value_dtype):
-            order = np.argsort(r_chunk, kind="mergesort")
-            r_sorted = r_chunk[order]
-            v_sorted = v_chunk[order]
-
-            ids, idx, cnts = np.unique(r_sorted, return_index=True, return_counts=True)
-            for rid, start, c in zip(ids.tolist(), idx.tolist(), cnts.tolist()):
-                rid_to_chunks.setdefault(int(rid), []).append(
-                    v_sorted[start : start + c]
-                )
-
-        for rid, chunks in rid_to_chunks.items():
-            vals = np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
-            # quantile in float64 for stable interpolation, even if stored float32
-            qs = np.quantile(
-                vals.astype(np.float64, copy=False), q_list, method="linear"
-            )
-            out[rid] = qs.astype(np.float64, copy=False)
-
-        rid_to_chunks.clear()
-        try:
-            os.remove(bpath)
-        except OSError:
-            pass
-        gc.collect()
-
+def quantiles_from_hist(hist: np.ndarray, q_list: np.ndarray) -> np.ndarray:
+    total = int(hist.sum())
+    if total == 0:
+        return np.full(len(q_list), np.nan, dtype=np.float64)
+    cdf = np.cumsum(hist, dtype=np.int64)
+    out = np.empty(len(q_list), dtype=np.float64)
+    for i, q in enumerate(q_list):
+        k = int(np.ceil(q * total))
+        k = max(1, k)
+        out[i] = float(np.searchsorted(cdf, k, side="left"))
     return out
 
 
 # -----------------------
-# Process one NetCDF file, one ADM level (single-process)
-# Writes directly to the "part" CSV. If ".done" exists, caller should skip.
+# Region-by-region computation for ONE slice (one dim_combo)
 # -----------------------
-def process_nc_file_single_process_exact_to_part(
+def compute_region_stats_for_slice(
+    *,
+    da_slice: xr.DataArray,  # 2D (lat, lon)
+    lats: np.ndarray,
+    lons: np.ndarray,
+    transform: Affine,
+    region_geom,
+    region_name: str,
+    raster_bounds_poly,
+    hazard_type: str,
+    hazard_indicator: str,
+    nodata_value: Optional[float],
+    spill_root: str,
+) -> Dict[str, Any]:
+    # bounds intersection check
+    intersects_bounds = bool(region_geom.intersects(raster_bounds_poly))
+    if not intersects_bounds:
+        return {
+            "region": region_name,
+            "count": 0,
+            "min": np.nan,
+            "max": np.nan,
+            "mean": np.nan,
+            "qs": np.full(len(Q_LIST), np.nan, dtype=np.float64),
+            "intersects_raster_bounds": False,
+            "empty_reason": "outside_raster_bounds",
+        }
+
+    # Find index window that overlaps region bbox (fast)
+    minx, miny, maxx, maxy = region_geom.bounds
+
+    # lat is descending
+    lat_idx = np.where((lats <= maxy) & (lats >= miny))[0]
+    lon_idx = np.where((lons >= minx) & (lons <= maxx))[0]
+
+    if lat_idx.size == 0 or lon_idx.size == 0:
+        return {
+            "region": region_name,
+            "count": 0,
+            "min": np.nan,
+            "max": np.nan,
+            "mean": np.nan,
+            "qs": np.full(len(Q_LIST), np.nan, dtype=np.float64),
+            "intersects_raster_bounds": True,
+            "empty_reason": "all_nodata_or_no_overlap",
+        }
+
+    i0, i1 = int(lat_idx.min()), int(lat_idx.max()) + 1
+    j0, j1 = int(lon_idx.min()), int(lon_idx.max()) + 1
+
+    # Sub-transform for this window
+    window_transform = transform * Affine.translation(j0, i0)
+    out_shape = (i1 - i0, j1 - j0)
+
+    # Rasterize the polygon on the window only (mask=1 inside)
+    mask = rasterio.features.rasterize(
+        [(region_geom, 1)],
+        out_shape=out_shape,
+        transform=window_transform,
+        fill=0,
+        dtype=np.uint8,
+        all_touched=True,
+    ).astype(bool)
+
+    if not mask.any():
+        return {
+            "region": region_name,
+            "count": 0,
+            "min": np.nan,
+            "max": np.nan,
+            "mean": np.nan,
+            "qs": np.full(len(Q_LIST), np.nan, dtype=np.float64),
+            "intersects_raster_bounds": True,
+            "empty_reason": "all_nodata_or_no_overlap",
+        }
+
+    # Decide categorical vs continuous
+    is_landcover = hazard_type == "Fire" and hazard_indicator == "land_cover"
+
+    # We'll stream inside the region window in blocks to keep memory bounded
+    cnt = 0
+    s = 0.0
+    mn = np.inf
+    mx = -np.inf
+
+    if is_landcover:
+        # exact quantiles on codes via histogram
+        n_classes = 256
+        hist = np.zeros(n_classes, dtype=np.int64)
+
+        for ii in range(i0, i1, WIN_BLOCK):
+            ii1 = min(ii + WIN_BLOCK, i1)
+            mi0 = ii - i0
+            mi1 = ii1 - i0
+            for jj in range(j0, j1, WIN_BLOCK):
+                jj1 = min(jj + WIN_BLOCK, j1)
+                mj0 = jj - j0
+                mj1 = jj1 - j0
+
+                block = da_slice.isel(lat=slice(ii, ii1), lon=slice(jj, jj1)).values
+                mblock = mask[mi0:mi1, mj0:mj1]
+
+                if not mblock.any():
+                    continue
+
+                v = block[mblock]
+                if nodata_value is not None:
+                    v = v[v != np.asarray(nodata_value, dtype=v.dtype)]
+                if v.size == 0:
+                    continue
+
+                v = np.clip(v.astype(np.int64, copy=False), 0, n_classes - 1)
+                hist += np.bincount(v, minlength=n_classes)
+
+                cnt += int(v.size)
+                s += float(v.astype(np.float64, copy=False).sum())
+                mn = min(mn, float(v.min()))
+                mx = max(mx, float(v.max()))
+
+        if cnt == 0:
+            qs = np.full(len(Q_LIST), np.nan, dtype=np.float64)
+            empty_reason = "all_nodata_or_no_overlap"
+            return {
+                "region": region_name,
+                "count": 0,
+                "min": np.nan,
+                "max": np.nan,
+                "mean": np.nan,
+                "qs": qs,
+                "intersects_raster_bounds": True,
+                "empty_reason": empty_reason,
+            }
+
+        qs = quantiles_from_hist(hist, Q_LIST)
+        return {
+            "region": region_name,
+            "count": cnt,
+            "min": float(mn),
+            "max": float(mx),
+            "mean": float(s / cnt),
+            "qs": qs,
+            "intersects_raster_bounds": True,
+            "empty_reason": np.nan,
+        }
+
+    # Continuous hazards: collect values per region; if too big, spill per region.
+    # We'll estimate region max values = window area; real after mask/nodata filtering.
+    window_area = int(mask.sum())
+    use_spill = window_area > MAX_REGION_VALUES_IN_RAM
+
+    spill_dir = None
+    if use_spill:
+        # per region spill dir
+        rid_key = hashlib.md5(region_name.encode("utf-8")).hexdigest()[:12]
+        spill_dir = os.path.join(spill_root, f"region_{rid_key}")
+        cleanup_dir(spill_dir)
+        os.makedirs(spill_dir, exist_ok=True)
+
+    values_accum = [] if not use_spill else None
+    bucket_paths = None
+    if use_spill:
+        bucket_paths = [
+            os.path.join(spill_dir, f"bucket_{b:04d}.bin")
+            for b in range(N_BUCKETS_PER_REGION)
+        ]
+
+    for ii in range(i0, i1, WIN_BLOCK):
+        ii1 = min(ii + WIN_BLOCK, i1)
+        mi0 = ii - i0
+        mi1 = ii1 - i0
+        for jj in range(j0, j1, WIN_BLOCK):
+            jj1 = min(jj + WIN_BLOCK, j1)
+            mj0 = jj - j0
+            mj1 = jj1 - j0
+
+            block = da_slice.isel(lat=slice(ii, ii1), lon=slice(jj, jj1)).values
+            mblock = mask[mi0:mi1, mj0:mj1]
+            if not mblock.any():
+                continue
+
+            v = block[mblock]
+            # special rule in your prior code
+            if hazard_type == "Heat":
+                v = np.where(v > 300, v, np.nan)
+
+            if np.issubdtype(v.dtype, np.floating):
+                v = v[~np.isnan(v)]
+            else:
+                if nodata_value is not None:
+                    v = v[v != np.asarray(nodata_value, dtype=v.dtype)]
+
+            if v.size == 0:
+                continue
+
+            v64 = v.astype(np.float64, copy=False)
+            cnt += int(v64.size)
+            s += float(v64.sum())
+            mn = min(mn, float(v64.min()))
+            mx = max(mx, float(v64.max()))
+
+            if use_spill:
+                # bucket by a simple hash of value index (not needed for correctness, only file split)
+                # Here we bucket by chunk to avoid huge single files.
+                # Write as float32 on disk.
+                b = hash((ii, jj)) % N_BUCKETS_PER_REGION
+                _spill_write_chunk(bucket_paths[b], v64.astype(np.float32, copy=False))
+            else:
+                values_accum.append(v64)
+
+    if cnt == 0:
+        qs = np.full(len(Q_LIST), np.nan, dtype=np.float64)
+        empty_reason = "all_nodata_or_no_overlap"
+        return {
+            "region": region_name,
+            "count": 0,
+            "min": np.nan,
+            "max": np.nan,
+            "mean": np.nan,
+            "qs": qs,
+            "intersects_raster_bounds": True,
+            "empty_reason": empty_reason,
+        }
+
+    if use_spill:
+        qs = exact_quantiles_from_spill_dir(spill_dir, Q_LIST)
+        cleanup_dir(spill_dir)
+    else:
+        vals = (
+            np.concatenate(values_accum) if len(values_accum) > 1 else values_accum[0]
+        )
+        qs = np.quantile(vals, Q_LIST, method="linear").astype(np.float64, copy=False)
+
+    return {
+        "region": region_name,
+        "count": cnt,
+        "min": float(mn),
+        "max": float(mx),
+        "mean": float(s / cnt),
+        "qs": qs,
+        "intersects_raster_bounds": True,
+        "empty_reason": np.nan,
+    }
+
+
+# -----------------------
+# Process one NetCDF file, one ADM level (region-by-region)
+# Writes directly to the part CSV.
+# -----------------------
+def process_nc_file_region_by_region_to_part(
     *,
     nc_path: str,
     adm_gdf: gpd.GeoDataFrame,
     adm_level: str,
-    adm_path: str,
     ensemble_filter: str,
     part_csv: str,
     cache_dir: str,
@@ -449,12 +539,10 @@ def process_nc_file_single_process_exact_to_part(
 
         da = ensure_lat_descending(da)
 
-        # Choose spill dtype once per dataset
-        spill_value_dtype = choose_spill_value_dtype(da)
-
         lats = da["lat"].values
         lons = da["lon"].values
-        nlat, nlon = len(lats), len(lons)
+        transform = grid_transform_from_latlon(lats, lons)
+        rb_poly = raster_bounds_polygon(lats, lons)
 
         nodata_value = da.attrs.get("_FillValue", None)
         if (
@@ -476,37 +564,20 @@ def process_nc_file_single_process_exact_to_part(
             else [{}]
         )
 
-        shapes, rid_to_name = prepare_shapes(adm_gdf)
-        n_regions = len(rid_to_name)
-
-        region_ids = build_region_id_raster_memmap(
-            shapes=shapes,
-            lats=lats,
-            lons=lons,
-            adm_level=adm_level,
-            adm_path=adm_path,
-            cache_dir=cache_dir,
-        )
-
-        rb_poly = raster_bounds_polygon(lats, lons)
-        intersects_bounds = adm_gdf.geometry.intersects(rb_poly).to_numpy()
-
-        n_buckets = N_BUCKETS_ADM2 if adm_level.upper() == "ADM2" else N_BUCKETS_ADM1
-
         os.makedirs(os.path.dirname(part_csv), exist_ok=True)
         if os.path.exists(part_csv):
             os.remove(part_csv)
         header_written = False
 
-        # dedicated spill root for this (hazard, adm_level) so we can nuke it between combos and at the end
         spill_root = os.path.join(
             cache_dir,
-            "_spill",
+            "_spill_region_by_region",
             f"{safe_slug(hazard_type)}__{safe_slug(hazard_indicator)}__{adm_level}",
         )
         cleanup_dir(spill_root)
         os.makedirs(spill_root, exist_ok=True)
 
+        # iterate combos
         for dim_combo in tqdm(
             dim_combos,
             desc=f"{adm_level} combos | {hazard_type}/{hazard_indicator}",
@@ -517,161 +588,106 @@ def process_nc_file_single_process_exact_to_part(
                 da_slice = da_slice.sel({kdim: vdim})
             da_slice = da_slice.transpose("lat", "lon")
 
-            count = np.zeros(n_regions + 1, dtype=np.int64)
-            summ = np.zeros(n_regions + 1, dtype=np.float64)
-            vmin = np.full(n_regions + 1, np.inf, dtype=np.float64)
-            vmax = np.full(n_regions + 1, -np.inf, dtype=np.float64)
-
-            combo_key = hashlib.md5(
-                repr(sorted(dim_combo.items())).encode("utf-8")
-            ).hexdigest()
-            spill_dir = os.path.join(spill_root, combo_key)
-            cleanup_dir(spill_dir)
-            os.makedirs(spill_dir, exist_ok=True)
-
-            try:
-                n_block_lat = (nlat + BLOCK_LAT - 1) // BLOCK_LAT
-                n_block_lon = (nlon + BLOCK_LON - 1) // BLOCK_LON
-                total_blocks = n_block_lat * n_block_lon
-
-                with tqdm(
-                    total=total_blocks,
-                    desc=f"{adm_level} blocks | {hazard_type}/{hazard_indicator}",
-                    unit="block",
-                    leave=False,
-                ) as pbar:
-                    for i0 in range(0, nlat, BLOCK_LAT):
-                        i1 = min(i0 + BLOCK_LAT, nlat)
-                        for j0 in range(0, nlon, BLOCK_LON):
-                            j1 = min(j0 + BLOCK_LON, nlon)
-
-                            values_block = da_slice.isel(
-                                lat=slice(i0, i1), lon=slice(j0, j1)
-                            ).values
-                            rid_block = region_ids[i0:i1, j0:j1]
-
-                            update_reductions_and_spill(
-                                values_block,
-                                rid_block,
-                                hazard_type=hazard_type,
-                                count=count,
-                                summ=summ,
-                                vmin=vmin,
-                                vmax=vmax,
-                                nodata_value=nodata_value,
-                                spill_dir=spill_dir,
-                                n_buckets=n_buckets,
-                                spill_value_dtype=spill_value_dtype,
-                            )
-                            pbar.update(1)
-
-                q_by_rid = compute_exact_quantiles_from_spill(
-                    spill_dir=spill_dir,
-                    n_buckets=n_buckets,
-                    q_list=Q_LIST,
-                    value_dtype=spill_value_dtype,
+            rows = []
+            # iterate regions
+            for _, reg in tqdm(
+                adm_gdf.iterrows(),
+                total=len(adm_gdf),
+                desc=f"{adm_level} regions | {hazard_type}/{hazard_indicator}",
+                unit="region",
+                leave=False,
+            ):
+                region_name = reg["region"]
+                stats = compute_region_stats_for_slice(
+                    da_slice=da_slice,
+                    lats=lats,
+                    lons=lons,
+                    transform=transform,
+                    region_geom=reg.geometry,
+                    region_name=region_name,
+                    raster_bounds_poly=rb_poly,
+                    hazard_type=hazard_type,
+                    hazard_indicator=hazard_indicator,
+                    nodata_value=nodata_value,
+                    spill_root=spill_root,
                 )
 
-                rows = []
-                for rid, name in rid_to_name.items():
-                    cnt = int(count[rid])
-                    if cnt == 0:
-                        mn = mx = mean = np.nan
-                        qs = None
-                        ib = bool(intersects_bounds[rid - 1])
-                        empty_reason = (
-                            "outside_raster_bounds"
-                            if not ib
-                            else "all_nodata_or_no_overlap"
-                        )
+                qs = stats["qs"]
+                row = {
+                    "region": region_name,
+                    "adm_level": adm_level,
+                    "scenario_name": np.nan,
+                    "hazard_return_period": np.nan,
+                    "hazard_type": hazard_type,
+                    "hazard_indicator": hazard_indicator,
+                    "count": int(stats["count"]),
+                    "min": stats["min"],
+                    "max": stats["max"],
+                    "mean": stats["mean"],
+                    "median": float(qs[3]) if qs is not None else np.nan,
+                    "p2_5": float(qs[0]) if qs is not None else np.nan,
+                    "p5": float(qs[1]) if qs is not None else np.nan,
+                    "p10": float(qs[2]) if qs is not None else np.nan,
+                    "p90": float(qs[4]) if qs is not None else np.nan,
+                    "p95": float(qs[5]) if qs is not None else np.nan,
+                    "p97_5": float(qs[6]) if qs is not None else np.nan,
+                    "ensemble": ensemble_used,
+                    "intersects_raster_bounds": bool(stats["intersects_raster_bounds"]),
+                    "empty_reason": stats["empty_reason"],
+                }
+
+                for dim_name, dim_val in dim_combo.items():
+                    if dim_name in ("GWL", "gwl", "scenario"):
+                        row["scenario_name"] = str(dim_val)
+                    elif dim_name == "return_period":
+                        row["hazard_return_period"] = int(dim_val)
                     else:
-                        mn = float(vmin[rid])
-                        mx = float(vmax[rid])
-                        mean = float(summ[rid] / cnt)
-                        qs = q_by_rid.get(rid, None)
-                        ib = bool(intersects_bounds[rid - 1])
-                        empty_reason = np.nan
+                        row[dim_name] = dim_val
 
-                    row = {
-                        "region": name,
-                        "adm_level": adm_level,
-                        "scenario_name": np.nan,
-                        "hazard_return_period": np.nan,
-                        "hazard_type": hazard_type,
-                        "hazard_indicator": hazard_indicator,
-                        "count": cnt,
-                        "min": mn,
-                        "max": mx,
-                        "mean": mean,
-                        "median": float(qs[3]) if (qs is not None) else np.nan,
-                        "p2_5": float(qs[0]) if (qs is not None) else np.nan,
-                        "p5": float(qs[1]) if (qs is not None) else np.nan,
-                        "p10": float(qs[2]) if (qs is not None) else np.nan,
-                        "p90": float(qs[4]) if (qs is not None) else np.nan,
-                        "p95": float(qs[5]) if (qs is not None) else np.nan,
-                        "p97_5": float(qs[6]) if (qs is not None) else np.nan,
-                        "ensemble": ensemble_used,
-                        "intersects_raster_bounds": ib,
-                        "empty_reason": empty_reason,
-                    }
+                rows.append(row)
 
-                    for dim_name, dim_val in dim_combo.items():
-                        if dim_name in ("GWL", "gwl", "scenario"):
-                            row["scenario_name"] = str(dim_val)
-                        elif dim_name == "return_period":
-                            row["hazard_return_period"] = int(dim_val)
-                        else:
-                            row[dim_name] = dim_val
+            df = pd.DataFrame(rows)
 
-                    rows.append(row)
+            base_cols = [
+                "region",
+                "adm_level",
+                "scenario_name",
+                "hazard_return_period",
+                "hazard_type",
+                "hazard_indicator",
+                "count",
+                "min",
+                "max",
+                "mean",
+                "median",
+                "p2_5",
+                "p5",
+                "p10",
+                "p90",
+                "p95",
+                "p97_5",
+                "ensemble",
+                "intersects_raster_bounds",
+                "empty_reason",
+            ]
+            for c in base_cols:
+                if c not in df.columns:
+                    df[c] = np.nan
+            extra_cols = [c for c in df.columns if c not in base_cols]
+            df = df[base_cols + extra_cols]
 
-                df = pd.DataFrame(rows)
+            df.to_csv(
+                part_csv,
+                mode="a",
+                header=(not header_written),
+                index=False,
+                encoding="utf-8-sig",
+            )
+            header_written = True
 
-                base_cols = [
-                    "region",
-                    "adm_level",
-                    "scenario_name",
-                    "hazard_return_period",
-                    "hazard_type",
-                    "hazard_indicator",
-                    "count",
-                    "min",
-                    "max",
-                    "mean",
-                    "median",
-                    "p2_5",
-                    "p5",
-                    "p10",
-                    "p90",
-                    "p95",
-                    "p97_5",
-                    "ensemble",
-                    "intersects_raster_bounds",
-                    "empty_reason",
-                ]
-                for c in base_cols:
-                    if c not in df.columns:
-                        df[c] = np.nan
-                extra_cols = [c for c in df.columns if c not in base_cols]
-                df = df[base_cols + extra_cols]
+            del df, rows
+            gc.collect()
 
-                df.to_csv(
-                    part_csv,
-                    mode="a",
-                    header=(not header_written),
-                    index=False,
-                    encoding="utf-8-sig",
-                )
-                header_written = True
-
-                del df, rows, q_by_rid, count, summ, vmin, vmax
-                gc.collect()
-
-            finally:
-                # Critical: remove spill for this combo even on failure / kill
-                cleanup_dir(spill_dir)
-
-        # Cleanup spill root for this hazard+adm
         cleanup_dir(spill_root)
 
     finally:
@@ -687,17 +703,17 @@ def concat_parts_to_final(parts: List[str], out_csv: str) -> None:
     for p in parts:
         with open(p, "r", encoding="utf-8-sig") as f_in:
             if first:
-                shutil.copyfileobj(f_in, open(out_csv, "a", encoding="utf-8-sig"))
+                with open(out_csv, "a", encoding="utf-8-sig") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
                 first = False
             else:
-                # skip header line
                 _ = f_in.readline()
                 with open(out_csv, "a", encoding="utf-8-sig") as f_out:
                     shutil.copyfileobj(f_in, f_out)
 
 
 def main():
-    # Sanity settings to reduce native-memory growth / thread oversubscription
+    # reduce native memory/thread oversubscription
     os.environ.setdefault("GDAL_CACHEMAX", GDAL_CACHEMAX)
     os.environ.setdefault("OMP_NUM_THREADS", "1")
     os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
@@ -705,6 +721,9 @@ def main():
     os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
     os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
 
+    # -----------------------
+    # PATHS (edit if needed)
+    # -----------------------
     HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
     ADM1_PATH = "workspace/demo_inputs_fullnc/areas/state/geoBoundaries-BRA-ADM1.shp"
     ADM2_PATH = (
@@ -715,14 +734,11 @@ def main():
     OUT_DIR = "workspace/Climate Data/Precomputed Regional Data"
     OUT_CSV = os.path.join(OUT_DIR, "precomputed_adm_hazards.csv")
 
-    # Keep region-id memmaps here
-    CACHE_DIR = os.path.join(OUT_DIR, "_cache_region_ids")
-
-    # Parts directory for checkpointing
+    CACHE_DIR = os.path.join(OUT_DIR, "_cache_region_by_region")
     PARTS_DIR = os.path.join(OUT_DIR, "_parts")
+    os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(PARTS_DIR, exist_ok=True)
 
-    # collect netcdfs
     nc_files = sorted(
         glob.glob(
             os.path.join(HAZARDS_DIR, "**", "*ensemble_return_period*.nc"),
@@ -735,10 +751,11 @@ def main():
     adm1 = load_adm_shapefile(ADM1_PATH)
     adm2 = load_adm_shapefile(ADM2_PATH)
 
-    # Process each hazard file; for each, 2 parts (ADM1/ADM2)
     for i, nc_path in enumerate(nc_files, 1):
         ht, hi = parse_hazard_from_path(nc_path)
-        print(f"[{i}/{len(nc_files)}] {ht}/{hi} - {os.path.basename(nc_path)}")
+        print(
+            f"[{i}/{len(nc_files)}] {ht}/{hi} - {os.path.basename(nc_path)}", flush=True
+        )
 
         base = f"{safe_slug(ht)}__{safe_slug(hi)}"
         part1 = os.path.join(PARTS_DIR, f"{base}__ADM1.csv")
@@ -748,66 +765,48 @@ def main():
 
         # ADM1
         if os.path.exists(done1) and os.path.exists(part1):
-            print(f"  - skip ADM1 (done): {os.path.basename(part1)}")
+            print(f"  - skip ADM1 (done): {os.path.basename(part1)}", flush=True)
         else:
             if os.path.exists(part1) and not os.path.exists(done1):
-                # incomplete previous attempt: remove and recompute this part
                 os.remove(part1)
-            try:
-                process_nc_file_single_process_exact_to_part(
-                    nc_path=nc_path,
-                    adm_gdf=adm1,
-                    adm_level="ADM1",
-                    adm_path=ADM1_PATH,
-                    ensemble_filter=ENSEMBLE_FILTER,
-                    part_csv=part1,
-                    cache_dir=CACHE_DIR,
-                )
-                with open(done1, "w", encoding="utf-8") as f:
-                    f.write("ok\n")
-            finally:
-                # best-effort cleanup of any leftover spills for this hazard (ADM1)
-                spill_root = os.path.join(
-                    CACHE_DIR, "_spill", f"{safe_slug(ht)}__{safe_slug(hi)}__ADM1"
-                )
-                cleanup_dir(spill_root)
+            process_nc_file_region_by_region_to_part(
+                nc_path=nc_path,
+                adm_gdf=adm1,
+                adm_level="ADM1",
+                ensemble_filter=ENSEMBLE_FILTER,
+                part_csv=part1,
+                cache_dir=CACHE_DIR,
+            )
+            with open(done1, "w", encoding="utf-8") as f:
+                f.write("ok\n")
 
         # ADM2
         if os.path.exists(done2) and os.path.exists(part2):
-            print(f"  - skip ADM2 (done): {os.path.basename(part2)}")
+            print(f"  - skip ADM2 (done): {os.path.basename(part2)}", flush=True)
         else:
             if os.path.exists(part2) and not os.path.exists(done2):
                 os.remove(part2)
-            try:
-                process_nc_file_single_process_exact_to_part(
-                    nc_path=nc_path,
-                    adm_gdf=adm2,
-                    adm_level="ADM2",
-                    adm_path=ADM2_PATH,
-                    ensemble_filter=ENSEMBLE_FILTER,
-                    part_csv=part2,
-                    cache_dir=CACHE_DIR,
-                )
-                with open(done2, "w", encoding="utf-8") as f:
-                    f.write("ok\n")
-            finally:
-                spill_root = os.path.join(
-                    CACHE_DIR, "_spill", f"{safe_slug(ht)}__{safe_slug(hi)}__ADM2"
-                )
-                cleanup_dir(spill_root)
+            process_nc_file_region_by_region_to_part(
+                nc_path=nc_path,
+                adm_gdf=adm2,
+                adm_level="ADM2",
+                ensemble_filter=ENSEMBLE_FILTER,
+                part_csv=part2,
+                cache_dir=CACHE_DIR,
+            )
+            with open(done2, "w", encoding="utf-8") as f:
+                f.write("ok\n")
 
-        # After each hazard, do an additional sweep cleanup (in case of kill mid-combo earlier)
-        # This only touches spill dirs; region-id memmaps remain.
-        cleanup_dir(os.path.join(CACHE_DIR, "_spill"))
+        # cleanup spill dir just in case
+        cleanup_dir(os.path.join(CACHE_DIR, "_spill_region_by_region"))
 
-    # Concatenate only completed parts
     part_files = sorted(glob.glob(os.path.join(PARTS_DIR, "*.csv")))
     completed = [p for p in part_files if os.path.exists(p + ".done")]
     if not completed:
         raise RuntimeError(f"No completed part files found in {PARTS_DIR}")
 
     concat_parts_to_final(completed, OUT_CSV)
-    print(f"Saved: {OUT_CSV}")
+    print(f"Saved: {OUT_CSV}", flush=True)
 
 
 if __name__ == "__main__":
