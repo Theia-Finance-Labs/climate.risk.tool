@@ -135,7 +135,7 @@ install.packages(c("devtools", "testthat", "shinytest2", "knitr", "rmarkdown"))
 
 Load all functions without reinstalling:
 ``` r
-devtools::load_all()
+devtools::load_all(compile = FALSE)  # compile = FALSE since src/ contains Python code, not C/C++
 ```
 
 Run the development app with hot reloading:
@@ -187,6 +187,81 @@ Quick reference:
   - CSV files: `{hazard_type}/*.csv` (auto-discovered)
 - Run `Rscript data-raw/process_flood_maps_brazil.R` to generate Brazil subsets (if applicable)
 - Processed files are saved to `tests/tests_data/hazards/`
+
+### 5bis. Building NetCDF hazard indicators from `workspace/hazard_indicators/` (Python)
+
+This repo includes a small Python utility that converts a local “indicator folder” layout
+(`workspace/hazard_indicators/`) into a NetCDF-only layout that is **fast to lazy-load**
+and **optimized for runtime polygon extraction** in the app.
+
+#### Input folder layout
+
+The input root is expected to look like:
+
+- `workspace/hazard_indicators/`
+  - `hazards_metadata.csv`
+  - `<indicator_name_1>/` (contains either `*.tif`/`*.tiff` OR `*.nc`)
+  - `<indicator_name_2>/` (contains either `*.tif`/`*.tiff` OR `*.nc`)
+  - ...
+
+Notes:
+- If a folder contains GeoTIFFs, the script will convert them to a single NetCDF.
+- If a folder contains a NetCDF, the script will copy it (and rewrite only if it needs to rename the variable / enforce chunking+compression).
+- CSV-backed indicators are intentionally ignored by this script.
+
+#### `hazards_metadata.csv`
+
+If you have GeoTIFF indicators, you should provide `workspace/hazard_indicators/hazards_metadata.csv`
+as the reference for building the NetCDF dimensions.
+
+Required columns:
+- `hazard_file`
+- `hazard_type`
+- `hazard_indicator`
+- `scenario_code`
+- `scenario_name`
+- `hazard_return_period`
+
+The script matches `hazard_file` to the TIFF filenames found in each indicator folder and uses:
+- unique `scenario_name` values → NetCDF dimension `GWL`
+- unique `hazard_return_period` values → NetCDF dimension `return_period`
+
+#### Output folder layout
+
+The output root will contain one NetCDF per indicator:
+
+- `workspace/demo_inputs_refacto/hazard_indicators/`
+  - `flood_depth.nc`
+  - `land_cover.nc`
+  - `fire_weather_index.nc`
+  - ...
+
+Each file is written so the app can lazy-load quickly at startup and then read efficiently at runtime.
+
+#### How to run (full workflow)
+
+```bash
+python3 src/climate_risk_tool_python/netcdf_mgmt/build_hazard_indicators_refacto.py \
+  --input-root workspace/hazard_indicators \
+  --output-root workspace/demo_inputs_refacto/hazard_indicators \
+  --overwrite
+```
+
+#### Performance-oriented NetCDF writing (automatic)
+
+No tuning flags are needed: the writer is fully automated with the goal of making runtime extraction
+as close as possible to the original GeoTIFF performance.
+
+- **Chunking** (most important for runtime `crop()`/`mask()`):
+  - Derived from the source GeoTIFF internal block size (COG tiling), which matches the access pattern of polygon extraction.
+  - Categorical `uint8` (e.g. `land_cover`) uses 1× the TIFF block size.
+  - Multi-byte numeric rasters (e.g. flood `uint32`) use 2× the TIFF block size.
+- **Compression level**:
+  - Chosen automatically (typically `4` for categorical `uint8`, `6` for multi-byte numeric), balancing size vs decompression cost.
+- **Shuffle filter**:
+  - Enabled only for multi-byte numeric types (it does not help `uint8`).
+- **Progress display**:
+  - TIFF → NetCDF writing shows a `tqdm` progress bar instead of printing thousands of “tile N” lines.
 
 ### 6. Package Structure
 

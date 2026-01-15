@@ -170,8 +170,6 @@ def _convert_indicator_tifs_to_nc(
     indicator_dir: str,
     indicator_name: str,
     output_nc_path: str,
-    tile: int,
-    complevel: int,
     input_root: str,
     metadata_df: Optional[pd.DataFrame],
 ) -> None:
@@ -198,12 +196,9 @@ def _convert_indicator_tifs_to_nc(
             metadata_csv=md_path,
             spec=spec,
             output_nc_path=output_nc_path,
-            tile=tile,
             zlib=True,
-            complevel=complevel,
             shuffle=True,
             log_progress=True,
-            log_every_n_tiles=50,
         )
 
 
@@ -211,9 +206,12 @@ def _is_nc_already_ok_for_indicator(
     *,
     src_nc_path: str,
     indicator_name: str,
-    complevel: int,
 ) -> bool:
-    """Fast metadata-only check: variable name + stored chunking + compression."""
+    """Fast metadata-only check: variable name + stored chunking + compression.
+
+    We intentionally do NOT require the same compression level as the CLI flag.
+    If the file is already chunked+compressed, keep it to avoid expensive rewrites.
+    """
     ds = xr.open_dataset(src_nc_path, engine="netcdf4")
     try:
         vars_ = list(ds.data_vars.keys())
@@ -227,8 +225,6 @@ def _is_nc_already_ok_for_indicator(
             return False
         if not bool(enc.get("zlib", False)):
             return False
-        if int(enc.get("complevel", -1)) != int(complevel):
-            return False
         return True
     finally:
         ds.close()
@@ -239,17 +235,13 @@ def _rewrite_nc_with_variable_name_and_encoding(
     src_nc_path: str,
     dst_nc_path: str,
     indicator_name: str,
-    tile: int,
-    complevel: int,
 ) -> None:
     """
     Ensure:
     - single data var is renamed to indicator_name
     - output is NetCDF4 deflate-compressed with explicit chunksizes
     
-    Optimizes chunking for large rasters to improve read performance:
-    - For rasters >100k pixels in lat/lon: uses larger chunks (2048-4096) for better spatial access
-    - Reduces compression level for very large rasters (level 6 instead of 9) for faster decompression
+    Optimizes chunking + compression for spatial access (crop/mask) without requiring any CLI tuning.
     """
     ds0 = xr.open_dataset(src_nc_path, engine="netcdf4")
     try:
@@ -262,22 +254,17 @@ def _rewrite_nc_with_variable_name_and_encoding(
         ds = ds0.rename_vars({src_var: indicator_name}) if src_var != indicator_name else ds0
         da = ds[indicator_name]
 
-        # Adaptive chunking: use larger chunks for very large rasters to improve spatial access performance
-        # This is critical for polygon extraction operations (crop/mask) which need to decompress many chunks
+        # Chunking for spatial access: keep non-spatial dims chunked as 1; chunk lat/lon moderately.
         lat_size = ds.sizes.get("lat", 0)
         lon_size = ds.sizes.get("lon", 0)
         max_spatial_dim = max(lat_size, lon_size)
-        
-        # For very large rasters (>100k pixels), use larger chunks to reduce decompression overhead
-        # Larger chunks mean fewer chunks to decompress during spatial operations
-        if max_spatial_dim > 100000:
-            # Use 4096 chunks for extremely large rasters (>200k), 2048 for large rasters (100k-200k)
-            adaptive_tile = 4096 if max_spatial_dim > 200000 else 2048
-            # Reduce compression level for very large rasters (level 6 is a good balance)
-            adaptive_complevel = min(complevel, 6)
-        else:
-            adaptive_tile = tile
-            adaptive_complevel = complevel
+
+        # Automated defaults (no CLI parameters):
+        # - categorical uint8/int8: 512 chunks, deflate=4, no shuffle
+        # - multi-byte numeric: 512–1024 chunks, deflate=6, shuffle on
+        is_u1 = str(da.dtype) in ("uint8", "int8")
+        adaptive_complevel = 4 if is_u1 else 6
+        adaptive_tile = 512 if (is_u1 or max_spatial_dim <= 80000) else 1024
 
         chunks: Dict[str, int] = {}
         for d in da.dims:
@@ -292,7 +279,8 @@ def _rewrite_nc_with_variable_name_and_encoding(
             indicator_name: {
                 "zlib": True,
                 "complevel": int(adaptive_complevel),
-                "shuffle": True,
+                # shuffle only helps multi-byte types; for uint8 it is pointless
+                "shuffle": (not is_u1),
                 "chunksizes": chunksizes,
             }
         }
@@ -313,8 +301,6 @@ def build_refacto_hazard_indicators(
     *,
     input_root: str,
     output_root: str,
-    tile: int,
-    complevel: int,
     overwrite: bool,
 ) -> None:
     input_root = os.path.abspath(input_root)
@@ -344,7 +330,7 @@ def build_refacto_hazard_indicators(
     t0 = time.time()
     _log(f"start input={input_root}")
     _log(f"start output={output_root}")
-    _log(f"start indicators={total} tile={tile} complevel={complevel}")
+    _log(f"start indicators={total}")
 
     for i, indicator_name in enumerate(indicators, 1):
         indicator_dir = os.path.join(input_root, indicator_name)
@@ -369,8 +355,6 @@ def build_refacto_hazard_indicators(
                 indicator_dir=indicator_dir,
                 indicator_name=indicator_name,
                 output_nc_path=out_nc,
-                tile=tile,
-                complevel=complevel,
                 input_root=input_root,
                 metadata_df=metadata_df,
             )
@@ -389,7 +373,6 @@ def build_refacto_hazard_indicators(
             if _is_nc_already_ok_for_indicator(
                 src_nc_path=src,
                 indicator_name=indicator_name,
-                complevel=complevel,
             ):
                 _log(
                     f"  mode=copy-nc (already ok) src={os.path.basename(src)} dst={os.path.basename(out_nc)}"
@@ -404,8 +387,6 @@ def build_refacto_hazard_indicators(
                     src_nc_path=src,
                     dst_nc_path=out_nc,
                     indicator_name=indicator_name,
-                    tile=tile,
-                    complevel=complevel,
                 )
             continue
 
@@ -428,11 +409,6 @@ def _parse_args() -> argparse.Namespace:
         default="workspace/demo_inputs_refacto/hazard_indicators",
         help="Output root (default: workspace/demo_inputs_refacto/hazard_indicators)",
     )
-    # Defaults chosen to make NetCDF outputs competitive with GeoTIFF size:
-    # - GeoTIFFs here are tiled (often 256/512) and compressed (deflate/LZW).
-    # - Using 512 chunking + stronger deflate helps keep NetCDF smaller.
-    p.add_argument("--tile", type=int, default=512, help="Tile/chunk size (default: 512)")
-    p.add_argument("--complevel", type=int, default=9, help="Deflate level 1..9 (default: 9)")
     p.add_argument("--overwrite", action="store_true", help="Remove output-root if it exists")
     return p.parse_args()
 
@@ -442,8 +418,6 @@ def main() -> None:
     build_refacto_hazard_indicators(
         input_root=args.input_root,
         output_root=args.output_root,
-        tile=int(args.tile),
-        complevel=int(args.complevel),
         overwrite=bool(args.overwrite),
     )
 

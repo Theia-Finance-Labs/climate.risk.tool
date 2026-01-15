@@ -7,10 +7,7 @@ Why this version:
 - Avoids building/touching a full (nlat x nlon) region-id raster memmap (can be ~100GB+).
 - Reads only the raster window that overlaps each region's bbox.
 - Rasterizes the region polygon only on that window to create a mask.
-- Computes exact stats per region. For categorical land_cover, uses histograms for exact quantiles
-  without spilling. For continuous rasters, uses exact quantiles by materializing values for the region.
-  (This is memory-safe because it's per-region; if a region is still huge, we fallback to an on-disk
-   spill strategy per region.)
+- Computes exact stats per region. Uses exact quantiles by materializing values for the region.
 
 Checkpoint/cleanup:
 - Writes ONE part CSV per (hazard file, adm_level): _parts/<hazard_type>__<haz_ind>__<ADM>.csv
@@ -240,22 +237,6 @@ def exact_quantiles_from_spill_dir(spill_dir: str, q_list: np.ndarray) -> np.nda
 
 
 # -----------------------
-# Categorical land_cover quantiles via histogram (exact, no spill)
-# -----------------------
-def quantiles_from_hist(hist: np.ndarray, q_list: np.ndarray) -> np.ndarray:
-    total = int(hist.sum())
-    if total == 0:
-        return np.full(len(q_list), np.nan, dtype=np.float64)
-    cdf = np.cumsum(hist, dtype=np.int64)
-    out = np.empty(len(q_list), dtype=np.float64)
-    for i, q in enumerate(q_list):
-        k = int(np.ceil(q * total))
-        k = max(1, k)
-        out[i] = float(np.searchsorted(cdf, k, side="left"))
-    return out
-
-
-# -----------------------
 # Region-by-region computation for ONE slice (one dim_combo)
 # -----------------------
 def compute_region_stats_for_slice(
@@ -334,74 +315,11 @@ def compute_region_stats_for_slice(
             "empty_reason": "all_nodata_or_no_overlap",
         }
 
-    # Decide categorical vs continuous
-    is_landcover = hazard_type == "Fire" and hazard_indicator == "land_cover"
-
     # We'll stream inside the region window in blocks to keep memory bounded
     cnt = 0
     s = 0.0
     mn = np.inf
     mx = -np.inf
-
-    if is_landcover:
-        # exact quantiles on codes via histogram
-        n_classes = 256
-        hist = np.zeros(n_classes, dtype=np.int64)
-
-        for ii in range(i0, i1, WIN_BLOCK):
-            ii1 = min(ii + WIN_BLOCK, i1)
-            mi0 = ii - i0
-            mi1 = ii1 - i0
-            for jj in range(j0, j1, WIN_BLOCK):
-                jj1 = min(jj + WIN_BLOCK, j1)
-                mj0 = jj - j0
-                mj1 = jj1 - j0
-
-                block = da_slice.isel(lat=slice(ii, ii1), lon=slice(jj, jj1)).values
-                mblock = mask[mi0:mi1, mj0:mj1]
-
-                if not mblock.any():
-                    continue
-
-                v = block[mblock]
-                if nodata_value is not None:
-                    v = v[v != np.asarray(nodata_value, dtype=v.dtype)]
-                if v.size == 0:
-                    continue
-
-                v = np.clip(v.astype(np.int64, copy=False), 0, n_classes - 1)
-                hist += np.bincount(v, minlength=n_classes)
-
-                cnt += int(v.size)
-                s += float(v.astype(np.float64, copy=False).sum())
-                mn = min(mn, float(v.min()))
-                mx = max(mx, float(v.max()))
-
-        if cnt == 0:
-            qs = np.full(len(Q_LIST), np.nan, dtype=np.float64)
-            empty_reason = "all_nodata_or_no_overlap"
-            return {
-                "region": region_name,
-                "count": 0,
-                "min": np.nan,
-                "max": np.nan,
-                "mean": np.nan,
-                "qs": qs,
-                "intersects_raster_bounds": True,
-                "empty_reason": empty_reason,
-            }
-
-        qs = quantiles_from_hist(hist, Q_LIST)
-        return {
-            "region": region_name,
-            "count": cnt,
-            "min": float(mn),
-            "max": float(mx),
-            "mean": float(s / cnt),
-            "qs": qs,
-            "intersects_raster_bounds": True,
-            "empty_reason": np.nan,
-        }
 
     # Continuous hazards: collect values per region; if too big, spill per region.
     # We'll estimate region max values = window area; real after mask/nodata filtering.

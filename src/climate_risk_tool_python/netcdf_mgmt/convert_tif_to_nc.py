@@ -19,10 +19,11 @@ import pandas as pd
 import rasterio
 import netCDF4
 from rasterio.windows import Window
+from tqdm import tqdm
 
 # Defaults aligned with existing scripts / files in this repo
 ZLIB_DEFAULT = True
-COMPRESSION_LEVEL_DEFAULT = 4
+COMPRESSION_LEVEL_DEFAULT = None  # auto (internal only; no CLI)
 SHUFFLE_DEFAULT = True
 TILE_DEFAULT = 2000
 
@@ -47,6 +48,33 @@ def _nc_dtype_from_np(dt: np.dtype) -> str:
     if dt == np.float32:
         return "f4"
     raise ValueError(f"Unsupported raster dtype for NetCDF output: {dt}")
+
+def _auto_compression_level(
+    *, tif_profile: Dict[str, object], src_np_dtype: np.dtype
+) -> int:
+    """
+    Choose a sensible default deflate level for NetCDF4 that balances:
+    - fast read/decompression during many small window reads (crop/mask)
+    - smaller on-disk size than GeoTIFF
+
+    Notes:
+    - In practice, deflate level 4–6 is usually the best speed/size tradeoff.
+    - Very high levels (8–9) often give diminishing size gains but slower reads.
+    - For categorical uint8 (land_cover), shuffle doesn't help; compression level ~4 is fine.
+    """
+    dt = np.dtype(src_np_dtype)
+    compress = str(tif_profile.get("compress", "") or "").lower()
+
+    # If source was already deflate-compressed, keep a similar middle-ground level.
+    if "deflate" in compress or "zlib" in compress:
+        return 6
+
+    # LZW sources (e.g., land_cover COG) typically do well at moderate deflate too.
+    if "lzw" in compress:
+        return 4 if dt == np.uint8 else 6
+
+    # Default: moderate.
+    return 6 if dt.itemsize > 1 else 4
 
 
 @dataclass(frozen=True)
@@ -111,12 +139,9 @@ def convert_tifs_to_ensemble_return_period_nc(
     metadata_csv: str,
     spec: TifHazardSpec,
     output_nc_path: str,
-    tile: int = TILE_DEFAULT,
     zlib: bool = ZLIB_DEFAULT,
-    complevel: int = COMPRESSION_LEVEL_DEFAULT,
     shuffle: bool = SHUFFLE_DEFAULT,
     log_progress: bool = True,
-    log_every_n_tiles: int = 50,
 ) -> str:
     md = _read_metadata(metadata_csv)
     md = md[
@@ -201,25 +226,40 @@ def convert_tifs_to_ensemble_return_period_nc(
         if os.path.exists(output_nc_path):
             os.remove(output_nc_path)
 
-        # Adaptive chunking for NetCDF: use larger chunks for very large rasters to improve spatial access performance
-        # This is critical for polygon extraction operations (crop/mask) which need to decompress many chunks
-        max_spatial_dim = max(height, width)
-        if max_spatial_dim > 100000:
-            # Use 4096 chunks for extremely large rasters (>200k), 2048 for large rasters (100k-200k)
-            adaptive_chunk_size = 4096 if max_spatial_dim > 200000 else 2048
-            # Reduce compression level for very large rasters (level 6 is a good balance)
-            adaptive_complevel = min(complevel, 6)
-        else:
-            adaptive_chunk_size = tile
-            adaptive_complevel = complevel
+        # NetCDF chunking strategy:
+        # To make crop/mask extraction behave closer to GeoTIFF performance, chunk like the source TIFF blocks.
+        # - land_cover.tif is tiled 512x512 (COG, LZW) -> use 512x512 chunks
+        # - flood_*.tif are tiled 256x256 (DEFLATE+predictor) -> use 256x256 or small multiples
+        # Generic rule:
+        # - If source is tiled, start from its block size
+        # - Use shuffle only for multi-byte types (shuffle is pointless for uint8)
+        block_lat, block_lon = (None, None)
+        if getattr(ref, "is_tiled", False):
+            try:
+                block_lat, block_lon = ref.block_shapes[0]
+            except Exception:
+                block_lat, block_lon = (None, None)
 
-        # chunk_lat/chunk_lon for NetCDF chunksizes (affects read performance)
-        chunk_lat = min(adaptive_chunk_size, height)
-        chunk_lon = min(adaptive_chunk_size, width)
-        
-        # tile_lat/tile_lon for windowed IO (keep original tile size for write efficiency)
-        tile_lat = min(tile, height)
-        tile_lon = min(tile, width)
+        if block_lat is None or block_lon is None:
+            # Reasonable fallback if the GeoTIFF isn't tiled
+            block_lat, block_lon = (512, 512)
+
+        # Heuristic: keep categorical/uint8 at native block size; numeric can benefit from 2x blocks.
+        is_u1 = (np.dtype(src_np_dtype) == np.uint8)
+        mult = 1 if is_u1 else 2
+        chunk_lat = min(int(block_lat * mult), height)
+        chunk_lon = min(int(block_lon * mult), width)
+
+        # Automated compression (no user overrides)
+        adaptive_complevel = int(
+            _auto_compression_level(tif_profile=ref.profile, src_np_dtype=src_np_dtype)
+        )
+        adaptive_shuffle = bool(shuffle) and (np.dtype(src_np_dtype).itemsize > 1)
+
+        # tile_lat/tile_lon for windowed IO:
+        # Use the source GeoTIFF block size when available (best locality), otherwise fall back.
+        tile_lat = min(int(block_lat), height)
+        tile_lon = min(int(block_lon), width)
 
         with netCDF4.Dataset(output_nc_path, "w", format="NETCDF4") as nc:
             # Dimensions
@@ -272,7 +312,7 @@ def convert_tifs_to_ensemble_return_period_nc(
                 fill_value=fill_value,
                 zlib=zlib,
                 complevel=adaptive_complevel,
-                shuffle=shuffle,
+                shuffle=adaptive_shuffle,
                 chunksizes=chunks,
             )
             data_var.long_name = f"{spec.hazard_type} {spec.hazard_indicator}"
@@ -285,44 +325,63 @@ def convert_tifs_to_ensemble_return_period_nc(
 
             # Write each source into its slice, streaming by spatial tiles
             for src, gwl_idx, rp_idx, tif_path in sources:
-                print(
-                    f"[tif->nc] {spec.hazard_type}/{spec.hazard_indicator}: "
-                    f"GWL={gwl_vals[gwl_idx]} RP={rp_vals[rp_idx]} from {os.path.basename(tif_path)}"
-                , flush=True)
+                if log_progress:
+                    print(
+                        f"[tif->nc] {spec.hazard_type}/{spec.hazard_indicator}: "
+                        f"GWL={gwl_vals[gwl_idx]} RP={rp_vals[rp_idx]} from {os.path.basename(tif_path)}"
+                    , flush=True)
                 nodata = src.nodata
-                tile_i = 0
-                for y0 in range(0, height, tile_lat):
-                    h = min(tile_lat, height - y0)
-                    for x0 in range(0, width, tile_lon):
-                        w = min(tile_lon, width - x0)
-                        win = Window(x0, y0, w, h)
-                        arr = src.read(1, window=win)
-                        if is_int:
-                            # Preserve integer dtype for much better compression.
-                            arr = arr.astype(src_np_dtype, copy=False)
-                            # Keep nodata as-is (integer _FillValue). Don't convert to NaN.
-                        else:
-                            arr = arr.astype(np.float32, copy=False)
-                            if nodata is not None:
-                                arr[arr == nodata] = np.nan
+                
+                # Calculate total number of tiles for this source
+                n_tiles_lat = (height + tile_lat - 1) // tile_lat
+                n_tiles_lon = (width + tile_lon - 1) // tile_lon
+                total_tiles = n_tiles_lat * n_tiles_lon
+                
+                # Create progress bar for this source
+                pbar = tqdm(
+                    total=total_tiles,
+                    desc=f"  Writing tiles",
+                    unit="tile",
+                    disable=not log_progress,
+                    leave=False,
+                ) if log_progress else None
+                
+                try:
+                    tile_i = 0
+                    for y0 in range(0, height, tile_lat):
+                        h = min(tile_lat, height - y0)
+                        for x0 in range(0, width, tile_lon):
+                            w = min(tile_lon, width - x0)
+                            win = Window(x0, y0, w, h)
+                            arr = src.read(1, window=win)
+                            if is_int:
+                                # Preserve integer dtype for much better compression.
+                                arr = arr.astype(src_np_dtype, copy=False)
+                                # Keep nodata as-is (integer _FillValue). Don't convert to NaN.
+                            else:
+                                arr = arr.astype(np.float32, copy=False)
+                                if nodata is not None:
+                                    arr[arr == nodata] = np.nan
 
-                        ys = slice(y0, y0 + h)
-                        xs = slice(x0, x0 + w)
-                        if spec.include_ensemble_dim:
-                            data_var[0, gwl_idx, rp_idx, ys, xs] = arr
-                        if not spec.include_ensemble_dim:
-                            data_var[gwl_idx, rp_idx, ys, xs] = arr
+                            ys = slice(y0, y0 + h)
+                            xs = slice(x0, x0 + w)
+                            if spec.include_ensemble_dim:
+                                data_var[0, gwl_idx, rp_idx, ys, xs] = arr
+                            if not spec.include_ensemble_dim:
+                                data_var[gwl_idx, rp_idx, ys, xs] = arr
 
-                        tile_i += 1
-                        if (
-                            log_progress
-                            and log_every_n_tiles > 0
-                            and (tile_i % int(log_every_n_tiles) == 0)
-                        ):
-                            print(
-                                f"  - progress: wrote {tile_i} tiles "
-                                f"(io_tile={tile_lat}x{tile_lon}, nc_chunks={chunk_lat}x{chunk_lon})"
-                            , flush=True)
+                            tile_i += 1
+                            if pbar is not None:
+                                pbar.update(1)
+                                # Update description with chunk info every 50 tiles
+                                if tile_i % 50 == 0:
+                                    pbar.set_postfix({
+                                        "io_tile": f"{tile_lat}x{tile_lon}",
+                                        "nc_chunks": f"{chunk_lat}x{chunk_lon}"
+                                    })
+                finally:
+                    if pbar is not None:
+                        pbar.close()
 
         return output_nc_path
     finally:
@@ -363,18 +422,6 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         default="mean",
         help="Value for ensemble dim (default: mean)",
     )
-    p.add_argument(
-        "--tile",
-        type=int,
-        default=TILE_DEFAULT,
-        help="Tile size for windowed IO (default: 2000)",
-    )
-    p.add_argument(
-        "--complevel",
-        type=int,
-        default=COMPRESSION_LEVEL_DEFAULT,
-        help="Deflate level (1..9)",
-    )
     p.add_argument("--no-shuffle", action="store_true", help="Disable shuffle filter")
     return p.parse_args(argv)
 
@@ -393,9 +440,7 @@ def main(argv: Optional[List[str]] = None) -> None:
         metadata_csv=args.metadata_csv,
         spec=spec,
         output_nc_path=args.output_nc,
-        tile=int(args.tile),
         zlib=True,
-        complevel=int(args.complevel),
         shuffle=(not args.no_shuffle),
     )
     print(f"✅ Wrote: {out}")
