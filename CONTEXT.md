@@ -53,7 +53,7 @@ The tool uses a **unified hazard configuration architecture** that supports both
 
 **Multi-Indicator Hazards** (multiple data sources combined):
 - **Fire**: Combines 3 indicators:
-  - `land_cover`: Static land cover classification (TIF)
+  - `land_cover`: Static land cover classification (TIF or NetCDF, depending on the dataset)
   - `FWI`: Fire Weather Index max value (NetCDF)
   - `days_danger_total`: Days with significant fire weather (NetCDF)
 
@@ -92,6 +92,12 @@ Implementation:
 2. `filter_inventory_for_ui()` filters to only primary indicators
 3. UI dropdowns populated from filtered inventory
 4. Multi-indicator complexity handled internally
+
+#### NetCDF hazard loading/extraction notes (performance-critical)
+
+- **Pre-aggregated NetCDFs**: when `aggregate_factor > 1`, the loader prefers files named `__agg{aggregate_factor}.nc` (and can fall back to aggregated-only hazards when the non-aggregated original is absent; common in `tests/tests_data`).
+- **Label normalization**: some NetCDFs store categorical dimensions as indices (e.g., `GWL = 1..4`, `season = 1..4`). These are mapped to canonical labels used across the pipeline (`GWL`: `present, 1.5, 2, 3`; `season`: `Summer, Autumn, Winter, Spring`) so that `hazard_name` strings remain stable.
+- **Spatial extraction performance**: coordinate-based extraction uses vectorized `terra::extract()` over all asset geometries per hazard layer (instead of per-asset crop/mask loops), which is the main lever for matching GeoTIFF-era performance.
 
 #### Event Expansion
 

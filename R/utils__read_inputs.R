@@ -452,25 +452,30 @@ read_precomputed_hazards <- function(base_dir) {
     stop("Precomputed hazards file not found at: ", precomputed_path)
   }
 
-  # Read the precomputed hazards CSV
-  precomputed_df <- readr::read_csv(precomputed_path, show_col_types = FALSE) |>
+  # Read the precomputed hazards CSV with optimized options
+  # Using show_col_types = FALSE to skip type checking during read (faster)
+  precomputed_df <- readr::read_csv(
+    precomputed_path,
+    show_col_types = FALSE
+  ) |>
     tibble::as_tibble()
 
   # Filter to a single representative ensemble variant per hazard scenario
   # Prefer "mean", then "median", then first available.
   # This prevents duplicates when the CSV contains multiple ensemble versions of the same data.
   group_cols <- c("region", "adm_level", "scenario_name", "hazard_return_period", "hazard_type", "hazard_indicator")
-  if ("season" %in% names(precomputed_df)) {
+  has_season <- "season" %in% names(precomputed_df)
+  if (has_season) {
     group_cols <- c(group_cols, "season")
   }
 
   precomputed_df <- precomputed_df |>
     dplyr::mutate(
       ensemble_priority = dplyr::case_when(
-        tolower(.data$ensemble) == "mean" ~ 1,
-        tolower(.data$ensemble) == "median" ~ 2,
-        is.na(.data$ensemble) ~ 3,
-        TRUE ~ 4
+        tolower(.data$ensemble) == "mean" ~ 1L,
+        tolower(.data$ensemble) == "median" ~ 2L,
+        is.na(.data$ensemble) ~ 3L,
+        TRUE ~ 4L
       )
     ) |>
     dplyr::group_by(dplyr::across(dplyr::any_of(group_cols))) |>
@@ -492,74 +497,42 @@ read_precomputed_hazards <- function(base_dir) {
 
   # Transform data: construct proper hazard_name and create ensemble-specific rows
   # Unified naming WITHOUT ensemble suffix (base event format)
+  # Use pivot_longer instead of loop for better performance
 
-  # Define ensemble columns to melt
+  # Define ensemble columns to pivot
   summary_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
-
-  transformed_list <- list()
-
-  for (summ_col in summary_cols) {
-    # Create rows for this ensemble
-    # Check if season column exists for drought hazards
-    has_season <- "season" %in% names(precomputed_df)
-
-    if (has_season) {
-      ensemble_data <- precomputed_df |>
-        dplyr::mutate(
-          # Unified hazard_name - identical to load_nc_hazards_with_metadata
-          # Only add season if it exists and is not NA
-          season_suffix = dplyr::if_else(
-            is.na(.data$season) | .data$season == "",
-            "",
-            paste0("__season=", .data$season)
-          ),
-          # App policy: the representative ensemble is always labeled 'mean' internally
-          # regardless of what the CSV's ensemble column contains.
-          ensemble_val = "mean",
-          ensemble_suffix = "__ensemble=mean",
-          hazard_name = paste0(
-            .data$hazard_type, "__", .data$hazard_indicator,
-            "__GWL=", .data$scenario_name,
-            "__RP=", .data$hazard_return_period,
-            .data$season_suffix,
-            .data$ensemble_suffix
-          ),
-          aggregation_method = summ_col,
-          hazard_value = .data[[summ_col]],
-          ensemble = ensemble_val
-        ) |>
-        dplyr::select(-"ensemble_suffix", -"season_suffix", -"ensemble_val")
-    } else {
-      ensemble_data <- precomputed_df |>
-        dplyr::mutate(
-          # Unified hazard_name WITHOUT season
-          # App policy: the representative ensemble is always labeled 'mean' internally
-          ensemble_val = "mean",
-          ensemble_suffix = "__ensemble=mean",
-          hazard_name = paste0(
-            .data$hazard_type, "__", .data$hazard_indicator,
-            "__GWL=", .data$scenario_name,
-            "__RP=", .data$hazard_return_period,
-            .data$ensemble_suffix
-          ),
-          aggregation_method = summ_col,
-          hazard_value = .data[[summ_col]],
-          ensemble = ensemble_val
-        ) |>
-        dplyr::select(-"ensemble_suffix", -"ensemble_val")
-    }
-
-    transformed_list[[summ_col]] <- ensemble_data
-  }
-
-  # Combine all ensemble variants
-  precomputed_final <- dplyr::bind_rows(transformed_list)
+  
+  # Use pivot_longer to reshape efficiently - much faster than loop
+  precomputed_final <- precomputed_df |>
+    tidyr::pivot_longer(
+      cols = dplyr::all_of(summary_cols),
+      names_to = "aggregation_method",
+      values_to = "hazard_value",
+      values_drop_na = FALSE
+    ) |>
+    dplyr::mutate(
+      # App policy: the representative ensemble is always labeled 'mean' internally
+      ensemble = "mean",
+      # Build hazard_name efficiently
+      season_suffix = dplyr::if_else(
+        has_season & !is.na(.data$season) & .data$season != "",
+        paste0("__season=", .data$season),
+        ""
+      ),
+      hazard_name = paste0(
+        .data$hazard_type, "__", .data$hazard_indicator,
+        "__GWL=", .data$scenario_name,
+        "__RP=", .data$hazard_return_period,
+        .data$season_suffix,
+        "__ensemble=mean"
+      )
+    ) |>
+    dplyr::select(-"season_suffix")
 
   # Preserve season column if it exists (for drought hazards)
-  if ("season" %in% names(precomputed_final)) {
+  if (has_season) {
     precomputed_final <- precomputed_final |>
       dplyr::mutate(
-        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
         scenario_name = as.character(.data$scenario_name),
         season = as.character(.data$season)
       )
@@ -568,7 +541,6 @@ read_precomputed_hazards <- function(base_dir) {
   } else {
     precomputed_final <- precomputed_final |>
       dplyr::mutate(
-        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
         scenario_name = as.character(.data$scenario_name)
       )
   }

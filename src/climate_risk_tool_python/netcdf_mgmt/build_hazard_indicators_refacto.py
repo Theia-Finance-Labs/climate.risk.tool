@@ -172,6 +172,7 @@ def _convert_indicator_tifs_to_nc(
     output_nc_path: str,
     input_root: str,
     metadata_df: Optional[pd.DataFrame],
+    compress: bool,
 ) -> None:
     md, hazard_type, hazard_indicator = _get_metadata_for_indicator(
         indicator_dir, indicator_name, input_root, metadata_df
@@ -196,7 +197,7 @@ def _convert_indicator_tifs_to_nc(
             metadata_csv=md_path,
             spec=spec,
             output_nc_path=output_nc_path,
-            zlib=True,
+            zlib=bool(compress),
             shuffle=True,
             log_progress=True,
         )
@@ -206,6 +207,7 @@ def _is_nc_already_ok_for_indicator(
     *,
     src_nc_path: str,
     indicator_name: str,
+    compress: bool,
 ) -> bool:
     """Fast metadata-only check: variable name + stored chunking + compression.
 
@@ -223,7 +225,7 @@ def _is_nc_already_ok_for_indicator(
         enc = ds[v].encoding or {}
         if not enc.get("chunksizes"):
             return False
-        if not bool(enc.get("zlib", False)):
+        if bool(enc.get("zlib", False)) != bool(compress):
             return False
         return True
     finally:
@@ -235,6 +237,7 @@ def _rewrite_nc_with_variable_name_and_encoding(
     src_nc_path: str,
     dst_nc_path: str,
     indicator_name: str,
+    compress: bool,
 ) -> None:
     """
     Ensure:
@@ -277,10 +280,10 @@ def _rewrite_nc_with_variable_name_and_encoding(
         chunksizes = tuple(int(chunks[d]) for d in da.dims)
         encoding = {
             indicator_name: {
-                "zlib": True,
+                "zlib": bool(compress),
                 "complevel": int(adaptive_complevel),
                 # shuffle only helps multi-byte types; for uint8 it is pointless
-                "shuffle": (not is_u1),
+                "shuffle": (not is_u1) if compress else False,
                 "chunksizes": chunksizes,
             }
         }
@@ -302,6 +305,7 @@ def build_refacto_hazard_indicators(
     input_root: str,
     output_root: str,
     overwrite: bool,
+    compress: bool,
 ) -> None:
     input_root = os.path.abspath(input_root)
     output_root = os.path.abspath(output_root)
@@ -357,6 +361,7 @@ def build_refacto_hazard_indicators(
                 output_nc_path=out_nc,
                 input_root=input_root,
                 metadata_df=metadata_df,
+                compress=compress,
             )
             _log(
                 f"  wrote={out_nc} size_mb={os.path.getsize(out_nc)/(1024*1024):.2f} "
@@ -373,6 +378,7 @@ def build_refacto_hazard_indicators(
             if _is_nc_already_ok_for_indicator(
                 src_nc_path=src,
                 indicator_name=indicator_name,
+                compress=compress,
             ):
                 _log(
                     f"  mode=copy-nc (already ok) src={os.path.basename(src)} dst={os.path.basename(out_nc)}"
@@ -387,6 +393,7 @@ def build_refacto_hazard_indicators(
                     src_nc_path=src,
                     dst_nc_path=out_nc,
                     indicator_name=indicator_name,
+                    compress=compress,
                 )
             continue
 
@@ -410,6 +417,11 @@ def _parse_args() -> argparse.Namespace:
         help="Output root (default: workspace/demo_inputs_refacto/hazard_indicators)",
     )
     p.add_argument("--overwrite", action="store_true", help="Remove output-root if it exists")
+    p.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Disable NetCDF DEFLATE compression entirely (faster reads; much larger files)",
+    )
     return p.parse_args()
 
 
@@ -419,6 +431,7 @@ def main() -> None:
         input_root=args.input_root,
         output_root=args.output_root,
         overwrite=bool(args.overwrite),
+        compress=(not bool(args.no_compress)),
     )
 
 

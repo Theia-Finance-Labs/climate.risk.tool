@@ -103,6 +103,53 @@ testthat::test_that("geolocated assets extract from NC files", {
   testthat::expect_equal(length(unique(out$asset)), 2)
 })
 
+testthat::test_that("spatial extraction uses buffered geometries and returns deterministic values (fast path)", {
+  # Minimal synthetic raster: 10x10 with 1-degree cells, values 1..100
+  r <- terra::rast(ncols = 10, nrows = 10, xmin = 0, xmax = 10, ymin = 0, ymax = 10, crs = "EPSG:4326")
+  terra::values(r) <- seq_len(terra::ncell(r))
+
+  hazards <- list("Flood__depth(cm)__GWL=present__RP=10__ensemble=mean" = r)
+  inventory <- tibble::tibble(
+    hazard_name = "Flood__depth(cm)__GWL=present__RP=10__ensemble=mean",
+    hazard_type = "Flood",
+    hazard_indicator = "depth(cm)",
+    hazard_return_period = 10,
+    scenario_name = "present",
+    source = "nc"
+  )
+
+  assets <- tibble::tibble(
+    asset = c("a1", "a2"),
+    company = c("c1", "c2"),
+    latitude = c(5.5, 8.5),
+    longitude = c(5.5, 1.5),
+    municipality = NA_character_,
+    state = NA_character_,
+    asset_category = "office",
+    asset_subtype = NA_character_,
+    size_in_m2 = 1, # tiny buffer (should fall within a single raster cell)
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
+  )
+
+  out <- extract_hazard_statistics(
+    assets_df = assets,
+    hazards = hazards,
+    hazards_inventory = inventory,
+    precomputed_hazards = tibble::tibble(),
+    aggregation_method = "mean"
+  )
+
+  # Deterministic expected values: for tiny buffers, mean == the cell value at the asset point
+  ex <- terra::extract(r, cbind(assets$longitude, assets$latitude))
+  # terra::extract() for matrix xy returns a 1-col data.frame (no ID column)
+  expected_vals <- as.numeric(ex[[1]])
+
+  testthat::expect_equal(out$hazard_name, rep(inventory$hazard_name, 2))
+  testthat::expect_equal(out$matching_method, rep("coordinates", 2))
+  testthat::expect_equal(out$hazard_intensity, expected_vals)
+})
+
 
 testthat::test_that("mixed assets use priority: coordinates > municipality > state", {
   base_dir <- get_test_data_dir()

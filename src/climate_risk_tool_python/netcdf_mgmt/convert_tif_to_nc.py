@@ -141,6 +141,7 @@ def convert_tifs_to_ensemble_return_period_nc(
     output_nc_path: str,
     zlib: bool = ZLIB_DEFAULT,
     shuffle: bool = SHUFFLE_DEFAULT,
+    compression_level: Optional[int] = COMPRESSION_LEVEL_DEFAULT,
     log_progress: bool = True,
 ) -> str:
     md = _read_metadata(metadata_csv)
@@ -250,11 +251,18 @@ def convert_tifs_to_ensemble_return_period_nc(
         chunk_lat = min(int(block_lat * mult), height)
         chunk_lon = min(int(block_lon * mult), width)
 
-        # Automated compression (no user overrides)
+        # Compression/chunking:
+        # - Chunking is always enabled (GeoTIFF-like spatial locality for random access).
+        # - Compression is optional; disabling it can significantly speed up extraction workloads
+        #   dominated by many small reads (at the cost of much larger files).
         adaptive_complevel = int(
             _auto_compression_level(tif_profile=ref.profile, src_np_dtype=src_np_dtype)
         )
+        if compression_level is not None:
+            adaptive_complevel = int(compression_level)
         adaptive_shuffle = bool(shuffle) and (np.dtype(src_np_dtype).itemsize > 1)
+        if not zlib:
+            adaptive_shuffle = False
 
         # tile_lat/tile_lon for windowed IO:
         # Use the source GeoTIFF block size when available (best locality), otherwise fall back.
@@ -413,6 +421,17 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     )
     p.add_argument("--output-nc", required=True, help="Output NetCDF path")
     p.add_argument(
+        "--no-compress",
+        action="store_true",
+        help="Disable NetCDF DEFLATE compression entirely (faster reads; much larger files)",
+    )
+    p.add_argument(
+        "--compression-level",
+        type=int,
+        default=None,
+        help="Override NetCDF compression level (1-9). Ignored when --no-compress is set.",
+    )
+    p.add_argument(
         "--include-ensemble-dim",
         action="store_true",
         help="Include ensemble dim size 1",
@@ -440,8 +459,9 @@ def main(argv: Optional[List[str]] = None) -> None:
         metadata_csv=args.metadata_csv,
         spec=spec,
         output_nc_path=args.output_nc,
-        zlib=True,
+        zlib=(not args.no_compress),
         shuffle=(not args.no_shuffle),
+        compression_level=(None if args.no_compress else args.compression_level),
     )
     print(f"✅ Wrote: {out}")
     print(f"   Size: {os.path.getsize(out) / (1024*1024):.2f} MB")

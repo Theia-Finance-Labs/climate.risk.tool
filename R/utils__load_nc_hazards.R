@@ -54,9 +54,36 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
   hazards_dir <- normalizePath(hazards_dir, winslash = "/", mustWork = TRUE)
   
   all_nc_files <- list.files(hazards_dir, pattern = "\\.nc$", full.names = TRUE, recursive = TRUE)
+  if (length(all_nc_files) == 0) {
+    return(list(
+      hazards = list(),
+      inventory = tibble::tibble()
+    ))
+  }
 
-  # Filter out aggregated files from the initial scan (they'll be loaded via aggregation logic)
-  nc_files <- all_nc_files[!grepl("__agg\\d+\\.nc$", all_nc_files)]
+  # Group files by "base" path where __agg{N} is removed.
+  # This lets us:
+  # - Prefer originals when present
+  # - Fall back to aggregated files when originals are absent (e.g., tests ship only __agg16 for some hazards)
+  base_path <- function(p) {
+    sub("__agg\\d+(?=\\.nc$)", "", p, perl = TRUE)
+  }
+  grouped <- split(all_nc_files, vapply(all_nc_files, base_path, character(1)))
+  nc_files <- vapply(names(grouped), function(base) {
+    # Prefer the true original if it exists; otherwise fall back to any available file for that base.
+    if (file.exists(base)) {
+      return(base)
+    }
+    files <- grouped[[base]]
+    # Prefer the requested aggregation factor when possible
+    if (aggregate_factor > 1) {
+      desired <- sub("\\.nc$", paste0("__agg", aggregate_factor, ".nc"), base)
+      if (desired %in% files && file.exists(desired)) {
+        return(desired)
+      }
+    }
+    files[[1]]
+  }, character(1))
 
   if (length(nc_files) == 0) {
     return(list(
@@ -71,11 +98,18 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
   for (original_file in nc_files) {
     f <- original_file
 
-    # NC aggregation disabled - terra::aggregate breaks multi-dimensional structure
-    # (converts string dimension labels to numeric indices, loses metadata)
-    # For NC files, always use original file regardless of aggregate_factor
+    # Prefer pre-aggregated NetCDFs when available.
+    # We do NOT attempt on-the-fly terra::aggregate() for NetCDF because it can break
+    # multi-dimensional metadata; instead we rely on explicit, precomputed aggregated files.
     if (aggregate_factor > 1) {
-      message("  Loading NetCDF file: ", basename(f), " (aggregation not supported for NC files)")
+      base <- sub("__agg\\d+\\.nc$", ".nc", f)
+      agg_path <- sub("\\.nc$", paste0("__agg", aggregate_factor, ".nc"), base)
+      if (file.exists(agg_path)) {
+        f <- agg_path
+        message("  Loading NetCDF file: ", basename(base), " (using pre-aggregated ", basename(f), ")")
+      } else {
+        message("  Loading NetCDF file: ", basename(f), " (no pre-aggregated __agg", aggregate_factor, ".nc found)")
+      }
     } else {
       message("  Loading NetCDF file: ", basename(f))
     }
@@ -235,6 +269,23 @@ load_nc_hazards_with_metadata <- function(hazards_dir,
       # No season dimension - return try-error to indicate missing dimension
       structure("no_season_dim", class = "try-error")
     }
+
+    # Some aggregated NetCDFs store categorical dimensions (GWL/season/ensemble) as 1..N indices
+    # with no label variable. Map to the canonical labels used across the pipeline/tests.
+    normalize_indexed_dim <- function(vals, mapping) {
+      if (inherits(vals, "try-error")) return(vals)
+      if (is.null(vals) || length(vals) == 0) return(vals)
+      if ((is.integer(vals) || is.numeric(vals)) &&
+        length(vals) == length(mapping) &&
+        all(as.integer(vals) == seq_along(mapping))) {
+        return(mapping)
+      }
+      vals
+    }
+
+    # Canonical mappings (as used in precomputed hazards + tests)
+    gwl_vals <- normalize_indexed_dim(gwl_vals, c("present", "1.5", "2", "3"))
+    season_vals <- normalize_indexed_dim(season_vals, c("Summer", "Autumn", "Winter", "Spring"))
 
     # Determine ensemble values to iterate over
     # Only load 'mean' ensemble by default to avoid iteration over all ensemble values

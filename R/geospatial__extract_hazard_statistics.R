@@ -78,21 +78,23 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
   # ========= Process raster hazards (NetCDF with polygon extraction) =========
   if (nrow(raster_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing NetCDF raster hazards with polygon extraction...")
+    message("  [extract_spatial_statistics] Processing NetCDF raster hazards with vectorized extraction...")
 
     # Define aggregation function mapping (used for TIF sources)
     aggregation_functions <- list(
-      "mean" = function(x) mean(x, na.rm = TRUE),
-      "median" = function(x) stats::median(x, na.rm = TRUE),
-      "max" = function(x) max(x, na.rm = TRUE),
-      "min" = function(x) min(x, na.rm = TRUE),
-      "p2_5" = function(x) as.numeric(stats::quantile(x, 0.025, na.rm = TRUE, type = 7)),
-      "p5" = function(x) as.numeric(stats::quantile(x, 0.05, na.rm = TRUE, type = 7)),
-      "p10" = function(x) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
-      "p90" = function(x) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
-      "p95" = function(x) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
-      "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7)),
-      "mode" = function(x) {
+      # Note: terra::extract() may forward extra arguments to `fun` (e.g., na.rm).
+      # All aggregation functions accept `...` to avoid unused-argument errors.
+      "mean" = function(x, ...) mean(x, na.rm = TRUE),
+      "median" = function(x, ...) stats::median(x, na.rm = TRUE),
+      "max" = function(x, ...) max(x, na.rm = TRUE),
+      "min" = function(x, ...) min(x, na.rm = TRUE),
+      "p2_5" = function(x, ...) as.numeric(stats::quantile(x, 0.025, na.rm = TRUE, type = 7)),
+      "p5" = function(x, ...) as.numeric(stats::quantile(x, 0.05, na.rm = TRUE, type = 7)),
+      "p10" = function(x, ...) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
+      "p90" = function(x, ...) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
+      "p95" = function(x, ...) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
+      "p97_5" = function(x, ...) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7)),
+      "mode" = function(x, ...) {
         # Get most common value (for categorical data like land cover)
         x_clean <- x[!is.na(x)]
         if (length(x_clean) == 0) {
@@ -172,63 +174,32 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       r_crs <- terra::crs(hazard_rast)
       if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
-      # Unified extraction method: polygon extraction with masking and aggregation for NetCDF
-      message("      Using polygon extraction (crop/mask) for NetCDF source")
+      # Fast path: vectorized terra::extract over all geometries at once (huge speedup vs per-asset crop/mask)
+      assets_sf_transformed <- sf::st_transform(assets_sf, r_crs)
+      geom_vect <- terra::vect(assets_sf_transformed)
 
-      n_geoms <- nrow(assets_sf)
-      stats_df <- tibble::tibble(
-        ID = seq_len(n_geoms),
-        hazard_intensity = NA_real_
+      extracted <- tryCatch(
+        terra::extract(hazard_rast, geom_vect, fun = agg_func, na.rm = TRUE),
+        error = function(e) NULL
       )
 
-      # Process each geometry
-      for (j in seq_len(n_geoms)) {
-        if (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms) {
-          message("      Asset ", j, "/", n_geoms, " (", round(100 * j / n_geoms), "%)")
-        }
+      n_geoms <- nrow(assets_sf)
+      hazard_vals <- if (!is.null(extracted) && nrow(extracted) == n_geoms) {
+        # terra::extract returns an ID column + one column per layer; hazard_rast is single-layer here
+        as.numeric(extracted[[ncol(extracted)]])
+      } else {
+        rep(NA_real_, n_geoms)
+      }
 
-        geom_j <- assets_sf |> dplyr::slice(j)
-        geom_j_transformed <- sf::st_transform(geom_j, r_crs)
-        geom_vect <- terra::vect(geom_j_transformed)
-
-        r_crop <- tryCatch(
-          suppressWarnings(terra::crop(hazard_rast, geom_vect)),
-          error = function(e) NULL
-        )
-
-        if (!is.null(r_crop) && terra::ncell(r_crop) > 0) {
-          r_mask <- tryCatch(
-            suppressWarnings(terra::mask(r_crop, geom_vect)),
-            error = function(e) NULL
-          )
-
-          if (!is.null(r_mask) && terra::ncell(r_mask) > 0) {
-            vals <- as.numeric(terra::values(r_mask, mat = FALSE, na.rm = TRUE))
-
-            if (length(vals) > 0) {
-              # Apply the chosen aggregation method
-              intensity_val <- agg_func(vals)
-
-              # For Fire land_cover (categorical codes), round to nearest integer
-              # Aggregated rasters may have fractional values, but land_cover codes are whole numbers
-              if (hazard_type == "Fire" && hazard_indicator == "land_cover" && !is.na(intensity_val)) {
-                intensity_val <- round(intensity_val)
-              }
-
-              # Update hazard_intensity
-              stats_df <- stats_df |>
-                dplyr::mutate(
-                  hazard_intensity = dplyr::if_else(.data$ID == j, intensity_val, .data$hazard_intensity)
-                )
-            }
-          }
-        }
+      # For Fire land_cover (categorical codes), round to nearest integer
+      if (hazard_type == "Fire" && hazard_indicator == "land_cover") {
+        hazard_vals <- ifelse(is.na(hazard_vals), NA_real_, round(hazard_vals))
       }
 
       # Combine statistics with asset data
       df_i <- dplyr::bind_cols(
         sf::st_drop_geometry(assets_sf),
-        stats_df |> dplyr::select(-"ID")
+        tibble::tibble(hazard_intensity = hazard_vals)
       ) |>
         dplyr::mutate(
           # Use hazard_name directly (no extra suffix)

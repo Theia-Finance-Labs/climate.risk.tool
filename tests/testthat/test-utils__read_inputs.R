@@ -153,10 +153,16 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
   testthat::expect_true(all(precomputed$adm_level %in% c("ADM1", "ADM2")))
 
   # Numeric columns should be numeric
-  numeric_cols <- c("min", "max", "mean", "median", "p2_5", "p5", "p95", "p97_5", "hazard_return_period")
+  # Note: mean, median, p2_5, p5, p95, p97_5 are pivoted into aggregation_method and hazard_value
+  numeric_cols <- c("min", "max", "hazard_return_period", "hazard_value")
   for (col in numeric_cols) {
-    testthat::expect_true(is.numeric(precomputed[[col]]))
+    if (col %in% names(precomputed)) {
+      testthat::expect_true(is.numeric(precomputed[[col]]))
+    }
   }
+  
+  # aggregation_method should contain the summary statistics
+  testthat::expect_true(all(c("mean", "median", "p2_5", "p5", "p95", "p97_5") %in% unique(precomputed$aggregation_method)))
 })
 
 

@@ -60,6 +60,29 @@ warnings.filterwarnings(
 # -----------------------
 Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64)
 
+BASE_COLS = [
+    "region",
+    "adm_level",
+    "scenario_name",
+    "hazard_return_period",
+    "hazard_type",
+    "hazard_indicator",
+    "count",
+    "min",
+    "max",
+    "mean",
+    "median",
+    "p2_5",
+    "p5",
+    "p10",
+    "p90",
+    "p95",
+    "p97_5",
+    "ensemble",
+    "intersects_raster_bounds",
+    "empty_reason",
+]
+
 # Window block size when reading a region window in chunks (within bbox window)
 # (keeps per-region processing bounded even for large regions)
 WIN_BLOCK = 2048
@@ -566,33 +589,11 @@ def process_nc_file_region_by_region_to_part(
 
             df = pd.DataFrame(rows)
 
-            base_cols = [
-                "region",
-                "adm_level",
-                "scenario_name",
-                "hazard_return_period",
-                "hazard_type",
-                "hazard_indicator",
-                "count",
-                "min",
-                "max",
-                "mean",
-                "median",
-                "p2_5",
-                "p5",
-                "p10",
-                "p90",
-                "p95",
-                "p97_5",
-                "ensemble",
-                "intersects_raster_bounds",
-                "empty_reason",
-            ]
-            for c in base_cols:
+            for c in BASE_COLS:
                 if c not in df.columns:
                     df[c] = np.nan
-            extra_cols = [c for c in df.columns if c not in base_cols]
-            df = df[base_cols + extra_cols]
+            extra_cols = [c for c in df.columns if c not in BASE_COLS]
+            df = df[BASE_COLS + extra_cols]
 
             df.to_csv(
                 part_csv,
@@ -617,17 +618,35 @@ def concat_parts_to_final(parts: List[str], out_csv: str) -> None:
     if os.path.exists(out_csv):
         os.remove(out_csv)
 
-    first = True
-    for p in parts:
-        with open(p, "r", encoding="utf-8-sig") as f_in:
-            if first:
-                with open(out_csv, "a", encoding="utf-8-sig") as f_out:
-                    shutil.copyfileobj(f_in, f_out)
-                first = False
-            else:
-                _ = f_in.readline()
-                with open(out_csv, "a", encoding="utf-8-sig") as f_out:
-                    shutil.copyfileobj(f_in, f_out)
+    if not parts:
+        return
+
+    print(f"Concatenating {len(parts)} parts to {out_csv}...", flush=True)
+
+    # We use pandas to concatenate parts because different parts might have different
+    # extra columns (dimensions from NetCDF). pd.concat handles the union of columns.
+    dfs = []
+    for p in tqdm(parts, desc="Reading parts"):
+        try:
+            # Using low_memory=False to avoid DtypeWarning and ensure consistent parsing
+            dfs.append(pd.read_csv(p, encoding="utf-8-sig", low_memory=False))
+        except Exception as e:
+            print(f"Error reading part {p}: {e}")
+
+    if not dfs:
+        print("No data found in parts.")
+        return
+
+    final_df = pd.concat(dfs, ignore_index=True)
+
+    # Ensure BASE_COLS are at the front, followed by any extra columns
+    # Filter BASE_COLS to only those that actually exist in final_df
+    existing_base = [c for c in BASE_COLS if c in final_df.columns]
+    extra_cols = [c for c in final_df.columns if c not in existing_base]
+    final_df = final_df[existing_base + extra_cols]
+
+    final_df.to_csv(out_csv, index=False, encoding="utf-8-sig")
+    print(f"Successfully saved {len(final_df)} rows to {out_csv}", flush=True)
 
 
 def main():
