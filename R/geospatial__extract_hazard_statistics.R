@@ -69,18 +69,18 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
   message("  [extract_spatial_statistics] Extracting hazard statistics...")
   message("    Using aggregation method: ", aggregation_method)
 
-  # Filter to only NetCDF raster hazards that actually exist in the hazards list
+  # Filter to raster hazards (NetCDF or TIF) that actually exist in the hazards list
   available_hazard_names <- names(hazards)
   raster_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source == "nc", .data$hazard_name %in% available_hazard_names)
+    dplyr::filter(.data$source %in% c("nc", "tif"), .data$hazard_name %in% available_hazard_names)
 
   all_results <- list()
 
-  # ========= Process raster hazards (NetCDF with polygon extraction) =========
+  # ========= Process raster hazards (NetCDF or TIF with polygon extraction) =========
   if (nrow(raster_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing NetCDF raster hazards with vectorized extraction...")
+    message("  [extract_spatial_statistics] Processing raster hazards (NC/TIF) with vectorized extraction...")
 
-    # Define aggregation function mapping (used for TIF sources)
+    # Define aggregation function mapping (used for both NC and TIF sources)
     aggregation_functions <- list(
       # Note: terra::extract() may forward extra arguments to `fun` (e.g., na.rm).
       # All aggregation functions accept `...` to avoid unused-argument errors.
@@ -104,10 +104,10 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         ux[which.max(tabulate(match(x_clean, ux)))]
       }
     )
-    # Validate aggregation method for NetCDF sources
+    # Validate aggregation method for raster sources
     if (!aggregation_method %in% names(aggregation_functions)) {
       stop(
-        "Invalid aggregation_method '", aggregation_method, "' for NetCDF extraction. ",
+        "Invalid aggregation_method '", aggregation_method, "' for raster extraction. ",
         "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
       )
     }

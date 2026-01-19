@@ -1,3 +1,50 @@
+testthat::test_that("geolocated assets extract from TIF files", {
+  # Load all hazards (including the dummy TIFs we created)
+  hazard_data <- load_hazards_and_inventory(get_hazards_dir())
+
+  # Define events with TIF hazard
+  events <- tibble::tibble(
+    hazard_name = "Flood__depth(cm)__GWL=present__RP=10__ensemble=mean",
+    event_year = 2030,
+    scenario_name = "present",
+    hazard_return_period = 10,
+    hazard_type = "Flood"
+  )
+
+  # Filter hazards
+  tif_hazards <- filter_hazards_by_events(hazard_data$hazards, events, hazard_data$inventory)
+  tif_inventory <- hazard_data$inventory |>
+    dplyr::filter(.data$source == "tif", .data$hazard_name %in% names(tif_hazards))
+
+  # Create an asset with coordinates in our dummy TIF's extent
+  assets <- tibble::tibble(
+    asset = "asset_tif_1",
+    company = "company_a",
+    latitude = -15.0,
+    longitude = -45.0,
+    municipality = NA_character_,
+    state = NA_character_,
+    asset_category = "office",
+    asset_subtype = NA_character_,
+    size_in_m2 = 1000,
+    share_of_economic_activity = 0.5,
+    cnae = NA_real_
+  )
+
+  # Extract
+  out <- extract_hazard_statistics(
+    assets,
+    tif_hazards,
+    tif_inventory,
+    precomputed_hazards = tibble::tibble()
+  )
+
+  # Verify
+  testthat::expect_true(all(out$matching_method == "coordinates"))
+  testthat::expect_true(is.numeric(out$hazard_intensity))
+  testthat::expect_true(all(out$source == "tif"))
+})
+
 testthat::test_that("geolocated assets extract from NetCDF files", {
   # Load all hazards
   hazard_data <- load_hazards_and_inventory(get_hazards_dir())

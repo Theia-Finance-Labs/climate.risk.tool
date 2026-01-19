@@ -550,7 +550,34 @@ read_precomputed_hazards <- function(base_dir) {
   precomputed_final
 }
 
-# read_hazards_mapping function removed - TIF support has been removed in favor of NetCDF-only
+#' Read TIF hazard mapping file
+#'
+#' @title Read TIF hazard mapping file
+#' @description Reads the `hazards_metadata.csv` file that maps TIF filenames
+#'   to hazard metadata (type, indicator, scenario, return period).
+#' @param mapping_path Character path to `hazards_metadata.csv`
+#' @return Tibble with mapping information
+#' @noRd
+read_hazards_mapping <- function(mapping_path) {
+  if (!file.exists(mapping_path)) {
+    stop("Mapping file not found: ", mapping_path)
+  }
+
+  mapping <- utils::read.csv(mapping_path, stringsAsFactors = FALSE, strip.white = TRUE)
+  mapping <- tibble::as_tibble(mapping)
+
+  # Validate required columns
+  required_cols <- c(
+    "hazard_file", "hazard_type", "hazard_indicator",
+    "scenario_name", "hazard_return_period"
+  )
+  missing_cols <- setdiff(required_cols, names(mapping))
+  if (length(missing_cols) > 0) {
+    stop("Mapping file missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  return(mapping)
+}
 
 #' Read Land Cover Legend and Risk Metrics
 #'

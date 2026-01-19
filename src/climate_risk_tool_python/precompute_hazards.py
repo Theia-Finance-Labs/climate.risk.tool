@@ -97,6 +97,12 @@ N_BUCKETS_PER_REGION = 256
 # Safety: require some free space before writing spill chunks (bytes)
 MIN_FREE_BYTES_BEFORE_SPILL = 2 * 1024**3  # 2 GiB
 
+# Hazards where missing data (NaN/NoData) should NOT be filled with zero.
+# For these hazards, we keep only valid pixels for statistics.
+# For others (e.g. Flood, Fire), NaN usually means "no hazard", so we fill with 0.
+HAZARDS_THAT_DONT_FILL_ZERO = {"Heat", "Drought"}
+INDICATORS_THAT_DONT_FILL_ZERO = {"land_cover"}
+
 # GDAL cache and thread caps to avoid native memory growth
 GDAL_CACHEMAX = "128"
 
@@ -384,11 +390,19 @@ def compute_region_stats_for_slice(
             if hazard_type == "Heat":
                 v = np.where(v > 300, v, np.nan)
 
-            if np.issubdtype(v.dtype, np.floating):
-                v = v[~np.isnan(v)]
+            if hazard_type in HAZARDS_THAT_DONT_FILL_ZERO or hazard_indicator in INDICATORS_THAT_DONT_FILL_ZERO:
+                if np.issubdtype(v.dtype, np.floating):
+                    v = v[~np.isnan(v)]
+                else:
+                    if nodata_value is not None:
+                        v = v[v != np.asarray(nodata_value, dtype=v.dtype)]
             else:
-                if nodata_value is not None:
-                    v = v[v != np.asarray(nodata_value, dtype=v.dtype)]
+                # Default: fill NaN/NoData with zero (e.g. Flood, Fire weather)
+                if np.issubdtype(v.dtype, np.floating):
+                    v = np.nan_to_num(v, nan=0.0)
+                else:
+                    if nodata_value is not None:
+                        v = np.where(v == np.asarray(nodata_value, dtype=v.dtype), 0, v)
 
             if v.size == 0:
                 continue
@@ -638,6 +652,26 @@ def concat_parts_to_final(parts: List[str], out_csv: str) -> None:
         return
 
     final_df = pd.concat(dfs, ignore_index=True)
+
+    # Fill missing statistics with 0 for hazards where NaN/NoData implies "no hazard"
+    # (e.g., Flood, Fire). Heat, Drought, and land_cover remain NaN if no data found.
+    stat_cols = [
+        "min",
+        "max",
+        "mean",
+        "median",
+        "p2_5",
+        "p5",
+        "p10",
+        "p90",
+        "p95",
+        "p97_5",
+    ]
+    fill_mask = ~final_df["hazard_type"].isin(HAZARDS_THAT_DONT_FILL_ZERO)
+    if "hazard_indicator" in final_df.columns:
+        fill_mask &= ~final_df["hazard_indicator"].isin(INDICATORS_THAT_DONT_FILL_ZERO)
+
+    final_df.loc[fill_mask, stat_cols] = final_df.loc[fill_mask, stat_cols].fillna(0)
 
     # Ensure BASE_COLS are at the front, followed by any extra columns
     # Filter BASE_COLS to only those that actually exist in final_df

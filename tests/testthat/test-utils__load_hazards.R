@@ -1,4 +1,4 @@
-# Test: load_hazards_and_inventory (NetCDF-only loader)
+# Test: load_hazards_and_inventory (Unified loader: TIF + NC + CSV)
 
 test_that("load_hazards_and_inventory returns hazards and inventory", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
@@ -19,6 +19,13 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
 
   # Inventory should be a tibble/dataframe
   expect_s3_class(result$inventory, "data.frame")
+
+  # Check if TIF hazards were loaded (if mapping file exists in tests_data)
+  if (file.exists(file.path(get_test_data_dir(), "hazards_metadata.csv"))) {
+    tif_inventory <- result$inventory |> dplyr::filter(source == "tif")
+    expect_true(nrow(tif_inventory) > 0)
+    expect_true(any(grepl("tif", result$inventory$source)))
+  }
 })
 
 test_that("load_hazards_and_inventory NC rasters have proper extent (cell centers to edges)", {
