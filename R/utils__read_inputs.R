@@ -429,9 +429,9 @@ read_cnae_labor_productivity_exposure <- function(base_dir) {
 #'   values for assets without coordinates but with province or municipality information.
 #' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
-#'   scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
+#'   gwl, return_period, hazard_type, min, max, mean, median,
 #'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
-#'   Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
+#'   Note: scenario_code may be present in the CSV but is not used (gwl is used instead).
 #' @examples
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
@@ -458,12 +458,24 @@ read_precomputed_hazards <- function(base_dir) {
     precomputed_path,
     show_col_types = FALSE
   ) |>
-    tibble::as_tibble()
+    tibble::as_tibble() |>
+    # Convert column names to snake_case for consistency
+    dplyr::rename_with(to_snake_case) |>
+    # Normalize hazard indicators to match config keys (e.g., HI -> hi, SPI3 -> spi3, depth(cm) -> depth)
+    dplyr::mutate(
+      hazard_indicator = dplyr::case_when(
+        tolower(.data$hazard_indicator) == "hi" ~ "hi",
+        tolower(.data$hazard_indicator) == "fwi" ~ "fwi",
+        tolower(.data$hazard_indicator) == "spi3" ~ "spi3",
+        grepl("depth", tolower(.data$hazard_indicator)) ~ "depth",
+        TRUE ~ tolower(.data$hazard_indicator)
+      )
+    )
 
   # Filter to a single representative ensemble variant per hazard scenario
   # Prefer "mean", then "median", then first available.
   # This prevents duplicates when the CSV contains multiple ensemble versions of the same data.
-  group_cols <- c("region", "adm_level", "scenario_name", "hazard_return_period", "hazard_type", "hazard_indicator")
+  group_cols <- c("region", "adm_level", "gwl", "return_period", "hazard_type", "hazard_indicator")
   has_season <- "season" %in% names(precomputed_df)
   if (has_season) {
     group_cols <- c(group_cols, "season")
@@ -521,8 +533,8 @@ read_precomputed_hazards <- function(base_dir) {
       ),
       hazard_name = paste0(
         .data$hazard_type, "__", .data$hazard_indicator,
-        "__GWL=", .data$scenario_name,
-        "__RP=", .data$hazard_return_period,
+        "__GWL=", .data$gwl,
+        "__RP=", .data$return_period,
         .data$season_suffix,
         "__ensemble=mean"
       )
@@ -533,7 +545,7 @@ read_precomputed_hazards <- function(base_dir) {
   if (has_season) {
     precomputed_final <- precomputed_final |>
       dplyr::mutate(
-        scenario_name = as.character(.data$scenario_name),
+        gwl = as.character(.data$gwl),
         season = as.character(.data$season)
       )
     season_count <- sum(!is.na(precomputed_final$season))
@@ -541,7 +553,7 @@ read_precomputed_hazards <- function(base_dir) {
   } else {
     precomputed_final <- precomputed_final |>
       dplyr::mutate(
-        scenario_name = as.character(.data$scenario_name)
+        gwl = as.character(.data$gwl)
       )
   }
 
@@ -554,7 +566,7 @@ read_precomputed_hazards <- function(base_dir) {
 #'
 #' @title Read TIF hazard mapping file
 #' @description Reads the `hazards_metadata.csv` file that maps TIF filenames
-#'   to hazard metadata (type, indicator, scenario, return period).
+#'   to hazard metadata (type, indicator, gwl, return period).
 #' @param mapping_path Character path to `hazards_metadata.csv`
 #' @return Tibble with mapping information
 #' @noRd
@@ -569,7 +581,7 @@ read_hazards_mapping <- function(mapping_path) {
   # Validate required columns
   required_cols <- c(
     "hazard_file", "hazard_type", "hazard_indicator",
-    "scenario_name", "hazard_return_period"
+    "gwl", "return_period"
   )
   missing_cols <- setdiff(required_cols, names(mapping))
   if (length(missing_cols) > 0) {

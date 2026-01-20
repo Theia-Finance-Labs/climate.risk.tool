@@ -3,14 +3,13 @@
 test_that("load_tif_hazards loads from mapping dataframe", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
-    hazard_type = c("flood", "flood"),
-    hazard_indicator = c("depth(cm)", "depth(cm)"),
-    scenario_code = c("rcp85", "rcp85"),
-    scenario_name = c("RCP8.5", "RCP8.5"),
-    hazard_return_period = c(10, 100)
+    hazard_type = c("Flood", "Flood"),
+    hazard_indicator = c("depth", "depth"),
+    gwl = c("rcp85", "rcp85"),
+    return_period = c(10, 100)
   )
 
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazards_dir <- file.path(get_hazard_indicators_dir(), "flood_depth")
 
 
   rasters <- load_tif_hazards(
@@ -29,14 +28,13 @@ test_that("load_tif_hazards loads from mapping dataframe", {
 test_that("load_tif_hazards loads rasters correctly", {
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif", "global_rcp85_h10glob.tif", "global_rcp85_h100glob.tif"),
-    hazard_type = c("flood", "flood", "flood"),
-    hazard_indicator = c("depth(cm)", "depth(cm)", "depth(cm)"),
-    scenario_code = c("pc", "rcp85", "rcp85"),
-    scenario_name = c("CurrentClimate", "RCP8.5", "RCP8.5"),
-    hazard_return_period = c(10, 10, 100)
+    hazard_type = c("Flood", "Flood", "Flood"),
+    hazard_indicator = c("depth", "depth", "depth"),
+    gwl = c("present", "rcp85", "rcp85"),
+    return_period = c(10, 10, 100)
   )
 
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazards_dir <- file.path(get_hazard_indicators_dir(), "flood_depth")
 
 
   rasters <- load_tif_hazards(
@@ -60,14 +58,13 @@ test_that("load_tif_hazards supports aggregation parameter", {
   testthat::skip_on_ci()
   mapping_df <- tibble::tibble(
     hazard_file = c("global_pc_h10glob.tif"),
-    hazard_type = c("flood"),
-    hazard_indicator = c("depth(cm)"),
-    scenario_code = c("pc"),
-    scenario_name = c("CurrentClimate"),
-    hazard_return_period = c(10)
+    hazard_type = c("Flood"),
+    hazard_indicator = c("depth"),
+    gwl = c("present"),
+    return_period = c(10)
   )
 
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazards_dir <- file.path(get_hazard_indicators_dir(), "flood_depth")
 
 
   # Test with aggregate_factor = 1 (no aggregation, just pass the parameter)
@@ -82,5 +79,5 @@ test_that("load_tif_hazards supports aggregation parameter", {
   expect_true(length(rasters) > 0)
 
   # Mapping should still contain return periods (not confused with aggregation)
-  expect_equal(mapping_df$hazard_return_period[1], 10)
+  expect_equal(mapping_df$return_period[1], 10)
 })

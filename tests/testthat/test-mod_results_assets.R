@@ -17,9 +17,9 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     company = c("TestCo", "TestCo"),
     event_id = c("ev1", "ev2"),
     matching_method = c("coordinates", "coordinates"),
-    hazard_return_period = c(50, 10),  # A1 is RP50 (Fire), A2 is RP10 (Flood)
+    return_period = c(50, 10),  # A1 is RP50 (Fire), A2 is RP10 (Flood)
     event_year = c(2030, 2040),
-    hazard_type = c("fire", "flood"),  # A1 is fire, A2 is flood
+    hazard_type = c("Fire", "Flood"),  # A1 is fire, A2 is flood
     hazard_name = c("Fire__RP50", "Flood__RP10"),  # A1 is Fire, A2 is Flood
     hazard_intensity = c(1.5, 2.5),
     damage_factor = c(0.1, 0.2),

@@ -15,9 +15,8 @@ app_server <- function(input, output, session) {
     hazards = NULL,
     hazards_inventory = NULL,
     precomputed_hazards = NULL,
-    damage_factors = NULL,
+    hazard_configs = NULL,
     cnae_exposure = NULL,
-    land_cover_legend = NULL,
     adm1_boundaries = NULL,
     adm2_boundaries = NULL,
     region_name_mapping = NULL
@@ -105,12 +104,11 @@ app_server <- function(input, output, session) {
         }
         values$hazards <- hazards_result$hazards
         values$hazards_inventory <- hazards_result$inventory
+        values$hazard_configs <- hazards_result$configs
 
         # Load supporting data files from base_dir
         values$precomputed_hazards <- read_precomputed_hazards(base_dir)
-        values$damage_factors <- read_damage_cost_factors(base_dir)
         values$cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
-        values$land_cover_legend <- read_land_cover_legend(base_dir)
 
         # Load ADM1 and ADM2 boundaries for state assignment and validation
         state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
@@ -219,9 +217,8 @@ app_server <- function(input, output, session) {
           hazards = values$hazards,
           hazards_inventory = values$hazards_inventory,
           precomputed_hazards = values$precomputed_hazards,
-          damage_factors = values$damage_factors,
-          cnae_exposure = values$cnae_exposure,
-          land_cover_legend = values$land_cover_legend,
+          hazard_configs = values$hazard_configs,
+          hazards_dir = file.path(base_dir, "hazards"),
           adm1_boundaries = values$adm1_boundaries,
           adm2_boundaries = values$adm2_boundaries,
           validate_inputs = TRUE,

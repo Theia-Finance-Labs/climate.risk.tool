@@ -29,9 +29,9 @@
 validate_input_coherence <- function(
   assets_df,
   companies_df,
-  damage_factors_df,
+  hazards_dir,
+  hazard_configs,
   precomputed_hazards_df = NULL,
-  cnae_exposure_df,
   adm1_names,
   adm2_names,
   events_df = NULL
@@ -43,26 +43,13 @@ validate_input_coherence <- function(
     warnings = character()
   )
 
-  # ============================================================================
-  # VALIDATION CHECK 1: State names in damage factors
-  # ============================================================================
-  validation_results <- validate_damage_factors_states(
-    damage_factors_df,
-    c(adm1_names, "Other"),
-    validation_results
-  )
+  if (is.null(hazards_dir) || !dir.exists(hazards_dir)) {
+    validation_results$errors <- c(validation_results$errors, "hazards_dir does not exist")
+  }
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    validation_results$errors <- c(validation_results$errors, "hazard_configs is empty")
+  }
 
-  # ============================================================================
-  # VALIDATION CHECK 1b: Required columns per hazard type in damage factors
-  # ============================================================================
-  validation_results <- validate_damage_factors_required_fields(
-    damage_factors_df = damage_factors_df,
-    validation_results = validation_results
-  )
-
-  # ============================================================================
-  # VALIDATION CHECK 2: Province and municipality names in assets
-  # ============================================================================
   validation_results <- validate_assets_geography(
     assets_df,
     adm1_names,
@@ -70,18 +57,12 @@ validate_input_coherence <- function(
     validation_results
   )
 
-  # ============================================================================
-  # VALIDATION CHECK 2b: Companies coherence (no missing fields, no asset-less companies)
-  # ============================================================================
   validation_results <- validate_companies_against_assets(
     companies_df = companies_df,
     assets_df = assets_df,
     validation_results = validation_results
   )
 
-  # ============================================================================
-  # VALIDATION CHECK 3: Province and municipality in precomputed hazards (if provided)
-  # ============================================================================
   if (!is.null(precomputed_hazards_df)) {
     validation_results <- validate_precomputed_hazards_geography(
       precomputed_hazards_df,
@@ -93,26 +74,16 @@ validate_input_coherence <- function(
     )
   }
 
-  # ============================================================================
-  # VALIDATION CHECK 4: CNAE codes in assets exist in reference file
-  # ============================================================================
-  validation_results <- validate_cnae_codes(
-    assets_df,
-    cnae_exposure_df,
-    validation_results
-  )
-
-  # ============================================================================
-  # VALIDATION CHECK 5: Share of economic activity sums to 1 per company
-  # ============================================================================
   validation_results <- validate_economic_activity_shares(
     assets_df,
     validation_results
   )
 
-  # ============================================================================
-  # Report results
-  # ============================================================================
+  validation_results <- validate_events_table(
+    events_df,
+    validation_results
+  )
+
   n_errors <- length(validation_results$errors)
   n_warnings <- length(validation_results$warnings)
 
@@ -356,19 +327,26 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
   }
 
   # Normalize asset text fields to ASCII for comparison
-  assets_df <- assets_df |>
-    dplyr::mutate(
-      municipality = dplyr::if_else(
-        !is.na(.data$municipality) & nzchar(trimws(as.character(.data$municipality))),
-        stringi::stri_trans_general(as.character(trimws(.data$municipality)), "Latin-ASCII"),
-        .data$municipality
-      ),
-      state = dplyr::if_else(
-        !is.na(.data$state) & nzchar(trimws(as.character(.data$state))),
-        stringi::stri_trans_general(as.character(trimws(.data$state)), "Latin-ASCII"),
-        .data$state
+  if ("municipality" %in% names(assets_df)) {
+    assets_df <- assets_df |>
+      dplyr::mutate(
+        municipality = dplyr::if_else(
+          !is.na(.data$municipality) & nzchar(trimws(as.character(.data$municipality))),
+          stringi::stri_trans_general(as.character(trimws(.data$municipality)), "Latin-ASCII"),
+          as.character(.data$municipality)
+        )
       )
-    )
+  }
+  if ("state" %in% names(assets_df)) {
+    assets_df <- assets_df |>
+      dplyr::mutate(
+        state = dplyr::if_else(
+          !is.na(.data$state) & nzchar(trimws(as.character(.data$state))),
+          stringi::stri_trans_general(as.character(trimws(.data$state)), "Latin-ASCII"),
+          as.character(.data$state)
+        )
+      )
+  }
   # Validate states
   if (length(adm1_names) > 0) {
     asset_states <- assets_df |>
@@ -540,14 +518,16 @@ validate_precomputed_hazards_geography <- function(
       dplyr::select("hazard_type", "hazard_indicator") |>
       dplyr::distinct()
 
-    # Get unique municipalities from assets (check all assets with municipalities)
+    # Get unique municipalities from assets WITHOUT coordinates (these require precomputed lookup)
     asset_municipalities <- assets_df |>
+      dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
       dplyr::filter(!is.na(.data$municipality), nzchar(as.character(.data$municipality))) |>
       dplyr::pull(.data$municipality) |>
       unique()
 
-    # Get unique states from assets (check all assets with states, regardless of municipality)
+    # Get unique states from assets WITHOUT coordinates (these require precomputed lookup)
     asset_states <- assets_df |>
+      dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
       dplyr::filter(!is.na(.data$state), nzchar(as.character(.data$state))) |>
       dplyr::pull(.data$state) |>
       unique()
@@ -716,6 +696,14 @@ validate_economic_activity_shares <- function(assets_df, validation_results) {
     }
   }
   # Calculate sum of shares per company
+  if (!"share_of_economic_activity" %in% names(assets_df)) {
+    validation_results$errors <- c(
+      validation_results$errors,
+      "Assets table is missing required column 'share_of_economic_activity'"
+    )
+    return(validation_results)
+  }
+
   company_shares <- assets_df |>
     dplyr::group_by(.data$company) |>
     dplyr::summarize(
@@ -810,6 +798,52 @@ validate_companies_against_assets <- function(companies_df, assets_df, validatio
       validation_results$errors,
       paste0("Companies contain missing values in rows: ", paste(missing_desc, collapse = ", "))
     )
+  }
+
+  return(validation_results)
+}
+
+
+#' Validate events table for required columns and values
+#'
+#' @param events_df Events data frame
+#' @param validation_results List with errors and warnings vectors
+#' @return Updated validation_results list
+#' @noRd
+validate_events_table <- function(events_df, validation_results) {
+  if (is.null(events_df)) {
+    return(validation_results)
+  }
+
+  if (nrow(events_df) == 0) {
+    validation_results$warnings <- c(
+      validation_results$warnings,
+      "Events table is empty"
+    )
+    return(validation_results)
+  }
+
+  # Required columns for events
+  required_cols <- c("hazard_type", "hazard_name", "gwl", "return_period", "event_year")
+  missing_cols <- setdiff(required_cols, names(events_df))
+
+  if (length(missing_cols) > 0) {
+    validation_results$errors <- c(
+      validation_results$errors,
+      paste0("Events table is missing required column(s): ", paste(missing_cols, collapse = ", "))
+    )
+    return(validation_results)
+  }
+
+  # Check for missing values in required columns
+  for (col in required_cols) {
+    if (any(is.na(events_df[[col]]))) {
+      missing_idx <- which(is.na(events_df[[col]]))
+      validation_results$errors <- c(
+        validation_results$errors,
+        paste0("Events table has missing values in column '", col, "' for rows: ", paste(missing_idx, collapse = ", "))
+      )
+    }
   }
 
   return(validation_results)

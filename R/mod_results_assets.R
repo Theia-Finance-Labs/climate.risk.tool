@@ -127,7 +127,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
           dplyr::select(-dplyr::any_of("sector_name"))
       }
 
-      priority_cols <- c("asset", "company", "sector", "sector_name", "sector_code", "share_of_economic_activity", "event_id", "hazard_name", "hazard_type", "matching_method", "hazard_return_period", "event_year")
+      priority_cols <- c("asset", "company", "sector", "sector_name", "sector_code", "share_of_economic_activity", "event_id", "hazard_name", "hazard_type", "matching_method", "return_period", "event_year")
       existing_priority <- intersect(priority_cols, names(assets_df))
       other_cols <- setdiff(names(assets_df), existing_priority)
 

@@ -1,27 +1,28 @@
-#' Load hazards (TIF + NC + CSV) and build complete inventory
+#' Load hazards (TIF + NC) and build complete inventory
 #'
 #' @title Load all hazard data and generate inventory
 #' @description Self-contained loader that:
-#' 1. Scans directory tree for TIF files (if `hazards_metadata.csv` is present)
-#' 2. Scans directory tree for NetCDF files and loads them
-#' 3. Scans directory tree for CSV files and loads them
-#' 4. Validates no mixed file types (tif/nc/csv) in same leaf folder
-#' 5. Generates a unified inventory with hazard metadata
-#' 6. Returns both hazards and inventory
+#' 1. Reads hazard configs from `hazards/` (one hazard.yml per hazard)
+#' 2. Loads NetCDF indicators from `hazard_indicators/` root
+#' 3. Loads TIF indicators from `hazard_indicators/<indicator_folder>/` using hazards_metadata.csv
+#' 4. Generates a unified inventory with hazard metadata
+#' 5. Returns both hazards and inventory
 #'
-#' @param hazards_dir Character path to hazards directory containing subdirectories with hazard files
+#' @param hazards_dir Character path to hazards directory containing hazard.yml files
+#' @param hazard_indicators_dir Character path to hazard_indicators directory
 #' @param aggregate_factor Integer >= 1. Aggregation factor for TIF and NetCDF rasters (default: `NULL`).
 #'   When `NULL`, reads the `climate_risk_tool_nc_aggregate_factor` option (default: 1).
 #'   Values > 1 spatially aggregate each raster on load so that tests can run with lower resolution.
 #' @return A list with two elements:
 #'   - `hazards`: Named list of SpatRaster objects (combined from all sources)
-#'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
-#'     hazard_return_period, hazard_name (unified format),
+#'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, gwl,
+#'     return_period, hazard_name (unified format),
 #'     ensemble (ensemble variant), source ("tif", "nc", or "csv")
 #' @examples
 #' \dontrun{
 #' result <- load_hazards_and_inventory(
 #'   hazards_dir = file.path(base_dir, "hazards"),
+#'   hazard_indicators_dir = file.path(base_dir, "hazard_indicators"),
 #'   aggregate_factor = 1L
 #' )
 #'
@@ -32,7 +33,7 @@
 #' inventory <- result$inventory
 #' }
 #' @export
-load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = NULL) {
+load_hazards_and_inventory <- function(hazards_dir, hazard_indicators_dir, aggregate_factor = NULL) {
   message("[load_hazards_and_inventory] Starting hazard loading and inventory...")
 
   if (is.null(aggregate_factor)) {
@@ -43,94 +44,118 @@ load_hazards_and_inventory <- function(hazards_dir, aggregate_factor = NULL) {
     stop("aggregate_factor must be >= 1")
   }
 
-  # Validate no mixed file types in same folder (at leaf directory level)
-  validate_no_mixed_hazard_types(hazards_dir)
+  # Load hazard configs
+  hazard_configs <- load_hazard_configs(hazards_dir)
 
-  # TIF files require a mapping file - if no mapping exists, skip TIF loading entirely
-  parent_dir <- dirname(hazards_dir)
-  mapping_path <- file.path(parent_dir, "hazards_metadata.csv")
+  # TIF files require a mapping file in hazard_indicators
+  mapping_path <- file.path(hazard_indicators_dir, "hazards_metadata.csv")
 
   tif_list <- list()
   tif_inventory <- tibble::tibble(
     hazard_type = character(),
     hazard_indicator = character(),
-    scenario_name = character(),
-    hazard_return_period = numeric(),
+    gwl = character(),
+    return_period = numeric(),
     hazard_name = character(),
     ensemble = character(),
     season = character(),
     source = character()
   )
 
+  mapping_df <- NULL
   if (file.exists(mapping_path)) {
     message("  Found TIF mapping at: ", mapping_path)
-    message("  Attempting to load TIF hazards...")
     mapping_df <- read_hazards_mapping(mapping_path)
-
-    tif_list <- load_tif_hazards(
-      mapping_df = mapping_df,
-      hazards_dir = hazards_dir,
-      aggregate_factor = aggregate_factor
-    )
-
-    # Build TIF inventory only if we actually loaded TIF files
-    if (length(tif_list) > 0) {
-      tif_inventory <- mapping_df |>
-        dplyr::mutate(
-          # Unified format for inventory (WITH ensemble=mean for consistency)
-          hazard_name = paste0(
-            .data$hazard_type, "__", .data$hazard_indicator,
-            "__GWL=", .data$scenario_name,
-            "__RP=", .data$hazard_return_period,
-            "__ensemble=mean"
-          ),
-          ensemble = "mean", # TIF has no pre-computed ensemble, default to mean
-          season = NA_character_, # TIF has no season dimension
-          source = "tif"
-        ) |>
-        dplyr::select(
-          "hazard_type",
-          "hazard_indicator",
-          "scenario_name",
-          "hazard_return_period",
-          "hazard_name",
-          "ensemble",
-          "season",
-          "source"
-        )
-    }
   } else {
     message("  No TIF mapping file found at: ", mapping_path)
     message("  Skipping TIF loading (mapping file required for TIF hazards)")
   }
 
-  # Load NC files and build inventory
-  nc_result <- load_nc_hazards_with_metadata(
-    hazards_dir = hazards_dir,
-    aggregate_factor = aggregate_factor
-  )
-  nc_list <- nc_result$hazards
-  nc_inventory <- nc_result$inventory
+  # Load indicators defined in hazard configs
+  all_hazards <- list()
+  inventory <- tibble::tibble()
 
-  # Load CSV files and build inventory
-  csv_result <- load_csv_hazards_with_metadata(hazards_dir = hazards_dir)
-  csv_list <- csv_result$hazards
-  csv_inventory <- csv_result$inventory
+  for (hazard_type in names(hazard_configs)) {
+    hazard_config <- hazard_configs[[hazard_type]]
+    for (indicator_key in names(hazard_config$indicators)) {
+      indicator <- hazard_config$indicators[[indicator_key]]
+      if (indicator$source == "nc") {
+        indicator_path <- file.path(hazard_indicators_dir, indicator$file)
+        nc_result <- load_nc_hazards_with_metadata(
+          indicator_path = indicator_path,
+          hazard_type = hazard_type,
+          hazard_indicator = indicator_key,
+          indicator_config = indicator,
+          aggregate_factor = aggregate_factor
+        )
+        all_hazards <- c(all_hazards, nc_result$hazards)
+        inventory <- dplyr::bind_rows(inventory, nc_result$inventory)
+      } else if (indicator$source == "tif") {
+        if (is.null(mapping_df) || nrow(mapping_df) == 0) {
+          next
+        }
 
-  # Combine hazards and inventory
-  all_hazards <- c(tif_list, nc_list, csv_list)
-  inventory <- dplyr::bind_rows(tif_inventory, nc_inventory, csv_inventory)
+        indicator_folder <- file.path(hazard_indicators_dir, indicator$file)
+        tif_mapping <- mapping_df |>
+          dplyr::filter(
+            .data$hazard_type == hazard_type,
+            .data$hazard_indicator == indicator_key
+          )
+
+        if (nrow(tif_mapping) == 0) {
+          next
+        }
+
+        tif_list <- load_tif_hazards(
+          mapping_df = tif_mapping,
+          hazards_dir = indicator_folder,
+          aggregate_factor = aggregate_factor
+        )
+
+        all_hazards <- c(all_hazards, tif_list)
+
+        if (nrow(tif_mapping) > 0) {
+          tif_inventory <- tif_mapping |>
+            dplyr::mutate(
+              hazard_name = paste0(
+                .data$hazard_type, "__", .data$hazard_indicator,
+                "__GWL=", .data$gwl,
+                "__RP=", .data$return_period,
+                "__ensemble=mean"
+              ),
+              ensemble = "mean",
+              season = NA_character_,
+              source = "tif",
+              agg = indicator$agg,
+              categorical = indicator$categorical
+            ) |>
+            dplyr::select(
+              "hazard_type",
+              "hazard_indicator",
+              "gwl",
+              "return_period",
+              "hazard_name",
+              "ensemble",
+              "season",
+              "source",
+              "agg",
+              "categorical"
+            )
+          inventory <- dplyr::bind_rows(inventory, tif_inventory)
+        }
+      }
+    }
+  }
 
   message(
     "[load_hazards_and_inventory] Complete: ",
-    length(tif_list), " TIF + ",
-    length(nc_list), " NetCDF + ",
-    length(csv_list), " CSV hazards loaded"
+    length(all_hazards), " hazard layers loaded"
   )
 
   return(list(
     hazards = all_hazards,
-    inventory = inventory
+    inventory = inventory,
+    configs = hazard_configs
   ))
 }
 

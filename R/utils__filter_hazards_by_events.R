@@ -9,6 +9,7 @@
 #' @param hazards Named list of SpatRaster objects (from load_hazards_and_inventory())
 #' @param events Data frame with event specifications including hazard_name column
 #' @param hazards_inventory Optional. Hazard inventory for multi-indicator expansion. If NULL, assumes single-indicator only.
+#' @param hazard_configs Optional. Hazard config registry from load_hazards_and_inventory()$configs
 #'
 #' @return Named list of filtered SpatRaster objects
 #'
@@ -42,7 +43,7 @@
 #' filtered_hazards <- filter_hazards_by_events(hazards, events)
 #' }
 #' @export
-filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) {
+filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, hazard_configs = NULL) {
   if (!tibble::is_tibble(events) && !is.data.frame(events)) {
     return(hazards)
   }
@@ -51,9 +52,10 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) 
 
   # For multi-indicator hazards, expand internally to get all required hazard_names
   # This doesn't modify the events dataframe - just gets the list of hazard_names to load
-  if (!is.null(hazards_inventory) && "hazard_type" %in% names(events)) {
-    config <- get_hazard_type_config()
-    multi_indicator_types <- names(config)[sapply(names(config), is_multi_indicator_hazard)]
+  if (!is.null(hazards_inventory) && "hazard_type" %in% names(events) && !is.null(hazard_configs)) {
+    multi_indicator_types <- names(hazard_configs)[
+      vapply(names(hazard_configs), function(htype) is_multi_indicator_hazard(hazard_configs, htype), logical(1))
+    ]
 
     # Get hazard_names for single-indicator events (use as-is)
     single_indicator_names <- events |>
@@ -70,7 +72,7 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) 
     if (nrow(multi_indicator_events) > 0) {
       for (i in seq_len(nrow(multi_indicator_events))) {
         event <- multi_indicator_events[i, ]
-        required_indicators <- config[[event$hazard_type]]$indicators
+        required_indicators <- get_required_indicators(hazard_configs, event$hazard_type)
 
         for (indicator in required_indicators) {
           matched <- hazards_inventory |>
@@ -85,11 +87,11 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) 
           if (indicator == "land_cover") {
             hazard_name <- matched$hazard_name[1]
           } else {
-            event_rp_numeric <- as.numeric(event$hazard_return_period)
+            event_rp_numeric <- as.numeric(event$return_period)
             exact_match <- matched |>
-              dplyr::mutate(rp_numeric = as.numeric(.data$hazard_return_period)) |>
+              dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
               dplyr::filter(
-                .data$scenario_name == event$scenario_name,
+                .data$gwl == event$gwl,
                 .data$rp_numeric == event_rp_numeric
               )
 

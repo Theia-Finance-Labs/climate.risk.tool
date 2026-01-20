@@ -1,0 +1,19 @@
+name: Heat
+
+indicators:
+  hi:
+    file: hi.nc
+    variable: hi
+    index: [gwl, return_period]
+    fixed: { ensemble: mean }
+    agg: closest
+
+mappings:
+  exposure_links:
+    file: exposure_factors.csv
+    join:
+      on_hazard: [gwl, return_period]
+      on_assets: [asset_category, cnae]
+      on_intensity: [hi]
+
+

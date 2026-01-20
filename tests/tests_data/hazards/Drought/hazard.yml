@@ -1,0 +1,19 @@
+name: Drought
+
+indicators:
+  spi3:
+    file: spi3.nc
+    variable: spi3
+    index: [gwl, return_period, season]
+    fixed: { ensemble: mean }
+    agg: closest
+
+mappings:
+  drought_sensitivity:
+    file: drought_factors.csv
+    intensity_match: closest
+    join:
+      on_hazard: [gwl, season]
+      on_assets: [asset_subtype]
+      on_intensity: [spi3]
+

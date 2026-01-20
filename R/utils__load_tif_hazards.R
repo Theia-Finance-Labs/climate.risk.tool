@@ -2,11 +2,11 @@
 #'
 #' @description Internal function used by load_hazards_and_inventory().
 #'   Loads hazard rasters based on a mapping dataframe that defines
-#'   hazard_file, hazard_type, scenario_name, and hazard_return_period.
+#'   hazard_file, hazard_type, gwl, and return_period.
 #'   Validates that all files exist and that there are no duplicates on the filtering
-#'   columns (hazard_type, scenario_name, hazard_return_period).
+#'   columns (hazard_type, gwl, return_period).
 #' @param mapping_df Data frame with columns: hazard_file, hazard_type,
-#'   scenario_name, hazard_return_period
+#'   gwl, return_period
 #' @param hazards_dir Character path to the directory containing hazard files (will search subdirectories)
 #' @param aggregate_factor Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)
 #' @param cache_aggregated Logical. If TRUE and aggregate_factor > 1, save and reuse aggregated rasters (default: TRUE)
@@ -28,7 +28,7 @@ load_tif_hazards <- function(mapping_df,
   message("  Found ", nrow(mapping), " hazard entries in mapping")
 
   # Check for duplicates on filter columns
-  filter_cols <- c("hazard_type", "scenario_name", "hazard_return_period")
+  filter_cols <- c("hazard_type", "gwl", "return_period")
   duplicates <- mapping |>
     dplyr::group_by(dplyr::across(dplyr::all_of(filter_cols))) |>
     dplyr::filter(dplyr::n() > 1) |>
@@ -40,7 +40,7 @@ load_tif_hazards <- function(mapping_df,
       dplyr::distinct()
 
     stop(
-      "Found duplicate entries for filter columns (hazard_type, scenario_name, hazard_return_period):\n",
+      "Found duplicate entries for filter columns (hazard_type, gwl, return_period):\n",
       paste(utils::capture.output(print(dup_info)), collapse = "\n")
     )
   }
@@ -143,8 +143,8 @@ load_tif_hazards <- function(mapping_df,
   # Use unified naming format (WITH ensemble=mean for consistency)
   raster_names <- paste0(
     mapping$hazard_type, "__", mapping$hazard_indicator,
-    "__GWL=", mapping$scenario_name,
-    "__RP=", mapping$hazard_return_period,
+    "__GWL=", mapping$gwl,
+    "__RP=", mapping$return_period,
     "__ensemble=mean"
   )
 

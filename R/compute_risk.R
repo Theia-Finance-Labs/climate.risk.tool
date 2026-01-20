@@ -6,14 +6,13 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA).
+#' @param events data.frame with columns `hazard_type`, `hazard_name`, `gwl`, `return_period`, `event_year` (or NA).
 #'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and states (from read_precomputed_hazards())
-#' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
-#' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())
-#' @param land_cover_legend Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
+#' @param hazards_dir Character path to hazards directory containing hazard.yml and mapping tables
 #' @param adm1_boundaries Optional sf object with ADM1 (state) boundaries for state assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
@@ -27,7 +26,7 @@
 #'   For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).
 #' #'
 #' @return List containing final results:
-#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
+#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (return_period, event_year)
 #'   - companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 #'   - assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 #'   - companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -60,8 +59,7 @@
 #' companies <- read_companies(input_folder)
 #' hazards <- load_hazards(file.path(base_dir, "hazards"))
 #' precomputed_hazards <- read_precomputed_hazards(base_dir)
-#' damage_factors <- read_damage_cost_factors(base_dir)
-#' cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+#' hazard_configs <- hazard_data$configs
 #'
 #' # Define events
 #' events <- data.frame(
@@ -78,8 +76,8 @@
 #'   hazards = hazards,
 #'   hazards_inventory = hazards_inventory,
 #'   precomputed_hazards = precomputed_hazards,
-#'   damage_factors = damage_factors,
-#'   cnae_exposure = cnae_exposure,
+#'   hazard_configs = hazard_configs,
+#'   hazards_dir = file.path(base_dir, "hazards"),
 #'   growth_rate = 0.02,
 #'   discount_rate = 0.05,
 #'   risk_free_rate = 0.02
@@ -98,9 +96,8 @@ compute_risk <- function(assets,
                          hazards,
                          hazards_inventory,
                          precomputed_hazards,
-                         damage_factors,
-                         cnae_exposure = NULL,
-                         land_cover_legend = NULL,
+                         hazard_configs,
+                         hazards_dir,
                          adm1_boundaries = NULL,
                          adm2_boundaries = NULL,
                          validate_inputs = TRUE,
@@ -124,8 +121,11 @@ compute_risk <- function(assets,
   if (!is.data.frame(precomputed_hazards) || nrow(precomputed_hazards) == 0) {
     stop("precomputed_hazards must be a non-empty data.frame (from read_precomputed_hazards())")
   }
-  if (!is.data.frame(damage_factors) || nrow(damage_factors) == 0) {
-    stop("damage_factors must be a non-empty data.frame (from read_damage_cost_factors())")
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    stop("hazard_configs must be a non-empty list from load_hazards_and_inventory()")
+  }
+  if (is.null(hazards_dir) || !dir.exists(hazards_dir)) {
+    stop("hazards_dir must be a valid directory path")
   }
 
   # Validate aggregation_method
@@ -172,9 +172,9 @@ compute_risk <- function(assets,
     validate_input_coherence(
       assets_df = assets,
       companies_df = companies,
-      damage_factors_df = damage_factors,
+      hazards_dir = hazards_dir,
+      hazard_configs = hazard_configs,
       precomputed_hazards_df = precomputed_hazards,
-      cnae_exposure_df = cnae_exposure,
       adm1_names = adm1_names,
       adm2_names = adm2_names,
       events_df = events
@@ -205,7 +205,7 @@ compute_risk <- function(assets,
   # Filter hazards to only those referenced by events
   # Note: For multi-indicator hazards (Fire), this will internally expand to load all required indicators
   # Note: For NC hazards, only the median ensemble is loaded by default
-  hazards <- filter_hazards_by_events(hazards, events, hazards_inventory)
+  hazards <- filter_hazards_by_events(hazards, events, hazards_inventory, hazard_configs)
 
 
   # ============================================================================
@@ -225,14 +225,13 @@ compute_risk <- function(assets,
     hazards = hazards,
     hazards_inventory = filtered_inventory,
     precomputed_hazards = precomputed_hazards,
-    aggregation_method = aggregation_method,
-    damage_factors_df = damage_factors
+    aggregation_method = aggregation_method
   )
 
-  # Step 2.3: Join event information (event_year, scenario_name) from events
+  # Step 2.3: Join event information (event_year, gwl) from events
   # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
   # For single-indicator hazards, use hazard_name directly
-  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, aggregation_method)
+  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, aggregation_method, hazard_configs)
 
   assets_with_events <- assets_long |>
     dplyr::inner_join(
@@ -240,8 +239,8 @@ compute_risk <- function(assets,
       by = "hazard_name", relationship = "many-to-many"
     )
 
-  # Step 2.4: Join damage cost factors (needs scenario_name for Heat hazards, land_cover_legend for Fire)
-  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure, land_cover_legend)
+  # Step 2.4: Join mapping tables for hazard-specific factors
+  assets_factors <- join_damage_cost_factors(assets_with_events, hazard_configs, hazards_dir)
 
 
   # ============================================================================

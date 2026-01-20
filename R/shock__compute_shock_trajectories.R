@@ -8,7 +8,7 @@
 #'   Returns a single dataframe with shock scenarios ready for downstream analysis.
 #' @param yearly_baseline_profits tibble with columns: asset, company, year, revenue, profit
 #' @param assets_with_factors tibble with hazard data and damage/cost factors
-#' @param events tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA)
+#' @param events tibble with columns: event_id, hazard_type, hazard_name, gwl, return_period, event_year (or NA)
 #' @param companies tibble with columns: company, net_profit_margin
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @return tibble with columns: asset, company, year, revenue, profit

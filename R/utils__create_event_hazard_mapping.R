@@ -19,20 +19,21 @@
 #'   - All 3 rows share the same event_id, event_year, season
 #'
 #' @param events Tibble. User-defined events (one row per event).
-#'   Expected columns: event_id, hazard_type, hazard_name, scenario_name,
-#'   hazard_return_period, event_year, season
+#'   Expected columns: event_id, hazard_type, hazard_name, gwl,
+#'   return_period, event_year, season
 #'
 #' @param hazards_inventory Tibble. Full inventory from load_hazards_and_inventory()
-#'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, hazard_name
+#'   Expected columns: hazard_type, hazard_indicator, gwl,
+#'   return_period, hazard_name
 #'
 #' @param aggregation_method Character. Extraction method for assets (e.g., "mean")
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #'
 #' @return Tibble with columns: hazard_name, event_id, event_year, season.
 #'   May have multiple rows per event_id for multi-indicator hazards.
 #'
 #' @noRd
-create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_method) {
+create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_method, hazard_configs) {
   if (is.null(events) || nrow(events) == 0) {
     return(tibble::tibble(
       hazard_name = character(),
@@ -42,8 +43,18 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
     ))
   }
 
-  config <- get_hazard_type_config()
-  multi_indicator_types <- names(config)[sapply(names(config), is_multi_indicator_hazard)]
+  if (is.null(hazard_configs)) {
+    return(tibble::tibble(
+      hazard_name = character(),
+      event_id = character(),
+      event_year = integer(),
+      season = character()
+    ))
+  }
+
+  multi_indicator_types <- names(hazard_configs)[
+    vapply(names(hazard_configs), function(htype) is_multi_indicator_hazard(hazard_configs, htype), logical(1))
+  ]
 
   # For events that don't have hazard_name yet, look it up from inventory
   # This handles programmatic usage where user only provides hazard_type, scenario, RP
@@ -52,15 +63,15 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
       event_row <- events[i, ]
 
       # Get primary indicator for this hazard type
-      primary_ind <- config[[event_row$hazard_type]]$primary_indicator
+      primary_ind <- get_primary_indicator(hazard_configs, event_row$hazard_type)
 
       # Find matching hazard_name in inventory
       matched <- hazards_inventory |>
         dplyr::filter(
           .data$hazard_type == event_row$hazard_type,
           .data$hazard_indicator == primary_ind,
-          .data$scenario_name == event_row$scenario_name,
-          as.numeric(.data$hazard_return_period) == as.numeric(event_row$hazard_return_period)
+          .data$gwl == event_row$gwl,
+          as.numeric(.data$return_period) == as.numeric(event_row$return_period)
         )
 
       event_row$hazard_name <- if (nrow(matched) > 0) {
@@ -102,7 +113,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
   # Expand multi-indicator events
   expanded_multi <- purrr::map_dfr(seq_len(nrow(multi_events)), function(i) {
     event <- multi_events |> dplyr::slice(i)
-    required_indicators <- config[[event$hazard_type]]$indicators
+    required_indicators <- get_required_indicators(hazard_configs, event$hazard_type)
 
     # Create one row per required indicator
     purrr::map_dfr(required_indicators, function(indicator) {
@@ -123,11 +134,11 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
         base_hazard_name <- matched$hazard_name[1]
       } else {
         # Dynamic indicator: match user-selected scenario/RP
-        event_rp_numeric <- as.numeric(event$hazard_return_period)
+        event_rp_numeric <- as.numeric(event$return_period)
         exact_match <- matched |>
-          dplyr::mutate(rp_numeric = as.numeric(.data$hazard_return_period)) |>
+          dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
           dplyr::filter(
-            .data$scenario_name == event$scenario_name,
+            .data$gwl == event$gwl,
             .data$rp_numeric == event_rp_numeric
           )
 

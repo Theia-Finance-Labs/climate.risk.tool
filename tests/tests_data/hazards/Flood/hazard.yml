@@ -1,0 +1,18 @@
+name: Flood
+
+indicators:
+  depth:
+    file: flood_depth
+    variable: depth
+    index: [gwl, return_period]
+    agg: median
+
+mappings:
+  damage_and_cost_factors:
+    file: damage_and_cost_factors.csv
+    intensity_match: closest
+    join:
+      on_intensity: [depth]
+      on_hazard: [return_period]
+      on_assets: [asset_category]
+

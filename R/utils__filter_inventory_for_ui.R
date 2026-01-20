@@ -14,28 +14,27 @@
 #'   - Other indicators (land_cover, days_danger_total) are handled internally
 #'
 #' @param inventory Tibble. Full inventory from load_hazards_and_inventory()$inventory
-#'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, hazard_name, ensemble, source
+#'   Expected columns: hazard_type, hazard_indicator, gwl,
+#'   return_period, hazard_name, ensemble, source
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #'
 #' @return Tibble with columns: hazard_type, hazard_indicator (primary only),
-#'   scenario_name, hazard_return_period
+#'   gwl, return_period
 #'   Rows are deduplicated to show unique combinations.
 #'
 #' @noRd
-filter_inventory_for_ui <- function(inventory) {
-  if (is.null(inventory) || nrow(inventory) == 0) {
+filter_inventory_for_ui <- function(inventory, hazard_configs) {
+  if (is.null(inventory) || nrow(inventory) == 0 || is.null(hazard_configs)) {
     return(tibble::tibble(
       hazard_type = character(),
       hazard_indicator = character(),
-      scenario_name = character(),
-      hazard_return_period = numeric()
+      gwl = character(),
+      return_period = numeric()
     ))
   }
 
-  config <- get_hazard_type_config()
-
   # Get all configured hazard types
-  configured_types <- names(config)
+  configured_types <- names(hazard_configs)
 
   # Filter inventory to only include configured hazard types
   inventory_configured <- inventory |>
@@ -45,8 +44,8 @@ filter_inventory_for_ui <- function(inventory) {
     return(tibble::tibble(
       hazard_type = character(),
       hazard_indicator = character(),
-      scenario_name = character(),
-      hazard_return_period = numeric()
+      gwl = character(),
+      return_period = numeric()
     ))
   }
 
@@ -55,7 +54,7 @@ filter_inventory_for_ui <- function(inventory) {
 
   # For each hazard type present in inventory, keep only primary indicator rows
   ui_inventory <- purrr::map_dfr(present_types, function(htype) {
-    primary_ind <- config[[htype]]$primary_indicator
+    primary_ind <- hazard_configs[[htype]]$primary_indicator
 
     inventory_configured |>
       dplyr::filter(
@@ -65,8 +64,8 @@ filter_inventory_for_ui <- function(inventory) {
       dplyr::select(
         "hazard_type",
         "hazard_indicator",
-        "scenario_name",
-        "hazard_return_period"
+        "gwl",
+        "return_period"
       ) |>
       dplyr::distinct()
   })

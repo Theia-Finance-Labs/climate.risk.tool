@@ -2,9 +2,11 @@
 
 test_that("load_hazards_and_inventory returns hazards and inventory", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
+    hazard_indicators_dir = hazard_indicators_dir,
     aggregate_factor = 1L
   )
 
@@ -19,9 +21,10 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
 
   # Inventory should be a tibble/dataframe
   expect_s3_class(result$inventory, "data.frame")
+  expect_true(all(c("gwl", "return_period") %in% names(result$inventory)))
 
-  # Check if TIF hazards were loaded (if mapping file exists in tests_data)
-  if (file.exists(file.path(get_test_data_dir(), "hazards_metadata.csv"))) {
+  # Check if TIF hazards were loaded (if mapping file exists in hazard_indicators)
+  if (file.exists(file.path(get_test_data_dir(), "hazard_indicators", "hazards_metadata.csv"))) {
     tif_inventory <- result$inventory |> dplyr::filter(source == "tif")
     expect_true(nrow(tif_inventory) > 0)
     expect_true(any(grepl("tif", result$inventory$source)))
@@ -30,9 +33,11 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
 
 test_that("load_hazards_and_inventory NC rasters have proper extent (cell centers to edges)", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
+    hazard_indicators_dir = hazard_indicators_dir,
     aggregate_factor = 16L
   )
 
@@ -58,9 +63,11 @@ test_that("load_hazards_and_inventory NC rasters have proper extent (cell center
 
 test_that("load_hazards_and_inventory NC names parse folder structure correctly", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
+    hazard_indicators_dir = hazard_indicators_dir,
     aggregate_factor = 16L
   )
 
@@ -68,12 +75,12 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
   # Check naming convention
   nc_names <- names(result$hazards)
 
-  # Names should contain hazard_type from folder
-  # e.g., "Drought__SPI3__GWL=present__RP=5__ensemble=mean"
-  expect_true(any(grepl("Drought", nc_names)))
+  # Names should contain hazard_type from config
+  # e.g., "Heat__hi__GWL=present__RP=5__ensemble=mean"
+  expect_true(any(grepl("Heat", nc_names)))
 
   # Should contain hazard_indicator
-  expect_true(any(grepl("HI", nc_names) | grepl("SPI3", nc_names)))
+  expect_true(any(grepl("hi", nc_names)))
 
   # Should have GWL values
   expect_true(all(grepl("GWL=", nc_names)))
@@ -84,9 +91,11 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
 
 test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly", {
   hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
+    hazard_indicators_dir = hazard_indicators_dir,
     aggregate_factor = 1L
   )
 

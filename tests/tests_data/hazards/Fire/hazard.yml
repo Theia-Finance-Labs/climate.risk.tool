@@ -1,0 +1,35 @@
+name: Fire
+primary_indicator: fwi
+
+indicators:
+  land_cover:
+    file: land_cover
+    variable: land_cover
+    agg: mode
+    categorical: true
+  fwi:
+    file: fwi.nc
+    variable: fwi
+    index: [gwl, return_period]
+    fixed: { ensemble: mean }
+    agg: closest
+  days_danger_total:
+    file: days_danger_total.nc
+    variable: days_danger_total
+    index: [gwl, return_period]
+    fixed: { ensemble: mean }
+    agg: closest
+
+mappings:
+  ignition_factors:
+    file: ignition_factors.csv
+    intensity_match: closest
+    join:
+      on_hazard: [gwl, return_period]
+      on_assets: [asset_category]
+      on_intensity: [fwi]
+  land_cover_legend:
+    file: land_cover_legend.csv
+    join:
+      on_intensity: [land_cover]
+

@@ -59,30 +59,23 @@ The tool uses a **unified hazard configuration architecture** that supports both
 
 #### Configuration Registry
 
-Defined in `R/config__hazard_types.R`:
+Defined via `hazard.yml` files under `{base_dir}/hazards/<HazardName>/` and loaded by `load_hazard_configs()` in `R/utils__hazard_config.R`.
 
-```r
-get_hazard_type_config() → list(
-  Fire = list(
-    indicators = c("land_cover", "FWI", "days_danger_total"),
-    primary_indicator = "FWI",  # Drives UI dropdowns
-    description = "..."
-  ),
-  Flood = list(...),
-  ...
-)
-```
+Each `hazard.yml` declares:
+- `name` and optional `primary_indicator`
+- `indicators` (file, variable, index, fixed, agg, categorical)
+- `mappings` (file + join contracts)
 
-Helper functions:
-- `is_multi_indicator_hazard(hazard_type)` → TRUE/FALSE
-- `get_primary_indicator(hazard_type)` → indicator name
-- `get_required_indicators(hazard_type)` → vector of indicators
+Helper functions (config-driven):
+- `is_multi_indicator_hazard(hazard_configs, hazard_type)` → TRUE/FALSE
+- `get_primary_indicator(hazard_configs, hazard_type)` → indicator key
+- `get_required_indicators(hazard_configs, hazard_type)` → vector of indicators
 
 #### UI Inventory Filtering
 
 The UI only shows:
 - **Hazard Type** (e.g., "Fire", "Flood")
-- **Scenario** (e.g., "SSP2-4.5", "CurrentClimate")
+- **GWL** (e.g., "present", "1.5", "2")
 - **Return Period** (e.g., 10, 50, 100 years)
 
 The `hazard_indicator` dimension is **completely hidden** from users.
@@ -105,14 +98,14 @@ When users select a multi-indicator hazard (e.g., Fire), the system automaticall
 
 **User Selection:**
 ```
-Event: Fire, SSP2-4.5, RP=10, year=2030
+Event: Fire, GWL=2.0, RP=10, year=2030
 ```
 
 **Internal Expansion (by `expand_multi_indicator_events()`):**
 ```
 Event 1: Fire/land_cover,  present,   RP=0,  year=2030
-Event 2: Fire/FWI,         SSP2-4.5,  RP=10, year=2030
-Event 3: Fire/days_danger_total, SSP2-4.5, RP=10, year=2030
+Event 2: Fire/fwi,         2.0,       RP=10, year=2030
+Event 3: Fire/days_danger_total, 2.0, RP=10, year=2030
 ```
 
 All three events:
@@ -127,20 +120,14 @@ This expansion happens in `compute_risk()` before hazard extraction.
 
 To add a new hazard type:
 
-1. **Add data files** to `{base_dir}/hazards/{hazard_type}/`
-2. **Update metadata:**
-   - For TIF: Add to `hazards_metadata.csv`
-   - For NC: Auto-discovered by `load_nc_hazards_with_metadata()`
-3. **Update configuration** in `R/config__hazard_types.R`:
-   ```r
-   NewHazard = list(
-     indicators = c("indicator1", "indicator2"),
-     primary_indicator = "indicator1",
-     description = "..."
-   )
-   ```
-4. **Add damage calculation** in `R/geospatial__join_damage_cost_factors.R` if needed
-5. **Add shock application** in `R/shock__apply_acute_*.R` if needed
+1. **Create folder** `{base_dir}/hazards/<HazardName>/`
+2. **Add `hazard.yml`** with indicator + mapping declarations
+3. **Place mapping tables** in the same hazard folder
+4. **Add indicator data** under `{base_dir}/hazard_indicators/`
+   - NetCDF files at the root
+   - TIFs inside indicator-named subfolders
+   - Update `{base_dir}/hazard_indicators/hazards_metadata.csv` for TIFs
+5. **Add hazard-specific economics** in `R/shock__apply_acute_*.R` if needed
 
 ## Data Requirements
 
@@ -148,16 +135,30 @@ To add a new hazard type:
 
 ```
 {base_dir}/
-├── damage_and_cost_factors.csv
+├── hazard_indicators/
+│   ├── hazards_metadata.csv
+│   ├── hi.nc
+│   ├── spi3.nc
+│   ├── flood_depth/
+│   │   ├── global_pc_h10glob.tif
+│   │   └── ...
+│   └── land_cover/
+│       └── 2024_brazil_land_cover.tif
+├── hazards/
+│   ├── Flood/
+│   │   ├── hazard.yml
+│   │   └── damage_and_cost_factors.csv
+│   ├── Heat/
+│   │   ├── hazard.yml
+│   │   └── exposure_factors.csv
+│   └── Fire/
+│       ├── hazard.yml
+│       ├── ignition_factors.csv
+│       └── land_cover_legend.csv
 ├── precomputed_adm_hazards.csv
-├── hazards_name_mapping.csv
-└── hazards_world/
-    ├── flood/
-    │   ├── global_pc_h10glob.tif
-    │   ├── global_rcp85_h100glob.tif
-    │   └── ...
-    ├── heat/
-    └── ...
+└── areas/
+    ├── state/
+    └── municipality/
 
 {input_folder}/  (user-selected folder)
 ├── asset_information.xlsx
@@ -174,30 +175,34 @@ Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lo
 Location: User-selected input folder (same folder as asset_information.xlsx)
 Columns: company_id, company_name, equity, debt, other financial data
 
-#### 3. `damage_and_cost_factors.csv`
-Columns: hazard_type, hazard_intensity (rounded), asset_category, damage_share, cost_factor
+#### 3. Hazard configuration + mapping tables
+Location: `{base_dir}/hazards/<HazardName>/`
+Files:
+- `hazard.yml` (indicator definitions + mapping joins)
+- Mapping tables referenced in `hazard.yml` (CSV/XLSX)
 
 #### 4. `precomputed_adm_hazards.csv`
-Columns: region, adm_level (ADM1/ADM2), hazard_type, scenario_code, scenario_name, hazard_return, min, max, mean, median, p2_5, p5, p95, p97_5
+Columns: region, adm_level (ADM1/ADM2), hazard_type, gwl, return_period, min, max, mean, median, p2_5, p5, p95, p97_5
 
 Pre-aggregated hazard statistics for administrative regions. Eliminates need for GeoJSON boundary files.
 
-- Incremental refresh logic: `data-raw/precompute_hazards.py` drops any existing rows sharing the same (`region`, `adm_level`, `hazard_type`, `hazard_indicator`, `scenario_name`, `hazard_return_period`, `ensemble`, `season`) keys before appending newly computed results. This guarantees a clean overwrite when hazards are reprocessed.
+- Incremental refresh logic: `data-raw/precompute_hazards.py` drops any existing rows sharing the same (`region`, `adm_level`, `hazard_type`, `hazard_indicator`, `gwl`, `return_period`, `ensemble`, `season`) keys before appending newly computed results. This guarantees a clean overwrite when hazards are reprocessed.
 - Metadata alignment: `load_hazards_metadata(metadata_path)` (Python helper in `data-raw/precompute_hazards.py`) loads `hazards_metadata.csv` and enforces that GeoTIFF-derived scenario names and indicators use the curated metadata instead of filename heuristics.
 - Spatial index optimization: For each spatial chunk, uses `adm_gdf.sindex.intersection(chunk_bbox)` to find only overlapping regions (typically 5-10) instead of joining against all 5570 regions. Accumulates point→region mappings across chunks, then aggregates once at the end. This reduces spatial join overhead by ~1000x for large region datasets.
 - Coordinate cache helper: `build_coordinate_region_lookup(lats, lons, adm_gdf)` (Python helper in `data-raw/precompute_hazards.py`) constructs a reusable `lon`/`lat` → `region` lookup before iterating dimension chunks; it returns a DataFrame with columns (`lon`, `lat`, `region`) when the grid has ≤5M points and otherwise falls back to chunk-level spatial joins. This keeps spatial joins constant cost across every hazard dimension slice while staying memory-bounded.
 
-#### 5. `hazards_name_mapping.csv`
-Columns: hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period
+#### 5. `hazards_metadata.csv`
+Location: `{base_dir}/hazard_indicators/hazards_metadata.csv`
+Columns: hazard_file, hazard_type, hazard_indicator, gwl, return_period
 
-Maps physical hazard files to metadata for UI display and filtering.
+Maps GeoTIFF indicators to metadata for UI display and filtering.
 
 ### Hazard Data Files
 
-The tool supports three hazard data formats:
+The tool supports NetCDF + GeoTIFF indicator sources:
 
 #### GeoTIFF Files (.tif)
-Location: `{base_dir}/hazards/{hazard_type}/`
+Location: `{base_dir}/hazard_indicators/<indicator_folder>/`
 
 Naming convention: `global_{scenario_code}_h{return_period}glob.tif`
 
@@ -205,58 +210,31 @@ Examples:
 - `global_pc_h10glob.tif` - Current climate, 10-year return period
 - `global_rcp85_h100glob.tif` - RCP8.5, 100-year return period
 
-**Metadata:** Defined in `hazards_metadata.csv` (hazard_file, hazard_type, scenario_code, scenario_name, hazard_return_period)
+**Metadata:** Defined in `{base_dir}/hazard_indicators/hazards_metadata.csv`
 
 **Extraction:** Polygon-based (crop/mask with aggregation function)
 
 #### NetCDF Files (.nc)
-Location: `{base_dir}/hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc`
+Location: `{base_dir}/hazard_indicators/`
 
 Examples:
-- `hazards/Drought/CDD/ensemble/ensemble_return_period.nc`
-- `hazards/Compound/FWI/ensemble/ensemble_return_periods.nc`
+- `hi.nc`
+- `spi3.nc`
 
-**Metadata:** Extracted from folder structure and NC file contents
-- `hazard_type`: From path (e.g., "Drought", "Compound")
-- `hazard_indicator`: From path (e.g., "CDD", "FWI")
+**Metadata:** Extracted from NC dimensions and hazard.yml
 - `GWL` (Global Warming Level): From NC dimensions (e.g., "present", "1.5", "2", "3")
 - `return_period`: From NC dimensions (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Only 'median' ensemble loaded by default
+- `ensemble`: Fixed to `mean` unless overridden in `hazard.yml`
 
 **Georeferencing:** NC files store lat/lon as cell centers. Loader calculates resolution and extends extent by half-pixel to create proper raster edges.
 
 **Extraction:** Polygon-based (crop/mask with aggregation function)
 
-**NC Ensemble Handling:** Only 'median' ensemble is loaded as a `SpatRaster` with naming convention: `{hazard_type}__{hazard_indicator}__GWL={level}__RP={period}__ensemble=median`. This provides representative values without loading all ensemble variants.
-
-#### CSV Files (.csv)
-Location: `{base_dir}/hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.csv`
-
-Examples:
-- `hazards/Compound/HI/ensemble/ensemble_return_period.csv`
-
-**Required columns:** `ensemble`, `GWL`, `return_period`, `lat`, `lon`, `hazard_indicator`, `hazard_intensity`
-
-**Data structure:** Point-based format where each row represents a geolocated point with hazard values
-
-**Metadata:** Extracted from folder structure and CSV columns
-- `hazard_type`: From path (e.g., "Compound")
-- `hazard_indicator`: From path (e.g., "HI")
-- `GWL`: From CSV column (e.g., "present", "1.5", "2")
-- `return_period`: From CSV column (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Only 'median' ensemble loaded by default
-
-**Extraction:** Closest-point assignment (Euclidean distance in lat/lon coordinates)
-
-**CSV Naming Convention:** `{hazard_type}__{hazard_indicator}__GWL={gwl}__RP={rp}__ensemble=median`
-
-**Mixed Type Validation:** Each leaf directory (e.g., `hazards/Compound/HI/ensemble/`) must contain only ONE file type (.tif, .nc, or .csv). Mixed types in the same folder will raise an error.
-
 ## Key Functions
 
 ### Main Orchestrator
 
-**`compute_risk(assets, companies, events, hazards, precomputed_hazards, damage_factors, growth_rate, discount_rate)`**
+**`compute_risk(assets, companies, events, hazards, hazards_inventory, precomputed_hazards, hazard_configs, hazards_dir, growth_rate, discount_rate)`**
 - Returns: `list(assets, companies, assets_yearly, companies_yearly)`
 - Orchestrates entire pipeline from raw inputs to final risk metrics
 - Filters assets to only those with matching companies
@@ -266,7 +244,7 @@ Examples:
 
 ### Input Data Validation
 
-**`validate_input_coherence(assets_df, damage_factors_df, precomputed_hazards_df, cnae_exposure_df, adm1_names, adm2_names)`**
+**`validate_input_coherence(assets_df, companies_df, hazards_dir, hazard_configs, precomputed_hazards_df, adm1_names, adm2_names)`**
 - Performs comprehensive validation checks on all input data for coherence and consistency
 - Called automatically by `compute_risk()` if `base_dir` and `validate_inputs=TRUE` are provided
 - Can be called manually before running analysis to catch data issues early
@@ -274,13 +252,11 @@ Examples:
 
 **Validation Checks:**
 
-1. **State Names in Damage Factors**: All state names must match ADM1 boundary names (after ASCII normalization)
-2. **State Names in Assets**: All asset state names must match ADM1 boundary names
-3. **Municipality Names in Assets**: All asset municipality names must match ADM2 boundary names
-4. **State Names in Precomputed Hazards**: All state-level (ADM1) regions must match ADM1 boundary names
-5. **Municipality Names in Precomputed Hazards**: All municipality-level (ADM2) regions must match ADM2 boundary names
-6. **CNAE Codes in Assets**: All CNAE codes in assets must exist in the reference CNAE exposure file
-7. **Share of Economic Activity**: For each company, asset shares must sum to 1.0 (±0.01 tolerance)
+1. **State Names in Assets**: All asset state names must match ADM1 boundary names
+2. **Municipality Names in Assets**: All asset municipality names must match ADM2 boundary names
+3. **State Names in Precomputed Hazards**: All state-level (ADM1) regions must match ADM1 boundary names
+4. **Municipality Names in Precomputed Hazards**: All municipality-level (ADM2) regions must match ADM2 boundary names
+5. **Share of Economic Activity**: For each company, asset shares must sum to 1.0 (±0.01 tolerance)
 
 **ASCII Normalization**: All state and municipality names are normalized using `stringi::stri_trans_general("Latin-ASCII")` to remove accents (e.g., "Espírito Santo" → "Espirito Santo"). This ensures consistent matching between data sources.
 
@@ -311,35 +287,33 @@ Examples:
 - If given a folder path, looks for company_information.xlsx in that folder
 - If given a file path, reads that file directly
 
-**`read_damage_cost_factors(base_dir)`** → data.frame
-- Reads from `{base_dir}/damage_and_cost_factors.csv`
-
 **`read_precomputed_hazards(base_dir)`** → data.frame
 - Reads from `{base_dir}/precomputed_adm_hazards.csv`
 
 
 ### Hazard Loading Workflow
 
-**1. `load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)`** → list(hazards, inventory)
-- **NetCDF-only loader** for .nc files
-- Auto-discovers NC files by scanning directory tree
-- Uses terra-based lazy loading with GDAL string syntax for efficient memory usage
-- Returns: `list(hazards = ..., inventory = tibble(...))`
-- **NC**: Auto-discovers files, parses dimensions, creates one SpatRaster per (GWL × return_period × season × ensemble) combination
-  - Only 'mean' ensemble loaded by default
-  - Uses terra::rast() with NETCDF:path:variable syntax for lazy loading
-  - Extracts specific layers using layer indexing
-  - Naming: `{type}__{indicator}__GWL={level}__RP={period}__ensemble=mean` (with optional `__season={season}`)
-- **Inventory**: Metadata tibble with `source` column ("nc")
+**1. `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir, aggregate_factor = 1L)`** → list(hazards, inventory, configs)
+- Reads hazard configs from `{base_dir}/hazards/*/hazard.yml`
+- Loads NetCDF indicators from `{base_dir}/hazard_indicators/`
+- Loads GeoTIFF indicators from `{base_dir}/hazard_indicators/<indicator_folder>/`
+- Returns: `list(hazards = ..., inventory = tibble(...), configs = list(...))`
+- Inventory includes `gwl`, `return_period`, `agg`, `categorical`, `source`
 
 **Application Usage:**
 ```r
 # In mod_control_server:
-hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 1L)
+hazard_data <- load_hazards_and_inventory(
+  hazards_dir = file.path(base_dir, "hazards"),
+  hazard_indicators_dir = file.path(base_dir, "hazard_indicators"),
+  aggregate_factor = 1L
+)
 # Access hazards (for compute pipeline):
 hazards <- hazard_data$hazards
 # Access inventory (for UI dropdowns):
 inventory <- hazard_data$inventory
+# Access configs (for primary indicators):
+configs <- hazard_data$configs
 ```
 
 **Naming Convention:**
@@ -353,7 +327,7 @@ inventory <- hazard_data$inventory
 - Uses `size_in_m2` for buffer sizing
 - Raises error if coordinates missing
 
-**`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, events)`** → long format data.frame
+**`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, aggregation_method)`** → long format data.frame
 - **Main orchestrator** that dispatches to specialized extraction functions:
   - **Coordinate-based assets** → `extract_spatial_statistics()` for spatial extraction (NetCDF)
   - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup (matches hazards by exact hazard_name)
@@ -371,7 +345,7 @@ inventory <- hazard_data$inventory
 - Returns `matching_method = "coordinates"`
 - Includes `season` and `ensemble` columns for traceability
 
-**`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, events)`** → long format data.frame (internal)
+**`extract_precomputed_statistics(assets_df, precomputed_hazards, hazards_inventory, aggregation_method)`** → long format data.frame (internal)
 - Uses exact string equality matching against the inventory; output `hazard_name` is always emitted using the inventory hazard name so downstream joins stay consistent.
 - Lookup from precomputed administrative hazard data
 - Used for assets WITHOUT coordinates
@@ -381,12 +355,10 @@ inventory <- hazard_data$inventory
 - Returns `matching_method = "municipality"` or `"state"`
 - Raises detailed errors if region or hazard combo not found
 
-**`join_damage_cost_factors(assets_long_format, damage_factors_df, cnae_exposure = NULL)`** → data.frame
-- Joins damage and cost factors based on hazard type:
-  - **Flood**: Joins on hazard_type, hazard_indicator, rounded hazard_intensity, and asset_category
-  - **Compound**: Joins on hazard_type, state, scenario_name (GWL), and metric (sector-based from CNAE exposure)
-  - **Drought**: Joins on state, crop subtype, season, and closest hazard_intensity match
-- Optional `cnae_exposure` parameter used for Compound hazards to determine metric (high/median/low) based on sector CNAE codes
+**`join_damage_cost_factors(assets_with_hazards, hazard_configs, hazards_dir)`** → data.frame
+- Joins mapping tables defined in each hazard’s `hazard.yml`
+- Uses explicit join keys: `on_intensity`, `on_hazard`, `on_assets`
+- Applies `intensity_match` when configured (e.g., closest match)
 
 ### Financial Calculations
 
@@ -435,11 +407,11 @@ inventory <- hazard_data$inventory
 **`mod_hazards_events`** - Event configuration
 - Three cascading dropdowns:
   1. Hazard Type (flood, heat, etc.)
-  2. Scenario (CurrentClimate, RCP8.5, etc.)
+  2. GWL (present, 1.5, 2, 3)
   3. Return Period (10, 100, 1000 years)
 - Shock year input
 - Add button, configured events table
-- Output: events dataframe with event_id, hazard_type, scenario, event_year
+- Output: events dataframe with event_id, hazard_type, gwl, event_year
 
 **`mod_results_assets`** - Asset-level results display
 
@@ -591,9 +563,9 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 - Part of hazard metadata
 - Used for event filtering
 
-### Scenario
-- Climate projection (CurrentClimate, RCP8.5, RCP4.5, etc.)
-- Defined in `hazards_name_mapping.csv`
+### GWL
+- Global Warming Level (present, 1.5, 2, 3)
+- Defined by indicator dimensions or `hazards_metadata.csv` for GeoTIFFs
 
 ### ADM Levels
 - ADM1 = Province/State level
@@ -717,7 +689,7 @@ Assets output now includes drought metadata:
 
 **Damage Factor Matching**:
 - **Province**: Uses asset province for geographic matching
-- **GWL**: Uses scenario_name from events (matches gwl column in damage_factors)
+- **GWL**: Uses gwl from events (matches gwl column in mapping tables)
 - **Metric Selection** (new): Based on sector CNAE code:
   - If asset has sector (CNAE code) and found in CNAE exposure file → use corresponding LP exposure value (high/median/low)
   - If sector is missing/NA → use "median" (default)
@@ -807,7 +779,7 @@ Fire is unique in requiring three hazard indicators simultaneously. The existing
 The system supports both single-indicator and multi-indicator hazards through a unified interface where **hazard_indicator is completely hidden from the user**:
 
 **User Interface (UI)**:
-- User selects: Hazard Type → Scenario → Return Period
+- User selects: Hazard Type → GWL → Return Period
 - NO hazard_indicator dropdown visible
 - For all hazards (Flood, Drought, Compound, Fire), the selection process is identical
 

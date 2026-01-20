@@ -13,7 +13,7 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
   assets_factors <- data.frame(
     asset = c("A1", "A2"),
     hazard_type = c("Flood", "Flood"),
-    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=100", "Flood__depth(cm)__GWL=RCP8.5__RP=100"),
+    hazard_name = c("Flood__depth__GWL=rcp85__RP=100", "Flood__depth__GWL=rcp85__RP=100"),
     event_id = c("e1", "e1"),
     damage_factor = c(0.5, 0.4),
     cost_factor = c(200, 200),
@@ -26,7 +26,7 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
   acute_events <- data.frame(
     event_id = "e1",
     hazard_type = "Flood",
-    hazard_name = "Flood__depth(cm)__GWL=RCP8.5__RP=100",
+    hazard_name = "Flood__depth__GWL=rcp85__RP=100",
     event_year = 2030L,
     stringsAsFactors = FALSE
   )
@@ -67,7 +67,7 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
   assets_factors <- data.frame(
     asset = c("A1", "A1"),
     hazard_type = c("Flood", "Flood"),
-    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=100", "Flood__depth(cm)__GWL=RCP8.5__RP=50"),
+    hazard_name = c("Flood__depth__GWL=rcp85__RP=100", "Flood__depth__GWL=rcp85__RP=50"),
     event_id = c("event_z", "event_a"),
     damage_factor = c(0.5, 0.3),
     cost_factor = c(200, 150),
@@ -78,7 +78,7 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
   acute_events <- data.frame(
     event_id = c("event_z", "event_a"),
     hazard_type = c("Flood", "Flood"),
-    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=100", "Flood__depth(cm)__GWL=RCP8.5__RP=50"),
+    hazard_name = c("Flood__depth__GWL=rcp85__RP=100", "Flood__depth__GWL=rcp85__RP=50"),
     event_year = c(2030L, 2030L),
     stringsAsFactors = FALSE
   )

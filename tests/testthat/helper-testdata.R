@@ -28,6 +28,10 @@ get_hazards_dir <- function() {
   get_test_data_dir("hazards")
 }
 
+get_hazard_indicators_dir <- function() {
+  get_test_data_dir("hazard_indicators")
+}
+
 trySuppressWarnings <- function(expr) {
   suppressWarnings(try(expr, silent = TRUE))
 }

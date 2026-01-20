@@ -127,8 +127,8 @@ testthat::test_that("read_damage_cost_factors handles missing file gracefully", 
 # Contract:
 # - read_precomputed_hazards(base_dir) -> data.frame
 # - Reads precomputed_adm_hazards.csv from base_dir/
-# - Returns data frame with columns: region, adm_level, scenario_code, scenario_name,
-#   hazard_return_period, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
+# - Returns data frame with columns: region, adm_level, scenario_code, gwl,
+#   return_period, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
 # - adm_level values: "ADM1" (province), "ADM2" (municipality)
 # - Used to look up hazard statistics for assets matched by municipality or province name
 
@@ -143,8 +143,8 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
 
   # Should have required columns
   required_cols <- c(
-    "region", "adm_level", "scenario_name",
-    "hazard_return_period", "hazard_type", "hazard_name",
+    "region", "adm_level", "gwl",
+    "return_period", "hazard_type", "hazard_name",
     "aggregation_method", "hazard_value"
   )
   testthat::expect_true(all(required_cols %in% names(precomputed)))
@@ -154,7 +154,7 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
 
   # Numeric columns should be numeric
   # Note: mean, median, p2_5, p5, p95, p97_5 are pivoted into aggregation_method and hazard_value
-  numeric_cols <- c("min", "max", "hazard_return_period", "hazard_value")
+  numeric_cols <- c("min", "max", "return_period", "hazard_value")
   for (col in numeric_cols) {
     if (col %in% names(precomputed)) {
       testthat::expect_true(is.numeric(precomputed[[col]]))

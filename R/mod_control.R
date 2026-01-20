@@ -160,9 +160,14 @@ mod_control_server <- function(id, base_dir_reactive) {
         return(NULL)
       }
 
-      dir_hz <- file.path(base_dir, "hazards")
-      if (!dir.exists(dir_hz)) {
-        message("Hazards directory not found at: ", dir_hz)
+      hazards_dir <- file.path(base_dir, "hazards")
+      indicators_dir <- file.path(base_dir, "hazard_indicators")
+      if (!dir.exists(hazards_dir)) {
+        message("Hazards directory not found at: ", hazards_dir)
+        return(NULL)
+      }
+      if (!dir.exists(indicators_dir)) {
+        message("Hazard indicators directory not found at: ", indicators_dir)
         return(NULL)
       }
 
@@ -171,7 +176,8 @@ mod_control_server <- function(id, base_dir_reactive) {
 
       result <- try(
         load_hazards_and_inventory(
-          hazards_dir = dir_hz,
+          hazards_dir = hazards_dir,
+          hazard_indicators_dir = indicators_dir,
           aggregate_factor = as.integer(agg_factor)
         ),
         silent = TRUE
@@ -212,9 +218,22 @@ mod_control_server <- function(id, base_dir_reactive) {
       return(result$inventory)
     })
 
+    hazard_configs <- shiny::reactive({
+      result <- hazards_and_inventory()
+      if (is.null(result)) {
+        return(NULL)
+      }
+
+      return(result$configs)
+    })
+
 
     # Hazards events module
-    hz_mod <- mod_hazards_events_server("hazards", hazards_inventory = hazards_inventory)
+    hz_mod <- mod_hazards_events_server(
+      "hazards",
+      hazards_inventory = hazards_inventory,
+      hazard_configs = hazard_configs
+    )
 
     # Results ready output for conditional panel
     output$results_ready <- shiny::reactive({

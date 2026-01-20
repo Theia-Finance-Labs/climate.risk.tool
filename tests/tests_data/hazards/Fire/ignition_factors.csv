@@ -1,0 +1,5 @@
+gwl,return_period,asset_category,fwi,damage_factor,cost_factor
+present,10,commercial building,5,0.1,0.2
+present,10,agriculture,5,0.2,
+
+
