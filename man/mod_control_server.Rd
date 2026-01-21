@@ -4,12 +4,14 @@
 \alias{mod_control_server}
 \title{control Server Functions}
 \usage{
-mod_control_server(id, base_dir_reactive)
+mod_control_server(id, base_dir_reactive, overrides_reload)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
 
 \item{base_dir_reactive}{reactive containing base directory path}
+
+\item{overrides_reload}{reactive trigger for hazard override reload}
 }
 \value{
 list with reactive values for input_folder, events, run_trigger, growth_rate, discount_rate, risk_free_rate, results_ready, and get_hazards_at_factor

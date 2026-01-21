@@ -26,14 +26,13 @@
 #'   Expected columns: hazard_type, hazard_indicator, gwl,
 #'   return_period, hazard_name
 #'
-#' @param aggregation_method Character. Extraction method for assets (e.g., "mean")
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #'
 #' @return Tibble with columns: hazard_name, event_id, event_year, season.
 #'   May have multiple rows per event_id for multi-indicator hazards.
 #'
 #' @noRd
-create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_method, hazard_configs) {
+create_event_hazard_mapping <- function(events, hazards_inventory, hazard_configs) {
   if (is.null(events) || nrow(events) == 0) {
     return(tibble::tibble(
       hazard_name = character(),
@@ -65,10 +64,10 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
       # Get primary indicator for this hazard type
       primary_ind <- get_primary_indicator(hazard_configs, event_row$hazard_type)
 
-      # Find matching hazard_name in inventory
+      # Find matching hazard_name in inventory (case-insensitive for hazard_type)
       matched <- hazards_inventory |>
         dplyr::filter(
-          .data$hazard_type == event_row$hazard_type,
+          tolower(.data$hazard_type) == tolower(event_row$hazard_type),
           .data$hazard_indicator == primary_ind,
           .data$gwl == event_row$gwl,
           as.numeric(.data$return_period) == as.numeric(event_row$return_period)
@@ -117,10 +116,10 @@ create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_m
 
     # Create one row per required indicator
     purrr::map_dfr(required_indicators, function(indicator) {
-      # Match from inventory to get correct hazard_name for this indicator
+      # Match from inventory to get correct hazard_name for this indicator (case-insensitive for hazard_type)
       matched <- hazards_inventory |>
         dplyr::filter(
-          .data$hazard_type == event$hazard_type,
+          tolower(.data$hazard_type) == tolower(event$hazard_type),
           .data$hazard_indicator == indicator
         )
 

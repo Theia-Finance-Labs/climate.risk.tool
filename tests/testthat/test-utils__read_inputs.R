@@ -162,7 +162,7 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
   }
   
   # aggregation_method should contain the summary statistics
-  testthat::expect_true(all(c("mean", "median", "p2_5", "p5", "p95", "p97_5") %in% unique(precomputed$aggregation_method)))
+  testthat::expect_true(all(c("mean", "median") %in% unique(precomputed$aggregation_method)))
 })
 
 

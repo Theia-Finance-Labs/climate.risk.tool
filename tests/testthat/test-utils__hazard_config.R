@@ -161,3 +161,89 @@ testthat::test_that("load_hazard_configs allows mappings without join keys", {
   testthat::expect_equal(mapping_cfg$join$on_intensity, character(0))
 })
 
+testthat::test_that("load_hazard_configs deep-merges overrides when provided", {
+  temp_dir <- tempfile("hazard_config_override_")
+  hazards_dir <- file.path(temp_dir, "hazards")
+  flood_dir <- file.path(hazards_dir, "Flood")
+  dir.create(flood_dir, recursive = TRUE)
+
+  base_config <- list(
+    name = "Flood",
+    primary_indicator = "depth",
+    indicators = list(
+      depth = list(
+        file = "flood_depth.nc",
+        variable = "depth",
+        index = c("gwl", "return_period"),
+        agg = "median"
+      )
+    ),
+    mappings = list(
+      damage_and_cost_factors = list(
+        file = "damage_and_cost_factors.csv",
+        join = list(
+          on_intensity = c("depth"),
+          on_hazard = c("return_period"),
+          on_assets = c("asset_category")
+        )
+      )
+    )
+  )
+  yaml::write_yaml(base_config, file.path(flood_dir, "hazard.yml"))
+
+  overrides <- list(
+    Flood = list(
+      indicators = list(
+        depth = list(
+          agg = "mean"
+        )
+      ),
+      mappings = list(
+        damage_and_cost_factors = list(
+          intensity_match = "closest"
+        )
+      )
+    )
+  )
+  override_path <- file.path(temp_dir, "hazards", "config_overrides.yml")
+  dir.create(dirname(override_path), recursive = TRUE, showWarnings = FALSE)
+  yaml::write_yaml(overrides, override_path)
+
+  configs <- load_hazard_configs(
+    hazards_dir = hazards_dir,
+    hazards_override_path = override_path
+  )
+
+  flood_cfg <- configs[["Flood"]]
+  depth_cfg <- flood_cfg$indicators$depth
+  testthat::expect_equal(depth_cfg$agg, "mean")
+  testthat::expect_equal(depth_cfg$file, "flood_depth.nc")
+  testthat::expect_equal(flood_cfg$mappings$damage_and_cost_factors$intensity_match, "closest")
+})
+
+testthat::test_that("load_hazard_configs ignores missing override file", {
+  temp_dir <- tempfile("hazard_config_override_missing_")
+  hazards_dir <- file.path(temp_dir, "hazards")
+  flood_dir <- file.path(hazards_dir, "Flood")
+  dir.create(flood_dir, recursive = TRUE)
+
+  base_config <- list(
+    name = "Flood",
+    indicators = list(
+      depth = list(
+        file = "flood_depth.nc",
+        variable = "depth",
+        index = c("gwl", "return_period"),
+        agg = "median"
+      )
+    )
+  )
+  yaml::write_yaml(base_config, file.path(flood_dir, "hazard.yml"))
+
+  configs <- load_hazard_configs(
+    hazards_dir = hazards_dir,
+    hazards_override_path = file.path(hazards_dir, "missing_overrides.yml")
+  )
+
+  testthat::expect_equal(configs$Flood$indicators$depth$agg, "median")
+})

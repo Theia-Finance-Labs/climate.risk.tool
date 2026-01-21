@@ -77,9 +77,10 @@ mod_control_ui <- function(id) {
 #'
 #' @param id Internal parameter for shiny
 #' @param base_dir_reactive reactive containing base directory path
+#' @param overrides_reload reactive trigger for hazard override reload
 #' @return list with reactive values for input_folder, events, run_trigger, growth_rate, discount_rate, risk_free_rate, results_ready, and get_hazards_at_factor
 #' @export
-mod_control_server <- function(id, base_dir_reactive) {
+mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -155,6 +156,7 @@ mod_control_server <- function(id, base_dir_reactive) {
 
     # Load hazards and inventory (unified loader)
     hazards_and_inventory <- shiny::reactive({
+      overrides_reload()
       base_dir <- base_dir_reactive()
       if (is.null(base_dir) || base_dir == "") {
         return(NULL)
@@ -178,6 +180,7 @@ mod_control_server <- function(id, base_dir_reactive) {
         load_hazards_and_inventory(
           hazards_dir = hazards_dir,
           hazard_indicators_dir = indicators_dir,
+          hazards_override_path = file.path(hazards_dir, "config_overrides.yml"),
           aggregate_factor = as.integer(agg_factor)
         ),
         silent = TRUE

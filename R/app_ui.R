@@ -48,6 +48,14 @@ app_ui <- function(request) {
                 mod_status_ui("status")
               ),
 
+              # Tab 2: Hazards Settings
+              tabPanel(
+                title = "Hazards Settings",
+                value = "settings",
+                icon = icon("sliders"),
+                mod_settings_ui("settings")
+              ),
+
               # Tab 2: Asset Results (shown only after results)
               tabPanel(
                 title = "Asset Analysis",

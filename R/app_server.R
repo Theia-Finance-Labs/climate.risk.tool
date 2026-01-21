@@ -49,8 +49,44 @@ app_server <- function(input, output, session) {
     return(NULL)
   })
 
+  overrides_reload <- shiny::reactiveVal(0L)
+
+  settings_configs <- shiny::reactive({
+    base_dir <- get_base_dir()
+    overrides_reload()
+    if (is.null(base_dir) || base_dir == "") {
+      return(NULL)
+    }
+
+    hazards_dir <- file.path(base_dir, "hazards")
+    if (!dir.exists(hazards_dir)) {
+      return(NULL)
+    }
+
+    load_hazard_configs(
+      hazards_dir = hazards_dir,
+      hazards_override_path = file.path(hazards_dir, "config_overrides.yml")
+    )
+  })
+
+  # Initialize settings module
+  settings <- mod_settings_server(
+    "settings",
+    base_dir_reactive = get_base_dir,
+    hazard_configs_reactive = settings_configs,
+    inventory_reactive = control$hazards_inventory
+  )
+
+  shiny::observeEvent(settings$reload_trigger(), {
+    overrides_reload(settings$reload_trigger())
+  })
+
   # Initialize control module
-  control <- mod_control_server("control", base_dir_reactive = get_base_dir)
+  control <- mod_control_server(
+    "control",
+    base_dir_reactive = get_base_dir,
+    overrides_reload = overrides_reload
+  )
 
   # Initialize status module
   mod_status_server(
@@ -139,9 +175,16 @@ app_server <- function(input, output, session) {
     if (!is.null(base_dir) && base_dir != "" &&
       !inherits(hazards_result, "try-error") &&
       !is.null(hazards_result)) {
-      # Only load if we haven't loaded yet or if base_dir changed
-      if (!values$data_loaded || is.null(values$hazards)) {
+      
+      # If we haven't loaded static files yet, load everything
+      if (!values$data_loaded) {
         load_all_static_files(base_dir)
+      } else {
+        # If already loaded, just update the hazard-related parts that can be changed by overrides
+        # This ensures that when user saves overrides in the settings tab, the analysis uses the new config
+        values$hazards <- hazards_result$hazards
+        values$hazards_inventory <- hazards_result$inventory
+        values$hazard_configs <- hazards_result$configs
       }
     } else if (!is.null(base_dir) && base_dir != "") {
       values$status <- "Loading hazards..."
@@ -225,7 +268,7 @@ app_server <- function(input, output, session) {
           growth_rate = control$growth_rate(),
           discount_rate = control$discount_rate(),
           risk_free_rate = control$risk_free_rate(),
-          aggregation_method = "median" # Default aggregation method
+          aggregation_method = "mean" # Default aggregation method
         )
 
         values$results <- results

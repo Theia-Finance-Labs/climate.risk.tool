@@ -679,8 +679,8 @@ body {
 
 /* Override Default Shiny Styles */
 /* Action Buttons */
-.btn-default,
-.action-button {
+.btn-default:not(.btn-outline-danger):not(.btn-danger),
+.action-button:not(.btn-outline-danger):not(.btn-danger) {
   background-color: var(--primary-color);
   color: var(--card-background);
   border: none;
@@ -1520,4 +1520,24 @@ code {
 
 .breadcrumb a:hover {
   color: var(--primary-color);
+}
+
+/* Force Danger/Red Buttons */
+#settings-reset_overrides,
+.btn-danger,
+.btn.btn-danger,
+.action-button.btn-danger,
+.btn-default.btn-danger {
+  background-color: var(--error-color) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+.btn-danger:hover,
+.btn.btn-danger:hover,
+.action-button.btn-danger:hover {
+  background-color: #a01406 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }

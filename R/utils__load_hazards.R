@@ -10,6 +10,8 @@
 #'
 #' @param hazards_dir Character path to hazards directory containing hazard.yml files
 #' @param hazard_indicators_dir Character path to hazard_indicators directory
+#' @param hazards_override_path Optional path to a config_overrides.yml file.
+#'   When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignored.
 #' @param aggregate_factor Integer >= 1. Aggregation factor for TIF and NetCDF rasters (default: `NULL`).
 #'   When `NULL`, reads the `climate_risk_tool_nc_aggregate_factor` option (default: 1).
 #'   Values > 1 spatially aggregate each raster on load so that tests can run with lower resolution.
@@ -33,7 +35,12 @@
 #' inventory <- result$inventory
 #' }
 #' @export
-load_hazards_and_inventory <- function(hazards_dir, hazard_indicators_dir, aggregate_factor = NULL) {
+load_hazards_and_inventory <- function(
+  hazards_dir,
+  hazard_indicators_dir,
+  hazards_override_path = NULL,
+  aggregate_factor = NULL
+) {
   message("[load_hazards_and_inventory] Starting hazard loading and inventory...")
 
   if (is.null(aggregate_factor)) {
@@ -45,7 +52,10 @@ load_hazards_and_inventory <- function(hazards_dir, hazard_indicators_dir, aggre
   }
 
   # Load hazard configs
-  hazard_configs <- load_hazard_configs(hazards_dir)
+  hazard_configs <- load_hazard_configs(
+    hazards_dir = hazards_dir,
+    hazards_override_path = hazards_override_path
+  )
 
   # TIF files require a mapping file in hazard_indicators
   mapping_path <- file.path(hazard_indicators_dir, "hazards_metadata.csv")

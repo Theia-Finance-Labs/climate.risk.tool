@@ -462,7 +462,9 @@ read_precomputed_hazards <- function(base_dir) {
     # Convert column names to snake_case for consistency
     dplyr::rename_with(to_snake_case) |>
     # Normalize hazard indicators to match config keys (e.g., HI -> hi, SPI3 -> spi3, depth(cm) -> depth)
+    # Also normalize hazard_type for consistency
     dplyr::mutate(
+      hazard_type = stringr::str_to_title(tolower(.data$hazard_type)),
       hazard_indicator = dplyr::case_when(
         tolower(.data$hazard_indicator) == "hi" ~ "hi",
         tolower(.data$hazard_indicator) == "fwi" ~ "fwi",
@@ -511,10 +513,15 @@ read_precomputed_hazards <- function(base_dir) {
   # Unified naming WITHOUT ensemble suffix (base event format)
   # Use pivot_longer instead of loop for better performance
 
-  # Define ensemble columns to pivot
-  summary_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
+  # Define ensemble columns to pivot (must match valid aggregation methods)
+  summary_cols <- intersect(
+    c("mean", "median", "p10", "p90", "min", "max", "mode"),
+    names(precomputed_df)
+  )
   
-  # Use pivot_longer to reshape efficiently - much faster than loop
+  if (length(summary_cols) == 0) {
+    stop("No valid aggregation columns (mean, median, etc.) found in precomputed hazards file")
+  }
   precomputed_final <- precomputed_df |>
     tidyr::pivot_longer(
       cols = dplyr::all_of(summary_cols),

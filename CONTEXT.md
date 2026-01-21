@@ -66,6 +66,20 @@ Each `hazard.yml` declares:
 - `indicators` (file, variable, index, fixed, agg, categorical)
 - `mappings` (file + join contracts)
 
+Overrides:
+- Optional central overrides file at `{base_dir}/hazards/config_overrides.yml`
+- Structure: top-level keys are hazard names (e.g., `Flood`, `Fire`)
+- Deep-merged into each hazard config, so only specified keys are replaced
+- Resetting (wiping the file to empty) or removing it restores defaults
+
+**R/CLI usage (without the app):** When calling `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir)` without `hazards_override_path`, the override path defaults to `{hazards_dir}/config_overrides.yml`. If that file exists, it is applied automatically; if it is missing, it is ignored (no overrides). The "input folder" in the app is only for asset/company Excel files; the override file always lives under `{base_dir}/hazards/` (i.e. `hazards_dir`). For programmatic runs, pass `hazards_dir` (typically `file.path(base_dir, "hazards")`); any `config_overrides.yml` there is used automatically.
+
+Settings UI:
+- The app includes a **Settings** tab for editing override parameters
+- Editable fields: indicator `agg`/`categorical`/`fixed`, mapping `intensity_match`
+- Saving writes `{base_dir}/hazards/config_overrides.yml` and triggers hazard reload
+- Reset wipes the override file (writes empty) to restore defaults
+
 Helper functions (config-driven):
 - `is_multi_indicator_hazard(hazard_configs, hazard_type)` → TRUE/FALSE
 - `get_primary_indicator(hazard_configs, hazard_type)` → indicator key

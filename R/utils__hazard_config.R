@@ -1,9 +1,58 @@
+#' Deep-merge list overrides (internal)
+#'
+#' @param base Base list
+#' @param override Override list
+#' @return Merged list
+#' @noRd
+deep_merge_lists <- function(base, override) {
+  if (is.null(override)) {
+    return(base)
+  }
+  if (!is.list(base) || !is.list(override)) {
+    return(override)
+  }
+
+  merged <- base
+  override_names <- names(override)
+  if (is.null(override_names)) {
+    return(override)
+  }
+
+  for (item_name in override_names) {
+    merged[[item_name]] <- deep_merge_lists(merged[[item_name]], override[[item_name]])
+  }
+
+  return(merged)
+}
+
+#' Read hazard overrides from YAML (internal)
+#'
+#' @param hazards_override_path Character path to overrides YAML
+#' @return Named list of overrides (empty list if not found)
+#' @noRd
+read_hazard_overrides <- function(hazards_override_path) {
+  if (is.null(hazards_override_path) || !file.exists(hazards_override_path)) {
+    return(list())
+  }
+
+  overrides <- yaml::read_yaml(hazards_override_path)
+  if (is.null(overrides) || length(overrides) == 0) {
+    return(list())
+  }
+  if (!is.list(overrides) || is.null(names(overrides))) {
+    stop("hazard overrides must be a named list: ", hazards_override_path)
+  }
+
+  return(overrides)
+}
+
 #' Read a hazard configuration from YAML (internal)
 #'
 #' @param file_path Character path to a hazard.yml file
+#' @param override_config Optional list with overrides for this hazard
 #' @return List with normalized hazard configuration
 #' @noRd
-read_hazard_config <- function(file_path) {
+read_hazard_config <- function(file_path, override_config = NULL) {
   if (is.null(file_path) || !file.exists(file_path)) {
     stop("hazard config not found: ", file_path)
   }
@@ -13,6 +62,10 @@ read_hazard_config <- function(file_path) {
     stop("hazard config is empty: ", file_path)
   }
 
+  if (!is.null(override_config)) {
+    raw_config <- deep_merge_lists(raw_config, override_config)
+  }
+
   normalized <- normalize_hazard_config(raw_config, file_path)
   return(normalized)
 }
@@ -20,12 +73,19 @@ read_hazard_config <- function(file_path) {
 #' Load all hazard configs from a hazards directory (internal)
 #'
 #' @param hazards_dir Character path to hazards folder containing hazard.yml files
+#' @param hazards_override_path Optional path to a config_overrides.yml file.
+#'   When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignored.
 #' @return Named list of hazard configs keyed by hazard name
 #' @noRd
-load_hazard_configs <- function(hazards_dir) {
+load_hazard_configs <- function(hazards_dir, hazards_override_path = NULL) {
   if (is.null(hazards_dir) || !dir.exists(hazards_dir)) {
     stop("hazards_dir does not exist: ", hazards_dir)
   }
+
+  if (is.null(hazards_override_path)) {
+    hazards_override_path <- file.path(hazards_dir, "config_overrides.yml")
+  }
+  overrides <- read_hazard_overrides(hazards_override_path)
 
   config_files <- list.files(
     hazards_dir,
@@ -40,7 +100,18 @@ load_hazard_configs <- function(hazards_dir) {
 
   registry <- list()
   for (config_path in config_files) {
-    config <- read_hazard_config(config_path)
+    base_config <- yaml::read_yaml(config_path)
+    hazard_name <- if (!is.null(base_config$name)) as.character(base_config$name) else NULL
+    override_config <- NULL
+    if (!is.null(hazard_name)) {
+      # Use case-insensitive matching for hazard names in overrides
+      matching_override_name <- names(overrides)[tolower(names(overrides)) == tolower(hazard_name)]
+      if (length(matching_override_name) > 0) {
+        override_config <- overrides[[matching_override_name[1]]]
+      }
+    }
+
+    config <- read_hazard_config(config_path, override_config = override_config)
     if (config$name %in% names(registry)) {
       stop("Duplicate hazard name in configs: ", config$name)
     }

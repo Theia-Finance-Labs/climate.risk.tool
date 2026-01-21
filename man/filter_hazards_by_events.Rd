@@ -4,7 +4,12 @@
 \alias{filter_hazards_by_events}
 \title{Filter hazard rasters to match event requirements}
 \usage{
-filter_hazards_by_events(hazards, events, hazards_inventory = NULL)
+filter_hazards_by_events(
+  hazards,
+  events,
+  hazards_inventory = NULL,
+  hazard_configs = NULL
+)
 }
 \arguments{
 \item{hazards}{Named list of SpatRaster objects (from load_hazards_and_inventory())}
@@ -12,43 +17,40 @@ filter_hazards_by_events(hazards, events, hazards_inventory = NULL)
 \item{events}{Data frame with event specifications including hazard_name column}
 
 \item{hazards_inventory}{Optional. Hazard inventory for multi-indicator expansion. If NULL, assumes single-indicator only.}
+
+\item{hazard_configs}{Optional. Hazard config registry from load_hazards_and_inventory()$configs}
 }
 \value{
 Named list of filtered SpatRaster objects
 }
 \description{
 Filters a list of hazard rasters to only those referenced by events.
-For NC hazards, only the 'median' ensemble is loaded by default, so filtering
+For NC hazards, only the 'mean' ensemble is loaded by default, so filtering
 matches the base hazard name without ensemble suffix.
 For multi-indicator hazards (Fire), internally expands to load all required indicators.
 }
 \details{
 Filter hazards by events with NC ensemble handling
 
-The function handles two types of hazard filtering:
-
-\strong{TIF hazards}: Exact name matching
-\itemize{
-\item If event specifies "flood__rcp85_h10glob", returns exactly that raster
-}
+The function handles NetCDF hazard filtering:
 
 \strong{NC hazards}: Base name matching
 \itemize{
-\item If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the median ensemble:
+\item If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the mean ensemble:
 \itemize{
-\item Drought__CDD__GWL=present__RP=5 (loaded as median ensemble by default)
+\item Drought__CDD__GWL=present__RP=5__ensemble=mean (loaded as mean ensemble by default)
 }
-\item If event already specifies "__ensemble=median", strips the ensemble suffix and matches base name
+\item If event already specifies "__ensemble=mean", strips the ensemble suffix and matches base name
 }
 
 This simplified approach avoids loading multiple ensemble variants and focuses on
-the median ensemble as the representative value for each hazard scenario.
+the mean ensemble as the representative value for each hazard scenario.
 }
 \examples{
 \dontrun{
-# Load hazards (gets NC hazards with median ensemble only)
+# Load hazards (gets NC hazards with mean ensemble only)
 result <- load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
-hazards <- c(result$hazards$tif, result$hazards$nc)
+hazards <- result$hazards
 
 # Define events (base event names without ensemble suffix)
 events <- data.frame(
@@ -59,7 +61,7 @@ events <- data.frame(
   event_year = c(2030, 2040)
 )
 
-# Filter: matches 2 events -> 2 hazard rasters (median ensemble only)
+# Filter: matches 2 events -> 2 hazard rasters (mean ensemble only)
 filtered_hazards <- filter_hazards_by_events(hazards, events)
 }
 }

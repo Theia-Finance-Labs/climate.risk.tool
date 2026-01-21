@@ -20,7 +20,7 @@
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
 #' @param risk_free_rate Numeric. Risk-free rate for Merton model (default: 0.02)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
-#'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
+#'   Valid options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest".
 #'   For NetCDF files: uses terra::extract with the specified function.
 #'   For NC files: uses the mean ensemble layer by default (ensemble selection is separate from aggregation_method).
 #'   For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).
@@ -104,7 +104,7 @@ compute_risk <- function(assets,
                          growth_rate = 0.02,
                          discount_rate = 0.05,
                          risk_free_rate = 0.02,
-                         aggregation_method = "median") {
+                         aggregation_method = "mean") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -129,7 +129,7 @@ compute_risk <- function(assets,
   }
 
   # Validate aggregation_method
-  valid_aggregation_methods <- c("mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90")
+  valid_aggregation_methods <- c("mean", "median", "p90", "p10", "max", "min", "mode", "closest")
   if (!aggregation_method %in% valid_aggregation_methods) {
     stop("aggregation_method must be one of: ", paste(valid_aggregation_methods, collapse = ", "))
   }
@@ -231,7 +231,7 @@ compute_risk <- function(assets,
   # Step 2.3: Join event information (event_year, gwl) from events
   # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
   # For single-indicator hazards, use hazard_name directly
-  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, aggregation_method, hazard_configs)
+  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, hazard_configs)
 
   assets_with_events <- assets_long |>
     dplyr::inner_join(

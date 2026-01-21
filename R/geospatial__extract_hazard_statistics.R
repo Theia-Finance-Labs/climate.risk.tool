@@ -7,7 +7,7 @@
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
 #'   Determines which statistic to compute from extracted pixel values for precomputed sources.
-#'   Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
+#'   Options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest"
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, state, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
 #'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
@@ -85,12 +85,8 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       "median" = function(x, ...) stats::median(x, na.rm = TRUE),
       "max" = function(x, ...) max(x, na.rm = TRUE),
       "min" = function(x, ...) min(x, na.rm = TRUE),
-      "p2_5" = function(x, ...) as.numeric(stats::quantile(x, 0.025, na.rm = TRUE, type = 7)),
-      "p5" = function(x, ...) as.numeric(stats::quantile(x, 0.05, na.rm = TRUE, type = 7)),
       "p10" = function(x, ...) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
       "p90" = function(x, ...) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
-      "p95" = function(x, ...) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
-      "p97_5" = function(x, ...) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7)),
       "closest" = function(x, ...) mean(x, na.rm = TRUE), # Alias for mean when used with buffers
       "mode" = function(x, ...) {
         # Get most common value (for categorical data like land cover)
@@ -149,9 +145,18 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       hazard_ensemble <- if ("ensemble" %in% names(hazard_meta)) hazard_meta$ensemble else NA_character_
 
       # Determine aggregation method for this indicator (config-driven)
-      effective_aggregation_method <- hazard_meta$agg
+      # Use per-indicator agg from inventory if available, otherwise fallback to global parameter
+      effective_aggregation_method <- if (!is.null(hazard_meta$agg) && !is.na(hazard_meta$agg)) {
+        hazard_meta$agg
+      } else {
+        aggregation_method
+      }
+      
+      # For categorical hazards, if no valid method is set, default to "mode"
       if (isTRUE(hazard_meta$categorical)) {
-        effective_aggregation_method <- "mode"
+        if (!effective_aggregation_method %in% c("mode", "closest")) {
+          effective_aggregation_method <- "mode"
+        }
       }
 
       if (is.null(effective_aggregation_method) || !effective_aggregation_method %in% names(aggregation_functions)) {
@@ -332,26 +337,34 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     matched_data <- hazard_matches
 
     # Transform precomputed data to match expected output format
-    # Filter by the chosen aggregation method (summary column)
-    # Use .env$ to explicitly reference the parameter (avoids variable name collision with column)
+    # Join with inventory to determine the correct aggregation method for each hazard
+    # (respects per-hazard overrides in the config/inventory)
     asset_hazard_data <- hazard_matches |>
-      dplyr::filter(.data$aggregation_method == .env$aggregation_method)
+      dplyr::left_join(
+        hazards_inventory |> dplyr::select("hazard_name", "agg"),
+        by = "hazard_name"
+      ) |>
+      # Use per-hazard agg from inventory if available, otherwise fallback to global parameter
+      dplyr::mutate(
+        effective_agg = dplyr::coalesce(.data$agg, .env$aggregation_method),
+        # Handle aliases: 'closest' is treated as 'mean' for precomputed data
+        effective_agg = dplyr::if_else(.data$effective_agg == "closest", "mean", .data$effective_agg)
+      ) |>
+      dplyr::filter(.data$aggregation_method == .data$effective_agg)
     
     # Validate that only one aggregation method remains after filtering
     if (nrow(asset_hazard_data) > 0) {
-      unique_agg_methods <- unique(asset_hazard_data$aggregation_method)
-      if (length(unique_agg_methods) > 1) {
+      # Group by hazard_name and check if multiple aggregation methods remain
+      agg_counts <- asset_hazard_data |>
+        dplyr::group_by(.data$hazard_name) |>
+        dplyr::summarise(n_agg = dplyr::n_distinct(.data$aggregation_method), .groups = "drop") |>
+        dplyr::filter(.data$n_agg > 1)
+
+      if (nrow(agg_counts) > 0) {
         warning(
           "Multiple aggregation methods found after filtering for asset ", asset_name,
-          ". Expected 1, found: ", paste(unique_agg_methods, collapse = ", "),
+          " and hazards: ", paste(agg_counts$hazard_name, collapse = ", "),
           ". This indicates a bug in the filter logic."
-        )
-      }
-      # Verify the aggregation method matches what was requested
-      if (!all(unique_agg_methods == aggregation_method)) {
-        warning(
-          "Aggregation method mismatch for asset ", asset_name,
-          ". Requested: '", aggregation_method, "', Found: ", paste(unique_agg_methods, collapse = ", ")
         )
       }
     }
