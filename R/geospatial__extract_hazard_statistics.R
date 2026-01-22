@@ -87,7 +87,6 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       "min" = function(x, ...) min(x, na.rm = TRUE),
       "p10" = function(x, ...) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
       "p90" = function(x, ...) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
-      "closest" = function(x, ...) mean(x, na.rm = TRUE), # Alias for mean when used with buffers
       "mode" = function(x, ...) {
         # Get most common value (for categorical data like land cover)
         x_clean <- x[!is.na(x)]
@@ -159,14 +158,15 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         }
       }
 
-      if (is.null(effective_aggregation_method) || !effective_aggregation_method %in% names(aggregation_functions)) {
+      if (is.null(effective_aggregation_method) ||
+        !effective_aggregation_method %in% c(names(aggregation_functions), "closest")) {
         stop(
           "Invalid aggregation method '", effective_aggregation_method, "' for indicator ",
-          hazard_indicator, ". Valid options: ", paste(names(aggregation_functions), collapse = ", ")
+          hazard_indicator, ". Valid options: ", paste(c(names(aggregation_functions), "closest"), collapse = ", ")
         )
       }
 
-      agg_func <- aggregation_functions[[effective_aggregation_method]]
+      agg_func <- if (effective_aggregation_method == "closest") NULL else aggregation_functions[[effective_aggregation_method]]
 
       message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
 
@@ -175,13 +175,24 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
       # Fast path: vectorized terra::extract over all geometries at once (huge speedup vs per-asset crop/mask)
-      assets_sf_transformed <- sf::st_transform(assets_sf, r_crs)
-      geom_vect <- terra::vect(assets_sf_transformed)
+      if (effective_aggregation_method == "closest") {
+        assets_centroids_sf <- sf::st_as_sf(assets_sf, sf_column_name = "centroid")
+        assets_centroids_sf <- sf::st_transform(assets_centroids_sf, r_crs)
+        geom_vect <- terra::vect(assets_centroids_sf)
 
-      extracted <- tryCatch(
-        terra::extract(hazard_rast, geom_vect, fun = agg_func, na.rm = TRUE),
-        error = function(e) NULL
-      )
+        extracted <- tryCatch(
+          terra::extract(hazard_rast, geom_vect),
+          error = function(e) NULL
+        )
+      } else {
+        assets_sf_transformed <- sf::st_transform(assets_sf, r_crs)
+        geom_vect <- terra::vect(assets_sf_transformed)
+
+        extracted <- tryCatch(
+          terra::extract(hazard_rast, geom_vect, fun = agg_func, na.rm = TRUE, small = TRUE),
+          error = function(e) NULL
+        )
+      }
 
       n_geoms <- nrow(assets_sf)
       hazard_vals <- if (!is.null(extracted) && nrow(extracted) == n_geoms) {
