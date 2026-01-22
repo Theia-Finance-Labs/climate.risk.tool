@@ -44,7 +44,7 @@ testthat::test_that("compute_risk runs with config-driven hazards", {
   testthat::expect_true(all(c("assets_factors", "companies", "assets_yearly", "companies_yearly") %in% names(results)))
 })
 
-testthat::test_that("compute_risk output matches snapshot", {
+testthat::test_that("compute_risk produces stable snapshot output", {
   hazard_data <- load_hazards_and_inventory(
     hazards_dir = get_hazards_dir(),
     hazard_indicators_dir = get_hazard_indicators_dir(),
@@ -87,6 +87,12 @@ testthat::test_that("compute_risk output matches snapshot", {
   )
 
   # We only snapshot companies results as they are the most stable/important
-  testthat::expect_snapshot(results$companies)
+  # Using expect_snapshot_value to capture structure representation (matches original format)
+  # This ensures consistent snapshot format across testthat versions
+  testthat::expect_snapshot_value(
+    results$companies,
+    style = "deparse",
+    cran = TRUE
+  )
 })
 

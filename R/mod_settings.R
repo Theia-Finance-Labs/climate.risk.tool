@@ -313,8 +313,9 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
 
           if (!is.null(base_indicator$fixed) && length(base_indicator$fixed) > 0) {
             fixed_override <- list()
+            inventory_df <- inventory_reactive()
             for (fixed_key in names(base_indicator$fixed)) {
-              fixed_choices <- get_fixed_choices(fixed_key, base_indicator$fixed[[fixed_key]])
+              fixed_choices <- get_fixed_choices(fixed_key, base_indicator$fixed[[fixed_key]], hazard_type, indicator_key, inventory_df)
               if (length(fixed_choices) > 1) {
                 fixed_input <- input[[paste0("fixed__", hazard_id, "__", indicator_id, "__", safe_id(fixed_key))]]
                 if (!is.null(fixed_input) && fixed_input != as.character(base_indicator$fixed[[fixed_key]])) {
@@ -369,8 +370,16 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
           status_message("No config changes; defaults unchanged.")
         }
       } else {
-        yaml::write_yaml(overrides, path)
-        status_message("Config saved.")
+        if (!is.null(path)) {
+          dir_create <- dirname(path)
+          if (!dir.exists(dir_create)) {
+            dir.create(dir_create, recursive = TRUE, showWarnings = FALSE)
+          }
+          yaml::write_yaml(overrides, path)
+          status_message("Config saved.")
+        } else {
+          status_message("Cannot save config: path not available.")
+        }
       }
 
       reload_counter(reload_counter() + 1L)
