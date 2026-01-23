@@ -48,13 +48,17 @@ read_hazard_overrides <- function(hazards_override_path) {
 
 #' Read a hazard configuration from YAML (internal)
 #'
-#' @param file_path Character path to a hazard.yml file
+#' @param file_path Character path to a hazard config YAML file
+#' @param hazard_name Character hazard name (derived from filename)
 #' @param override_config Optional list with overrides for this hazard
 #' @return List with normalized hazard configuration
 #' @noRd
-read_hazard_config <- function(file_path, override_config = NULL) {
+read_hazard_config <- function(file_path, hazard_name, override_config = NULL) {
   if (is.null(file_path) || !file.exists(file_path)) {
     stop("hazard config not found: ", file_path)
+  }
+  if (is.null(hazard_name) || !nzchar(as.character(hazard_name))) {
+    stop("hazard name is required for config: ", file_path)
   }
 
   raw_config <- yaml::read_yaml(file_path)
@@ -66,13 +70,13 @@ read_hazard_config <- function(file_path, override_config = NULL) {
     raw_config <- deep_merge_lists(raw_config, override_config)
   }
 
-  normalized <- normalize_hazard_config(raw_config, file_path)
+  normalized <- normalize_hazard_config(raw_config, hazard_name, file_path)
   return(normalized)
 }
 
 #' Load all hazard configs from a hazards directory (internal)
 #'
-#' @param hazards_dir Character path to hazards folder containing hazard.yml files
+#' @param hazards_dir Character path to hazards/config folder containing hazard YAML files
 #' @param hazards_override_path Optional path to a config_overrides.yml file.
 #'   When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignored.
 #' @return Named list of hazard configs keyed by hazard name
@@ -89,29 +93,27 @@ load_hazard_configs <- function(hazards_dir, hazards_override_path = NULL) {
 
   config_files <- list.files(
     hazards_dir,
-    pattern = "hazard\\.yml$",
-    recursive = TRUE,
+    pattern = "\\.yml$",
+    recursive = FALSE,
     full.names = TRUE
   )
+  config_files <- config_files[basename(config_files) != "config_overrides.yml"]
 
   if (length(config_files) == 0) {
-    stop("No hazard.yml files found under: ", hazards_dir)
+    stop("No hazard config .yml files found under: ", hazards_dir)
   }
 
   registry <- list()
   for (config_path in config_files) {
-    base_config <- yaml::read_yaml(config_path)
-    hazard_name <- if (!is.null(base_config$name)) as.character(base_config$name) else NULL
+    hazard_name <- tools::file_path_sans_ext(basename(config_path))
     override_config <- NULL
-    if (!is.null(hazard_name)) {
-      # Use case-insensitive matching for hazard names in overrides
-      matching_override_name <- names(overrides)[tolower(names(overrides)) == tolower(hazard_name)]
-      if (length(matching_override_name) > 0) {
-        override_config <- overrides[[matching_override_name[1]]]
-      }
+    # Use case-insensitive matching for hazard names in overrides
+    matching_override_name <- names(overrides)[tolower(names(overrides)) == tolower(hazard_name)]
+    if (length(matching_override_name) > 0) {
+      override_config <- overrides[[matching_override_name[1]]]
     }
 
-    config <- read_hazard_config(config_path, override_config = override_config)
+    config <- read_hazard_config(config_path, hazard_name, override_config = override_config)
     if (config$name %in% names(registry)) {
       stop("Duplicate hazard name in configs: ", config$name)
     }
@@ -124,12 +126,20 @@ load_hazard_configs <- function(hazards_dir, hazards_override_path = NULL) {
 #' Normalize and validate hazard config structure (internal)
 #'
 #' @param config List parsed from YAML
+#' @param hazard_name Character hazard name from filename
 #' @param file_path Character path for error context
 #' @return Normalized config list
 #' @noRd
-normalize_hazard_config <- function(config, file_path = NULL) {
-  if (is.null(config$name) || !nzchar(as.character(config$name))) {
+normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
+  if (is.null(hazard_name) || !nzchar(as.character(hazard_name))) {
     stop("hazard config missing name", if (!is.null(file_path)) paste0(": ", file_path) else "")
+  }
+  if (!is.null(config$name) && nzchar(as.character(config$name)) && !identical(as.character(config$name), as.character(hazard_name))) {
+    stop(
+      "hazard config name does not match filename (",
+      config$name, " vs ", hazard_name, ")",
+      if (!is.null(file_path)) paste0(": ", file_path) else ""
+    )
   }
 
   if (is.null(config$indicators) || length(config$indicators) == 0) {
@@ -229,7 +239,7 @@ normalize_hazard_config <- function(config, file_path = NULL) {
   }
 
   normalized <- list(
-    name = as.character(config$name),
+    name = as.character(hazard_name),
     indicators = indicators,
     mappings = mappings,
     primary_indicator = as.character(primary_indicator),

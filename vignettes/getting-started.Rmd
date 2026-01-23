@@ -39,7 +39,11 @@ assets <- read_assets(file.path(base_dir, "user_input"))
 companies <- read_companies(file.path(base_dir, "user_input"))
 
 # Load hazards with unified loader (supports both TIF and NetCDF formats)
-hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+hazard_data <- load_hazards_and_inventory(
+  hazards_dir = file.path(base_dir, "hazards", "config"),
+  hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
+  aggregate_factor = 16L
+)
 hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv) # Flatten for compute_risk
 hazards_inventory <- hazard_data$inventory
 

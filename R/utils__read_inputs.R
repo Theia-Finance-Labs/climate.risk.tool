@@ -330,7 +330,7 @@ read_companies <- function(file_path) {
 #' @title Read damage and cost factors lookup table
 #' @description Reads damage and cost factors from CSV file, parsing numeric columns
 #'   and handling comma decimal separators correctly.
-#' @param base_dir Character string specifying the base directory containing damage_and_cost_factors.csv
+#' @param base_dir Character string specifying the base directory containing hazards/mappings/damage_and_cost_factors.csv
 #' @return tibble with damage and cost factors
 #' @examples
 #' \dontrun{
@@ -341,8 +341,8 @@ read_companies <- function(file_path) {
 read_damage_cost_factors <- function(base_dir) {
   message("[read_damage_cost_factors] Reading damage and cost factors from: ", base_dir)
 
-  # Define file path - now inside Flood hazard config folder
-  factors_path <- file.path(base_dir, "hazards", "config", "Flood", "damage_and_cost_factors.csv")
+  # Define file path - now inside hazards/mappings
+  factors_path <- file.path(base_dir, "hazards", "mappings", "damage_and_cost_factors.csv")
 
   # Check if file exists
   if (!file.exists(factors_path)) {
@@ -410,7 +410,7 @@ read_damage_cost_factors <- function(base_dir) {
 #' @title Read CNAE Labor Productivity Exposure lookup table
 #' @description Reads CNAE sector codes and their labor productivity exposure classification
 #'   from CSV file. Used to determine metric (high/median/low) for Heat hazard damage factors.
-#' @param base_dir Character string specifying the base directory containing hazards/config/Heat/cnae_labor_productivity_exposure.csv
+#' @param base_dir Character string specifying the base directory containing hazards/mappings/cnae_labor_productivity_exposure.csv
 #' @return tibble with columns: cnae (numeric), description, lp_exposure (character: "high", "median", "low")
 #' @examples
 #' \dontrun{
@@ -421,8 +421,8 @@ read_damage_cost_factors <- function(base_dir) {
 read_cnae_labor_productivity_exposure <- function(base_dir) {
   message("[read_cnae_labor_productivity_exposure] Reading CNAE exposure data from: ", base_dir)
 
-  # Define file path - now inside Heat hazard config folder
-  cnae_path <- file.path(base_dir, "hazards", "config", "Heat", "cnae_labor_productivity_exposure.csv")
+  # Define file path - now inside hazards/mappings
+  cnae_path <- file.path(base_dir, "hazards", "mappings", "cnae_labor_productivity_exposure.csv")
 
   # Check if file exists
   if (!file.exists(cnae_path)) {
@@ -616,9 +616,9 @@ read_precomputed_hazards <- function(base_dir) {
 #' Read TIF hazard mapping file
 #'
 #' @title Read TIF hazard mapping file
-#' @description Reads the `hazards_metadata.csv` file that maps TIF filenames
+#' @description Reads a metadata CSV file that maps TIF filenames
 #'   to hazard metadata (type, indicator, gwl, return period).
-#' @param mapping_path Character path to `hazards_metadata.csv`
+#' @param mapping_path Character path to a metadata CSV file
 #' @return Tibble with mapping information
 #' @noRd
 read_hazards_mapping <- function(mapping_path) {
@@ -654,7 +654,7 @@ read_hazards_mapping <- function(mapping_path) {
 #' @description Reads the land cover legend Excel file that maps land cover codes
 #'   to risk metrics. Used for Fire hazard to translate land cover extraction
 #'   results into fire risk percentages.
-#' @param base_dir Character. Base directory path containing land_cover_legend_and_index.xlsx
+#' @param base_dir Character. Base directory path containing land_cover_legend.csv
 #' @return Tibble with columns: land_cover_code (numeric), land_cover_class (character),
 #'   land_cover_category (numeric), land_cover_risk (numeric between 0 and 1)
 #' @examples
@@ -665,8 +665,8 @@ read_hazards_mapping <- function(mapping_path) {
 #' }
 #' @export
 read_land_cover_legend <- function(base_dir) {
-  # Define file path - now inside Fire hazard config folder as CSV
-  file_path <- file.path(base_dir, "hazards", "config", "Fire", "land_cover_legend.csv")
+  # Define file path - now inside hazards/mappings as CSV
+  file_path <- file.path(base_dir, "hazards", "mappings", "land_cover_legend.csv")
 
   if (!file.exists(file_path)) {
     stop("Land cover legend file not found: ", file_path)

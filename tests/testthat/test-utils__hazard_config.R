@@ -1,11 +1,9 @@
 testthat::test_that("read_hazard_config parses indicators and mappings", {
   temp_dir <- tempfile("hazard_config_")
   dir.create(temp_dir, recursive = TRUE, showWarnings = FALSE)
-  config_path <- file.path(temp_dir, "hazard.yml")
+  config_path <- file.path(temp_dir, "Flood.yml")
 
   yaml_text <- c(
-    "name: Flood",
-    "",
     "indicators:",
     "  depth:",
     "    file: flood_depth.nc",
@@ -23,7 +21,7 @@ testthat::test_that("read_hazard_config parses indicators and mappings", {
   )
   writeLines(yaml_text, config_path)
 
-  config <- read_hazard_config(config_path)
+  config <- read_hazard_config(config_path, "Flood")
 
   testthat::expect_equal(config$name, "Flood")
   testthat::expect_true("depth" %in% names(config$indicators))
@@ -44,13 +42,8 @@ testthat::test_that("load_hazard_configs reads configs from hazards folder", {
   temp_dir <- tempfile("hazards_root_")
   dir.create(temp_dir, recursive = TRUE, showWarnings = FALSE)
 
-  flood_dir <- file.path(temp_dir, "Flood")
-  heat_dir <- file.path(temp_dir, "Heat")
-  dir.create(flood_dir, recursive = TRUE, showWarnings = FALSE)
-  dir.create(heat_dir, recursive = TRUE, showWarnings = FALSE)
-
-  writeLines(c("name: Flood", "indicators: {depth: {file: flood_depth.nc, variable: depth, agg: mean}}"), file.path(flood_dir, "hazard.yml"))
-  writeLines(c("name: Heat", "indicators: {hi: {file: hi.nc, variable: hi, agg: mean}}"), file.path(heat_dir, "hazard.yml"))
+  writeLines(c("indicators: {depth: {file: flood_depth.nc, variable: depth, agg: mean}}"), file.path(temp_dir, "Flood.yml"))
+  writeLines(c("indicators: {hi: {file: hi.nc, variable: hi, agg: mean}}"), file.path(temp_dir, "Heat.yml"))
 
   registry <- load_hazard_configs(temp_dir)
 
@@ -59,14 +52,12 @@ testthat::test_that("load_hazard_configs reads configs from hazards folder", {
   testthat::expect_equal(registry$Flood$name, "Flood")
   testthat::expect_equal(registry$Heat$name, "Heat")
 })
-testthat::test_that("load_hazard_configs reads hazard.yml and normalizes defaults", {
+testthat::test_that("load_hazard_configs reads hazard config YAML and normalizes defaults", {
   temp_dir <- tempfile("hazard_config_")
   hazards_dir <- file.path(temp_dir, "hazards")
-  flood_dir <- file.path(hazards_dir, "Flood")
-  dir.create(flood_dir, recursive = TRUE)
+  dir.create(hazards_dir, recursive = TRUE)
 
   config <- list(
-    name = "Flood",
     indicators = list(
       depth = list(
         file = "flood_depth.nc",
@@ -87,7 +78,7 @@ testthat::test_that("load_hazard_configs reads hazard.yml and normalizes default
     )
   )
 
-  yaml::write_yaml(config, file.path(flood_dir, "hazard.yml"))
+  yaml::write_yaml(config, file.path(hazards_dir, "Flood.yml"))
 
   configs <- load_hazard_configs(hazards_dir)
 
@@ -118,10 +109,9 @@ testthat::test_that("load_hazard_configs reads hazard.yml and normalizes default
 testthat::test_that("load_hazard_configs errors on missing required keys", {
   temp_dir <- tempfile("hazard_config_missing_")
   hazards_dir <- file.path(temp_dir, "hazards")
-  drought_dir <- file.path(hazards_dir, "Drought")
-  dir.create(drought_dir, recursive = TRUE)
+  dir.create(hazards_dir, recursive = TRUE)
 
-  yaml::write_yaml(list(name = "Drought"), file.path(drought_dir, "hazard.yml"))
+  yaml::write_yaml(list(), file.path(hazards_dir, "Drought.yml"))
 
   testthat::expect_error(
     load_hazard_configs(hazards_dir),
@@ -132,11 +122,9 @@ testthat::test_that("load_hazard_configs errors on missing required keys", {
 testthat::test_that("load_hazard_configs allows mappings without join keys", {
   temp_dir <- tempfile("hazard_config_join_")
   hazards_dir <- file.path(temp_dir, "hazards")
-  heat_dir <- file.path(hazards_dir, "Heat")
-  dir.create(heat_dir, recursive = TRUE)
+  dir.create(hazards_dir, recursive = TRUE)
 
   config <- list(
-    name = "Heat",
     indicators = list(
       days_hot_total = list(
         file = "hi.nc",
@@ -153,7 +141,7 @@ testthat::test_that("load_hazard_configs allows mappings without join keys", {
     )
   )
 
-  yaml::write_yaml(config, file.path(heat_dir, "hazard.yml"))
+  yaml::write_yaml(config, file.path(hazards_dir, "Heat.yml"))
 
   configs <- load_hazard_configs(hazards_dir)
   mapping_cfg <- configs$Heat$mappings$exposure_links
@@ -164,11 +152,9 @@ testthat::test_that("load_hazard_configs allows mappings without join keys", {
 testthat::test_that("load_hazard_configs deep-merges overrides when provided", {
   temp_dir <- tempfile("hazard_config_override_")
   hazards_dir <- file.path(temp_dir, "hazards")
-  flood_dir <- file.path(hazards_dir, "Flood")
-  dir.create(flood_dir, recursive = TRUE)
+  dir.create(hazards_dir, recursive = TRUE)
 
   base_config <- list(
-    name = "Flood",
     primary_indicator = "depth",
     indicators = list(
       depth = list(
@@ -189,7 +175,7 @@ testthat::test_that("load_hazard_configs deep-merges overrides when provided", {
       )
     )
   )
-  yaml::write_yaml(base_config, file.path(flood_dir, "hazard.yml"))
+  yaml::write_yaml(base_config, file.path(hazards_dir, "Flood.yml"))
 
   overrides <- list(
     Flood = list(
@@ -224,11 +210,9 @@ testthat::test_that("load_hazard_configs deep-merges overrides when provided", {
 testthat::test_that("load_hazard_configs ignores missing override file", {
   temp_dir <- tempfile("hazard_config_override_missing_")
   hazards_dir <- file.path(temp_dir, "hazards")
-  flood_dir <- file.path(hazards_dir, "Flood")
-  dir.create(flood_dir, recursive = TRUE)
+  dir.create(hazards_dir, recursive = TRUE)
 
   base_config <- list(
-    name = "Flood",
     indicators = list(
       depth = list(
         file = "flood_depth.nc",
@@ -238,7 +222,7 @@ testthat::test_that("load_hazard_configs ignores missing override file", {
       )
     )
   )
-  yaml::write_yaml(base_config, file.path(flood_dir, "hazard.yml"))
+  yaml::write_yaml(base_config, file.path(hazards_dir, "Flood.yml"))
 
   configs <- load_hazard_configs(
     hazards_dir = hazards_dir,

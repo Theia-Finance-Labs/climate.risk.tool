@@ -1,5 +1,3 @@
-name: Flood
-
 indicators:
   depth:
     file: flood_depth

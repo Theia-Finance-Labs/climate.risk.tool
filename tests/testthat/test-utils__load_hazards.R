@@ -23,8 +23,14 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
   expect_s3_class(result$inventory, "data.frame")
   expect_true(all(c("gwl", "return_period") %in% names(result$inventory)))
 
-  # Check if TIF hazards were loaded (if mapping file exists in hazard_indicators)
-  if (file.exists(file.path(get_hazard_indicators_dir(), "hazards_metadata.csv"))) {
+  # Check if TIF hazards were loaded (if metadata.csv files exist in indicator folders)
+  metadata_files <- list.files(
+    get_hazard_indicators_dir(),
+    pattern = "^metadata\\.csv$",
+    full.names = TRUE,
+    recursive = TRUE
+  )
+  if (length(metadata_files) > 0) {
     tif_inventory <- result$inventory |> dplyr::filter(source == "tif")
     expect_true(nrow(tif_inventory) > 0)
     expect_true(any(grepl("tif", result$inventory$source)))

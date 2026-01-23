@@ -2,13 +2,13 @@
 #'
 #' @title Load all hazard data and generate inventory
 #' @description Self-contained loader that:
-#' 1. Reads hazard configs from `hazards/config/` (one hazard.yml per hazard)
+#' 1. Reads hazard configs from `hazards/config/` (one YAML per hazard)
 #' 2. Loads NetCDF indicators from `hazards/indicators/` root
-#' 3. Loads TIF indicators from `hazards/indicators/<indicator_folder>/` using hazards_metadata.csv
+#' 3. Loads TIF indicators from `hazards/indicators/<indicator_folder>/` using metadata.csv
 #' 4. Generates a unified inventory with hazard metadata
 #' 5. Returns both hazards and inventory
 #'
-#' @param hazards_dir Character path to hazards directory containing hazard.yml files
+#' @param hazards_dir Character path to hazards/config directory containing hazard YAML files
 #' @param hazard_indicators_dir Character path to hazards/indicators directory
 #' @param hazards_override_path Optional path to a config_overrides.yml file.
 #'   When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignored.
@@ -57,9 +57,6 @@ load_hazards_and_inventory <- function(
     hazards_override_path = hazards_override_path
   )
 
-  # TIF files require a mapping file in hazard_indicators
-  mapping_path <- file.path(hazard_indicators_dir, "hazards_metadata.csv")
-
   tif_list <- list()
   tif_inventory <- tibble::tibble(
     hazard_type = character(),
@@ -71,15 +68,6 @@ load_hazards_and_inventory <- function(
     season = character(),
     source = character()
   )
-
-  mapping_df <- NULL
-  if (file.exists(mapping_path)) {
-    message("  Found TIF mapping at: ", mapping_path)
-    mapping_df <- read_hazards_mapping(mapping_path)
-  } else {
-    message("  No TIF mapping file found at: ", mapping_path)
-    message("  Skipping TIF loading (mapping file required for TIF hazards)")
-  }
 
   # Load indicators defined in hazard configs
   all_hazards <- list()
@@ -101,11 +89,15 @@ load_hazards_and_inventory <- function(
         all_hazards <- c(all_hazards, nc_result$hazards)
         inventory <- dplyr::bind_rows(inventory, nc_result$inventory)
       } else if (indicator$source == "tif") {
-        if (is.null(mapping_df) || nrow(mapping_df) == 0) {
+        indicator_folder <- file.path(hazard_indicators_dir, indicator$file)
+        mapping_path <- file.path(indicator_folder, "metadata.csv")
+        if (!file.exists(mapping_path)) {
+          message("  No TIF metadata file found at: ", mapping_path)
           next
         }
+        message("  Found TIF metadata at: ", mapping_path)
+        mapping_df <- read_hazards_mapping(mapping_path)
 
-        indicator_folder <- file.path(hazard_indicators_dir, indicator$file)
         tif_mapping <- mapping_df |>
           dplyr::filter(.data$hazard_indicator == indicator_key)
 

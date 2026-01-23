@@ -6,11 +6,10 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
   }
 
   temp_dir <- tempfile("settings_base_")
-  hazards_dir <- file.path(temp_dir, "hazards", "Flood")
+  hazards_dir <- file.path(temp_dir, "hazards", "config")
   dir.create(hazards_dir, recursive = TRUE)
 
   config <- list(
-    name = "Flood",
     primary_indicator = "depth",
     indicators = list(
       depth = list(
@@ -34,9 +33,9 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
       )
     )
   )
-  yaml::write_yaml(config, file.path(hazards_dir, "hazard.yml"))
+  yaml::write_yaml(config, file.path(hazards_dir, "Flood.yml"))
 
-  hazard_configs <- load_hazard_configs(file.path(temp_dir, "hazards"))
+  hazard_configs <- load_hazard_configs(hazards_dir)
   inventory <- tibble::tibble(
     hazard_type = c("Flood", "Flood"),
     hazard_indicator = c("depth", "depth"),

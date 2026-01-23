@@ -28,8 +28,10 @@ library(climate.risk.tool)
 # Path to your base data directory. It must contain:
 # - damage_and_cost_factors.csv
 # - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
-# - hazards_name_mapping.csv (metadata for TIF hazards, optional for NC/CSV)
-# - hazards/[hazard_type]/ directory with .tif, .nc, or .csv files
+# - hazards/indicators/<indicator_folder>/metadata.csv (metadata for TIF hazards)
+# - hazards/indicators/ directory with .tif, .nc, or .csv indicator files
+# - hazards/config/ directory with <HazardName>.yml files
+# - hazards/mappings/ directory with mapping tables (CSV/XLSX)
 base_dir <- "/path/to/your/data"
 
 # Path to your input folder containing:
@@ -42,7 +44,11 @@ assets <- read_assets(input_folder)
 companies <- read_companies(input_folder)
 
 # Load hazards with unified loader (supports TIF, NetCDF, and CSV formats)
-hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+hazard_data <- load_hazards_and_inventory(
+  hazards_dir = file.path(base_dir, "hazards", "config"),
+  hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
+  aggregate_factor = 16L
+)
 # Include all hazard sources (TIF, NC, CSV). Heat hazards are typically provided via CSV.
 hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
 hazards_inventory <- hazard_data$inventory
@@ -180,13 +186,14 @@ For setting up hazard data and running the Brazil extraction pipeline, see:
 **[HAZARD_DATA_SETUP.md](HAZARD_DATA_SETUP.md)** - Complete guide for developers
 
 Quick reference:
-- Create `hazards/{hazard_type}/` directory structure
-- Place hazard files in appropriate format:
-  - TIF files: `{hazard_type}/*.tif` (requires `hazards_name_mapping.csv`)
-  - NetCDF files: `{hazard_type}/*.nc` (auto-discovered)
-  - CSV files: `{hazard_type}/*.csv` (auto-discovered)
+- Add hazard configs to `hazards/config/<HazardName>.yml`
+- Place mapping tables in `hazards/mappings/`
+- Place hazard indicators in appropriate format:
+  - TIF files: `hazards/indicators/<indicator_folder>/*.tif` with `metadata.csv` in the same folder
+  - NetCDF files: `hazards/indicators/*.nc` (auto-discovered)
+  - CSV files: `hazards/indicators/*.csv` (auto-discovered)
 - Run `Rscript data-raw/process_flood_maps_brazil.R` to generate Brazil subsets (if applicable)
-- Processed files are saved to `tests/tests_data/hazards/config/`
+- Processed files are saved to `tests/tests_data/hazards/`
 
 ### 5bis. Building NetCDF hazard indicators from `workspace/hazards/indicators/` (Python)
 
@@ -199,32 +206,29 @@ and **optimized for runtime polygon extraction** in the app.
 The input root is expected to look like:
 
 - `workspace/hazards/indicators/`
-  - `hazards_metadata.csv`
-  - `<indicator_name_1>/` (contains either `*.tif`/`*.tiff` OR `*.nc`)
-  - `<indicator_name_2>/` (contains either `*.tif`/`*.tiff` OR `*.nc`)
+  - `<indicator_name_1>/` (contains either `*.tif`/`*.tiff` + `metadata.csv`, OR a `*.nc`)
+  - `<indicator_name_2>/` (contains either `*.tif`/`*.tiff` + `metadata.csv`, OR a `*.nc`)
   - ...
 
 Notes:
-- If a folder contains GeoTIFFs, the script will convert them to a single NetCDF.
+- If a folder contains GeoTIFFs, the script will convert them to a single NetCDF using the `metadata.csv` in that folder.
 - If a folder contains a NetCDF, the script will copy it (and rewrite only if it needs to rename the variable / enforce chunking+compression).
 - CSV-backed indicators are intentionally ignored by this script.
 
-#### `hazards_metadata.csv`
+#### `metadata.csv`
 
-If you have GeoTIFF indicators, you should provide `workspace/hazards/indicators/hazards_metadata.csv`
-as the reference for building the NetCDF dimensions.
+If you have GeoTIFF indicators, provide `metadata.csv` in each indicator folder.
 
 Required columns:
 - `hazard_file`
 - `hazard_type`
 - `hazard_indicator`
-- `scenario_code`
-- `scenario_name`
-- `hazard_return_period`
+- `gwl`
+- `return_period`
 
 The script matches `hazard_file` to the TIFF filenames found in each indicator folder and uses:
-- unique `scenario_name` values → NetCDF dimension `GWL`
-- unique `hazard_return_period` values → NetCDF dimension `return_period`
+- unique `gwl` values → NetCDF dimension `GWL`
+- unique `return_period` values → NetCDF dimension `return_period`
 
 #### Output folder layout
 

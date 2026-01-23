@@ -295,7 +295,7 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       overrides <- list()
       for (hazard_type in names(cfg)) {
         hazard_cfg <- cfg[[hazard_type]]
-        base_config <- read_hazard_config(hazard_cfg$path)
+        base_config <- read_hazard_config(hazard_cfg$path, hazard_type)
         hazard_id <- safe_id(hazard_type)
 
         hazard_override <- list()

@@ -12,7 +12,7 @@
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and states (from read_precomputed_hazards())
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
-#' @param hazards_dir Character path to hazards directory containing hazard.yml and mapping tables
+#' @param hazards_dir Character path to hazards/config directory containing hazard YAML files
 #' @param adm1_boundaries Optional sf object with ADM1 (state) boundaries for state assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)

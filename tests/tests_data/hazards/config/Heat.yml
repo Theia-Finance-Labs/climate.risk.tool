@@ -1,5 +1,3 @@
-name: Heat
-
 indicators:
   hi:
     file: hi.nc

@@ -62,107 +62,63 @@ def _list_files_with_ext(root: str, exts: Tuple[str, ...]) -> List[str]:
     return sorted(out)
 
 
-def _load_metadata_from_csv(input_root: str) -> Optional[pd.DataFrame]:
-    """Load hazards_metadata.csv from input root if it exists."""
-    metadata_path = os.path.join(input_root, "hazards_metadata.csv")
-    if os.path.exists(metadata_path):
-        md = pd.read_csv(metadata_path)
-        md.columns = md.columns.str.strip()
-        return md
-    return None
+def _load_indicator_metadata(indicator_dir: str) -> pd.DataFrame:
+    metadata_path = os.path.join(indicator_dir, "metadata.csv")
+    if not os.path.exists(metadata_path):
+        raise ValueError(f"metadata.csv not found in indicator folder: {indicator_dir}")
+
+    md = pd.read_csv(metadata_path)
+    md.columns = md.columns.str.strip()
+    required_cols = [
+        "hazard_file",
+        "hazard_type",
+        "hazard_indicator",
+        "gwl",
+        "return_period",
+    ]
+    for col in required_cols:
+        if col not in md.columns:
+            raise ValueError(f"Missing required column '{col}' in metadata.csv")
+
+    for col in ["hazard_file", "hazard_type", "hazard_indicator", "gwl"]:
+        md[col] = md[col].astype(str).str.strip()
+
+    return md
 
 
 def _get_metadata_for_indicator(
     indicator_dir: str,
     indicator_name: str,
-    input_root: str,
-    metadata_df: Optional[pd.DataFrame],
 ) -> Tuple[pd.DataFrame, str, str]:
     """
-    Get metadata for an indicator folder, using hazards_metadata.csv if available.
+    Get metadata for an indicator folder using metadata.csv.
     
     Returns:
-        (metadata_df, hazard_type, hazard_indicator)
+        (metadata, hazard_type, hazard_indicator)
     """
     tifs = _list_files_with_ext(indicator_dir, (".tif", ".tiff"))
     if not tifs:
         raise ValueError(f"No TIFFs found in: {indicator_dir}")
+    md = _load_indicator_metadata(indicator_dir)
 
-    # If metadata CSV exists, use it to find matching rows
-    if metadata_df is not None:
-        # Find TIF files in the indicator directory
-        tif_filenames = {os.path.basename(t) for t in tifs}
-        
-        # Filter metadata to rows matching files in this indicator folder
-        # Match by hazard_file column
-        md_filtered = metadata_df[
-            metadata_df["hazard_file"].isin(tif_filenames)
-        ].copy()
-        
-        if not md_filtered.empty:
-            # Extract hazard_type and hazard_indicator from first matching row
-            hazard_type = str(md_filtered["hazard_type"].iloc[0])
-            hazard_indicator = str(md_filtered["hazard_indicator"].iloc[0])
-            
-            # Ensure all required columns exist
-            required_cols = ["hazard_file", "hazard_type", "hazard_indicator", 
-                           "scenario_code", "scenario_name", "hazard_return_period"]
-            for col in required_cols:
-                if col not in md_filtered.columns:
-                    raise ValueError(
-                        f"Missing required column '{col}' in hazards_metadata.csv"
-                    )
-            
-            return md_filtered, hazard_type, hazard_indicator
-    
-    # Fallback: infer from filenames (backward compatibility)
-    rows: List[Dict[str, object]] = []
-    
-    if indicator_name == "flood_depth":
-        for tif_path in tifs:
-            fn = os.path.basename(tif_path)
-            m = FLOOD_RE.match(fn)
-            if not m:
-                raise ValueError(
-                    f"Unexpected flood_depth tif name: {fn}\n"
-                    "Expected pattern like flood_rcp26_100_glob.tif"
-                )
-            scenario_raw = m.group("scenario").lower()
-            scenario_name = "present" if scenario_raw == "pc" else scenario_raw
-            rp = int(m.group("rp"))
-            rows.append(
-                {
-                    "hazard_file": fn,
-                    "hazard_type": "Flood",
-                    "hazard_indicator": "depth(cm)",
-                    "scenario_code": scenario_name,
-                    "scenario_name": scenario_name,
-                    "hazard_return_period": rp,
-                }
-            )
-        return pd.DataFrame(rows), "Flood", "depth(cm)"
-    elif indicator_name == "land_cover":
-        if len(tifs) != 1:
-            raise ValueError(
-                f"land_cover should contain exactly 1 tif; found {len(tifs)}"
-            )
-        fn = os.path.basename(tifs[0])
-        rows.append(
-            {
-                "hazard_file": fn,
-                "hazard_type": "Fire",
-                "hazard_indicator": "land_cover",
-                "scenario_code": "present",
-                "scenario_name": "present",
-                "hazard_return_period": 0,
-            }
-        )
-        return pd.DataFrame(rows), "Fire", "land_cover"
-    else:
+    tif_filenames = {os.path.basename(t) for t in tifs}
+    md_filtered = md[md["hazard_file"].isin(tif_filenames)].copy()
+    if md_filtered.empty:
         raise ValueError(
-            f"Cannot infer metadata for indicator folder: {indicator_name}\n"
-            "Please provide hazards_metadata.csv in the input root directory."
+            f"metadata.csv does not reference TIFFs in: {indicator_dir}"
         )
+
+    hazard_types = sorted(set(md_filtered["hazard_type"].dropna().unique()))
+    hazard_indicators = sorted(set(md_filtered["hazard_indicator"].dropna().unique()))
+    if len(hazard_types) != 1 or len(hazard_indicators) != 1:
+        raise ValueError(
+            f"metadata.csv must contain exactly one hazard_type and hazard_indicator per indicator folder: {indicator_dir}"
+        )
+
+    hazard_type = hazard_types[0]
+    hazard_indicator = hazard_indicators[0]
+
+    return md_filtered, hazard_type, hazard_indicator
 
 
 def _convert_indicator_tifs_to_nc(
@@ -170,16 +126,14 @@ def _convert_indicator_tifs_to_nc(
     indicator_dir: str,
     indicator_name: str,
     output_nc_path: str,
-    input_root: str,
-    metadata_df: Optional[pd.DataFrame],
     compress: bool,
 ) -> None:
     md, hazard_type, hazard_indicator = _get_metadata_for_indicator(
-        indicator_dir, indicator_name, input_root, metadata_df
+        indicator_dir, indicator_name
     )
     
     with tempfile.TemporaryDirectory() as td:
-        md_path = os.path.join(td, "hazards_metadata.csv")
+        md_path = os.path.join(td, "metadata.csv")
         md.to_csv(md_path, index=False)
 
         # Use variable_name based on indicator_name (folder name) for output NetCDF
@@ -324,11 +278,6 @@ def build_refacto_hazards/indicators(
 
     os.makedirs(output_root, exist_ok=True)
 
-    # Load metadata CSV if it exists
-    metadata_df = _load_metadata_from_csv(input_root)
-    if metadata_df is not None:
-        _log(f"loaded metadata CSV: {len(metadata_df)} rows")
-
     indicators = sorted([d for d in os.listdir(input_root) if os.path.isdir(os.path.join(input_root, d))])
     total = len(indicators)
     t0 = time.time()
@@ -359,8 +308,6 @@ def build_refacto_hazards/indicators(
                 indicator_dir=indicator_dir,
                 indicator_name=indicator_name,
                 output_nc_path=out_nc,
-                input_root=input_root,
-                metadata_df=metadata_df,
                 compress=compress,
             )
             _log(

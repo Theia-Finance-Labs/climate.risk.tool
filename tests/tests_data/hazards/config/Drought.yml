@@ -1,5 +1,3 @@
-name: Drought
-
 indicators:
   spi3:
     file: spi3.nc

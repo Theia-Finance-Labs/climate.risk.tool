@@ -3575,3 +3575,7 @@
 "Manacapuru","ADM2","present",100,"Heat","HI",364.9992,364.9992,364.9992,364.9992,364.9992,364.9992,364.9992,364.9992,364.9992,364.9992,"median",NA
 "Manaus","ADM2","present",100,"Heat","HI",364.99884,364.99884,364.99884,364.99884,364.99884,364.99884,364.99884,364.99884,364.99884,364.99884,"median",NA
 "Manicore","ADM2","present",100,"Heat","HI",364.99927,364.99927,364.99927,364.99927,364.99927,364.99927,364.99927,364.99927,364.99927,364.99927,"median",NA
+"Amazonas","ADM1","present",0,"Fire","land_cover",3,3,3,3,3,3,3,3,3,3,NA,NA
+"Eirunepe","ADM2","present",0,"Fire","land_cover",3,3,3,3,3,3,3,3,3,3,NA,NA
+"Manicore","ADM2","present",0,"Fire","land_cover",3,3,3,3,3,3,3,3,3,3,NA,NA
+"Careiro","ADM2","present",0,"Fire","land_cover",3,3,3,3,3,3,3,3,3,3,NA,NA

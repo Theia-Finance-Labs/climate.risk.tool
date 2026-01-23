@@ -3,7 +3,7 @@
 #' @param assets_with_hazards Data frame in long format with asset and hazard information
 #'   including hazard_type, hazard_indicator, hazard_intensity, gwl, return_period, event_id
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
-#' @param hazards_dir Character path to hazards directory containing hazard.yml and mapping tables
+#' @param hazards_dir Character path to hazards/config directory
 #' @return Data frame with mapping columns joined
 #' @noRd
 join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazards_dir) {
@@ -17,6 +17,11 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
     stop("hazards_dir does not exist: ", hazards_dir)
   }
 
+  mappings_dir <- file.path(dirname(hazards_dir), "mappings")
+  if (!dir.exists(mappings_dir)) {
+    stop("hazards mappings directory does not exist: ", mappings_dir)
+  }
+
   results <- list()
 
   for (hazard_type in names(hazard_configs)) {
@@ -28,8 +33,6 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
     }
 
     hazard_config <- hazard_configs[[hazard_type]]
-    hazard_dir <- file.path(hazards_dir, hazard_type)
-
     if (is.null(hazard_config$mappings) || length(hazard_config$mappings) == 0) {
       results[[length(results) + 1]] <- hazard_assets
       next
@@ -39,7 +42,7 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
 
     for (mapping_key in names(hazard_config$mappings)) {
       mapping <- hazard_config$mappings[[mapping_key]]
-      mapping_df <- read_hazard_mapping_table(hazard_dir, mapping$file)
+      mapping_df <- read_hazard_mapping_table(mappings_dir, mapping$file)
 
       intensity_cols <- mapping$join$on_intensity
       hazard_cols <- mapping$join$on_hazard
@@ -140,12 +143,12 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
 
 #' Read hazard mapping table (internal)
 #'
-#' @param hazard_dir Character directory containing hazard.yml and mapping tables
+#' @param mappings_dir Character directory containing mapping tables
 #' @param mapping_file Character filename for mapping table
 #' @return Tibble with mapping data
 #' @noRd
-read_hazard_mapping_table <- function(hazard_dir, mapping_file) {
-  table_path <- file.path(hazard_dir, mapping_file)
+read_hazard_mapping_table <- function(mappings_dir, mapping_file) {
+  table_path <- file.path(mappings_dir, mapping_file)
   if (!file.exists(table_path)) {
     stop("Mapping table not found: ", table_path)
   }

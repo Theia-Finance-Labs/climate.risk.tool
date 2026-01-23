@@ -59,12 +59,14 @@ The tool uses a **unified hazard configuration architecture** that supports both
 
 #### Configuration Registry
 
-Defined via `hazard.yml` files under `{base_dir}/hazards/<HazardName>/` and loaded by `load_hazard_configs()` in `R/utils__hazard_config.R`.
+Defined via `{base_dir}/hazards/config/<HazardName>.yml` files and loaded by `load_hazard_configs()` in `R/utils__hazard_config.R`.
 
-Each `hazard.yml` declares:
-- `name` and optional `primary_indicator`
+Each hazard config YAML declares:
+- optional `primary_indicator`
 - `indicators` (file, variable, index, fixed, agg, categorical)
 - `mappings` (file + join contracts)
+
+Hazard name is derived from the YAML filename (e.g., `Flood.yml` → `Flood`).
 
 Overrides:
 - Optional central overrides file at `{base_dir}/hazards/config_overrides.yml`
@@ -134,14 +136,13 @@ This expansion happens in `compute_risk()` before hazard extraction.
 
 To add a new hazard type:
 
-1. **Create folder** `{base_dir}/hazards/<HazardName>/`
-2. **Add `hazard.yml`** with indicator + mapping declarations
-3. **Place mapping tables** in the same hazard folder
-4. **Add indicator data** under `{base_dir}/hazards/indicators/`
+1. **Add config YAML** `{base_dir}/hazards/config/<HazardName>.yml` with indicator + mapping declarations
+2. **Place mapping tables** in `{base_dir}/hazards/mappings/`
+3. **Add indicator data** under `{base_dir}/hazards/indicators/`
    - NetCDF files at the root
    - TIFs inside indicator-named subfolders
-   - Update `{base_dir}/hazards/indicators/hazards_metadata.csv` for TIFs
-5. **Add hazard-specific economics** in `R/shock__apply_acute_*.R` if needed
+   - Add `metadata.csv` in each TIF indicator folder
+4. **Add hazard-specific economics** in `R/shock__apply_acute_*.R` if needed
 
 ## Data Requirements
 
@@ -151,24 +152,22 @@ To add a new hazard type:
 {base_dir}/
 ├── hazards/
 │   ├── indicators/
-│   └── config/
-│   ├── hazards_metadata.csv
-│   ├── hi.nc
-│   ├── spi3.nc
-│   ├── flood_depth/
-│   │   ├── global_pc_h10glob.tif
-│   │   └── ...
-│   └── land_cover/
-│       └── 2024_brazil_land_cover.tif
-├── hazards/
-│   ├── Flood/
-│   │   ├── hazard.yml
-│   │   └── damage_and_cost_factors.csv
-│   ├── Heat/
-│   │   ├── hazard.yml
-│   │   └── exposure_factors.csv
-│   └── Fire/
-│       ├── hazard.yml
+│   │   ├── hi.nc
+│   │   ├── spi3.nc
+│   │   ├── flood_depth/
+│   │   │   ├── metadata.csv
+│   │   │   ├── global_pc_h10glob.tif
+│   │   │   └── ...
+│   │   └── land_cover/
+│   │       ├── metadata.csv
+│   │       └── 2024_brazil_land_cover.tif
+│   ├── config/
+│   │   ├── Flood.yml
+│   │   ├── Heat.yml
+│   │   └── Fire.yml
+│   └── mappings/
+│       ├── damage_and_cost_factors.csv
+│       ├── exposure_factors.csv
 │       ├── ignition_factors.csv
 │       └── land_cover_legend.csv
 ├── precomputed_adm_hazards.csv
@@ -192,10 +191,12 @@ Location: User-selected input folder (same folder as asset_information.xlsx)
 Columns: company_id, company_name, equity, debt, other financial data
 
 #### 3. Hazard configuration + mapping tables
-Location: `{base_dir}/hazards/<HazardName>/`
+Location:
+- `{base_dir}/hazards/config/` for hazard config YAML files
+- `{base_dir}/hazards/mappings/` for mapping tables
 Files:
-- `hazard.yml` (indicator definitions + mapping joins)
-- Mapping tables referenced in `hazard.yml` (CSV/XLSX)
+- `<HazardName>.yml` (indicator definitions + mapping joins)
+- Mapping tables referenced in the YAML (CSV/XLSX)
 
 #### 4. `precomputed_adm_hazards.csv`
 Columns: region, adm_level (ADM1/ADM2), hazard_type, gwl, return_period, min, max, mean, median, p2_5, p5, p95, p97_5
@@ -203,12 +204,12 @@ Columns: region, adm_level (ADM1/ADM2), hazard_type, gwl, return_period, min, ma
 Pre-aggregated hazard statistics for administrative regions. Eliminates need for GeoJSON boundary files.
 
 - Incremental refresh logic: `data-raw/precompute_hazards.py` drops any existing rows sharing the same (`region`, `adm_level`, `hazard_type`, `hazard_indicator`, `gwl`, `return_period`, `ensemble`, `season`) keys before appending newly computed results. This guarantees a clean overwrite when hazards are reprocessed.
-- Metadata alignment: `load_hazards_metadata(metadata_path)` (Python helper in `data-raw/precompute_hazards.py`) loads `hazards_metadata.csv` and enforces that GeoTIFF-derived scenario names and indicators use the curated metadata instead of filename heuristics.
+- Metadata alignment: `load_hazards_metadata(metadata_path)` (Python helper in `data-raw/precompute_hazards.py`) loads indicator-level `metadata.csv` files and enforces that GeoTIFF-derived scenario names and indicators use the curated metadata instead of filename heuristics.
 - Spatial index optimization: For each spatial chunk, uses `adm_gdf.sindex.intersection(chunk_bbox)` to find only overlapping regions (typically 5-10) instead of joining against all 5570 regions. Accumulates point→region mappings across chunks, then aggregates once at the end. This reduces spatial join overhead by ~1000x for large region datasets.
 - Coordinate cache helper: `build_coordinate_region_lookup(lats, lons, adm_gdf)` (Python helper in `data-raw/precompute_hazards.py`) constructs a reusable `lon`/`lat` → `region` lookup before iterating dimension chunks; it returns a DataFrame with columns (`lon`, `lat`, `region`) when the grid has ≤5M points and otherwise falls back to chunk-level spatial joins. This keeps spatial joins constant cost across every hazard dimension slice while staying memory-bounded.
 
-#### 5. `hazards_metadata.csv`
-Location: `{base_dir}/hazards/indicators/hazards_metadata.csv`
+#### 5. `metadata.csv`
+Location: `{base_dir}/hazards/indicators/<indicator_folder>/metadata.csv`
 Columns: hazard_file, hazard_type, hazard_indicator, gwl, return_period
 
 Maps GeoTIFF indicators to metadata for UI display and filtering.
@@ -226,7 +227,7 @@ Examples:
 - `global_pc_h10glob.tif` - Current climate, 10-year return period
 - `global_rcp85_h100glob.tif` - RCP8.5, 100-year return period
 
-**Metadata:** Defined in `{base_dir}/hazards/indicators/hazards_metadata.csv`
+**Metadata:** Defined in `{base_dir}/hazards/indicators/<indicator_folder>/metadata.csv`
 
 **Extraction:** Polygon-based (crop/mask with aggregation function)
 
@@ -237,10 +238,10 @@ Examples:
 - `hi.nc`
 - `spi3.nc`
 
-**Metadata:** Extracted from NC dimensions and hazard.yml
+**Metadata:** Extracted from NC dimensions and hazard config YAML
 - `GWL` (Global Warming Level): From NC dimensions (e.g., "present", "1.5", "2", "3")
 - `return_period`: From NC dimensions (e.g., 5, 10, 25, 50, 100)
-- `ensemble`: Fixed to `mean` unless overridden in `hazard.yml`
+- `ensemble`: Fixed to `mean` unless overridden in the hazard config YAML
 
 **Georeferencing:** NC files store lat/lon as cell centers. Loader calculates resolution and extends extent by half-pixel to create proper raster edges.
 
@@ -310,7 +311,7 @@ Examples:
 ### Hazard Loading Workflow
 
 **1. `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir, aggregate_factor = 1L)`** → list(hazards, inventory, configs)
-- Reads hazard configs from `{base_dir}/hazards/*/hazard.yml`
+- Reads hazard configs from `{base_dir}/hazards/config/*.yml`
 - Loads NetCDF indicators from `{base_dir}/hazards/indicators/`
 - Loads GeoTIFF indicators from `{base_dir}/hazards/indicators/<indicator_folder>/`
 - Returns: `list(hazards = ..., inventory = tibble(...), configs = list(...))`
@@ -320,7 +321,7 @@ Examples:
 ```r
 # In mod_control_server:
 hazard_data <- load_hazards_and_inventory(
-  hazards_dir = file.path(base_dir, "hazards"),
+  hazards_dir = file.path(base_dir, "hazards", "config"),
   hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
   aggregate_factor = 1L
 )
@@ -372,7 +373,7 @@ configs <- hazard_data$configs
 - Raises detailed errors if region or hazard combo not found
 
 **`join_damage_cost_factors(assets_with_hazards, hazard_configs, hazards_dir)`** → data.frame
-- Joins mapping tables defined in each hazard’s `hazard.yml`
+- Joins mapping tables defined in hazard config YAML files
 - Uses explicit join keys: `on_intensity`, `on_hazard`, `on_assets`
 - Applies `intensity_match` when configured (e.g., closest match)
 
@@ -581,7 +582,7 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 
 ### GWL
 - Global Warming Level (present, 1.5, 2, 3)
-- Defined by indicator dimensions or `hazards_metadata.csv` for GeoTIFFs
+- Defined by indicator dimensions or indicator-level `metadata.csv` for GeoTIFFs
 
 ### ADM Levels
 - ADM1 = Province/State level

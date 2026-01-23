@@ -2,7 +2,7 @@
 #'
 #' @description
 #' Loads a single NetCDF indicator file and builds inventory for the
-#' hazard type and indicator defined in the hazard.yml config.
+#' hazard type and indicator defined in the hazard config YAML.
 #'
 #' **Multi-variable NetCDF files:** If a NetCDF file contains multiple variables
 #' (e.g., when not using ensemble dimension), the loader will automatically select
@@ -38,9 +38,9 @@
 #'
 #'
 #' @param indicator_path Character path to NetCDF indicator file
-#' @param hazard_type Character hazard type from hazard.yml
-#' @param hazard_indicator Character indicator key from hazard.yml
-#' @param indicator_config List configuration for the indicator (from hazard.yml)
+#' @param hazard_type Character hazard type from hazard config YAML
+#' @param hazard_indicator Character indicator key from hazard config YAML
+#' @param indicator_config List configuration for the indicator (from hazard config YAML)
 #' @param aggregate_factor Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)
 #' @param cache_aggregated Logical. If TRUE and aggregate_factor > 1, save and reuse aggregated rasters (default: TRUE)
 #' @param force_reaggregate Logical. If TRUE, recompute aggregated rasters even if cached files exist (default: FALSE)
