@@ -1,0 +1,154 @@
+fwi,gwl,return_period,asset_category,hazard_unit,damage_factor,cost_factor,hazard_indicator
+1,present,10,commercial building,FWI,0.02,838625.370183151,FWI
+47,present,10,industrial building,FWI,0.94,1774630.20177975,FWI
+0,present,10,commercial building,FWI,0,838625.370183151,FWI
+50,present,10,industrial building,FWI,1,1774630.20177975,FWI
+49,present,10,industrial building,FWI,0.98,1774630.20177975,FWI
+2,present,10,commercial building,FWI,0.04,838625.370183151,FWI
+48,present,10,industrial building,FWI,0.96,1774630.20177975,FWI
+44,present,10,industrial building,FWI,0.88,1774630.20177975,FWI
+46,present,10,industrial building,FWI,0.92,1774630.20177975,FWI
+45,present,10,industrial building,FWI,0.9,1774630.20177975,FWI
+43,present,10,industrial building,FWI,0.86,1774630.20177975,FWI
+42,present,10,industrial building,FWI,0.84,1774630.20177975,FWI
+41,present,10,industrial building,FWI,0.82,1774630.20177975,FWI
+39,present,10,industrial building,FWI,0.78,1774630.20177975,FWI
+4,present,10,commercial building,FWI,0.08,838625.370183151,FWI
+40,present,10,industrial building,FWI,0.8,1774630.20177975,FWI
+3,present,10,commercial building,FWI,0.06,838625.370183151,FWI
+16,present,10,commercial building,FWI,0.32,838625.370183151,FWI
+5,present,10,commercial building,FWI,0.1,838625.370183151,FWI
+15,present,10,commercial building,FWI,0.3,838625.370183151,FWI
+22,present,10,commercial building,FWI,0.44,838625.370183151,FWI
+37,present,10,industrial building,FWI,0.74,1774630.20177975,FWI
+21,present,10,commercial building,FWI,0.42,838625.370183151,FWI
+20,present,10,commercial building,FWI,0.4,838625.370183151,FWI
+19,present,10,commercial building,FWI,0.38,838625.370183151,FWI
+18,present,10,commercial building,FWI,0.36,838625.370183151,FWI
+17,present,10,commercial building,FWI,0.34,838625.370183151,FWI
+14,present,10,commercial building,FWI,0.28,838625.370183151,FWI
+6,present,10,commercial building,FWI,0.12,838625.370183151,FWI
+13,present,10,commercial building,FWI,0.26,838625.370183151,FWI
+12,present,10,commercial building,FWI,0.24,838625.370183151,FWI
+11,present,10,commercial building,FWI,0.22,838625.370183151,FWI
+10,present,10,commercial building,FWI,0.2,838625.370183151,FWI
+9,present,10,commercial building,FWI,0.18,838625.370183151,FWI
+8,present,10,commercial building,FWI,0.16,838625.370183151,FWI
+7,present,10,commercial building,FWI,0.14,838625.370183151,FWI
+38,present,10,industrial building,FWI,0.76,1774630.20177975,FWI
+11,present,10,industrial building,FWI,0.22,1774630.20177975,FWI
+36,present,10,industrial building,FWI,0.72,1774630.20177975,FWI
+17,present,10,industrial building,FWI,0.34,1774630.20177975,FWI
+15,present,10,industrial building,FWI,0.3,1774630.20177975,FWI
+14,present,10,industrial building,FWI,0.28,1774630.20177975,FWI
+13,present,10,industrial building,FWI,0.26,1774630.20177975,FWI
+12,present,10,industrial building,FWI,0.24,1774630.20177975,FWI
+10,present,10,industrial building,FWI,0.2,1774630.20177975,FWI
+9,present,10,industrial building,FWI,0.18,1774630.20177975,FWI
+8,present,10,industrial building,FWI,0.16,1774630.20177975,FWI
+7,present,10,industrial building,FWI,0.14,1774630.20177975,FWI
+6,present,10,industrial building,FWI,0.12,1774630.20177975,FWI
+5,present,10,industrial building,FWI,0.1,1774630.20177975,FWI
+4,present,10,industrial building,FWI,0.08,1774630.20177975,FWI
+3,present,10,industrial building,FWI,0.06,1774630.20177975,FWI
+2,present,10,industrial building,FWI,0.04,1774630.20177975,FWI
+1,present,10,industrial building,FWI,0.02,1774630.20177975,FWI
+24,present,10,commercial building,FWI,0.48,838625.370183151,FWI
+16,present,10,industrial building,FWI,0.32,1774630.20177975,FWI
+18,present,10,industrial building,FWI,0.36,1774630.20177975,FWI
+35,present,10,industrial building,FWI,0.7,1774630.20177975,FWI
+19,present,10,industrial building,FWI,0.38,1774630.20177975,FWI
+34,present,10,industrial building,FWI,0.68,1774630.20177975,FWI
+33,present,10,industrial building,FWI,0.66,1774630.20177975,FWI
+32,present,10,industrial building,FWI,0.64,1774630.20177975,FWI
+31,present,10,industrial building,FWI,0.62,1774630.20177975,FWI
+30,present,10,industrial building,FWI,0.6,1774630.20177975,FWI
+29,present,10,industrial building,FWI,0.58,1774630.20177975,FWI
+28,present,10,industrial building,FWI,0.56,1774630.20177975,FWI
+27,present,10,industrial building,FWI,0.54,1774630.20177975,FWI
+26,present,10,industrial building,FWI,0.52,1774630.20177975,FWI
+25,present,10,industrial building,FWI,0.5,1774630.20177975,FWI
+24,present,10,industrial building,FWI,0.48,1774630.20177975,FWI
+23,present,10,industrial building,FWI,0.46,1774630.20177975,FWI
+22,present,10,industrial building,FWI,0.44,1774630.20177975,FWI
+21,present,10,industrial building,FWI,0.42,1774630.20177975,FWI
+20,present,10,industrial building,FWI,0.4,1774630.20177975,FWI
+23,present,10,commercial building,FWI,0.46,838625.370183151,FWI
+28,present,10,agriculture,FWI,0.56,NA,FWI
+25,present,10,commercial building,FWI,0.5,838625.370183151,FWI
+22,present,10,agriculture,FWI,0.44,NA,FWI
+30,present,10,agriculture,FWI,0.6,NA,FWI
+29,present,10,agriculture,FWI,0.58,NA,FWI
+27,present,10,agriculture,FWI,0.54,NA,FWI
+26,present,10,agriculture,FWI,0.52,NA,FWI
+25,present,10,agriculture,FWI,0.5,NA,FWI
+24,present,10,agriculture,FWI,0.48,NA,FWI
+23,present,10,agriculture,FWI,0.46,NA,FWI
+21,present,10,agriculture,FWI,0.42,NA,FWI
+26,present,10,commercial building,FWI,0.52,838625.370183151,FWI
+20,present,10,agriculture,FWI,0.4,NA,FWI
+19,present,10,agriculture,FWI,0.38,NA,FWI
+18,present,10,agriculture,FWI,0.36,NA,FWI
+17,present,10,agriculture,FWI,0.34,NA,FWI
+16,present,10,agriculture,FWI,0.32,NA,FWI
+15,present,10,agriculture,FWI,0.3,NA,FWI
+14,present,10,agriculture,FWI,0.28,NA,FWI
+31,present,10,agriculture,FWI,0.62,NA,FWI
+32,present,10,agriculture,FWI,0.64,NA,FWI
+33,present,10,agriculture,FWI,0.66,NA,FWI
+34,present,10,agriculture,FWI,0.68,NA,FWI
+49,present,10,agriculture,FWI,0.98,NA,FWI
+48,present,10,agriculture,FWI,0.96,NA,FWI
+47,present,10,agriculture,FWI,0.94,NA,FWI
+46,present,10,agriculture,FWI,0.92,NA,FWI
+45,present,10,agriculture,FWI,0.9,NA,FWI
+44,present,10,agriculture,FWI,0.88,NA,FWI
+43,present,10,agriculture,FWI,0.86,NA,FWI
+42,present,10,agriculture,FWI,0.84,NA,FWI
+41,present,10,agriculture,FWI,0.82,NA,FWI
+40,present,10,agriculture,FWI,0.8,NA,FWI
+39,present,10,agriculture,FWI,0.78,NA,FWI
+38,present,10,agriculture,FWI,0.76,NA,FWI
+37,present,10,agriculture,FWI,0.74,NA,FWI
+36,present,10,agriculture,FWI,0.72,NA,FWI
+35,present,10,agriculture,FWI,0.7,NA,FWI
+13,present,10,agriculture,FWI,0.26,NA,FWI
+12,present,10,agriculture,FWI,0.24,NA,FWI
+11,present,10,agriculture,FWI,0.22,NA,FWI
+43,present,10,commercial building,FWI,0.86,838625.370183151,FWI
+41,present,10,commercial building,FWI,0.82,838625.370183151,FWI
+40,present,10,commercial building,FWI,0.8,838625.370183151,FWI
+39,present,10,commercial building,FWI,0.78,838625.370183151,FWI
+38,present,10,commercial building,FWI,0.76,838625.370183151,FWI
+37,present,10,commercial building,FWI,0.74,838625.370183151,FWI
+36,present,10,commercial building,FWI,0.72,838625.370183151,FWI
+35,present,10,commercial building,FWI,0.7,838625.370183151,FWI
+34,present,10,commercial building,FWI,0.68,838625.370183151,FWI
+33,present,10,commercial building,FWI,0.66,838625.370183151,FWI
+32,present,10,commercial building,FWI,0.64,838625.370183151,FWI
+31,present,10,commercial building,FWI,0.62,838625.370183151,FWI
+30,present,10,commercial building,FWI,0.6,838625.370183151,FWI
+29,present,10,commercial building,FWI,0.58,838625.370183151,FWI
+28,present,10,commercial building,FWI,0.56,838625.370183151,FWI
+27,present,10,commercial building,FWI,0.54,838625.370183151,FWI
+42,present,10,commercial building,FWI,0.84,838625.370183151,FWI
+44,present,10,commercial building,FWI,0.88,838625.370183151,FWI
+10,present,10,agriculture,FWI,0.2,NA,FWI
+45,present,10,commercial building,FWI,0.9,838625.370183151,FWI
+9,present,10,agriculture,FWI,0.18,NA,FWI
+8,present,10,agriculture,FWI,0.16,NA,FWI
+7,present,10,agriculture,FWI,0.14,NA,FWI
+6,present,10,agriculture,FWI,0.12,NA,FWI
+5,present,10,agriculture,FWI,0.1,NA,FWI
+4,present,10,agriculture,FWI,0.08,NA,FWI
+3,present,10,agriculture,FWI,0.06,NA,FWI
+2,present,10,agriculture,FWI,0.04,NA,FWI
+1,present,10,agriculture,FWI,0.02,NA,FWI
+0,present,10,agriculture,FWI,0,NA,FWI
+50,present,10,commercial building,FWI,1,838625.370183151,FWI
+49,present,10,commercial building,FWI,0.98,838625.370183151,FWI
+48,present,10,commercial building,FWI,0.96,838625.370183151,FWI
+47,present,10,commercial building,FWI,0.94,838625.370183151,FWI
+46,present,10,commercial building,FWI,0.92,838625.370183151,FWI
+0,present,10,industrial building,FWI,0,1774630.20177975,FWI
+50,present,10,agriculture,FWI,1,NA,FWI

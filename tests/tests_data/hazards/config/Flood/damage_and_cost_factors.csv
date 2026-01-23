@@ -1,0 +1,1804 @@
+depth,return_period,asset_category,hazard_unit,damage_factor,cost_factor,hazard_indicator,business_disruption
+0,10,commercial building,depth(cm),0,838625.370183151,depth(cm),0
+38,10,industrial building,depth(cm),0.5092,1774630.20177975,depth(cm),20
+8,10,industrial building,depth(cm),0.1072,1774630.20177975,depth(cm),4
+7,10,industrial building,depth(cm),0.0938,1774630.20177975,depth(cm),4
+6,10,industrial building,depth(cm),0.0804,1774630.20177975,depth(cm),3
+5,10,industrial building,depth(cm),0.067,1774630.20177975,depth(cm),3
+4,10,industrial building,depth(cm),0.0536,1774630.20177975,depth(cm),2
+3,10,industrial building,depth(cm),0.0402,1774630.20177975,depth(cm),2
+2,10,industrial building,depth(cm),0.0268,1774630.20177975,depth(cm),1
+1,10,industrial building,depth(cm),0.0134,1774630.20177975,depth(cm),1
+0,10,industrial building,depth(cm),0,1774630.20177975,depth(cm),0
+600,10,agriculture,depth(cm),1,NA,depth(cm),98
+599,10,agriculture,depth(cm),0.99985518893,NA,depth(cm),98
+598,10,agriculture,depth(cm),0.99971037786,NA,depth(cm),98
+597,10,agriculture,depth(cm),0.99956556679,NA,depth(cm),98
+596,10,agriculture,depth(cm),0.99942075572,NA,depth(cm),98
+595,10,agriculture,depth(cm),0.99927594465,NA,depth(cm),98
+594,10,agriculture,depth(cm),0.99913113358,NA,depth(cm),98
+593,10,agriculture,depth(cm),0.99898632251,NA,depth(cm),98
+592,10,agriculture,depth(cm),0.99884151144,NA,depth(cm),98
+591,10,agriculture,depth(cm),0.99869670037,NA,depth(cm),98
+590,10,agriculture,depth(cm),0.9985518893,NA,depth(cm),98
+589,10,agriculture,depth(cm),0.99840707823,NA,depth(cm),98
+588,10,agriculture,depth(cm),0.99826226716,NA,depth(cm),98
+587,10,agriculture,depth(cm),0.99811745609,NA,depth(cm),98
+586,10,agriculture,depth(cm),0.99797264502,NA,depth(cm),98
+585,10,agriculture,depth(cm),0.99782783395,NA,depth(cm),98
+9,10,industrial building,depth(cm),0.1206,1774630.20177975,depth(cm),5
+10,10,industrial building,depth(cm),0.134,1774630.20177975,depth(cm),5
+11,10,industrial building,depth(cm),0.1474,1774630.20177975,depth(cm),6
+25,10,industrial building,depth(cm),0.335,1774630.20177975,depth(cm),13
+36,10,industrial building,depth(cm),0.4824,1774630.20177975,depth(cm),19
+35,10,industrial building,depth(cm),0.469,1774630.20177975,depth(cm),18
+34,10,industrial building,depth(cm),0.4556,1774630.20177975,depth(cm),18
+33,10,industrial building,depth(cm),0.4422,1774630.20177975,depth(cm),17
+32,10,industrial building,depth(cm),0.4288,1774630.20177975,depth(cm),17
+31,10,industrial building,depth(cm),0.4154,1774630.20177975,depth(cm),16
+30,10,industrial building,depth(cm),0.402,1774630.20177975,depth(cm),16
+29,10,industrial building,depth(cm),0.3886,1774630.20177975,depth(cm),15
+28,10,industrial building,depth(cm),0.3752,1774630.20177975,depth(cm),15
+27,10,industrial building,depth(cm),0.3618,1774630.20177975,depth(cm),14
+26,10,industrial building,depth(cm),0.3484,1774630.20177975,depth(cm),14
+24,10,industrial building,depth(cm),0.3216,1774630.20177975,depth(cm),12
+12,10,industrial building,depth(cm),0.1608,1774630.20177975,depth(cm),6
+23,10,industrial building,depth(cm),0.3082,1774630.20177975,depth(cm),12
+22,10,industrial building,depth(cm),0.2948,1774630.20177975,depth(cm),11
+21,10,industrial building,depth(cm),0.2814,1774630.20177975,depth(cm),11
+20,10,industrial building,depth(cm),0.268,1774630.20177975,depth(cm),10
+19,10,industrial building,depth(cm),0.2546,1774630.20177975,depth(cm),10
+18,10,industrial building,depth(cm),0.2412,1774630.20177975,depth(cm),9
+17,10,industrial building,depth(cm),0.2278,1774630.20177975,depth(cm),9
+16,10,industrial building,depth(cm),0.2144,1774630.20177975,depth(cm),8
+15,10,industrial building,depth(cm),0.201,1774630.20177975,depth(cm),8
+14,10,industrial building,depth(cm),0.1876,1774630.20177975,depth(cm),7
+13,10,industrial building,depth(cm),0.1742,1774630.20177975,depth(cm),7
+584,10,agriculture,depth(cm),0.99768302288,NA,depth(cm),98
+583,10,agriculture,depth(cm),0.99753821181,NA,depth(cm),98
+582,10,agriculture,depth(cm),0.99739340074,NA,depth(cm),98
+541,10,agriculture,depth(cm),0.99145614687,NA,depth(cm),98
+552,10,agriculture,depth(cm),0.99304906864,NA,depth(cm),98
+551,10,agriculture,depth(cm),0.99290425757,NA,depth(cm),98
+550,10,agriculture,depth(cm),0.9927594465,NA,depth(cm),98
+549,10,agriculture,depth(cm),0.99261463543,NA,depth(cm),98
+548,10,agriculture,depth(cm),0.99246982436,NA,depth(cm),98
+547,10,agriculture,depth(cm),0.99232501329,NA,depth(cm),98
+546,10,agriculture,depth(cm),0.99218020222,NA,depth(cm),98
+545,10,agriculture,depth(cm),0.99203539115,NA,depth(cm),98
+544,10,agriculture,depth(cm),0.99189058008,NA,depth(cm),98
+543,10,agriculture,depth(cm),0.99174576901,NA,depth(cm),98
+542,10,agriculture,depth(cm),0.99160095794,NA,depth(cm),98
+540,10,agriculture,depth(cm),0.9913113358,NA,depth(cm),98
+554,10,agriculture,depth(cm),0.99333869078,NA,depth(cm),98
+539,10,agriculture,depth(cm),0.99116652473,NA,depth(cm),98
+538,10,agriculture,depth(cm),0.99102171366,NA,depth(cm),98
+537,10,agriculture,depth(cm),0.99087690259,NA,depth(cm),98
+536,10,agriculture,depth(cm),0.99073209152,NA,depth(cm),98
+535,10,agriculture,depth(cm),0.99058728045,NA,depth(cm),98
+534,10,agriculture,depth(cm),0.99044246938,NA,depth(cm),98
+533,10,agriculture,depth(cm),0.99029765831,NA,depth(cm),98
+532,10,agriculture,depth(cm),0.99015284724,NA,depth(cm),98
+531,10,agriculture,depth(cm),0.99000803617,NA,depth(cm),98
+530,10,agriculture,depth(cm),0.9898632251,NA,depth(cm),98
+529,10,agriculture,depth(cm),0.98971841403,NA,depth(cm),98
+553,10,agriculture,depth(cm),0.99319387971,NA,depth(cm),98
+555,10,agriculture,depth(cm),0.99348350185,NA,depth(cm),98
+581,10,agriculture,depth(cm),0.99724858967,NA,depth(cm),98
+569,10,agriculture,depth(cm),0.99551085683,NA,depth(cm),98
+580,10,agriculture,depth(cm),0.9971037786,NA,depth(cm),98
+579,10,agriculture,depth(cm),0.99695896753,NA,depth(cm),98
+578,10,agriculture,depth(cm),0.99681415646,NA,depth(cm),98
+577,10,agriculture,depth(cm),0.99666934539,NA,depth(cm),98
+576,10,agriculture,depth(cm),0.99652453432,NA,depth(cm),98
+575,10,agriculture,depth(cm),0.99637972325,NA,depth(cm),98
+574,10,agriculture,depth(cm),0.99623491218,NA,depth(cm),98
+573,10,agriculture,depth(cm),0.99609010111,NA,depth(cm),98
+572,10,agriculture,depth(cm),0.99594529004,NA,depth(cm),98
+571,10,agriculture,depth(cm),0.99580047897,NA,depth(cm),98
+570,10,agriculture,depth(cm),0.9956556679,NA,depth(cm),98
+568,10,agriculture,depth(cm),0.99536604576,NA,depth(cm),98
+556,10,agriculture,depth(cm),0.99362831292,NA,depth(cm),98
+567,10,agriculture,depth(cm),0.99522123469,NA,depth(cm),98
+566,10,agriculture,depth(cm),0.99507642362,NA,depth(cm),98
+565,10,agriculture,depth(cm),0.99493161255,NA,depth(cm),98
+564,10,agriculture,depth(cm),0.99478680148,NA,depth(cm),98
+563,10,agriculture,depth(cm),0.99464199041,NA,depth(cm),98
+562,10,agriculture,depth(cm),0.99449717934,NA,depth(cm),98
+561,10,agriculture,depth(cm),0.99435236827,NA,depth(cm),98
+560,10,agriculture,depth(cm),0.9942075572,NA,depth(cm),98
+559,10,agriculture,depth(cm),0.99406274613,NA,depth(cm),98
+558,10,agriculture,depth(cm),0.99391793506,NA,depth(cm),98
+557,10,agriculture,depth(cm),0.99377312399,NA,depth(cm),98
+37,10,industrial building,depth(cm),0.4958,1774630.20177975,depth(cm),19
+39,10,industrial building,depth(cm),0.5226,1774630.20177975,depth(cm),20
+527,10,agriculture,depth(cm),0.98942879189,NA,depth(cm),98
+40,10,industrial building,depth(cm),0.536,1774630.20177975,depth(cm),21
+121,10,industrial building,depth(cm),0.9152,1774630.20177975,depth(cm),45
+120,10,industrial building,depth(cm),0.914,1774630.20177975,depth(cm),45
+119,10,industrial building,depth(cm),0.9128,1774630.20177975,depth(cm),45
+118,10,industrial building,depth(cm),0.9116,1774630.20177975,depth(cm),44
+117,10,industrial building,depth(cm),0.9104,1774630.20177975,depth(cm),44
+116,10,industrial building,depth(cm),0.9092,1774630.20177975,depth(cm),44
+115,10,industrial building,depth(cm),0.908,1774630.20177975,depth(cm),43
+114,10,industrial building,depth(cm),0.9068,1774630.20177975,depth(cm),43
+113,10,industrial building,depth(cm),0.9056,1774630.20177975,depth(cm),43
+112,10,industrial building,depth(cm),0.9044,1774630.20177975,depth(cm),42
+111,10,industrial building,depth(cm),0.9032,1774630.20177975,depth(cm),42
+110,10,industrial building,depth(cm),0.902,1774630.20177975,depth(cm),42
+109,10,industrial building,depth(cm),0.9008,1774630.20177975,depth(cm),41
+108,10,industrial building,depth(cm),0.8996,1774630.20177975,depth(cm),41
+107,10,industrial building,depth(cm),0.8984,1774630.20177975,depth(cm),40
+106,10,industrial building,depth(cm),0.8972,1774630.20177975,depth(cm),40
+105,10,industrial building,depth(cm),0.896,1774630.20177975,depth(cm),40
+104,10,industrial building,depth(cm),0.8948,1774630.20177975,depth(cm),39
+103,10,industrial building,depth(cm),0.8936,1774630.20177975,depth(cm),39
+102,10,industrial building,depth(cm),0.8924,1774630.20177975,depth(cm),39
+101,10,industrial building,depth(cm),0.8912,1774630.20177975,depth(cm),38
+100,10,industrial building,depth(cm),0.89,1774630.20177975,depth(cm),38
+99,10,industrial building,depth(cm),0.8856,1774630.20177975,depth(cm),38
+98,10,industrial building,depth(cm),0.8812,1774630.20177975,depth(cm),38
+97,10,industrial building,depth(cm),0.8768,1774630.20177975,depth(cm),37
+122,10,industrial building,depth(cm),0.9164,1774630.20177975,depth(cm),46
+123,10,industrial building,depth(cm),0.9176,1774630.20177975,depth(cm),46
+124,10,industrial building,depth(cm),0.9188,1774630.20177975,depth(cm),46
+138,10,industrial building,depth(cm),0.9356,1774630.20177975,depth(cm),51
+149,10,industrial building,depth(cm),0.9488,1774630.20177975,depth(cm),55
+148,10,industrial building,depth(cm),0.9476,1774630.20177975,depth(cm),55
+147,10,industrial building,depth(cm),0.9464,1774630.20177975,depth(cm),54
+146,10,industrial building,depth(cm),0.9452,1774630.20177975,depth(cm),54
+145,10,industrial building,depth(cm),0.944,1774630.20177975,depth(cm),54
+144,10,industrial building,depth(cm),0.9428,1774630.20177975,depth(cm),53
+143,10,industrial building,depth(cm),0.9416,1774630.20177975,depth(cm),53
+142,10,industrial building,depth(cm),0.9404,1774630.20177975,depth(cm),53
+141,10,industrial building,depth(cm),0.9392,1774630.20177975,depth(cm),52
+140,10,industrial building,depth(cm),0.938,1774630.20177975,depth(cm),52
+139,10,industrial building,depth(cm),0.9368,1774630.20177975,depth(cm),52
+137,10,industrial building,depth(cm),0.9344,1774630.20177975,depth(cm),51
+125,10,industrial building,depth(cm),0.92,1774630.20177975,depth(cm),47
+136,10,industrial building,depth(cm),0.9332,1774630.20177975,depth(cm),51
+135,10,industrial building,depth(cm),0.932,1774630.20177975,depth(cm),50
+134,10,industrial building,depth(cm),0.9308,1774630.20177975,depth(cm),50
+133,10,industrial building,depth(cm),0.9296,1774630.20177975,depth(cm),50
+132,10,industrial building,depth(cm),0.9284,1774630.20177975,depth(cm),49
+131,10,industrial building,depth(cm),0.9272,1774630.20177975,depth(cm),49
+130,10,industrial building,depth(cm),0.926,1774630.20177975,depth(cm),49
+129,10,industrial building,depth(cm),0.9248,1774630.20177975,depth(cm),48
+128,10,industrial building,depth(cm),0.9236,1774630.20177975,depth(cm),48
+127,10,industrial building,depth(cm),0.9224,1774630.20177975,depth(cm),47
+126,10,industrial building,depth(cm),0.9212,1774630.20177975,depth(cm),47
+96,10,industrial building,depth(cm),0.8724,1774630.20177975,depth(cm),37
+95,10,industrial building,depth(cm),0.868,1774630.20177975,depth(cm),37
+94,10,industrial building,depth(cm),0.8636,1774630.20177975,depth(cm),37
+53,10,industrial building,depth(cm),0.6832,1774630.20177975,depth(cm),27
+64,10,industrial building,depth(cm),0.7316,1774630.20177975,depth(cm),29
+63,10,industrial building,depth(cm),0.7272,1774630.20177975,depth(cm),29
+62,10,industrial building,depth(cm),0.7228,1774630.20177975,depth(cm),29
+61,10,industrial building,depth(cm),0.7184,1774630.20177975,depth(cm),29
+60,10,industrial building,depth(cm),0.714,1774630.20177975,depth(cm),28
+59,10,industrial building,depth(cm),0.7096,1774630.20177975,depth(cm),28
+58,10,industrial building,depth(cm),0.7052,1774630.20177975,depth(cm),28
+57,10,industrial building,depth(cm),0.7008,1774630.20177975,depth(cm),28
+56,10,industrial building,depth(cm),0.6964,1774630.20177975,depth(cm),27
+55,10,industrial building,depth(cm),0.692,1774630.20177975,depth(cm),27
+54,10,industrial building,depth(cm),0.6876,1774630.20177975,depth(cm),27
+52,10,industrial building,depth(cm),0.6788,1774630.20177975,depth(cm),26
+66,10,industrial building,depth(cm),0.7404,1774630.20177975,depth(cm),30
+51,10,industrial building,depth(cm),0.6744,1774630.20177975,depth(cm),26
+50,10,industrial building,depth(cm),0.67,1774630.20177975,depth(cm),26
+49,10,industrial building,depth(cm),0.6566,1774630.20177975,depth(cm),25
+48,10,industrial building,depth(cm),0.6432,1774630.20177975,depth(cm),25
+47,10,industrial building,depth(cm),0.6298,1774630.20177975,depth(cm),24
+46,10,industrial building,depth(cm),0.6164,1774630.20177975,depth(cm),24
+45,10,industrial building,depth(cm),0.603,1774630.20177975,depth(cm),23
+44,10,industrial building,depth(cm),0.5896,1774630.20177975,depth(cm),23
+43,10,industrial building,depth(cm),0.5762,1774630.20177975,depth(cm),22
+42,10,industrial building,depth(cm),0.5628,1774630.20177975,depth(cm),22
+41,10,industrial building,depth(cm),0.5494,1774630.20177975,depth(cm),21
+65,10,industrial building,depth(cm),0.736,1774630.20177975,depth(cm),30
+67,10,industrial building,depth(cm),0.7448,1774630.20177975,depth(cm),30
+93,10,industrial building,depth(cm),0.8592,1774630.20177975,depth(cm),36
+81,10,industrial building,depth(cm),0.8064,1774630.20177975,depth(cm),33
+92,10,industrial building,depth(cm),0.8548,1774630.20177975,depth(cm),36
+91,10,industrial building,depth(cm),0.8504,1774630.20177975,depth(cm),36
+90,10,industrial building,depth(cm),0.846,1774630.20177975,depth(cm),36
+89,10,industrial building,depth(cm),0.8416,1774630.20177975,depth(cm),35
+88,10,industrial building,depth(cm),0.8372,1774630.20177975,depth(cm),35
+87,10,industrial building,depth(cm),0.8328,1774630.20177975,depth(cm),35
+86,10,industrial building,depth(cm),0.8284,1774630.20177975,depth(cm),35
+85,10,industrial building,depth(cm),0.824,1774630.20177975,depth(cm),34
+84,10,industrial building,depth(cm),0.8196,1774630.20177975,depth(cm),34
+83,10,industrial building,depth(cm),0.8152,1774630.20177975,depth(cm),34
+82,10,industrial building,depth(cm),0.8108,1774630.20177975,depth(cm),34
+80,10,industrial building,depth(cm),0.802,1774630.20177975,depth(cm),33
+68,10,industrial building,depth(cm),0.7492,1774630.20177975,depth(cm),30
+79,10,industrial building,depth(cm),0.7976,1774630.20177975,depth(cm),33
+78,10,industrial building,depth(cm),0.7932,1774630.20177975,depth(cm),33
+77,10,industrial building,depth(cm),0.7888,1774630.20177975,depth(cm),32
+76,10,industrial building,depth(cm),0.7844,1774630.20177975,depth(cm),32
+75,10,industrial building,depth(cm),0.78,1774630.20177975,depth(cm),32
+74,10,industrial building,depth(cm),0.7756,1774630.20177975,depth(cm),32
+73,10,industrial building,depth(cm),0.7712,1774630.20177975,depth(cm),32
+72,10,industrial building,depth(cm),0.7668,1774630.20177975,depth(cm),31
+71,10,industrial building,depth(cm),0.7624,1774630.20177975,depth(cm),31
+70,10,industrial building,depth(cm),0.758,1774630.20177975,depth(cm),31
+69,10,industrial building,depth(cm),0.7536,1774630.20177975,depth(cm),31
+528,10,agriculture,depth(cm),0.98957360296,NA,depth(cm),98
+526,10,agriculture,depth(cm),0.98928398082,NA,depth(cm),98
+301,10,agriculture,depth(cm),0.81848436678,NA,depth(cm),98
+413,10,agriculture,depth(cm),0.92375303246,NA,depth(cm),98
+383,10,agriculture,depth(cm),0.89803205674,NA,depth(cm),98
+382,10,agriculture,depth(cm),0.89706196296,NA,depth(cm),98
+381,10,agriculture,depth(cm),0.89609186918,NA,depth(cm),98
+380,10,agriculture,depth(cm),0.8951217754,NA,depth(cm),98
+379,10,agriculture,depth(cm),0.89415168162,NA,depth(cm),98
+378,10,agriculture,depth(cm),0.89318158784,NA,depth(cm),98
+377,10,agriculture,depth(cm),0.89221149406,NA,depth(cm),98
+1,10,commercial building,depth(cm),0.0122,838625.370183151,depth(cm),1
+375,10,agriculture,depth(cm),0.8902713065,NA,depth(cm),98
+374,10,agriculture,depth(cm),0.88930121272,NA,depth(cm),98
+373,10,agriculture,depth(cm),0.88833111894,NA,depth(cm),98
+372,10,agriculture,depth(cm),0.88736102516,NA,depth(cm),98
+371,10,agriculture,depth(cm),0.88639093138,NA,depth(cm),98
+370,10,agriculture,depth(cm),0.8854208376,NA,depth(cm),98
+369,10,agriculture,depth(cm),0.88445074382,NA,depth(cm),98
+368,10,agriculture,depth(cm),0.88348065004,NA,depth(cm),98
+367,10,agriculture,depth(cm),0.88251055626,NA,depth(cm),98
+366,10,agriculture,depth(cm),0.88154046248,NA,depth(cm),98
+365,10,agriculture,depth(cm),0.8805703687,NA,depth(cm),98
+364,10,agriculture,depth(cm),0.87960027492,NA,depth(cm),98
+363,10,agriculture,depth(cm),0.87863018114,NA,depth(cm),98
+362,10,agriculture,depth(cm),0.87766008736,NA,depth(cm),98
+361,10,agriculture,depth(cm),0.87668999358,NA,depth(cm),98
+360,10,agriculture,depth(cm),0.8757198998,NA,depth(cm),98
+359,10,agriculture,depth(cm),0.87474980602,NA,depth(cm),98
+384,10,agriculture,depth(cm),0.89900215052,NA,depth(cm),98
+385,10,agriculture,depth(cm),0.8999722443,NA,depth(cm),98
+386,10,agriculture,depth(cm),0.90094233808,NA,depth(cm),98
+400,10,agriculture,depth(cm),0.914523651,NA,depth(cm),98
+411,10,agriculture,depth(cm),0.92233312762,NA,depth(cm),98
+410,10,agriculture,depth(cm),0.9216231752,NA,depth(cm),98
+409,10,agriculture,depth(cm),0.92091322278,NA,depth(cm),98
+408,10,agriculture,depth(cm),0.92020327036,NA,depth(cm),98
+407,10,agriculture,depth(cm),0.91949331794,NA,depth(cm),98
+406,10,agriculture,depth(cm),0.91878336552,NA,depth(cm),98
+405,10,agriculture,depth(cm),0.9180734131,NA,depth(cm),98
+404,10,agriculture,depth(cm),0.91736346068,NA,depth(cm),98
+403,10,agriculture,depth(cm),0.91665350826,NA,depth(cm),98
+402,10,agriculture,depth(cm),0.91594355584,NA,depth(cm),98
+401,10,agriculture,depth(cm),0.91523360342,NA,depth(cm),98
+399,10,agriculture,depth(cm),0.91355355722,NA,depth(cm),98
+387,10,agriculture,depth(cm),0.90191243186,NA,depth(cm),98
+398,10,agriculture,depth(cm),0.91258346344,NA,depth(cm),98
+397,10,agriculture,depth(cm),0.91161336966,NA,depth(cm),98
+396,10,agriculture,depth(cm),0.91064327588,NA,depth(cm),98
+395,10,agriculture,depth(cm),0.9096731821,NA,depth(cm),98
+394,10,agriculture,depth(cm),0.90870308832,NA,depth(cm),98
+393,10,agriculture,depth(cm),0.90773299454,NA,depth(cm),98
+392,10,agriculture,depth(cm),0.90676290076,NA,depth(cm),98
+391,10,agriculture,depth(cm),0.90579280698,NA,depth(cm),98
+390,10,agriculture,depth(cm),0.9048227132,NA,depth(cm),98
+389,10,agriculture,depth(cm),0.90385261942,NA,depth(cm),98
+388,10,agriculture,depth(cm),0.90288252564,NA,depth(cm),98
+358,10,agriculture,depth(cm),0.87377971224,NA,depth(cm),98
+357,10,agriculture,depth(cm),0.87280961846,NA,depth(cm),98
+356,10,agriculture,depth(cm),0.87183952468,NA,depth(cm),98
+315,10,agriculture,depth(cm),0.8320656797,NA,depth(cm),98
+326,10,agriculture,depth(cm),0.84273671128,NA,depth(cm),98
+325,10,agriculture,depth(cm),0.8417666175,NA,depth(cm),98
+324,10,agriculture,depth(cm),0.84079652372,NA,depth(cm),98
+323,10,agriculture,depth(cm),0.83982642994,NA,depth(cm),98
+322,10,agriculture,depth(cm),0.83885633616,NA,depth(cm),98
+321,10,agriculture,depth(cm),0.83788624238,NA,depth(cm),98
+320,10,agriculture,depth(cm),0.8369161486,NA,depth(cm),98
+319,10,agriculture,depth(cm),0.83594605482,NA,depth(cm),98
+318,10,agriculture,depth(cm),0.83497596104,NA,depth(cm),98
+317,10,agriculture,depth(cm),0.83400586726,NA,depth(cm),98
+316,10,agriculture,depth(cm),0.83303577348,NA,depth(cm),98
+314,10,agriculture,depth(cm),0.83109558592,NA,depth(cm),98
+328,10,agriculture,depth(cm),0.84467689884,NA,depth(cm),98
+313,10,agriculture,depth(cm),0.83012549214,NA,depth(cm),98
+312,10,agriculture,depth(cm),0.82915539836,NA,depth(cm),98
+311,10,agriculture,depth(cm),0.82818530458,NA,depth(cm),98
+310,10,agriculture,depth(cm),0.8272152108,NA,depth(cm),98
+309,10,agriculture,depth(cm),0.82624511702,NA,depth(cm),98
+308,10,agriculture,depth(cm),0.82527502324,NA,depth(cm),98
+307,10,agriculture,depth(cm),0.82430492946,NA,depth(cm),98
+306,10,agriculture,depth(cm),0.82333483568,NA,depth(cm),98
+305,10,agriculture,depth(cm),0.8223647419,NA,depth(cm),98
+304,10,agriculture,depth(cm),0.82139464812,NA,depth(cm),98
+303,10,agriculture,depth(cm),0.82042455434,NA,depth(cm),98
+327,10,agriculture,depth(cm),0.84370680506,NA,depth(cm),98
+329,10,agriculture,depth(cm),0.84564699262,NA,depth(cm),98
+355,10,agriculture,depth(cm),0.8708694309,NA,depth(cm),98
+343,10,agriculture,depth(cm),0.85922830554,NA,depth(cm),98
+354,10,agriculture,depth(cm),0.86989933712,NA,depth(cm),98
+353,10,agriculture,depth(cm),0.86892924334,NA,depth(cm),98
+352,10,agriculture,depth(cm),0.86795914956,NA,depth(cm),98
+351,10,agriculture,depth(cm),0.86698905578,NA,depth(cm),98
+350,10,agriculture,depth(cm),0.866018962,NA,depth(cm),98
+349,10,agriculture,depth(cm),0.86504886822,NA,depth(cm),98
+348,10,agriculture,depth(cm),0.86407877444,NA,depth(cm),98
+347,10,agriculture,depth(cm),0.86310868066,NA,depth(cm),98
+346,10,agriculture,depth(cm),0.86213858688,NA,depth(cm),98
+345,10,agriculture,depth(cm),0.8611684931,NA,depth(cm),98
+344,10,agriculture,depth(cm),0.86019839932,NA,depth(cm),98
+342,10,agriculture,depth(cm),0.85825821176,NA,depth(cm),98
+330,10,agriculture,depth(cm),0.8466170864,NA,depth(cm),98
+341,10,agriculture,depth(cm),0.85728811798,NA,depth(cm),98
+340,10,agriculture,depth(cm),0.8563180242,NA,depth(cm),98
+339,10,agriculture,depth(cm),0.85534793042,NA,depth(cm),98
+338,10,agriculture,depth(cm),0.85437783664,NA,depth(cm),98
+337,10,agriculture,depth(cm),0.85340774286,NA,depth(cm),98
+336,10,agriculture,depth(cm),0.85243764908,NA,depth(cm),98
+335,10,agriculture,depth(cm),0.8514675553,NA,depth(cm),98
+334,10,agriculture,depth(cm),0.85049746152,NA,depth(cm),98
+333,10,agriculture,depth(cm),0.84952736774,NA,depth(cm),98
+332,10,agriculture,depth(cm),0.84855727396,NA,depth(cm),98
+331,10,agriculture,depth(cm),0.84758718018,NA,depth(cm),98
+412,10,agriculture,depth(cm),0.92304308004,NA,depth(cm),98
+414,10,agriculture,depth(cm),0.92446298488,NA,depth(cm),98
+525,10,agriculture,depth(cm),0.98913916975,NA,depth(cm),98
+415,10,agriculture,depth(cm),0.9251729373,NA,depth(cm),98
+496,10,agriculture,depth(cm),0.98267908332,NA,depth(cm),98
+495,10,agriculture,depth(cm),0.9819691309,NA,depth(cm),98
+494,10,agriculture,depth(cm),0.98125917848,NA,depth(cm),98
+493,10,agriculture,depth(cm),0.98054922606,NA,depth(cm),98
+492,10,agriculture,depth(cm),0.97983927364,NA,depth(cm),98
+491,10,agriculture,depth(cm),0.97912932122,NA,depth(cm),98
+490,10,agriculture,depth(cm),0.9784193688,NA,depth(cm),98
+489,10,agriculture,depth(cm),0.97770941638,NA,depth(cm),98
+488,10,agriculture,depth(cm),0.97699946396,NA,depth(cm),98
+487,10,agriculture,depth(cm),0.97628951154,NA,depth(cm),98
+486,10,agriculture,depth(cm),0.97557955912,NA,depth(cm),98
+485,10,agriculture,depth(cm),0.9748696067,NA,depth(cm),98
+484,10,agriculture,depth(cm),0.97415965428,NA,depth(cm),98
+483,10,agriculture,depth(cm),0.97344970186,NA,depth(cm),98
+482,10,agriculture,depth(cm),0.97273974944,NA,depth(cm),98
+481,10,agriculture,depth(cm),0.97202979702,NA,depth(cm),98
+480,10,agriculture,depth(cm),0.9713198446,NA,depth(cm),98
+479,10,agriculture,depth(cm),0.97060989218,NA,depth(cm),98
+478,10,agriculture,depth(cm),0.96989993976,NA,depth(cm),98
+477,10,agriculture,depth(cm),0.96918998734,NA,depth(cm),98
+476,10,agriculture,depth(cm),0.96848003492,NA,depth(cm),98
+475,10,agriculture,depth(cm),0.9677700825,NA,depth(cm),98
+474,10,agriculture,depth(cm),0.96706013008,NA,depth(cm),98
+473,10,agriculture,depth(cm),0.96635017766,NA,depth(cm),98
+472,10,agriculture,depth(cm),0.96564022524,NA,depth(cm),98
+497,10,agriculture,depth(cm),0.98338903574,NA,depth(cm),98
+498,10,agriculture,depth(cm),0.98409898816,NA,depth(cm),98
+499,10,agriculture,depth(cm),0.98480894058,NA,depth(cm),98
+513,10,agriculture,depth(cm),0.98740143691,NA,depth(cm),98
+524,10,agriculture,depth(cm),0.98899435868,NA,depth(cm),98
+523,10,agriculture,depth(cm),0.98884954761,NA,depth(cm),98
+522,10,agriculture,depth(cm),0.98870473654,NA,depth(cm),98
+521,10,agriculture,depth(cm),0.98855992547,NA,depth(cm),98
+520,10,agriculture,depth(cm),0.9884151144,NA,depth(cm),98
+519,10,agriculture,depth(cm),0.98827030333,NA,depth(cm),98
+518,10,agriculture,depth(cm),0.98812549226,NA,depth(cm),98
+517,10,agriculture,depth(cm),0.98798068119,NA,depth(cm),98
+516,10,agriculture,depth(cm),0.98783587012,NA,depth(cm),98
+515,10,agriculture,depth(cm),0.98769105905,NA,depth(cm),98
+514,10,agriculture,depth(cm),0.98754624798,NA,depth(cm),98
+512,10,agriculture,depth(cm),0.98725662584,NA,depth(cm),98
+500,10,agriculture,depth(cm),0.985518893,NA,depth(cm),98
+511,10,agriculture,depth(cm),0.98711181477,NA,depth(cm),98
+510,10,agriculture,depth(cm),0.9869670037,NA,depth(cm),98
+509,10,agriculture,depth(cm),0.98682219263,NA,depth(cm),98
+508,10,agriculture,depth(cm),0.98667738156,NA,depth(cm),98
+507,10,agriculture,depth(cm),0.98653257049,NA,depth(cm),98
+506,10,agriculture,depth(cm),0.98638775942,NA,depth(cm),98
+505,10,agriculture,depth(cm),0.98624294835,NA,depth(cm),98
+504,10,agriculture,depth(cm),0.98609813728,NA,depth(cm),98
+503,10,agriculture,depth(cm),0.98595332621,NA,depth(cm),98
+502,10,agriculture,depth(cm),0.98580851514,NA,depth(cm),98
+501,10,agriculture,depth(cm),0.98566370407,NA,depth(cm),98
+471,10,agriculture,depth(cm),0.96493027282,NA,depth(cm),98
+470,10,agriculture,depth(cm),0.9642203204,NA,depth(cm),98
+469,10,agriculture,depth(cm),0.96351036798,NA,depth(cm),98
+428,10,agriculture,depth(cm),0.93440231876,NA,depth(cm),98
+439,10,agriculture,depth(cm),0.94221179538,NA,depth(cm),98
+438,10,agriculture,depth(cm),0.94150184296,NA,depth(cm),98
+437,10,agriculture,depth(cm),0.94079189054,NA,depth(cm),98
+436,10,agriculture,depth(cm),0.94008193812,NA,depth(cm),98
+435,10,agriculture,depth(cm),0.9393719857,NA,depth(cm),98
+434,10,agriculture,depth(cm),0.93866203328,NA,depth(cm),98
+433,10,agriculture,depth(cm),0.93795208086,NA,depth(cm),98
+432,10,agriculture,depth(cm),0.93724212844,NA,depth(cm),98
+431,10,agriculture,depth(cm),0.93653217602,NA,depth(cm),98
+430,10,agriculture,depth(cm),0.9358222236,NA,depth(cm),98
+429,10,agriculture,depth(cm),0.93511227118,NA,depth(cm),98
+427,10,agriculture,depth(cm),0.93369236634,NA,depth(cm),98
+441,10,agriculture,depth(cm),0.94363170022,NA,depth(cm),98
+426,10,agriculture,depth(cm),0.93298241392,NA,depth(cm),98
+425,10,agriculture,depth(cm),0.9322724615,NA,depth(cm),98
+424,10,agriculture,depth(cm),0.93156250908,NA,depth(cm),98
+423,10,agriculture,depth(cm),0.93085255666,NA,depth(cm),98
+422,10,agriculture,depth(cm),0.93014260424,NA,depth(cm),98
+421,10,agriculture,depth(cm),0.92943265182,NA,depth(cm),98
+420,10,agriculture,depth(cm),0.9287226994,NA,depth(cm),98
+419,10,agriculture,depth(cm),0.92801274698,NA,depth(cm),98
+418,10,agriculture,depth(cm),0.92730279456,NA,depth(cm),98
+417,10,agriculture,depth(cm),0.92659284214,NA,depth(cm),98
+416,10,agriculture,depth(cm),0.92588288972,NA,depth(cm),98
+440,10,agriculture,depth(cm),0.9429217478,NA,depth(cm),98
+442,10,agriculture,depth(cm),0.94434165264,NA,depth(cm),98
+468,10,agriculture,depth(cm),0.96280041556,NA,depth(cm),98
+456,10,agriculture,depth(cm),0.95428098652,NA,depth(cm),98
+467,10,agriculture,depth(cm),0.96209046314,NA,depth(cm),98
+466,10,agriculture,depth(cm),0.96138051072,NA,depth(cm),98
+465,10,agriculture,depth(cm),0.9606705583,NA,depth(cm),98
+464,10,agriculture,depth(cm),0.95996060588,NA,depth(cm),98
+463,10,agriculture,depth(cm),0.95925065346,NA,depth(cm),98
+462,10,agriculture,depth(cm),0.95854070104,NA,depth(cm),98
+461,10,agriculture,depth(cm),0.95783074862,NA,depth(cm),98
+460,10,agriculture,depth(cm),0.9571207962,NA,depth(cm),98
+459,10,agriculture,depth(cm),0.95641084378,NA,depth(cm),98
+458,10,agriculture,depth(cm),0.95570089136,NA,depth(cm),98
+457,10,agriculture,depth(cm),0.95499093894,NA,depth(cm),98
+455,10,agriculture,depth(cm),0.9535710341,NA,depth(cm),98
+443,10,agriculture,depth(cm),0.94505160506,NA,depth(cm),98
+454,10,agriculture,depth(cm),0.95286108168,NA,depth(cm),98
+453,10,agriculture,depth(cm),0.95215112926,NA,depth(cm),98
+452,10,agriculture,depth(cm),0.95144117684,NA,depth(cm),98
+451,10,agriculture,depth(cm),0.95073122442,NA,depth(cm),98
+450,10,agriculture,depth(cm),0.950021272,NA,depth(cm),98
+449,10,agriculture,depth(cm),0.94931131958,NA,depth(cm),98
+448,10,agriculture,depth(cm),0.94860136716,NA,depth(cm),98
+447,10,agriculture,depth(cm),0.94789141474,NA,depth(cm),98
+446,10,agriculture,depth(cm),0.94718146232,NA,depth(cm),98
+445,10,agriculture,depth(cm),0.9464715099,NA,depth(cm),98
+444,10,agriculture,depth(cm),0.94576155748,NA,depth(cm),98
+150,10,industrial building,depth(cm),0.95,1774630.20177975,depth(cm),56
+151,10,industrial building,depth(cm),0.951,1774630.20177975,depth(cm),56
+152,10,industrial building,depth(cm),0.952,1774630.20177975,depth(cm),56
+489,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+459,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+458,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+457,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+456,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+455,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+454,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+453,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+452,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+451,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+450,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+449,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+448,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+447,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+446,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+445,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+444,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+443,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+442,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+441,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+440,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+439,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+438,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+437,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+436,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+435,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+460,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+461,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+462,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+476,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+487,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+486,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+485,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+484,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+483,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+482,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+481,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+480,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+479,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+478,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+477,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+475,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+463,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+474,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+473,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+472,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+471,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+470,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+469,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+468,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+467,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+466,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+465,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+464,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+434,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+433,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+432,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+391,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+402,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+401,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+400,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+399,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+398,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+397,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+396,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+395,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+394,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+393,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+392,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+390,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+404,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+389,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+388,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+387,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+386,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+385,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+384,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+383,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+382,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+381,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+380,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+379,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+403,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+405,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+431,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+419,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+430,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+429,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+428,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+427,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+426,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+425,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+424,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+423,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+422,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+421,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+420,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+418,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+406,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+417,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+416,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+415,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+414,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+413,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+412,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+411,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+410,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+409,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+408,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+407,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+488,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+490,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+153,10,industrial building,depth(cm),0.953,1774630.20177975,depth(cm),57
+491,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+572,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+571,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+570,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+569,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+568,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+567,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+566,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+565,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+564,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+563,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+562,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+561,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+560,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+559,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+558,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+557,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+556,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+555,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+554,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+553,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+552,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+551,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+550,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+549,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+548,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+573,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+574,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+575,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+589,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+600,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+599,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+598,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+597,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+596,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+595,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+594,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+593,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+592,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+591,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+590,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+588,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+576,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+587,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+586,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+585,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+584,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+583,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+582,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+581,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+580,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+579,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+578,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+577,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+547,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+546,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+545,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+504,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+515,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+514,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+513,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+512,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+511,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+510,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+509,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+508,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+507,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+506,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+505,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+503,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+517,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+502,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+501,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+500,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+499,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+498,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+497,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+496,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+495,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+494,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+493,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+492,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+516,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+518,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+544,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+532,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+543,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+542,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+541,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+540,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+539,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+538,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+537,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+536,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+535,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+534,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+533,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+531,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+519,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+530,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+529,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+528,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+527,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+526,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+525,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+524,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+523,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+522,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+521,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+520,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+378,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+377,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+376,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+375,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+234,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),82
+233,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),81
+232,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),81
+231,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),81
+230,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),81
+229,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),80
+228,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),80
+227,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),80
+226,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),80
+225,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),79
+224,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),79
+223,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),79
+222,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),79
+221,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),78
+220,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),78
+219,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),78
+218,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),78
+217,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),77
+216,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),77
+215,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),77
+214,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),77
+213,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),76
+212,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),76
+211,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),76
+210,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),76
+235,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),82
+236,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),82
+237,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),82
+251,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),86
+262,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),89
+261,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),88
+260,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),88
+259,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),88
+258,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),88
+257,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),87
+256,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),87
+255,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),87
+254,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),87
+253,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),86
+252,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),86
+250,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),86
+238,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),83
+249,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),85
+248,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),85
+247,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),85
+246,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),85
+245,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),84
+244,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),84
+243,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),84
+242,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),84
+241,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),83
+240,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),83
+239,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),83
+209,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),75
+208,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),75
+207,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),75
+166,10,industrial building,depth(cm),0.966,1774630.20177975,depth(cm),61
+177,10,industrial building,depth(cm),0.977,1774630.20177975,depth(cm),65
+176,10,industrial building,depth(cm),0.976,1774630.20177975,depth(cm),65
+175,10,industrial building,depth(cm),0.975,1774630.20177975,depth(cm),64
+174,10,industrial building,depth(cm),0.974,1774630.20177975,depth(cm),64
+173,10,industrial building,depth(cm),0.973,1774630.20177975,depth(cm),64
+172,10,industrial building,depth(cm),0.972,1774630.20177975,depth(cm),63
+171,10,industrial building,depth(cm),0.971,1774630.20177975,depth(cm),63
+170,10,industrial building,depth(cm),0.97,1774630.20177975,depth(cm),63
+169,10,industrial building,depth(cm),0.969,1774630.20177975,depth(cm),62
+168,10,industrial building,depth(cm),0.968,1774630.20177975,depth(cm),62
+167,10,industrial building,depth(cm),0.967,1774630.20177975,depth(cm),61
+165,10,industrial building,depth(cm),0.965,1774630.20177975,depth(cm),61
+179,10,industrial building,depth(cm),0.979,1774630.20177975,depth(cm),66
+164,10,industrial building,depth(cm),0.964,1774630.20177975,depth(cm),60
+163,10,industrial building,depth(cm),0.963,1774630.20177975,depth(cm),60
+162,10,industrial building,depth(cm),0.962,1774630.20177975,depth(cm),60
+161,10,industrial building,depth(cm),0.961,1774630.20177975,depth(cm),59
+160,10,industrial building,depth(cm),0.96,1774630.20177975,depth(cm),59
+159,10,industrial building,depth(cm),0.959,1774630.20177975,depth(cm),59
+158,10,industrial building,depth(cm),0.958,1774630.20177975,depth(cm),58
+157,10,industrial building,depth(cm),0.957,1774630.20177975,depth(cm),58
+156,10,industrial building,depth(cm),0.956,1774630.20177975,depth(cm),58
+155,10,industrial building,depth(cm),0.955,1774630.20177975,depth(cm),57
+154,10,industrial building,depth(cm),0.954,1774630.20177975,depth(cm),57
+178,10,industrial building,depth(cm),0.978,1774630.20177975,depth(cm),65
+180,10,industrial building,depth(cm),0.98,1774630.20177975,depth(cm),66
+206,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),75
+194,10,industrial building,depth(cm),0.994,1774630.20177975,depth(cm),71
+205,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),74
+204,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),74
+203,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),74
+202,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),74
+201,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),73
+200,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),73
+199,10,industrial building,depth(cm),0.999,1774630.20177975,depth(cm),73
+198,10,industrial building,depth(cm),0.998,1774630.20177975,depth(cm),72
+197,10,industrial building,depth(cm),0.997,1774630.20177975,depth(cm),72
+196,10,industrial building,depth(cm),0.996,1774630.20177975,depth(cm),72
+195,10,industrial building,depth(cm),0.995,1774630.20177975,depth(cm),71
+193,10,industrial building,depth(cm),0.993,1774630.20177975,depth(cm),71
+181,10,industrial building,depth(cm),0.981,1774630.20177975,depth(cm),66
+192,10,industrial building,depth(cm),0.992,1774630.20177975,depth(cm),70
+191,10,industrial building,depth(cm),0.991,1774630.20177975,depth(cm),70
+190,10,industrial building,depth(cm),0.99,1774630.20177975,depth(cm),70
+189,10,industrial building,depth(cm),0.989,1774630.20177975,depth(cm),69
+188,10,industrial building,depth(cm),0.988,1774630.20177975,depth(cm),69
+187,10,industrial building,depth(cm),0.987,1774630.20177975,depth(cm),68
+186,10,industrial building,depth(cm),0.986,1774630.20177975,depth(cm),68
+185,10,industrial building,depth(cm),0.985,1774630.20177975,depth(cm),68
+184,10,industrial building,depth(cm),0.984,1774630.20177975,depth(cm),67
+183,10,industrial building,depth(cm),0.983,1774630.20177975,depth(cm),67
+182,10,industrial building,depth(cm),0.982,1774630.20177975,depth(cm),67
+263,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),89
+264,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),89
+265,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),89
+335,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+346,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+345,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+344,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+343,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+342,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+341,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+340,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+339,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+338,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+337,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+336,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+334,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+348,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+333,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+332,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+331,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+330,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+329,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+328,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+327,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+326,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+325,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+324,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+323,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+347,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+349,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+321,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+363,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+374,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+373,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+372,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+371,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+370,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+369,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+368,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+367,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+366,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+365,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+364,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+362,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+350,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+361,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+360,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+359,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+358,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+357,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+356,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+355,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+354,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+353,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+352,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+351,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+322,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+320,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+266,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),90
+279,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),93
+290,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),96
+289,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),95
+288,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),95
+287,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),95
+286,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),95
+285,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),94
+284,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),94
+283,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),94
+282,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),94
+281,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),93
+280,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),93
+278,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),93
+292,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),96
+277,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),92
+276,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),92
+275,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),92
+274,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),92
+273,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),91
+272,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),91
+271,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),91
+270,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),91
+269,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),90
+268,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),90
+267,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),90
+291,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),96
+293,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),96
+319,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+307,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+318,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+317,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+316,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+315,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+314,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+313,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+312,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+311,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+310,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+309,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+308,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+306,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+294,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),97
+305,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+304,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+303,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+302,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+301,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+300,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+299,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+298,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),98
+297,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),97
+296,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),97
+295,10,industrial building,depth(cm),1,1774630.20177975,depth(cm),97
+302,10,agriculture,depth(cm),0.81945446056,NA,depth(cm),98
+376,10,agriculture,depth(cm),0.89124140028,NA,depth(cm),98
+300,10,agriculture,depth(cm),0.817514273,NA,depth(cm),98
+337,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+307,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+306,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+305,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+304,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+303,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+302,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+301,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+300,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+299,10,commercial building,depth(cm),0.9999,838625.370183151,depth(cm),98
+298,10,commercial building,depth(cm),0.9998,838625.370183151,depth(cm),98
+297,10,commercial building,depth(cm),0.9997,838625.370183151,depth(cm),97
+296,10,commercial building,depth(cm),0.9996,838625.370183151,depth(cm),97
+295,10,commercial building,depth(cm),0.9995,838625.370183151,depth(cm),97
+294,10,commercial building,depth(cm),0.9994,838625.370183151,depth(cm),97
+293,10,commercial building,depth(cm),0.9993,838625.370183151,depth(cm),96
+292,10,commercial building,depth(cm),0.9992,838625.370183151,depth(cm),96
+291,10,commercial building,depth(cm),0.9991,838625.370183151,depth(cm),96
+290,10,commercial building,depth(cm),0.999,838625.370183151,depth(cm),96
+289,10,commercial building,depth(cm),0.9989,838625.370183151,depth(cm),95
+288,10,commercial building,depth(cm),0.9988,838625.370183151,depth(cm),95
+287,10,commercial building,depth(cm),0.9987,838625.370183151,depth(cm),95
+286,10,commercial building,depth(cm),0.9986,838625.370183151,depth(cm),95
+285,10,commercial building,depth(cm),0.9985,838625.370183151,depth(cm),94
+284,10,commercial building,depth(cm),0.9984,838625.370183151,depth(cm),94
+283,10,commercial building,depth(cm),0.9983,838625.370183151,depth(cm),94
+308,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+309,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+310,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+324,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+335,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+334,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+333,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+332,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+331,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+330,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+329,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+328,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+327,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+326,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+325,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+323,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+311,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+322,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+321,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+320,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+319,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+318,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+317,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+316,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+315,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+314,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+313,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+312,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+282,10,commercial building,depth(cm),0.9982,838625.370183151,depth(cm),94
+281,10,commercial building,depth(cm),0.9981,838625.370183151,depth(cm),93
+280,10,commercial building,depth(cm),0.998,838625.370183151,depth(cm),93
+239,10,commercial building,depth(cm),0.9939,838625.370183151,depth(cm),83
+250,10,commercial building,depth(cm),0.995,838625.370183151,depth(cm),86
+249,10,commercial building,depth(cm),0.9949,838625.370183151,depth(cm),85
+248,10,commercial building,depth(cm),0.9948,838625.370183151,depth(cm),85
+247,10,commercial building,depth(cm),0.9947,838625.370183151,depth(cm),85
+246,10,commercial building,depth(cm),0.9946,838625.370183151,depth(cm),85
+245,10,commercial building,depth(cm),0.9945,838625.370183151,depth(cm),84
+244,10,commercial building,depth(cm),0.9944,838625.370183151,depth(cm),84
+243,10,commercial building,depth(cm),0.9943,838625.370183151,depth(cm),84
+242,10,commercial building,depth(cm),0.9942,838625.370183151,depth(cm),84
+241,10,commercial building,depth(cm),0.9941,838625.370183151,depth(cm),83
+240,10,commercial building,depth(cm),0.994,838625.370183151,depth(cm),83
+238,10,commercial building,depth(cm),0.9938,838625.370183151,depth(cm),83
+252,10,commercial building,depth(cm),0.9952,838625.370183151,depth(cm),86
+237,10,commercial building,depth(cm),0.9937,838625.370183151,depth(cm),82
+236,10,commercial building,depth(cm),0.9936,838625.370183151,depth(cm),82
+235,10,commercial building,depth(cm),0.9935,838625.370183151,depth(cm),82
+234,10,commercial building,depth(cm),0.9934,838625.370183151,depth(cm),82
+233,10,commercial building,depth(cm),0.9933,838625.370183151,depth(cm),81
+232,10,commercial building,depth(cm),0.9932,838625.370183151,depth(cm),81
+231,10,commercial building,depth(cm),0.9931,838625.370183151,depth(cm),81
+230,10,commercial building,depth(cm),0.993,838625.370183151,depth(cm),81
+229,10,commercial building,depth(cm),0.9929,838625.370183151,depth(cm),80
+228,10,commercial building,depth(cm),0.9928,838625.370183151,depth(cm),80
+227,10,commercial building,depth(cm),0.9927,838625.370183151,depth(cm),80
+251,10,commercial building,depth(cm),0.9951,838625.370183151,depth(cm),86
+253,10,commercial building,depth(cm),0.9953,838625.370183151,depth(cm),86
+279,10,commercial building,depth(cm),0.9979,838625.370183151,depth(cm),93
+267,10,commercial building,depth(cm),0.9967,838625.370183151,depth(cm),90
+278,10,commercial building,depth(cm),0.9978,838625.370183151,depth(cm),93
+277,10,commercial building,depth(cm),0.9977,838625.370183151,depth(cm),92
+276,10,commercial building,depth(cm),0.9976,838625.370183151,depth(cm),92
+275,10,commercial building,depth(cm),0.9975,838625.370183151,depth(cm),92
+274,10,commercial building,depth(cm),0.9974,838625.370183151,depth(cm),92
+273,10,commercial building,depth(cm),0.9973,838625.370183151,depth(cm),91
+272,10,commercial building,depth(cm),0.9972,838625.370183151,depth(cm),91
+271,10,commercial building,depth(cm),0.9971,838625.370183151,depth(cm),91
+270,10,commercial building,depth(cm),0.997,838625.370183151,depth(cm),91
+269,10,commercial building,depth(cm),0.9969,838625.370183151,depth(cm),90
+268,10,commercial building,depth(cm),0.9968,838625.370183151,depth(cm),90
+266,10,commercial building,depth(cm),0.9966,838625.370183151,depth(cm),90
+254,10,commercial building,depth(cm),0.9954,838625.370183151,depth(cm),87
+265,10,commercial building,depth(cm),0.9965,838625.370183151,depth(cm),89
+264,10,commercial building,depth(cm),0.9964,838625.370183151,depth(cm),89
+263,10,commercial building,depth(cm),0.9963,838625.370183151,depth(cm),89
+262,10,commercial building,depth(cm),0.9962,838625.370183151,depth(cm),89
+261,10,commercial building,depth(cm),0.9961,838625.370183151,depth(cm),88
+260,10,commercial building,depth(cm),0.996,838625.370183151,depth(cm),88
+259,10,commercial building,depth(cm),0.9959,838625.370183151,depth(cm),88
+258,10,commercial building,depth(cm),0.9958,838625.370183151,depth(cm),88
+257,10,commercial building,depth(cm),0.9957,838625.370183151,depth(cm),87
+256,10,commercial building,depth(cm),0.9956,838625.370183151,depth(cm),87
+255,10,commercial building,depth(cm),0.9955,838625.370183151,depth(cm),87
+336,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+338,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+450,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+339,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+420,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+419,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+418,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+417,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+416,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+415,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+414,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+413,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+412,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+411,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+410,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+409,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+408,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+407,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+406,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+405,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+404,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+403,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+402,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+401,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+400,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+399,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+398,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+397,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+396,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+421,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+422,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+423,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+437,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+448,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+447,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+446,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+445,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+444,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+443,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+442,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+441,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+440,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+439,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+438,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+436,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+424,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+435,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+434,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+433,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+432,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+431,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+430,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+429,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+428,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+427,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+426,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+425,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+395,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+394,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+393,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+352,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+363,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+362,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+361,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+360,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+359,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+358,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+357,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+356,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+355,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+354,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+353,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+351,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+365,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+350,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+349,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+348,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+347,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+346,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+345,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+344,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+343,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+342,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+341,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+340,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+364,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+366,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+392,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+380,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+391,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+390,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+389,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+388,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+387,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+386,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+385,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+384,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+383,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+382,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+381,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+379,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+367,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+378,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+377,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+376,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+299,10,agriculture,depth(cm),0.81640620019,NA,depth(cm),98
+374,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+373,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+372,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+371,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+370,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+369,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+368,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+226,10,commercial building,depth(cm),0.9926,838625.370183151,depth(cm),80
+225,10,commercial building,depth(cm),0.9925,838625.370183151,depth(cm),79
+224,10,commercial building,depth(cm),0.9924,838625.370183151,depth(cm),79
+223,10,commercial building,depth(cm),0.9923,838625.370183151,depth(cm),79
+82,10,commercial building,depth(cm),0.7572,838625.370183151,depth(cm),34
+81,10,commercial building,depth(cm),0.7526,838625.370183151,depth(cm),33
+80,10,commercial building,depth(cm),0.748,838625.370183151,depth(cm),33
+79,10,commercial building,depth(cm),0.7434,838625.370183151,depth(cm),33
+78,10,commercial building,depth(cm),0.7388,838625.370183151,depth(cm),33
+77,10,commercial building,depth(cm),0.7342,838625.370183151,depth(cm),32
+76,10,commercial building,depth(cm),0.7296,838625.370183151,depth(cm),32
+75,10,commercial building,depth(cm),0.725,838625.370183151,depth(cm),32
+74,10,commercial building,depth(cm),0.7204,838625.370183151,depth(cm),32
+73,10,commercial building,depth(cm),0.7158,838625.370183151,depth(cm),32
+72,10,commercial building,depth(cm),0.7112,838625.370183151,depth(cm),31
+71,10,commercial building,depth(cm),0.7066,838625.370183151,depth(cm),31
+70,10,commercial building,depth(cm),0.702,838625.370183151,depth(cm),31
+69,10,commercial building,depth(cm),0.6974,838625.370183151,depth(cm),31
+68,10,commercial building,depth(cm),0.6928,838625.370183151,depth(cm),30
+67,10,commercial building,depth(cm),0.6882,838625.370183151,depth(cm),30
+66,10,commercial building,depth(cm),0.6836,838625.370183151,depth(cm),30
+65,10,commercial building,depth(cm),0.679,838625.370183151,depth(cm),30
+64,10,commercial building,depth(cm),0.6744,838625.370183151,depth(cm),29
+63,10,commercial building,depth(cm),0.6698,838625.370183151,depth(cm),29
+62,10,commercial building,depth(cm),0.6652,838625.370183151,depth(cm),29
+61,10,commercial building,depth(cm),0.6606,838625.370183151,depth(cm),29
+60,10,commercial building,depth(cm),0.656,838625.370183151,depth(cm),28
+59,10,commercial building,depth(cm),0.6514,838625.370183151,depth(cm),28
+58,10,commercial building,depth(cm),0.6468,838625.370183151,depth(cm),28
+83,10,commercial building,depth(cm),0.7618,838625.370183151,depth(cm),34
+84,10,commercial building,depth(cm),0.7664,838625.370183151,depth(cm),34
+85,10,commercial building,depth(cm),0.771,838625.370183151,depth(cm),34
+99,10,commercial building,depth(cm),0.8354,838625.370183151,depth(cm),38
+110,10,commercial building,depth(cm),0.856,838625.370183151,depth(cm),42
+109,10,commercial building,depth(cm),0.8544,838625.370183151,depth(cm),41
+108,10,commercial building,depth(cm),0.8528,838625.370183151,depth(cm),41
+107,10,commercial building,depth(cm),0.8512,838625.370183151,depth(cm),40
+106,10,commercial building,depth(cm),0.8496,838625.370183151,depth(cm),40
+105,10,commercial building,depth(cm),0.848,838625.370183151,depth(cm),40
+104,10,commercial building,depth(cm),0.8464,838625.370183151,depth(cm),39
+103,10,commercial building,depth(cm),0.8448,838625.370183151,depth(cm),39
+102,10,commercial building,depth(cm),0.8432,838625.370183151,depth(cm),39
+101,10,commercial building,depth(cm),0.8416,838625.370183151,depth(cm),38
+100,10,commercial building,depth(cm),0.84,838625.370183151,depth(cm),38
+98,10,commercial building,depth(cm),0.8308,838625.370183151,depth(cm),38
+86,10,commercial building,depth(cm),0.7756,838625.370183151,depth(cm),35
+97,10,commercial building,depth(cm),0.8262,838625.370183151,depth(cm),37
+96,10,commercial building,depth(cm),0.8216,838625.370183151,depth(cm),37
+95,10,commercial building,depth(cm),0.817,838625.370183151,depth(cm),37
+94,10,commercial building,depth(cm),0.8124,838625.370183151,depth(cm),37
+93,10,commercial building,depth(cm),0.8078,838625.370183151,depth(cm),36
+92,10,commercial building,depth(cm),0.8032,838625.370183151,depth(cm),36
+91,10,commercial building,depth(cm),0.7986,838625.370183151,depth(cm),36
+90,10,commercial building,depth(cm),0.794,838625.370183151,depth(cm),36
+89,10,commercial building,depth(cm),0.7894,838625.370183151,depth(cm),35
+88,10,commercial building,depth(cm),0.7848,838625.370183151,depth(cm),35
+87,10,commercial building,depth(cm),0.7802,838625.370183151,depth(cm),35
+57,10,commercial building,depth(cm),0.6422,838625.370183151,depth(cm),28
+56,10,commercial building,depth(cm),0.6376,838625.370183151,depth(cm),27
+55,10,commercial building,depth(cm),0.633,838625.370183151,depth(cm),27
+14,10,commercial building,depth(cm),0.1708,838625.370183151,depth(cm),7
+25,10,commercial building,depth(cm),0.305,838625.370183151,depth(cm),13
+24,10,commercial building,depth(cm),0.2928,838625.370183151,depth(cm),12
+23,10,commercial building,depth(cm),0.2806,838625.370183151,depth(cm),12
+22,10,commercial building,depth(cm),0.2684,838625.370183151,depth(cm),11
+21,10,commercial building,depth(cm),0.2562,838625.370183151,depth(cm),11
+20,10,commercial building,depth(cm),0.244,838625.370183151,depth(cm),10
+19,10,commercial building,depth(cm),0.2318,838625.370183151,depth(cm),10
+18,10,commercial building,depth(cm),0.2196,838625.370183151,depth(cm),9
+17,10,commercial building,depth(cm),0.2074,838625.370183151,depth(cm),9
+16,10,commercial building,depth(cm),0.1952,838625.370183151,depth(cm),8
+15,10,commercial building,depth(cm),0.183,838625.370183151,depth(cm),8
+13,10,commercial building,depth(cm),0.1586,838625.370183151,depth(cm),7
+27,10,commercial building,depth(cm),0.3294,838625.370183151,depth(cm),14
+12,10,commercial building,depth(cm),0.1464,838625.370183151,depth(cm),6
+11,10,commercial building,depth(cm),0.1342,838625.370183151,depth(cm),6
+10,10,commercial building,depth(cm),0.122,838625.370183151,depth(cm),5
+9,10,commercial building,depth(cm),0.1098,838625.370183151,depth(cm),5
+8,10,commercial building,depth(cm),0.0976,838625.370183151,depth(cm),4
+7,10,commercial building,depth(cm),0.0854,838625.370183151,depth(cm),4
+6,10,commercial building,depth(cm),0.0732,838625.370183151,depth(cm),3
+5,10,commercial building,depth(cm),0.061,838625.370183151,depth(cm),3
+4,10,commercial building,depth(cm),0.0488,838625.370183151,depth(cm),2
+3,10,commercial building,depth(cm),0.0366,838625.370183151,depth(cm),2
+2,10,commercial building,depth(cm),0.0244,838625.370183151,depth(cm),1
+26,10,commercial building,depth(cm),0.3172,838625.370183151,depth(cm),14
+28,10,commercial building,depth(cm),0.3416,838625.370183151,depth(cm),15
+54,10,commercial building,depth(cm),0.6284,838625.370183151,depth(cm),27
+42,10,commercial building,depth(cm),0.5124,838625.370183151,depth(cm),22
+53,10,commercial building,depth(cm),0.6238,838625.370183151,depth(cm),27
+52,10,commercial building,depth(cm),0.6192,838625.370183151,depth(cm),26
+51,10,commercial building,depth(cm),0.6146,838625.370183151,depth(cm),26
+50,10,commercial building,depth(cm),0.61,838625.370183151,depth(cm),26
+49,10,commercial building,depth(cm),0.5978,838625.370183151,depth(cm),25
+48,10,commercial building,depth(cm),0.5856,838625.370183151,depth(cm),25
+47,10,commercial building,depth(cm),0.5734,838625.370183151,depth(cm),24
+46,10,commercial building,depth(cm),0.5612,838625.370183151,depth(cm),24
+45,10,commercial building,depth(cm),0.549,838625.370183151,depth(cm),23
+44,10,commercial building,depth(cm),0.5368,838625.370183151,depth(cm),23
+43,10,commercial building,depth(cm),0.5246,838625.370183151,depth(cm),22
+41,10,commercial building,depth(cm),0.5002,838625.370183151,depth(cm),21
+29,10,commercial building,depth(cm),0.3538,838625.370183151,depth(cm),15
+40,10,commercial building,depth(cm),0.488,838625.370183151,depth(cm),21
+39,10,commercial building,depth(cm),0.4758,838625.370183151,depth(cm),20
+38,10,commercial building,depth(cm),0.4636,838625.370183151,depth(cm),20
+37,10,commercial building,depth(cm),0.4514,838625.370183151,depth(cm),19
+36,10,commercial building,depth(cm),0.4392,838625.370183151,depth(cm),19
+35,10,commercial building,depth(cm),0.427,838625.370183151,depth(cm),18
+34,10,commercial building,depth(cm),0.4148,838625.370183151,depth(cm),18
+33,10,commercial building,depth(cm),0.4026,838625.370183151,depth(cm),17
+32,10,commercial building,depth(cm),0.3904,838625.370183151,depth(cm),17
+31,10,commercial building,depth(cm),0.3782,838625.370183151,depth(cm),16
+30,10,commercial building,depth(cm),0.366,838625.370183151,depth(cm),16
+111,10,commercial building,depth(cm),0.8576,838625.370183151,depth(cm),42
+112,10,commercial building,depth(cm),0.8592,838625.370183151,depth(cm),42
+113,10,commercial building,depth(cm),0.8608,838625.370183151,depth(cm),43
+183,10,commercial building,depth(cm),0.9662,838625.370183151,depth(cm),67
+194,10,commercial building,depth(cm),0.9816,838625.370183151,depth(cm),71
+193,10,commercial building,depth(cm),0.9802,838625.370183151,depth(cm),71
+192,10,commercial building,depth(cm),0.9788,838625.370183151,depth(cm),70
+191,10,commercial building,depth(cm),0.9774,838625.370183151,depth(cm),70
+190,10,commercial building,depth(cm),0.976,838625.370183151,depth(cm),70
+189,10,commercial building,depth(cm),0.9746,838625.370183151,depth(cm),69
+188,10,commercial building,depth(cm),0.9732,838625.370183151,depth(cm),69
+187,10,commercial building,depth(cm),0.9718,838625.370183151,depth(cm),68
+186,10,commercial building,depth(cm),0.9704,838625.370183151,depth(cm),68
+185,10,commercial building,depth(cm),0.969,838625.370183151,depth(cm),68
+184,10,commercial building,depth(cm),0.9676,838625.370183151,depth(cm),67
+182,10,commercial building,depth(cm),0.9648,838625.370183151,depth(cm),67
+196,10,commercial building,depth(cm),0.9844,838625.370183151,depth(cm),72
+181,10,commercial building,depth(cm),0.9634,838625.370183151,depth(cm),66
+180,10,commercial building,depth(cm),0.962,838625.370183151,depth(cm),66
+179,10,commercial building,depth(cm),0.9606,838625.370183151,depth(cm),66
+178,10,commercial building,depth(cm),0.9592,838625.370183151,depth(cm),65
+177,10,commercial building,depth(cm),0.9578,838625.370183151,depth(cm),65
+176,10,commercial building,depth(cm),0.9564,838625.370183151,depth(cm),65
+175,10,commercial building,depth(cm),0.955,838625.370183151,depth(cm),64
+174,10,commercial building,depth(cm),0.9536,838625.370183151,depth(cm),64
+173,10,commercial building,depth(cm),0.9522,838625.370183151,depth(cm),64
+172,10,commercial building,depth(cm),0.9508,838625.370183151,depth(cm),63
+171,10,commercial building,depth(cm),0.9494,838625.370183151,depth(cm),63
+195,10,commercial building,depth(cm),0.983,838625.370183151,depth(cm),71
+197,10,commercial building,depth(cm),0.9858,838625.370183151,depth(cm),72
+169,10,commercial building,depth(cm),0.9466,838625.370183151,depth(cm),62
+211,10,commercial building,depth(cm),0.9911,838625.370183151,depth(cm),76
+222,10,commercial building,depth(cm),0.9922,838625.370183151,depth(cm),79
+221,10,commercial building,depth(cm),0.9921,838625.370183151,depth(cm),78
+220,10,commercial building,depth(cm),0.992,838625.370183151,depth(cm),78
+219,10,commercial building,depth(cm),0.9919,838625.370183151,depth(cm),78
+218,10,commercial building,depth(cm),0.9918,838625.370183151,depth(cm),78
+217,10,commercial building,depth(cm),0.9917,838625.370183151,depth(cm),77
+216,10,commercial building,depth(cm),0.9916,838625.370183151,depth(cm),77
+215,10,commercial building,depth(cm),0.9915,838625.370183151,depth(cm),77
+214,10,commercial building,depth(cm),0.9914,838625.370183151,depth(cm),77
+213,10,commercial building,depth(cm),0.9913,838625.370183151,depth(cm),76
+212,10,commercial building,depth(cm),0.9912,838625.370183151,depth(cm),76
+210,10,commercial building,depth(cm),0.991,838625.370183151,depth(cm),76
+198,10,commercial building,depth(cm),0.9872,838625.370183151,depth(cm),72
+209,10,commercial building,depth(cm),0.9909,838625.370183151,depth(cm),75
+208,10,commercial building,depth(cm),0.9908,838625.370183151,depth(cm),75
+207,10,commercial building,depth(cm),0.9907,838625.370183151,depth(cm),75
+206,10,commercial building,depth(cm),0.9906,838625.370183151,depth(cm),75
+205,10,commercial building,depth(cm),0.9905,838625.370183151,depth(cm),74
+204,10,commercial building,depth(cm),0.9904,838625.370183151,depth(cm),74
+203,10,commercial building,depth(cm),0.9903,838625.370183151,depth(cm),74
+202,10,commercial building,depth(cm),0.9902,838625.370183151,depth(cm),74
+201,10,commercial building,depth(cm),0.9901,838625.370183151,depth(cm),73
+200,10,commercial building,depth(cm),0.99,838625.370183151,depth(cm),73
+199,10,commercial building,depth(cm),0.9886,838625.370183151,depth(cm),73
+170,10,commercial building,depth(cm),0.948,838625.370183151,depth(cm),63
+168,10,commercial building,depth(cm),0.9452,838625.370183151,depth(cm),62
+114,10,commercial building,depth(cm),0.86240000000000006,838625.370183151,depth(cm),43
+127,10,commercial building,depth(cm),0.8832,838625.370183151,depth(cm),47
+138,10,commercial building,depth(cm),0.9008,838625.370183151,depth(cm),51
+137,10,commercial building,depth(cm),0.8992,838625.370183151,depth(cm),51
+136,10,commercial building,depth(cm),0.8976,838625.370183151,depth(cm),51
+135,10,commercial building,depth(cm),0.896,838625.370183151,depth(cm),50
+134,10,commercial building,depth(cm),0.8944,838625.370183151,depth(cm),50
+133,10,commercial building,depth(cm),0.8928,838625.370183151,depth(cm),50
+132,10,commercial building,depth(cm),0.8912,838625.370183151,depth(cm),49
+131,10,commercial building,depth(cm),0.8896,838625.370183151,depth(cm),49
+130,10,commercial building,depth(cm),0.888,838625.370183151,depth(cm),49
+129,10,commercial building,depth(cm),0.8864,838625.370183151,depth(cm),48
+128,10,commercial building,depth(cm),0.8848,838625.370183151,depth(cm),48
+126,10,commercial building,depth(cm),0.8816,838625.370183151,depth(cm),47
+140,10,commercial building,depth(cm),0.904,838625.370183151,depth(cm),52
+125,10,commercial building,depth(cm),0.88,838625.370183151,depth(cm),47
+124,10,commercial building,depth(cm),0.8784,838625.370183151,depth(cm),46
+123,10,commercial building,depth(cm),0.8768,838625.370183151,depth(cm),46
+122,10,commercial building,depth(cm),0.8752,838625.370183151,depth(cm),46
+121,10,commercial building,depth(cm),0.8736,838625.370183151,depth(cm),45
+120,10,commercial building,depth(cm),0.872,838625.370183151,depth(cm),45
+119,10,commercial building,depth(cm),0.8704,838625.370183151,depth(cm),45
+118,10,commercial building,depth(cm),0.8688,838625.370183151,depth(cm),44
+117,10,commercial building,depth(cm),0.8672,838625.370183151,depth(cm),44
+116,10,commercial building,depth(cm),0.8656,838625.370183151,depth(cm),44
+115,10,commercial building,depth(cm),0.864,838625.370183151,depth(cm),43
+139,10,commercial building,depth(cm),0.9024,838625.370183151,depth(cm),52
+141,10,commercial building,depth(cm),0.9056,838625.370183151,depth(cm),52
+167,10,commercial building,depth(cm),0.9438,838625.370183151,depth(cm),61
+155,10,commercial building,depth(cm),0.927,838625.370183151,depth(cm),57
+166,10,commercial building,depth(cm),0.9424,838625.370183151,depth(cm),61
+165,10,commercial building,depth(cm),0.941,838625.370183151,depth(cm),61
+164,10,commercial building,depth(cm),0.9396,838625.370183151,depth(cm),60
+163,10,commercial building,depth(cm),0.9382,838625.370183151,depth(cm),60
+162,10,commercial building,depth(cm),0.9368,838625.370183151,depth(cm),60
+161,10,commercial building,depth(cm),0.9354,838625.370183151,depth(cm),59
+160,10,commercial building,depth(cm),0.934,838625.370183151,depth(cm),59
+159,10,commercial building,depth(cm),0.9326,838625.370183151,depth(cm),59
+158,10,commercial building,depth(cm),0.9312,838625.370183151,depth(cm),58
+157,10,commercial building,depth(cm),0.9298,838625.370183151,depth(cm),58
+156,10,commercial building,depth(cm),0.9284,838625.370183151,depth(cm),58
+154,10,commercial building,depth(cm),0.9256,838625.370183151,depth(cm),57
+142,10,commercial building,depth(cm),0.9072,838625.370183151,depth(cm),53
+153,10,commercial building,depth(cm),0.9242,838625.370183151,depth(cm),57
+152,10,commercial building,depth(cm),0.9228,838625.370183151,depth(cm),56
+151,10,commercial building,depth(cm),0.9214,838625.370183151,depth(cm),56
+150,10,commercial building,depth(cm),0.92,838625.370183151,depth(cm),56
+149,10,commercial building,depth(cm),0.9184,838625.370183151,depth(cm),55
+148,10,commercial building,depth(cm),0.9168,838625.370183151,depth(cm),55
+147,10,commercial building,depth(cm),0.9152,838625.370183151,depth(cm),54
+146,10,commercial building,depth(cm),0.9136,838625.370183151,depth(cm),54
+145,10,commercial building,depth(cm),0.912,838625.370183151,depth(cm),54
+144,10,commercial building,depth(cm),0.9104,838625.370183151,depth(cm),53
+143,10,commercial building,depth(cm),0.9088,838625.370183151,depth(cm),53
+449,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+375,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+451,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+187,10,agriculture,depth(cm),0.68324928032,NA,depth(cm),68
+157,10,agriculture,depth(cm),0.62911609952,NA,depth(cm),58
+156,10,agriculture,depth(cm),0.62731166016,NA,depth(cm),58
+155,10,agriculture,depth(cm),0.6255072208,NA,depth(cm),57
+154,10,agriculture,depth(cm),0.62370278144,NA,depth(cm),57
+153,10,agriculture,depth(cm),0.62189834208,NA,depth(cm),57
+152,10,agriculture,depth(cm),0.62009390272,NA,depth(cm),56
+151,10,agriculture,depth(cm),0.61828946336,NA,depth(cm),56
+452,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+149,10,agriculture,depth(cm),0.6134829058,NA,depth(cm),55
+148,10,agriculture,depth(cm),0.6104807876,NA,depth(cm),55
+147,10,agriculture,depth(cm),0.6074786694,NA,depth(cm),54
+146,10,agriculture,depth(cm),0.6044765512,NA,depth(cm),54
+145,10,agriculture,depth(cm),0.601474433,NA,depth(cm),54
+144,10,agriculture,depth(cm),0.5984723148,NA,depth(cm),53
+143,10,agriculture,depth(cm),0.5954701966,NA,depth(cm),53
+142,10,agriculture,depth(cm),0.5924680784,NA,depth(cm),53
+141,10,agriculture,depth(cm),0.5894659602,NA,depth(cm),52
+140,10,agriculture,depth(cm),0.586463842,NA,depth(cm),52
+139,10,agriculture,depth(cm),0.5834617238,NA,depth(cm),52
+138,10,agriculture,depth(cm),0.5804596056,NA,depth(cm),51
+137,10,agriculture,depth(cm),0.5774574874,NA,depth(cm),51
+136,10,agriculture,depth(cm),0.5744553692,NA,depth(cm),51
+135,10,agriculture,depth(cm),0.571453251,NA,depth(cm),50
+134,10,agriculture,depth(cm),0.5684511328,NA,depth(cm),50
+133,10,agriculture,depth(cm),0.5654490146,NA,depth(cm),50
+158,10,agriculture,depth(cm),0.63092053888,NA,depth(cm),58
+159,10,agriculture,depth(cm),0.63272497824,NA,depth(cm),59
+160,10,agriculture,depth(cm),0.6345294176,NA,depth(cm),59
+174,10,agriculture,depth(cm),0.65979156864,NA,depth(cm),64
+185,10,agriculture,depth(cm),0.6796404016,NA,depth(cm),68
+184,10,agriculture,depth(cm),0.67783596224,NA,depth(cm),67
+183,10,agriculture,depth(cm),0.67603152288,NA,depth(cm),67
+182,10,agriculture,depth(cm),0.67422708352,NA,depth(cm),67
+181,10,agriculture,depth(cm),0.67242264416,NA,depth(cm),66
+180,10,agriculture,depth(cm),0.6706182048,NA,depth(cm),66
+179,10,agriculture,depth(cm),0.66881376544,NA,depth(cm),66
+178,10,agriculture,depth(cm),0.66700932608,NA,depth(cm),65
+177,10,agriculture,depth(cm),0.66520488672,NA,depth(cm),65
+176,10,agriculture,depth(cm),0.66340044736,NA,depth(cm),65
+175,10,agriculture,depth(cm),0.661596008,NA,depth(cm),64
+173,10,agriculture,depth(cm),0.65798712928,NA,depth(cm),64
+161,10,agriculture,depth(cm),0.63633385696,NA,depth(cm),59
+172,10,agriculture,depth(cm),0.65618268992,NA,depth(cm),63
+171,10,agriculture,depth(cm),0.65437825056,NA,depth(cm),63
+170,10,agriculture,depth(cm),0.6525738112,NA,depth(cm),63
+169,10,agriculture,depth(cm),0.65076937184,NA,depth(cm),62
+168,10,agriculture,depth(cm),0.64896493248,NA,depth(cm),62
+167,10,agriculture,depth(cm),0.64716049312,NA,depth(cm),61
+166,10,agriculture,depth(cm),0.64535605376,NA,depth(cm),61
+165,10,agriculture,depth(cm),0.6435516144,NA,depth(cm),61
+164,10,agriculture,depth(cm),0.64174717504,NA,depth(cm),60
+163,10,agriculture,depth(cm),0.63994273568,NA,depth(cm),60
+162,10,agriculture,depth(cm),0.63813829632,NA,depth(cm),60
+132,10,agriculture,depth(cm),0.5624468964,NA,depth(cm),49
+131,10,agriculture,depth(cm),0.5594447782,NA,depth(cm),49
+130,10,agriculture,depth(cm),0.55644266,NA,depth(cm),49
+89,10,agriculture,depth(cm),0.41578762668,NA,depth(cm),35
+100,10,agriculture,depth(cm),0.466379114,NA,depth(cm),38
+99,10,agriculture,depth(cm),0.46177988788,NA,depth(cm),38
+98,10,agriculture,depth(cm),0.45718066176,NA,depth(cm),38
+97,10,agriculture,depth(cm),0.45258143564,NA,depth(cm),37
+96,10,agriculture,depth(cm),0.44798220952,NA,depth(cm),37
+95,10,agriculture,depth(cm),0.4433829834,NA,depth(cm),37
+94,10,agriculture,depth(cm),0.43878375728,NA,depth(cm),37
+93,10,agriculture,depth(cm),0.43418453116,NA,depth(cm),36
+92,10,agriculture,depth(cm),0.42958530504,NA,depth(cm),36
+91,10,agriculture,depth(cm),0.42498607892,NA,depth(cm),36
+90,10,agriculture,depth(cm),0.4203868528,NA,depth(cm),36
+88,10,agriculture,depth(cm),0.41118840056,NA,depth(cm),35
+102,10,agriculture,depth(cm),0.4723833504,NA,depth(cm),39
+87,10,agriculture,depth(cm),0.40658917444,NA,depth(cm),35
+86,10,agriculture,depth(cm),0.40198994832,NA,depth(cm),35
+85,10,agriculture,depth(cm),0.3973907222,NA,depth(cm),34
+84,10,agriculture,depth(cm),0.39279149608,NA,depth(cm),34
+83,10,agriculture,depth(cm),0.38819226996,NA,depth(cm),34
+82,10,agriculture,depth(cm),0.38359304384,NA,depth(cm),34
+81,10,agriculture,depth(cm),0.37899381772,NA,depth(cm),33
+80,10,agriculture,depth(cm),0.3743945916,NA,depth(cm),33
+79,10,agriculture,depth(cm),0.36979536548,NA,depth(cm),33
+78,10,agriculture,depth(cm),0.36519613936,NA,depth(cm),33
+77,10,agriculture,depth(cm),0.36059691324,NA,depth(cm),32
+101,10,agriculture,depth(cm),0.4693812322,NA,depth(cm),38
+103,10,agriculture,depth(cm),0.4753854686,NA,depth(cm),39
+129,10,agriculture,depth(cm),0.5534405418,NA,depth(cm),48
+117,10,agriculture,depth(cm),0.5174151234,NA,depth(cm),44
+128,10,agriculture,depth(cm),0.5504384236,NA,depth(cm),48
+127,10,agriculture,depth(cm),0.5474363054,NA,depth(cm),47
+126,10,agriculture,depth(cm),0.5444341872,NA,depth(cm),47
+125,10,agriculture,depth(cm),0.541432069,NA,depth(cm),47
+124,10,agriculture,depth(cm),0.5384299508,NA,depth(cm),46
+123,10,agriculture,depth(cm),0.5354278326,NA,depth(cm),46
+122,10,agriculture,depth(cm),0.5324257144,NA,depth(cm),46
+121,10,agriculture,depth(cm),0.5294235962,NA,depth(cm),45
+120,10,agriculture,depth(cm),0.526421478,NA,depth(cm),45
+119,10,agriculture,depth(cm),0.5234193598,NA,depth(cm),45
+118,10,agriculture,depth(cm),0.5204172416,NA,depth(cm),44
+116,10,agriculture,depth(cm),0.5144130052,NA,depth(cm),44
+104,10,agriculture,depth(cm),0.4783875868,NA,depth(cm),39
+115,10,agriculture,depth(cm),0.511410887,NA,depth(cm),43
+114,10,agriculture,depth(cm),0.5084087688,NA,depth(cm),43
+113,10,agriculture,depth(cm),0.5054066506,NA,depth(cm),43
+112,10,agriculture,depth(cm),0.5024045324,NA,depth(cm),42
+111,10,agriculture,depth(cm),0.4994024142,NA,depth(cm),42
+110,10,agriculture,depth(cm),0.496400296,NA,depth(cm),42
+109,10,agriculture,depth(cm),0.4933981778,NA,depth(cm),41
+108,10,agriculture,depth(cm),0.4903960596,NA,depth(cm),41
+107,10,agriculture,depth(cm),0.4873939414,NA,depth(cm),40
+106,10,agriculture,depth(cm),0.4843918232,NA,depth(cm),40
+105,10,agriculture,depth(cm),0.481389705,NA,depth(cm),40
+186,10,agriculture,depth(cm),0.68144484096,NA,depth(cm),68
+188,10,agriculture,depth(cm),0.68505371968,NA,depth(cm),69
+75,10,agriculture,depth(cm),0.351398461,NA,depth(cm),32
+189,10,agriculture,depth(cm),0.68685815904,NA,depth(cm),69
+270,10,agriculture,depth(cm),0.7842720887,NA,depth(cm),91
+269,10,agriculture,depth(cm),0.78316401589,NA,depth(cm),90
+268,10,agriculture,depth(cm),0.78205594308,NA,depth(cm),90
+267,10,agriculture,depth(cm),0.78094787027,NA,depth(cm),90
+266,10,agriculture,depth(cm),0.77983979746,NA,depth(cm),90
+265,10,agriculture,depth(cm),0.77873172465,NA,depth(cm),89
+264,10,agriculture,depth(cm),0.77762365184,NA,depth(cm),89
+263,10,agriculture,depth(cm),0.77651557903,NA,depth(cm),89
+262,10,agriculture,depth(cm),0.77540750622,NA,depth(cm),89
+261,10,agriculture,depth(cm),0.77429943341,NA,depth(cm),88
+260,10,agriculture,depth(cm),0.7731913606,NA,depth(cm),88
+259,10,agriculture,depth(cm),0.77208328779,NA,depth(cm),88
+258,10,agriculture,depth(cm),0.77097521498,NA,depth(cm),88
+257,10,agriculture,depth(cm),0.76986714217,NA,depth(cm),87
+256,10,agriculture,depth(cm),0.76875906936,NA,depth(cm),87
+255,10,agriculture,depth(cm),0.76765099655,NA,depth(cm),87
+254,10,agriculture,depth(cm),0.76654292374,NA,depth(cm),87
+253,10,agriculture,depth(cm),0.76543485093,NA,depth(cm),86
+252,10,agriculture,depth(cm),0.76432677812,NA,depth(cm),86
+251,10,agriculture,depth(cm),0.76321870531,NA,depth(cm),86
+250,10,agriculture,depth(cm),0.7621106325,NA,depth(cm),86
+249,10,agriculture,depth(cm),0.76100255969,NA,depth(cm),85
+248,10,agriculture,depth(cm),0.75989448688,NA,depth(cm),85
+247,10,agriculture,depth(cm),0.75878641407,NA,depth(cm),85
+246,10,agriculture,depth(cm),0.75767834126,NA,depth(cm),85
+271,10,agriculture,depth(cm),0.78538016151,NA,depth(cm),91
+272,10,agriculture,depth(cm),0.78648823432,NA,depth(cm),91
+273,10,agriculture,depth(cm),0.78759630713,NA,depth(cm),91
+287,10,agriculture,depth(cm),0.80310932647,NA,depth(cm),95
+298,10,agriculture,depth(cm),0.81529812738,NA,depth(cm),98
+297,10,agriculture,depth(cm),0.81419005457,NA,depth(cm),97
+296,10,agriculture,depth(cm),0.81308198176,NA,depth(cm),97
+295,10,agriculture,depth(cm),0.81197390895,NA,depth(cm),97
+294,10,agriculture,depth(cm),0.81086583614,NA,depth(cm),97
+293,10,agriculture,depth(cm),0.80975776333,NA,depth(cm),96
+292,10,agriculture,depth(cm),0.80864969052,NA,depth(cm),96
+291,10,agriculture,depth(cm),0.80754161771,NA,depth(cm),96
+290,10,agriculture,depth(cm),0.8064335449,NA,depth(cm),96
+289,10,agriculture,depth(cm),0.80532547209,NA,depth(cm),95
+288,10,agriculture,depth(cm),0.80421739928,NA,depth(cm),95
+286,10,agriculture,depth(cm),0.80200125366,NA,depth(cm),95
+274,10,agriculture,depth(cm),0.78870437994,NA,depth(cm),92
+285,10,agriculture,depth(cm),0.80089318085,NA,depth(cm),94
+284,10,agriculture,depth(cm),0.79978510804,NA,depth(cm),94
+283,10,agriculture,depth(cm),0.79867703523,NA,depth(cm),94
+282,10,agriculture,depth(cm),0.79756896242,NA,depth(cm),94
+281,10,agriculture,depth(cm),0.79646088961,NA,depth(cm),93
+280,10,agriculture,depth(cm),0.7953528168,NA,depth(cm),93
+279,10,agriculture,depth(cm),0.79424474399,NA,depth(cm),93
+278,10,agriculture,depth(cm),0.79313667118,NA,depth(cm),93
+277,10,agriculture,depth(cm),0.79202859837,NA,depth(cm),92
+276,10,agriculture,depth(cm),0.79092052556,NA,depth(cm),92
+275,10,agriculture,depth(cm),0.78981245275,NA,depth(cm),92
+245,10,agriculture,depth(cm),0.75657026845,NA,depth(cm),84
+244,10,agriculture,depth(cm),0.75546219564,NA,depth(cm),84
+243,10,agriculture,depth(cm),0.75435412283,NA,depth(cm),84
+202,10,agriculture,depth(cm),0.70892313762,NA,depth(cm),74
+213,10,agriculture,depth(cm),0.72111193853,NA,depth(cm),76
+212,10,agriculture,depth(cm),0.72000386572,NA,depth(cm),76
+211,10,agriculture,depth(cm),0.71889579291,NA,depth(cm),76
+210,10,agriculture,depth(cm),0.7177877201,NA,depth(cm),76
+209,10,agriculture,depth(cm),0.71667964729,NA,depth(cm),75
+208,10,agriculture,depth(cm),0.71557157448,NA,depth(cm),75
+207,10,agriculture,depth(cm),0.71446350167,NA,depth(cm),75
+206,10,agriculture,depth(cm),0.71335542886,NA,depth(cm),75
+205,10,agriculture,depth(cm),0.71224735605,NA,depth(cm),74
+204,10,agriculture,depth(cm),0.71113928324,NA,depth(cm),74
+203,10,agriculture,depth(cm),0.71003121043,NA,depth(cm),74
+201,10,agriculture,depth(cm),0.70781506481,NA,depth(cm),73
+215,10,agriculture,depth(cm),0.72332808415,NA,depth(cm),77
+200,10,agriculture,depth(cm),0.706706992,NA,depth(cm),73
+199,10,agriculture,depth(cm),0.70490255264,NA,depth(cm),73
+198,10,agriculture,depth(cm),0.70309811328,NA,depth(cm),72
+197,10,agriculture,depth(cm),0.70129367392,NA,depth(cm),72
+196,10,agriculture,depth(cm),0.69948923456,NA,depth(cm),72
+195,10,agriculture,depth(cm),0.6976847952,NA,depth(cm),71
+194,10,agriculture,depth(cm),0.69588035584,NA,depth(cm),71
+193,10,agriculture,depth(cm),0.69407591648,NA,depth(cm),71
+192,10,agriculture,depth(cm),0.69227147712,NA,depth(cm),70
+191,10,agriculture,depth(cm),0.69046703776,NA,depth(cm),70
+190,10,agriculture,depth(cm),0.6886625984,NA,depth(cm),70
+214,10,agriculture,depth(cm),0.72222001134,NA,depth(cm),77
+216,10,agriculture,depth(cm),0.72443615696,NA,depth(cm),77
+242,10,agriculture,depth(cm),0.75324605002,NA,depth(cm),84
+230,10,agriculture,depth(cm),0.7399491763,NA,depth(cm),81
+241,10,agriculture,depth(cm),0.75213797721,NA,depth(cm),83
+240,10,agriculture,depth(cm),0.7510299044,NA,depth(cm),83
+239,10,agriculture,depth(cm),0.74992183159,NA,depth(cm),83
+238,10,agriculture,depth(cm),0.74881375878,NA,depth(cm),83
+237,10,agriculture,depth(cm),0.74770568597,NA,depth(cm),82
+236,10,agriculture,depth(cm),0.74659761316,NA,depth(cm),82
+235,10,agriculture,depth(cm),0.74548954035,NA,depth(cm),82
+234,10,agriculture,depth(cm),0.74438146754,NA,depth(cm),82
+233,10,agriculture,depth(cm),0.74327339473,NA,depth(cm),81
+232,10,agriculture,depth(cm),0.74216532192,NA,depth(cm),81
+231,10,agriculture,depth(cm),0.74105724911,NA,depth(cm),81
+229,10,agriculture,depth(cm),0.73884110349,NA,depth(cm),80
+217,10,agriculture,depth(cm),0.72554422977,NA,depth(cm),77
+228,10,agriculture,depth(cm),0.73773303068,NA,depth(cm),80
+227,10,agriculture,depth(cm),0.73662495787,NA,depth(cm),80
+226,10,agriculture,depth(cm),0.73551688506,NA,depth(cm),80
+225,10,agriculture,depth(cm),0.73440881225,NA,depth(cm),79
+224,10,agriculture,depth(cm),0.73330073944,NA,depth(cm),79
+223,10,agriculture,depth(cm),0.73219266663,NA,depth(cm),79
+222,10,agriculture,depth(cm),0.73108459382,NA,depth(cm),79
+221,10,agriculture,depth(cm),0.72997652101,NA,depth(cm),78
+220,10,agriculture,depth(cm),0.7288684482,NA,depth(cm),78
+219,10,agriculture,depth(cm),0.72776037539,NA,depth(cm),78
+218,10,agriculture,depth(cm),0.72665230258,NA,depth(cm),78
+76,10,agriculture,depth(cm),0.35599768712,NA,depth(cm),32
+150,10,agriculture,depth(cm),0.616485024,NA,depth(cm),56
+74,10,agriculture,depth(cm),0.34679923488,NA,depth(cm),32
+563,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+533,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+532,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+531,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+530,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+529,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+528,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+527,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+526,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+525,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+524,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+523,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+522,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+521,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+520,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+519,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+518,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+517,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+516,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+515,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+514,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+513,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+512,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+511,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+510,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+509,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+534,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+535,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+536,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+550,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+561,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+560,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+559,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+558,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+557,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+556,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+555,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+554,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+553,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+552,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+551,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+549,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+537,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+548,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+547,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+546,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+545,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+544,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+543,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+542,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+541,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+540,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+539,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+538,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+508,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+507,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+506,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+465,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+476,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+475,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+474,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+473,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+472,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+471,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+470,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+469,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+468,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+467,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+466,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+464,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+478,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+463,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+462,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+461,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+460,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+459,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+458,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+457,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+456,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+455,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+454,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+453,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+477,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+479,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+505,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+493,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+504,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+503,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+502,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+501,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+500,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+499,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+498,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+497,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+496,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+495,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+494,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+492,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+480,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+491,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+490,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+489,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+73,10,agriculture,depth(cm),0.34220000876,NA,depth(cm),32
+487,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+486,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+485,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+484,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+483,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+482,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+481,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+562,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+488,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+564,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+33,10,agriculture,depth(cm),0.15603575328,NA,depth(cm),17
+44,10,agriculture,depth(cm),0.20804767104,NA,depth(cm),23
+43,10,agriculture,depth(cm),0.20331931488,NA,depth(cm),22
+42,10,agriculture,depth(cm),0.19859095872,NA,depth(cm),22
+41,10,agriculture,depth(cm),0.19386260256,NA,depth(cm),21
+40,10,agriculture,depth(cm),0.1891342464,NA,depth(cm),21
+39,10,agriculture,depth(cm),0.18440589024,NA,depth(cm),20
+38,10,agriculture,depth(cm),0.17967753408,NA,depth(cm),20
+37,10,agriculture,depth(cm),0.17494917792,NA,depth(cm),19
+36,10,agriculture,depth(cm),0.17022082176,NA,depth(cm),19
+35,10,agriculture,depth(cm),0.1654924656,NA,depth(cm),18
+34,10,agriculture,depth(cm),0.16076410944,NA,depth(cm),18
+32,10,agriculture,depth(cm),0.15130739712,NA,depth(cm),17
+46,10,agriculture,depth(cm),0.21750438336,NA,depth(cm),24
+31,10,agriculture,depth(cm),0.14657904096,NA,depth(cm),16
+30,10,agriculture,depth(cm),0.1418506848,NA,depth(cm),16
+29,10,agriculture,depth(cm),0.13712232864,NA,depth(cm),15
+28,10,agriculture,depth(cm),0.13239397248,NA,depth(cm),15
+27,10,agriculture,depth(cm),0.12766561632,NA,depth(cm),14
+26,10,agriculture,depth(cm),0.12293726016,NA,depth(cm),14
+25,10,agriculture,depth(cm),0.118208904,NA,depth(cm),13
+24,10,agriculture,depth(cm),0.11348054784,NA,depth(cm),12
+23,10,agriculture,depth(cm),0.10875219168,NA,depth(cm),12
+22,10,agriculture,depth(cm),0.10402383552,NA,depth(cm),11
+21,10,agriculture,depth(cm),0.09929547936,NA,depth(cm),11
+45,10,agriculture,depth(cm),0.2127760272,NA,depth(cm),23
+47,10,agriculture,depth(cm),0.22223273952,NA,depth(cm),24
+19,10,agriculture,depth(cm),0.08983876704,NA,depth(cm),10
+62,10,agriculture,depth(cm),0.29160852144,NA,depth(cm),29
+565,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+72,10,agriculture,depth(cm),0.33760078264,NA,depth(cm),31
+71,10,agriculture,depth(cm),0.33300155652,NA,depth(cm),31
+70,10,agriculture,depth(cm),0.3284023304,NA,depth(cm),31
+69,10,agriculture,depth(cm),0.32380310428,NA,depth(cm),31
+68,10,agriculture,depth(cm),0.31920387816,NA,depth(cm),30
+67,10,agriculture,depth(cm),0.31460465204,NA,depth(cm),30
+66,10,agriculture,depth(cm),0.31000542592,NA,depth(cm),30
+65,10,agriculture,depth(cm),0.3054061998,NA,depth(cm),30
+64,10,agriculture,depth(cm),0.30080697368,NA,depth(cm),29
+63,10,agriculture,depth(cm),0.29620774756,NA,depth(cm),29
+61,10,agriculture,depth(cm),0.28700929532,NA,depth(cm),29
+48,10,agriculture,depth(cm),0.22696109568,NA,depth(cm),25
+60,10,agriculture,depth(cm),0.2824100692,NA,depth(cm),28
+59,10,agriculture,depth(cm),0.27781084308,NA,depth(cm),28
+58,10,agriculture,depth(cm),0.27321161696,NA,depth(cm),28
+57,10,agriculture,depth(cm),0.26861239084,NA,depth(cm),28
+56,10,agriculture,depth(cm),0.26401316472,NA,depth(cm),27
+54,10,agriculture,depth(cm),0.25481471248,NA,depth(cm),27
+53,10,agriculture,depth(cm),0.25021548636,NA,depth(cm),27
+52,10,agriculture,depth(cm),0.24561626024,NA,depth(cm),26
+51,10,agriculture,depth(cm),0.24101703412,NA,depth(cm),26
+50,10,agriculture,depth(cm),0.236417808,NA,depth(cm),26
+49,10,agriculture,depth(cm),0.23168945184,NA,depth(cm),25
+20,10,agriculture,depth(cm),0.0945671232,NA,depth(cm),10
+55,10,agriculture,depth(cm),0.2594139386,NA,depth(cm),27
+18,10,agriculture,depth(cm),0.08511041088,NA,depth(cm),9
+578,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+589,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+588,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+587,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+586,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+585,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+584,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+583,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+582,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+581,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+580,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+579,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+577,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+591,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+576,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+574,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+573,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+572,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+571,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+570,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+569,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+568,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+567,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+17,10,agriculture,depth(cm),0.08038205472,NA,depth(cm),9
+566,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+590,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+575,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+592,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+4,10,agriculture,depth(cm),0.01891342464,NA,depth(cm),2
+16,10,agriculture,depth(cm),0.07565369856,NA,depth(cm),8
+15,10,agriculture,depth(cm),0.0709253424,NA,depth(cm),8
+593,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+14,10,agriculture,depth(cm),0.06619698624,NA,depth(cm),7
+13,10,agriculture,depth(cm),0.06146863008,NA,depth(cm),7
+12,10,agriculture,depth(cm),0.05674027392,NA,depth(cm),6
+11,10,agriculture,depth(cm),0.05201191776,NA,depth(cm),6
+9,10,agriculture,depth(cm),0.04255520544,NA,depth(cm),5
+8,10,agriculture,depth(cm),0.03782684928,NA,depth(cm),4
+7,10,agriculture,depth(cm),0.03309849312,NA,depth(cm),4
+6,10,agriculture,depth(cm),0.02837013696,NA,depth(cm),3
+5,10,agriculture,depth(cm),0.0236417808,NA,depth(cm),3
+10,10,agriculture,depth(cm),0.0472835616,NA,depth(cm),5
+3,10,agriculture,depth(cm),0.01418506848,NA,depth(cm),2
+599,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+596,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+2,10,agriculture,depth(cm),0.00945671232,NA,depth(cm),1
+595,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+597,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+598,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+594,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+600,10,commercial building,depth(cm),1,838625.370183151,depth(cm),98
+0,10,agriculture,depth(cm),0,NA,depth(cm),0
+1,10,agriculture,depth(cm),0.00472835616,NA,depth(cm),1

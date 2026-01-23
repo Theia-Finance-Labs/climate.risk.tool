@@ -186,19 +186,19 @@ Quick reference:
   - NetCDF files: `{hazard_type}/*.nc` (auto-discovered)
   - CSV files: `{hazard_type}/*.csv` (auto-discovered)
 - Run `Rscript data-raw/process_flood_maps_brazil.R` to generate Brazil subsets (if applicable)
-- Processed files are saved to `tests/tests_data/hazards/`
+- Processed files are saved to `tests/tests_data/hazards/config/`
 
-### 5bis. Building NetCDF hazard indicators from `workspace/hazard_indicators/` (Python)
+### 5bis. Building NetCDF hazard indicators from `workspace/hazards/indicators/` (Python)
 
 This repo includes a small Python utility that converts a local “indicator folder” layout
-(`workspace/hazard_indicators/`) into a NetCDF-only layout that is **fast to lazy-load**
+(`workspace/hazards/indicators/`) into a NetCDF-only layout that is **fast to lazy-load**
 and **optimized for runtime polygon extraction** in the app.
 
 #### Input folder layout
 
 The input root is expected to look like:
 
-- `workspace/hazard_indicators/`
+- `workspace/hazards/indicators/`
   - `hazards_metadata.csv`
   - `<indicator_name_1>/` (contains either `*.tif`/`*.tiff` OR `*.nc`)
   - `<indicator_name_2>/` (contains either `*.tif`/`*.tiff` OR `*.nc`)
@@ -211,7 +211,7 @@ Notes:
 
 #### `hazards_metadata.csv`
 
-If you have GeoTIFF indicators, you should provide `workspace/hazard_indicators/hazards_metadata.csv`
+If you have GeoTIFF indicators, you should provide `workspace/hazards/indicators/hazards_metadata.csv`
 as the reference for building the NetCDF dimensions.
 
 Required columns:
@@ -230,7 +230,7 @@ The script matches `hazard_file` to the TIFF filenames found in each indicator f
 
 The output root will contain one NetCDF per indicator:
 
-- `workspace/demo_inputs_refacto/hazard_indicators/`
+- `workspace/demo_inputs_refacto/hazards/indicators/`
   - `flood_depth.nc`
   - `land_cover.nc`
   - `fire_weather_index.nc`
@@ -242,7 +242,7 @@ Each file is written so the app can lazy-load quickly at startup and then read e
 
 ```bash
 python3 src/climate_risk_tool_python/netcdf_mgmt/build_hazard_indicators_refacto.py \
-  --input-root workspace/hazard_indicators \
+  --input-root workspace/hazards/indicators \
   --output-root workspace/demo_inputs_refacto/hazard_indicators \
   --overwrite
 ```

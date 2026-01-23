@@ -36,8 +36,8 @@ ensemble (ensemble variant), source ("tif", "nc", or "csv")
 Self-contained loader that:
 \enumerate{
 \item Reads hazard configs from \verb{hazards/} (one hazard.yml per hazard)
-\item Loads NetCDF indicators from \verb{hazard_indicators/} root
-\item Loads TIF indicators from \verb{hazard_indicators/<indicator_folder>/} using hazards_metadata.csv
+\item Loads NetCDF indicators from \verb{hazards/indicators/} root
+\item Loads TIF indicators from \verb{hazards/indicators/<indicator_folder>/} using hazards_metadata.csv
 \item Generates a unified inventory with hazard metadata
 \item Returns both hazards and inventory
 }
@@ -49,7 +49,7 @@ Load hazards (TIF + NC) and build complete inventory
 \dontrun{
 result <- load_hazards_and_inventory(
   hazards_dir = file.path(base_dir, "hazards"),
-  hazard_indicators_dir = file.path(base_dir, "hazard_indicators"),
+  hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
   aggregate_factor = 1L
 )
 

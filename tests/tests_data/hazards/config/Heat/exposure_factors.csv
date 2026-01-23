@@ -1,0 +1,301 @@
+gwl,state,lp_exposure,damage_factor,hazard_indicator
+1.5,Piaui,low,-0.030012801,HI
+NA,Amapa,median,-0.040461681,HI
+NA,Amazonas,median,-0.0420186,HI
+1.5,Pernambuco,low,-0.022366024,HI
+NA,Acre,median,-0.041982978,HI
+NA,Bahia,median,-0.025872359,HI
+NA,Ceara,median,-0.033296703,HI
+NA,Alagoas,median,-0.029741567,HI
+1.5,Santa Catarina,low,-0.015049785,HI
+1.5,Tocantins,low,-0.030656982,HI
+1.5,Sergipe,low,-0.020980194,HI
+1.5,Sao Paulo,low,-0.022952559,HI
+1.5,Roraima,low,-0.0324719,HI
+1.5,Rondonia,low,-0.034781748,HI
+NA,Espirito Santo,median,-0.01769611,HI
+1.5,Rio Grande do Sul,low,0.010822703,HI
+NA,Distrito Federal,median,-0.023419429,HI
+NA,Rio Grande do Sul,median,-0.01185242,HI
+NA,Goias,median,-0.037187401,HI
+NA,Maranhao,median,-0.036410225,HI
+NA,Sao Paulo,median,-0.024361458,HI
+1.5,Paraiba,low,-0.023079031,HI
+NA,Sergipe,median,-0.027581881,HI
+NA,Tocantins,median,-0.040205122,HI
+NA,Santa Catarina,median,-0.014450484,HI
+NA,Roraima,median,-0.038651341,HI
+NA,Rondonia,median,-0.047675969,HI
+NA,Piaui,median,-0.03706115,HI
+NA,Pernambuco,median,-0.030721619,HI
+NA,Parana,median,-0.017897495,HI
+NA,Paraiba,median,-0.030613984,HI
+NA,Para,median,-0.043519452,HI
+NA,Minas Gerais,median,-0.023116822,HI
+NA,Mato Grosso do Sul,median,-0.037026016,HI
+NA,Mato Grosso,median,-0.046695534,HI
+1.5,Parana,low,-0.017382382,HI
+2,Mato Grosso,low,-0.057394236,HI
+1.5,Para,low,-0.031394159,HI
+2,Rondonia,low,-0.06235543,HI
+2,Piaui,low,-0.048470757,HI
+2,Pernambuco,low,-0.043515058,HI
+2,Parana,low,-0.026524686,HI
+2,Paraiba,low,-0.04458175,HI
+2,Para,low,-0.056638444,HI
+2,Minas Gerais,low,-0.036294972,HI
+2,Mato Grosso do Sul,low,-0.054848726,HI
+2,Maranhao,low,-0.053341378,HI
+2,Goias,low,-0.05266014,HI
+2,Espirito Santo,low,-0.016716477,HI
+2,Distrito Federal,low,-0.036979723,HI
+2,Amazonas,low,-0.057427439,HI
+3,Alagoas,median,-0.149108106,HI
+2,Bahia,low,-0.043301939,HI
+2,Ceara,low,-0.050709167,HI
+2,Rio Grande do Sul,low,0.003135789,HI
+2,Roraima,low,-0.054303949,HI
+1.5,Minas Gerais,low,-0.014201894,HI
+2,Santa Catarina,low,-0.022341706,HI
+1.5,Mato Grosso do Sul,low,-0.032047101,HI
+1.5,Mato Grosso,low,-0.030576392,HI
+1.5,Maranhao,low,-0.027631471,HI
+1.5,Goias,low,-0.02941393,HI
+1.5,Espirito Santo,low,0.006593197,HI
+1.5,Distrito Federal,low,-0.018676505,HI
+1.5,Ceara,low,-0.031570926,HI
+1.5,Bahia,low,-0.023891322,HI
+1.5,Amazonas,low,-0.030251678,HI
+1.5,Amapa,low,-0.036832718,HI
+1.5,Alagoas,low,-0.014522319,HI
+1.5,Acre,low,-0.023079162,HI
+2,Tocantins,low,-0.056882012,HI
+2,Sergipe,low,-0.038779873,HI
+2,Sao Paulo,low,-0.036809254,HI
+3,Acre,median,-0.203876507,HI
+1.5,Para,median,-0.074995854,HI
+3,Amapa,median,-0.172322182,HI
+1.5,Espirito Santo,median,-0.04392013,HI
+1.5,Ceara,median,-0.056479825,HI
+1.5,Bahia,median,-0.047216569,HI
+1.5,Amazonas,median,-0.071437094,HI
+1.5,Amapa,median,-0.067224434,HI
+1.5,Alagoas,median,-0.054381725,HI
+1.5,Acre,median,-0.078876105,HI
+2,Tocantins,median,-0.107193409,HI
+2,Sergipe,median,-0.080758963,HI
+2,Sao Paulo,median,-0.068585936,HI
+2,Santa Catarina,median,-0.039189751,HI
+2,Roraima,median,-0.100973173,HI
+2,Rondonia,median,-0.115383241,HI
+2,Rio Grande do Sul,median,-0.034711035,HI
+2,Piaui,median,-0.090408051,HI
+2,Pernambuco,median,-0.087869231,HI
+1.5,Distrito Federal,median,-0.043361565,HI
+1.5,Goias,median,-0.061843369,HI
+3,Amazonas,median,-0.179948987,HI
+1.5,Maranhao,median,-0.064875099,HI
+1.5,Tocantins,median,-0.070865842,HI
+1.5,Sergipe,median,-0.048692065,HI
+2,Alagoas,low,-0.036715243,HI
+1.5,Sao Paulo,median,-0.042398318,HI
+1.5,Santa Catarina,median,-0.024302386,HI
+1.5,Roraima,median,-0.066209722,HI
+1.5,Rondonia,median,-0.077692392,HI
+1.5,Rio Grande do Sul,median,-0.02039918,HI
+1.5,Piaui,median,-0.057945167,HI
+1.5,Pernambuco,median,-0.053565283,HI
+1.5,Parana,median,-0.031980669,HI
+1.5,Paraiba,median,-0.053351832,HI
+1.5,Minas Gerais,median,-0.04801465,HI
+1.5,Mato Grosso do Sul,median,-0.060365392,HI
+1.5,Mato Grosso,median,-0.077487852,HI
+2,Parana,median,-0.05190332,HI
+2,Paraiba,median,-0.087241502,HI
+2,Para,median,-0.11260764,HI
+2,Minas Gerais,median,-0.077657285,HI
+3,Rio Grande do Sul,median,-0.065752924,HI
+3,Piaui,median,-0.152804516,HI
+3,Pernambuco,median,-0.148597571,HI
+3,Parana,median,-0.099274243,HI
+3,Paraiba,median,-0.146949588,HI
+3,Para,median,-0.187013769,HI
+3,Minas Gerais,median,-0.127941294,HI
+3,Mato Grosso do Sul,median,-0.160486565,HI
+3,Mato Grosso,median,-0.185672053,HI
+3,Maranhao,median,-0.158521357,HI
+3,Goias,median,-0.159423412,HI
+3,Espirito Santo,median,-0.118133356,HI
+3,Distrito Federal,median,-0.123034591,HI
+3,Ceara,median,-0.15256036,HI
+3,Bahia,median,-0.138660059,HI
+3,Rondonia,median,-0.188409559,HI
+3,Roraima,median,-0.174607208,HI
+3,Santa Catarina,median,-0.071093292,HI
+2,Ceara,median,-0.090968677,HI
+2,Mato Grosso do Sul,median,-0.09305268,HI
+2,Mato Grosso,median,-0.114633217,HI
+2,Maranhao,median,-0.097331867,HI
+2,Goias,median,-0.095035221,HI
+2,Espirito Santo,median,-0.075447197,HI
+2,Distrito Federal,median,-0.070861996,HI
+2,Bahia,median,-0.079981499,HI
+3,Sao Paulo,median,-0.124045991,HI
+2,Amazonas,median,-0.108587521,HI
+2,Amapa,median,-0.103857961,HI
+2,Alagoas,median,-0.088585386,HI
+2,Acre,median,-0.119713594,HI
+3,Tocantins,median,-0.171319779,HI
+3,Sergipe,median,-0.141136016,HI
+2,Amapa,low,-0.059443336,HI
+NA,Roraima,high,-0.075667141,HI
+2,Acre,low,-0.050648679,HI
+2,Amazonas,high,-0.184776313,HI
+2,Alagoas,high,-0.149756268,HI
+2,Acre,high,-0.209123047,HI
+3,Tocantins,high,-0.275806449,HI
+3,Sergipe,high,-0.266997796,HI
+3,Sao Paulo,high,-0.202776269,HI
+3,Santa Catarina,high,-0.121792136,HI
+3,Roraima,high,-0.320618731,HI
+3,Rondonia,high,-0.321411594,HI
+3,Rio Grande do Sul,high,-0.113610363,HI
+3,Piaui,high,-0.264575089,HI
+3,Pernambuco,high,-0.247063254,HI
+3,Parana,high,-0.156403762,HI
+3,Paraiba,high,-0.238239978,HI
+3,Para,high,-0.271629765,HI
+3,Minas Gerais,high,-0.217372887,HI
+2,Amapa,high,-0.162125991,HI
+2,Bahia,high,-0.153767177,HI
+3,Mato Grosso,high,-0.299197676,HI
+2,Ceara,high,-0.143351838,HI
+2,Roraima,high,-0.189810996,HI
+2,Rondonia,high,-0.189225425,HI
+2,Rio Grande do Sul,high,-0.074984898,HI
+2,Piaui,high,-0.158480205,HI
+2,Pernambuco,high,-0.148328692,HI
+2,Parana,high,-0.089265873,HI
+2,Paraiba,high,-0.146865951,HI
+2,Para,high,-0.17161702,HI
+2,Minas Gerais,high,-0.122067018,HI
+2,Mato Grosso do Sul,high,-0.149438269,HI
+2,Mato Grosso,high,-0.181630085,HI
+2,Maranhao,high,-0.158656213,HI
+2,Goias,high,-0.153898299,HI
+2,Espirito Santo,high,-0.121009651,HI
+2,Distrito Federal,high,-0.118428169,HI
+3,Mato Grosso do Sul,high,-0.247137924,HI
+3,Maranhao,high,-0.266054203,HI
+3,Tocantins,low,-0.094753413,HI
+NA,Paraiba,high,-0.050268883,HI
+NA,Minas Gerais,high,-0.043717036,HI
+NA,Mato Grosso do Sul,high,-0.053952184,HI
+NA,Mato Grosso,high,-0.072779329,HI
+NA,Maranhao,high,-0.063629816,HI
+NA,Goias,high,-0.055457525,HI
+NA,Espirito Santo,high,-0.041242042,HI
+NA,Distrito Federal,high,-0.037793649,HI
+NA,Ceara,high,-0.051845923,HI
+NA,Bahia,high,-0.047676915,HI
+NA,Amazonas,high,-0.069382389,HI
+NA,Amapa,high,-0.067010834,HI
+NA,Alagoas,high,-0.047301845,HI
+NA,Acre,high,-0.07402026,HI
+3,Roraima,low,-0.087997072,HI
+3,Sao Paulo,low,-0.062155174,HI
+NA,Para,high,-0.074403131,HI
+NA,Parana,high,-0.031989856,HI
+3,Goias,high,-0.261362964,HI
+NA,Pernambuco,high,-0.048397023,HI
+3,Espirito Santo,high,-0.201070627,HI
+3,Distrito Federal,high,-0.223910525,HI
+3,Ceara,high,-0.232006987,HI
+3,Bahia,high,-0.271564736,HI
+3,Amazonas,high,-0.314546259,HI
+3,Amapa,high,-0.260766089,HI
+3,Alagoas,high,-0.249823376,HI
+3,Acre,high,-0.33062366,HI
+NA,Tocantins,high,-0.067828888,HI
+NA,Sergipe,high,-0.049968763,HI
+NA,Sao Paulo,high,-0.04106329,HI
+NA,Santa Catarina,high,-0.021631658,HI
+NA,Rondonia,high,-0.073225941,HI
+NA,Rio Grande do Sul,high,-0.024330768,HI
+NA,Piaui,high,-0.061194749,HI
+2,Santa Catarina,high,-0.071383884,HI
+2,Sao Paulo,high,-0.116890379,HI
+2,Sergipe,high,-0.154968934,HI
+3,Amazonas,low,-0.097215811,HI
+3,Alagoas,low,-0.074507891,HI
+3,Acre,low,-0.084637965,HI
+NA,Tocantins,low,-0.015173638,HI
+NA,Sergipe,low,-0.011768487,HI
+NA,Sao Paulo,low,-0.013784678,HI
+NA,Santa Catarina,low,-0.011274418,HI
+NA,Roraima,low,-0.021900843,HI
+NA,Rondonia,low,-0.018333044,HI
+NA,Rio Grande do Sul,low,0.015948374,HI
+NA,Piaui,low,-0.017895997,HI
+NA,Pernambuco,low,-0.013499568,HI
+NA,Parana,low,-0.012069907,HI
+NA,Paraiba,low,-0.01579956,HI
+NA,Para,low,-0.013632422,HI
+NA,Minas Gerais,low,-0.002745132,HI
+3,Amapa,low,-0.097758948,HI
+3,Bahia,low,-0.0808625,HI
+2,Tocantins,high,-0.167948124,HI
+3,Ceara,low,-0.084558228,HI
+3,Sergipe,low,-0.075830944,HI
+3,Rondonia,low,-0.100348927,HI
+3,Rio Grande do Sul,low,-0.013975388,HI
+3,Piaui,low,-0.083564215,HI
+3,Pernambuco,low,-0.081495912,HI
+3,Parana,low,-0.042810274,HI
+3,Paraiba,low,-0.081730661,HI
+3,Para,low,-0.092985953,HI
+3,Minas Gerais,low,-0.06973818,HI
+3,Mato Grosso do Sul,low,-0.091111049,HI
+3,Mato Grosso,low,-0.095300193,HI
+3,Maranhao,low,-0.090798003,HI
+3,Goias,low,-0.089713212,HI
+3,Espirito Santo,low,-0.052608716,HI
+3,Distrito Federal,low,-0.06704001,HI
+NA,Mato Grosso do Sul,low,-0.020062349,HI
+NA,Mato Grosso,low,-0.011579896,HI
+NA,Maranhao,low,-0.01143261,HI
+NA,Goias,low,-0.014870431,HI
+1.5,Paraiba,high,-0.093606618,HI
+1.5,Para,high,-0.118605913,HI
+1.5,Minas Gerais,high,-0.080449844,HI
+1.5,Mato Grosso do Sul,high,-0.09338832,HI
+1.5,Mato Grosso,high,-0.122156121,HI
+1.5,Maranhao,high,-0.107225703,HI
+1.5,Goias,high,-0.09838934,HI
+1.5,Espirito Santo,high,-0.080385337,HI
+1.5,Distrito Federal,high,-0.073798875,HI
+1.5,Ceara,high,-0.092475396,HI
+1.5,Bahia,high,-0.092965817,HI
+1.5,Amazonas,high,-0.121484015,HI
+1.5,Amapa,high,-0.109638681,HI
+1.5,Alagoas,high,-0.091366994000000007,HI
+1.5,Acre,high,-0.132652497,HI
+1.5,Parana,high,-0.053595231,HI
+1.5,Pernambuco,high,-0.091923731,HI
+1.5,Piaui,high,-0.102516891,HI
+NA,Alagoas,low,-0.006683764,HI
+NA,Espirito Santo,low,0.020715057,HI
+NA,Distrito Federal,low,-0.007866433,HI
+NA,Ceara,low,-0.021925266,HI
+NA,Bahia,low,-0.012517897,HI
+NA,Amazonas,low,-0.016007113,HI
+NA,Amapa,low,-0.024775899,HI
+NA,Acre,low,-0.008882961,HI
+1.5,Rio Grande do Sul,high,-0.043634053,HI
+1.5,Tocantins,high,-0.114864798,HI
+1.5,Sergipe,high,-0.091096295,HI
+1.5,Sao Paulo,high,-0.071783903,HI
+1.5,Santa Catarina,high,-0.042587017,HI
+1.5,Roraima,high,-0.123394254,HI
+1.5,Rondonia,high,-0.126608197,HI
+3,Santa Catarina,low,-0.034616545,HI

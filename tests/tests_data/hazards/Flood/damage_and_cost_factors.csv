@@ -1,6 +1,0 @@
-depth,return_period,asset_category,damage_factor,cost_factor,business_disruption
-0.5,10,industrial building,0.1,0.2,5
-1.0,10,commercial building,0.15,0.25,10
-1.0,100,commercial building,0.25,0.35,20
-
-

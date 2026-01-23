@@ -191,16 +191,25 @@ attach_sector_metadata <- function(df, cnae_exposure = NULL) {
         cnae_numeric = suppressWarnings(as.numeric(.data$cnae_digits))
       ) |>
       dplyr::filter(!is.na(.data$cnae_numeric)) |>
-      dplyr::select("cnae_numeric", "description") |>
+      dplyr::select(cnae_numeric, sector_description_new = "description") |>
       dplyr::distinct()
 
     df <- df |>
       dplyr::left_join(
         exposure_prepared,
         by = c("sector_join_numeric" = "cnae_numeric")
-      ) |>
-      dplyr::rename(sector_description = "description")
-  } else {
+      )
+
+    if ("sector_description_new" %in% names(df)) {
+      if ("sector_description" %in% names(df)) {
+        df <- df |> dplyr::mutate(sector_description = dplyr::coalesce(.data$sector_description, .data$sector_description_new))
+      } else {
+        df <- df |> dplyr::rename(sector_description = "sector_description_new")
+      }
+    }
+  }
+
+  if (!"sector_description" %in% names(df)) {
     df$sector_description <- NA_character_
   }
 

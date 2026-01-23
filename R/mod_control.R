@@ -162,8 +162,8 @@ mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
         return(NULL)
       }
 
-      hazards_dir <- file.path(base_dir, "hazards")
-      indicators_dir <- file.path(base_dir, "hazard_indicators")
+      hazards_dir <- file.path(base_dir, "hazards", "config")
+      indicators_dir <- file.path(base_dir, "hazards", "indicators")
       if (!dir.exists(hazards_dir)) {
         message("Hazards directory not found at: ", hazards_dir)
         return(NULL)

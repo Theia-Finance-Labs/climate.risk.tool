@@ -1,8 +1,8 @@
 # Test: load_hazards_and_inventory (Unified loader: TIF + NC + CSV)
 
 test_that("load_hazards_and_inventory returns hazards and inventory", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
+  hazards_dir <- get_hazards_dir()
+  hazard_indicators_dir <- get_hazard_indicators_dir()
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
@@ -24,7 +24,7 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
   expect_true(all(c("gwl", "return_period") %in% names(result$inventory)))
 
   # Check if TIF hazards were loaded (if mapping file exists in hazard_indicators)
-  if (file.exists(file.path(get_test_data_dir(), "hazard_indicators", "hazards_metadata.csv"))) {
+  if (file.exists(file.path(get_hazard_indicators_dir(), "hazards_metadata.csv"))) {
     tif_inventory <- result$inventory |> dplyr::filter(source == "tif")
     expect_true(nrow(tif_inventory) > 0)
     expect_true(any(grepl("tif", result$inventory$source)))
@@ -32,8 +32,8 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
 })
 
 test_that("load_hazards_and_inventory NC rasters have proper extent (cell centers to edges)", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
+  hazards_dir <- get_hazards_dir()
+  hazard_indicators_dir <- get_hazard_indicators_dir()
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
@@ -62,8 +62,8 @@ test_that("load_hazards_and_inventory NC rasters have proper extent (cell center
 })
 
 test_that("load_hazards_and_inventory NC names parse folder structure correctly", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
+  hazards_dir <- get_hazards_dir()
+  hazard_indicators_dir <- get_hazard_indicators_dir()
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
@@ -90,8 +90,8 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
 })
 
 test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-  hazard_indicators_dir <- file.path(get_test_data_dir(), "hazard_indicators")
+  hazards_dir <- get_hazards_dir()
+  hazard_indicators_dir <- get_hazard_indicators_dir()
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,

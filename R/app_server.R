@@ -58,7 +58,7 @@ app_server <- function(input, output, session) {
       return(NULL)
     }
 
-    hazards_dir <- file.path(base_dir, "hazards")
+    hazards_dir <- file.path(base_dir, "hazards", "config")
     if (!dir.exists(hazards_dir)) {
       return(NULL)
     }
@@ -261,7 +261,7 @@ app_server <- function(input, output, session) {
           hazards_inventory = values$hazards_inventory,
           precomputed_hazards = values$precomputed_hazards,
           hazard_configs = values$hazard_configs,
-          hazards_dir = file.path(base_dir, "hazards"),
+          hazards_dir = file.path(base_dir, "hazards", "config"),
           adm1_boundaries = values$adm1_boundaries,
           adm2_boundaries = values$adm2_boundaries,
           validate_inputs = TRUE,

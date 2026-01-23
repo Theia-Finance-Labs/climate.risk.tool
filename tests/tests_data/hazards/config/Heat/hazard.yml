@@ -9,11 +9,15 @@ indicators:
     agg: closest
 
 mappings:
+  cnae_exposure:
+    file: cnae_labor_productivity_exposure.csv
+    join:
+      on_assets: [cnae]
   exposure_links:
     file: exposure_factors.csv
     join:
-      on_hazard: [gwl, return_period]
-      on_assets: [asset_category, cnae]
-      on_intensity: [hi]
+      on_hazard: [gwl]
+      on_assets: [state, lp_exposure]
+      on_intensity: []
 
 

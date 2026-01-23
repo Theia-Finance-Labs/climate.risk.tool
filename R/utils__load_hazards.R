@@ -2,14 +2,14 @@
 #'
 #' @title Load all hazard data and generate inventory
 #' @description Self-contained loader that:
-#' 1. Reads hazard configs from `hazards/` (one hazard.yml per hazard)
-#' 2. Loads NetCDF indicators from `hazard_indicators/` root
-#' 3. Loads TIF indicators from `hazard_indicators/<indicator_folder>/` using hazards_metadata.csv
+#' 1. Reads hazard configs from `hazards/config/` (one hazard.yml per hazard)
+#' 2. Loads NetCDF indicators from `hazards/indicators/` root
+#' 3. Loads TIF indicators from `hazards/indicators/<indicator_folder>/` using hazards_metadata.csv
 #' 4. Generates a unified inventory with hazard metadata
 #' 5. Returns both hazards and inventory
 #'
 #' @param hazards_dir Character path to hazards directory containing hazard.yml files
-#' @param hazard_indicators_dir Character path to hazard_indicators directory
+#' @param hazard_indicators_dir Character path to hazards/indicators directory
 #' @param hazards_override_path Optional path to a config_overrides.yml file.
 #'   When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignored.
 #' @param aggregate_factor Integer >= 1. Aggregation factor for TIF and NetCDF rasters (default: `NULL`).
@@ -23,8 +23,8 @@
 #' @examples
 #' \dontrun{
 #' result <- load_hazards_and_inventory(
-#'   hazards_dir = file.path(base_dir, "hazards"),
-#'   hazard_indicators_dir = file.path(base_dir, "hazard_indicators"),
+#'   hazards_dir = file.path(base_dir, "hazards", "config"),
+#'   hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
 #'   aggregate_factor = 1L
 #' )
 #'
@@ -107,10 +107,15 @@ load_hazards_and_inventory <- function(
 
         indicator_folder <- file.path(hazard_indicators_dir, indicator$file)
         tif_mapping <- mapping_df |>
-          dplyr::filter(
-            .data$hazard_type == hazard_type,
-            .data$hazard_indicator == indicator_key
-          )
+          dplyr::filter(.data$hazard_indicator == indicator_key)
+
+        # Handle optional hazard_type column in mapping
+        if ("hazard_type" %in% names(tif_mapping)) {
+          tif_mapping <- tif_mapping |>
+            dplyr::filter(.data$hazard_type == !!hazard_type)
+        } else {
+          tif_mapping$hazard_type <- hazard_type
+        }
 
         if (nrow(tif_mapping) == 0) {
           next

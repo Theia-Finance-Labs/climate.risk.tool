@@ -341,8 +341,8 @@ read_companies <- function(file_path) {
 read_damage_cost_factors <- function(base_dir) {
   message("[read_damage_cost_factors] Reading damage and cost factors from: ", base_dir)
 
-  # Define file path
-  factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
+  # Define file path - now inside Flood hazard config folder
+  factors_path <- file.path(base_dir, "hazards", "config", "Flood", "damage_and_cost_factors.csv")
 
   # Check if file exists
   if (!file.exists(factors_path)) {
@@ -359,34 +359,58 @@ read_damage_cost_factors <- function(base_dir) {
     show_col_types = FALSE
   ) |>
     tibble::as_tibble() |>
-    dplyr::mutate(
-      # Clean up the numeric columns that have comma decimal separators and quotes
-      damage_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$damage_factor))),
-      cost_factor = suppressWarnings(as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor)))),
-      # Ensure hazard_intensity is numeric
-      hazard_intensity = as.numeric(.data$hazard_intensity)
-    ) |>
     # Convert column names to snake_case for consistency
-    dplyr::rename_with(to_snake_case) |>
+    dplyr::rename_with(to_snake_case)
+
+  df_names <- names(factors_df)
+
+  factors_df <- factors_df |>
+    dplyr::mutate(
+      # Clean up the numeric columns that have comma decimal separators and quotes (if they are characters)
+      damage_factor = if (is.character(.data$damage_factor)) {
+        as.numeric(gsub(",", ".", gsub('"', "", .data$damage_factor)))
+      } else {
+        as.numeric(.data$damage_factor)
+      },
+      cost_factor = if ("cost_factor" %in% df_names) {
+        if (is.character(.data$cost_factor)) {
+          suppressWarnings(as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor))))
+        } else {
+          as.numeric(.data$cost_factor)
+        }
+      } else {
+        NA_real_
+      },
+      # Handle hazard_intensity OR specific indicator columns like depth
+      hazard_intensity = dplyr::coalesce(
+        if ("hazard_intensity" %in% df_names) as.numeric(.data$hazard_intensity) else NULL,
+        if ("depth" %in% df_names) as.numeric(.data$depth) else NULL,
+        NA_real_
+      )
+    ) |>
     # Normalize state names (remove accents, convert to ASCII)
     dplyr::mutate(
-      state = dplyr::if_else(
-        !is.na(.data$state) & .data$state != "-" & nzchar(as.character(.data$state)),
-        stringi::stri_trans_general(as.character(.data$state), "Latin-ASCII"),
-        .data$state
-      )
+      state = if ("state" %in% df_names) {
+        dplyr::if_else(
+          !is.na(.data$state) & .data$state != "-" & nzchar(as.character(.data$state)),
+          stringi::stri_trans_general(as.character(.data$state), "Latin-ASCII"),
+          .data$state
+        )
+      } else {
+        NA_character_
+      }
     )
 
   message("[read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
   factors_df
 }
 
-#' Read CNAE Labor Productivity Exposure data from Excel file
+#' Read CNAE Labor Productivity Exposure data from CSV file
 #'
 #' @title Read CNAE Labor Productivity Exposure lookup table
 #' @description Reads CNAE sector codes and their labor productivity exposure classification
-#'   from Excel file. Used to determine metric (high/median/low) for Heat hazard damage factors.
-#' @param base_dir Character string specifying the base directory containing cnae_labor_productivity_exposure.xlsx
+#'   from CSV file. Used to determine metric (high/median/low) for Heat hazard damage factors.
+#' @param base_dir Character string specifying the base directory containing hazards/config/Heat/cnae_labor_productivity_exposure.csv
 #' @return tibble with columns: cnae (numeric), description, lp_exposure (character: "high", "median", "low")
 #' @examples
 #' \dontrun{
@@ -397,8 +421,8 @@ read_damage_cost_factors <- function(base_dir) {
 read_cnae_labor_productivity_exposure <- function(base_dir) {
   message("[read_cnae_labor_productivity_exposure] Reading CNAE exposure data from: ", base_dir)
 
-  # Define file path
-  cnae_path <- file.path(base_dir, "cnae_labor_productivity_exposure.xlsx")
+  # Define file path - now inside Heat hazard config folder
+  cnae_path <- file.path(base_dir, "hazards", "config", "Heat", "cnae_labor_productivity_exposure.csv")
 
   # Check if file exists
   if (!file.exists(cnae_path)) {
@@ -406,12 +430,9 @@ read_cnae_labor_productivity_exposure <- function(base_dir) {
   }
 
   # Read CNAE data
-  cnae_raw <- readxl::read_excel(cnae_path) |>
+  cnae_df <- readr::read_csv(cnae_path, show_col_types = FALSE) |>
     tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case)
-
-  # Normalize lp_exposure values to lowercase
-  cnae_df <- cnae_raw |>
+    dplyr::rename_with(to_snake_case) |>
     dplyr::mutate(
       cnae = as.numeric(.data$cnae)
     ) |>
@@ -460,11 +481,20 @@ read_precomputed_hazards <- function(base_dir) {
   ) |>
     tibble::as_tibble() |>
     # Convert column names to snake_case for consistency
-    dplyr::rename_with(to_snake_case) |>
-    # Normalize hazard indicators to match config keys (e.g., HI -> hi, SPI3 -> spi3, depth(cm) -> depth)
-    # Also normalize hazard_type for consistency
+    dplyr::rename_with(to_snake_case)
+
+  df_names <- names(precomputed_df)
+
+  # Normalize hazard indicators to match config keys (e.g., HI -> hi, SPI3 -> spi3, depth(cm) -> depth)
+  # Also normalize hazard_type for consistency (if present)
+  precomputed_df <- precomputed_df |>
     dplyr::mutate(
-      hazard_type = stringr::str_to_title(tolower(.data$hazard_type)),
+      hazard_type = if ("hazard_type" %in% df_names) {
+        stringr::str_to_title(tolower(.data$hazard_type))
+      } else {
+        # Fallback to a placeholder or attempt to infer
+        NA_character_
+      },
       hazard_indicator = dplyr::case_when(
         tolower(.data$hazard_indicator) == "hi" ~ "hi",
         tolower(.data$hazard_indicator) == "fwi" ~ "fwi",
@@ -473,6 +503,20 @@ read_precomputed_hazards <- function(base_dir) {
         TRUE ~ tolower(.data$hazard_indicator)
       )
     )
+
+  # Infer hazard_type from hazard_indicator if missing
+  if ("hazard_type" %in% names(precomputed_df) && all(is.na(precomputed_df$hazard_type))) {
+    precomputed_df <- precomputed_df |>
+      dplyr::mutate(
+        hazard_type = dplyr::case_when(
+          .data$hazard_indicator == "hi" ~ "Heat",
+          .data$hazard_indicator == "fwi" ~ "Fire",
+          .data$hazard_indicator == "spi3" ~ "Drought",
+          .data$hazard_indicator == "depth" ~ "Flood",
+          TRUE ~ .data$hazard_type
+        )
+      )
+  }
 
   # Filter to a single representative ensemble variant per hazard scenario
   # Prefer "mean", then "median", then first available.
@@ -587,12 +631,18 @@ read_hazards_mapping <- function(mapping_path) {
 
   # Validate required columns
   required_cols <- c(
-    "hazard_file", "hazard_type", "hazard_indicator",
+    "hazard_file", "hazard_indicator",
     "gwl", "return_period"
   )
   missing_cols <- setdiff(required_cols, names(mapping))
   if (length(missing_cols) > 0) {
     stop("Mapping file missing required columns: ", paste(missing_cols, collapse = ", "))
+  }
+
+  # Normalize hazard_type if present
+  if ("hazard_type" %in% names(mapping)) {
+    mapping <- mapping |>
+      dplyr::mutate(hazard_type = as.character(.data$hazard_type))
   }
 
   return(mapping)
@@ -615,7 +665,8 @@ read_hazards_mapping <- function(mapping_path) {
 #' }
 #' @export
 read_land_cover_legend <- function(base_dir) {
-  file_path <- file.path(base_dir, "land_cover_legend_and_index.xlsx")
+  # Define file path - now inside Fire hazard config folder as CSV
+  file_path <- file.path(base_dir, "hazards", "config", "Fire", "land_cover_legend.csv")
 
   if (!file.exists(file_path)) {
     stop("Land cover legend file not found: ", file_path)
@@ -623,24 +674,31 @@ read_land_cover_legend <- function(base_dir) {
 
   message("[read_land_cover_legend] Reading land cover legend from: ", file_path)
 
-  # Read Excel file
-  legend_df <- readxl::read_excel(file_path)
+  # Read CSV file
+  legend_df <- readr::read_csv(file_path, show_col_types = FALSE)
 
-  # Validate required columns
-  required_cols <- c("Code", "Class", "Category", "Risk")
-  missing_cols <- setdiff(required_cols, names(legend_df))
-  if (length(missing_cols) > 0) {
-    stop("Land cover legend file missing required columns: ", paste(missing_cols, collapse = ", "))
+  # Validate required columns (try both old and new names)
+  if ("Code" %in% names(legend_df)) {
+    legend_clean <- legend_df |>
+      dplyr::select(
+        land_cover_code = "Code",
+        land_cover_class = "Class",
+        land_cover_category = "Category",
+        land_cover_risk = "Risk"
+      )
+  } else if ("land_cover" %in% names(legend_df)) {
+    legend_clean <- legend_df |>
+      dplyr::select(
+        land_cover_code = "land_cover",
+        land_cover_class = "Class",
+        land_cover_category = "Category",
+        land_cover_risk = "land_cover_risk"
+      )
+  } else {
+    stop("Land cover legend file missing required columns ('Code' or 'land_cover')")
   }
 
-  # Rename and clean
-  legend_clean <- legend_df |>
-    dplyr::select(
-      land_cover_code = "Code",
-      land_cover_class = "Class",
-      land_cover_category = "Category",
-      land_cover_risk = "Risk"
-    ) |>
+  legend_clean <- legend_clean |>
     dplyr::mutate(
       land_cover_code = as.numeric(.data$land_cover_code),
       land_cover_risk = as.numeric(.data$land_cover_risk)

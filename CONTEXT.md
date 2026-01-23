@@ -72,7 +72,7 @@ Overrides:
 - Deep-merged into each hazard config, so only specified keys are replaced
 - Resetting (wiping the file to empty) or removing it restores defaults
 
-**R/CLI usage (without the app):** When calling `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir)` without `hazards_override_path`, the override path defaults to `{hazards_dir}/config_overrides.yml`. If that file exists, it is applied automatically; if it is missing, it is ignored (no overrides). The "input folder" in the app is only for asset/company Excel files; the override file always lives under `{base_dir}/hazards/` (i.e. `hazards_dir`). For programmatic runs, pass `hazards_dir` (typically `file.path(base_dir, "hazards")`); any `config_overrides.yml` there is used automatically.
+**R/CLI usage (without the app):** When calling `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir)` without `hazards_override_path`, the override path defaults to `{hazards_dir}/config_overrides.yml`. If that file exists, it is applied automatically; if it is missing, it is ignored (no overrides). The "input folder" in the app is only for asset/company Excel files; the override file always lives under `{base_dir}/hazards/config/` (i.e. `hazards_dir`). For programmatic runs, pass `hazards_dir` (typically `file.path(base_dir, "hazards", "config")`); any `config_overrides.yml` there is used automatically.
 
 Settings UI:
 - The app includes a **Settings** tab for editing override parameters
@@ -137,10 +137,10 @@ To add a new hazard type:
 1. **Create folder** `{base_dir}/hazards/<HazardName>/`
 2. **Add `hazard.yml`** with indicator + mapping declarations
 3. **Place mapping tables** in the same hazard folder
-4. **Add indicator data** under `{base_dir}/hazard_indicators/`
+4. **Add indicator data** under `{base_dir}/hazards/indicators/`
    - NetCDF files at the root
    - TIFs inside indicator-named subfolders
-   - Update `{base_dir}/hazard_indicators/hazards_metadata.csv` for TIFs
+   - Update `{base_dir}/hazards/indicators/hazards_metadata.csv` for TIFs
 5. **Add hazard-specific economics** in `R/shock__apply_acute_*.R` if needed
 
 ## Data Requirements
@@ -149,7 +149,9 @@ To add a new hazard type:
 
 ```
 {base_dir}/
-├── hazard_indicators/
+├── hazards/
+│   ├── indicators/
+│   └── config/
 │   ├── hazards_metadata.csv
 │   ├── hi.nc
 │   ├── spi3.nc
@@ -206,7 +208,7 @@ Pre-aggregated hazard statistics for administrative regions. Eliminates need for
 - Coordinate cache helper: `build_coordinate_region_lookup(lats, lons, adm_gdf)` (Python helper in `data-raw/precompute_hazards.py`) constructs a reusable `lon`/`lat` → `region` lookup before iterating dimension chunks; it returns a DataFrame with columns (`lon`, `lat`, `region`) when the grid has ≤5M points and otherwise falls back to chunk-level spatial joins. This keeps spatial joins constant cost across every hazard dimension slice while staying memory-bounded.
 
 #### 5. `hazards_metadata.csv`
-Location: `{base_dir}/hazard_indicators/hazards_metadata.csv`
+Location: `{base_dir}/hazards/indicators/hazards_metadata.csv`
 Columns: hazard_file, hazard_type, hazard_indicator, gwl, return_period
 
 Maps GeoTIFF indicators to metadata for UI display and filtering.
@@ -216,7 +218,7 @@ Maps GeoTIFF indicators to metadata for UI display and filtering.
 The tool supports NetCDF + GeoTIFF indicator sources:
 
 #### GeoTIFF Files (.tif)
-Location: `{base_dir}/hazard_indicators/<indicator_folder>/`
+Location: `{base_dir}/hazards/indicators/<indicator_folder>/`
 
 Naming convention: `global_{scenario_code}_h{return_period}glob.tif`
 
@@ -224,12 +226,12 @@ Examples:
 - `global_pc_h10glob.tif` - Current climate, 10-year return period
 - `global_rcp85_h100glob.tif` - RCP8.5, 100-year return period
 
-**Metadata:** Defined in `{base_dir}/hazard_indicators/hazards_metadata.csv`
+**Metadata:** Defined in `{base_dir}/hazards/indicators/hazards_metadata.csv`
 
 **Extraction:** Polygon-based (crop/mask with aggregation function)
 
 #### NetCDF Files (.nc)
-Location: `{base_dir}/hazard_indicators/`
+Location: `{base_dir}/hazards/indicators/`
 
 Examples:
 - `hi.nc`
@@ -309,8 +311,8 @@ Examples:
 
 **1. `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir, aggregate_factor = 1L)`** → list(hazards, inventory, configs)
 - Reads hazard configs from `{base_dir}/hazards/*/hazard.yml`
-- Loads NetCDF indicators from `{base_dir}/hazard_indicators/`
-- Loads GeoTIFF indicators from `{base_dir}/hazard_indicators/<indicator_folder>/`
+- Loads NetCDF indicators from `{base_dir}/hazards/indicators/`
+- Loads GeoTIFF indicators from `{base_dir}/hazards/indicators/<indicator_folder>/`
 - Returns: `list(hazards = ..., inventory = tibble(...), configs = list(...))`
 - Inventory includes `gwl`, `return_period`, `agg`, `categorical`, `source`
 
@@ -319,7 +321,7 @@ Examples:
 # In mod_control_server:
 hazard_data <- load_hazards_and_inventory(
   hazards_dir = file.path(base_dir, "hazards"),
-  hazard_indicators_dir = file.path(base_dir, "hazard_indicators"),
+  hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
   aggregate_factor = 1L
 )
 # Access hazards (for compute pipeline):
@@ -543,7 +545,7 @@ SKIP_SLOW_TESTS=TRUE devtools::test()
 1. Reads global rasters from `workspace/hazards_world/{hazard_type}/`
 2. Loads Brazil administrative boundaries
 3. Crops and masks to Brazil extent
-4. Saves to `tests/tests_data/hazards/{hazard_type}/`
+4. Saves to `tests/tests_data/hazards/config/{hazard_type}/`
 5. Maintains directory structure and naming
 
 **Output naming:** `{scenario}_brazil.tif`

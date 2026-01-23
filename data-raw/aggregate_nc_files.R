@@ -9,11 +9,11 @@
 #'   Rscript data-raw/aggregate_nc_files.R <nc_file_path> <aggregate_factor>
 #'
 #' Example:
-#'   Rscript data-raw/aggregate_nc_files.R tests/tests_data/hazards/Drought/SPI3/ensemble_return_period.nc 16
+#'   Rscript data-raw/aggregate_nc_files.R tests/tests_data/hazards/config/Drought/SPI3/ensemble_return_period.nc 16
 #'
 #' Or from R:
 #'   source("data-raw/aggregate_nc_files.R")
-#'   aggregate_nc_file("tests/tests_data/hazards/Drought/SPI3/ensemble_return_period.nc", 16)
+#'   aggregate_nc_file("tests/tests_data/hazards/config/Drought/SPI3/ensemble_return_period.nc", 16)
 
 library(terra)
 library(ncdf4)
@@ -119,7 +119,7 @@ if (!interactive()) {
 
   if (length(args) < 2) {
     cat("Usage: Rscript aggregate_nc_files.R <nc_file_path> <aggregate_factor>\n")
-    cat("Example: Rscript aggregate_nc_files.R tests/tests_data/hazards/Drought/SPI3/ensemble_return_period.nc 16\n")
+    cat("Example: Rscript aggregate_nc_files.R tests/tests_data/hazards/config/Drought/SPI3/ensemble_return_period.nc 16\n")
     quit(status = 1)
   }
 

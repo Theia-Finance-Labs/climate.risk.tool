@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build a refactored hazard_indicators folder.
+Build a refactored hazards/indicators folder.
 
 Input folder contract (as described by user):
 - `input_root` contains ONLY subfolders.
@@ -32,8 +32,8 @@ import pandas as pd
 import xarray as xr
 
 # Allow both:
-# - python -m climate_risk_tool_python.netcdf_mgmt.build_hazard_indicators_refacto
-# - python path/to/build_hazard_indicators_refacto.py
+# - python -m climate_risk_tool_python.netcdf_mgmt.build_hazards/indicators_refacto
+# - python path/to/build_hazards/indicators_refacto.py
 try:
     from .convert_tif_to_nc import TifHazardSpec, convert_tifs_to_ensemble_return_period_nc
 except ImportError:  # pragma: no cover
@@ -300,7 +300,7 @@ def _rewrite_nc_with_variable_name_and_encoding(
         ds0.close()
 
 
-def build_refacto_hazard_indicators(
+def build_refacto_hazards/indicators(
     *,
     input_root: str,
     output_root: str,
@@ -404,17 +404,17 @@ def build_refacto_hazard_indicators(
 
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(
-        description="Build workspace/demo_inputs_refacto/hazard_indicators from workspace/hazard_indicators."
+        description="Build workspace/demo_inputs_refacto/hazards/indicators from workspace/hazards/indicators."
     )
     p.add_argument(
         "--input-root",
-        default="workspace/hazard_indicators",
-        help="Input root (default: workspace/hazard_indicators)",
+        default="workspace/hazards/indicators",
+        help="Input root (default: workspace/hazards/indicators)",
     )
     p.add_argument(
         "--output-root",
-        default="workspace/demo_inputs_refacto/hazard_indicators",
-        help="Output root (default: workspace/demo_inputs_refacto/hazard_indicators)",
+        default="workspace/demo_inputs_refacto/hazards/indicators",
+        help="Output root (default: workspace/demo_inputs_refacto/hazards/indicators)",
     )
     p.add_argument("--overwrite", action="store_true", help="Remove output-root if it exists")
     p.add_argument(
@@ -427,7 +427,7 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = _parse_args()
-    build_refacto_hazard_indicators(
+    build_refacto_hazards/indicators(
         input_root=args.input_root,
         output_root=args.output_root,
         overwrite=bool(args.overwrite),

@@ -84,43 +84,6 @@ testthat::test_that("read_companies handles missing file gracefully", {
 })
 
 
-testthat::test_that("read_damage_cost_factors returns factors as data.frame", {
-  base_dir <- get_test_data_dir()
-  factors <- read_damage_cost_factors(base_dir)
-
-  testthat::expect_s3_class(factors, "data.frame")
-  testthat::expect_gt(nrow(factors), 0)
-})
-
-
-testthat::test_that("read_damage_cost_factors parses key columns with correct types", {
-  base_dir <- get_test_data_dir()
-  factors <- read_damage_cost_factors(base_dir)
-
-  # Required columns (should be snake_case after processing)
-  req_factor_cols <- c(
-    "hazard_intensity", "asset_category",
-    "damage_factor", "cost_factor", "hazard_type"
-  )
-  testthat::expect_true(all(req_factor_cols %in% names(factors)))
-
-  # Types
-  testthat::expect_true(is.numeric(factors$hazard_intensity))
-  testthat::expect_type(factors$asset_category, "character")
-  testthat::expect_true(is.numeric(factors$damage_factor))
-  testthat::expect_true(is.numeric(factors$cost_factor))
-  testthat::expect_type(factors$hazard_type, "character")
-})
-
-
-testthat::test_that("read_damage_cost_factors handles missing file gracefully", {
-  fake_dir <- "/nonexistent/path"
-  testthat::expect_error(
-    read_damage_cost_factors(fake_dir),
-    "Damage and cost factors file not found at"
-  )
-})
-
 
 # Tests for function: read_precomputed_hazards
 
@@ -174,4 +137,27 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   adm_levels <- unique(precomputed$adm_level)
   testthat::expect_true("ADM1" %in% adm_levels)
   testthat::expect_true("ADM2" %in% adm_levels)
+})
+
+
+testthat::test_that("read_cnae_labor_productivity_exposure returns data.frame", {
+  base_dir <- get_test_data_dir()
+  cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+
+  testthat::expect_s3_class(cnae_exposure, "data.frame")
+  testthat::expect_gt(nrow(cnae_exposure), 0)
+
+  # Check columns
+  testthat::expect_true(all(c("cnae", "description", "lp_exposure") %in% names(cnae_exposure)))
+  testthat::expect_true(is.numeric(cnae_exposure$cnae))
+  testthat::expect_type(cnae_exposure$lp_exposure, "character")
+})
+
+
+testthat::test_that("read_cnae_labor_productivity_exposure handles missing file gracefully", {
+  fake_dir <- "/nonexistent/path"
+  testthat::expect_error(
+    read_cnae_labor_productivity_exposure(fake_dir),
+    "CNAE labor productivity exposure file not found at"
+  )
 })

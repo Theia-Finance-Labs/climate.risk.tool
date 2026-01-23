@@ -1,0 +1,20 @@
+Flood:
+  indicators:
+    depth:
+      agg: median
+Fire:
+  indicators:
+    fwi:
+      agg: closest
+    days_danger_total:
+      agg: closest
+    land_cover:
+      agg: mode
+Heat:
+  indicators:
+    hi:
+      agg: closest
+Drought:
+  indicators:
+    spi3:
+      agg: closest
