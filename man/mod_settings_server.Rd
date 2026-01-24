@@ -4,7 +4,12 @@
 \alias{mod_settings_server}
 \title{settings Server Functions}
 \usage{
-mod_settings_server(id, base_dir_reactive, hazard_configs_reactive)
+mod_settings_server(
+  id,
+  base_dir_reactive,
+  hazard_configs_reactive,
+  inventory_reactive
+)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
@@ -12,6 +17,8 @@ mod_settings_server(id, base_dir_reactive, hazard_configs_reactive)
 \item{base_dir_reactive}{reactive containing base directory path}
 
 \item{hazard_configs_reactive}{reactive list from load_hazard_configs()}
+
+\item{inventory_reactive}{reactive hazard inventory from load_hazards_and_inventory()}
 }
 \value{
 list with reload_trigger reactive counter

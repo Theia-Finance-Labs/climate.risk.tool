@@ -170,7 +170,7 @@ To add a new hazard type:
 │       ├── exposure_factors.csv
 │       ├── ignition_factors.csv
 │       └── land_cover_legend.csv
-├── precomputed_adm_hazards.csv
+│   └── precomputed_adm_hazards.csv
 └── areas/
     ├── state/
     └── municipality/
@@ -199,6 +199,7 @@ Files:
 - Mapping tables referenced in the YAML (CSV/XLSX)
 
 #### 4. `precomputed_adm_hazards.csv`
+Location: `{base_dir}/hazards/precomputed_adm_hazards.csv`
 Columns: region, adm_level (ADM1/ADM2), hazard_type, gwl, return_period, min, max, mean, median, p2_5, p5, p95, p97_5
 
 Pre-aggregated hazard statistics for administrative regions. Eliminates need for GeoJSON boundary files.
@@ -305,7 +306,7 @@ Examples:
 - If given a file path, reads that file directly
 
 **`read_precomputed_hazards(base_dir)`** → data.frame
-- Reads from `{base_dir}/precomputed_adm_hazards.csv`
+- Reads from `{base_dir}/hazards/precomputed_adm_hazards.csv`
 
 
 ### Hazard Loading Workflow

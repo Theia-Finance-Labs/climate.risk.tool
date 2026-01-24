@@ -10,5 +10,5 @@ mod_settings_ui(id)
 \item{id}{Internal parameter for shiny}
 }
 \description{
-Settings module for hazard configuration overrides
+Settings module for hazard configuration settings
 }

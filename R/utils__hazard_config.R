@@ -63,7 +63,7 @@ read_hazard_config <- function(file_path, hazard_name, override_config = NULL) {
 
   raw_config <- yaml::read_yaml(file_path)
   if (is.null(raw_config) || length(raw_config) == 0) {
-    stop("hazard config is empty: ", file_path)
+    stop("hazard config missing indicators: ", file_path)
   }
 
   if (!is.null(override_config)) {

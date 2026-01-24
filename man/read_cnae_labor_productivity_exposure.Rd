@@ -7,17 +7,17 @@
 read_cnae_labor_productivity_exposure(base_dir)
 }
 \arguments{
-\item{base_dir}{Character string specifying the base directory containing cnae_labor_productivity_exposure.xlsx}
+\item{base_dir}{Character string specifying the base directory containing hazards/mappings/cnae_labor_productivity_exposure.csv}
 }
 \value{
 tibble with columns: cnae (numeric), description, lp_exposure (character: "high", "median", "low")
 }
 \description{
 Reads CNAE sector codes and their labor productivity exposure classification
-from Excel file. Used to determine metric (high/median/low) for Heat hazard damage factors.
+from CSV file. Used to determine metric (high/median/low) for Heat hazard damage factors.
 }
 \details{
-Read CNAE Labor Productivity Exposure data from Excel file
+Read CNAE Labor Productivity Exposure data from CSV file
 }
 \examples{
 \dontrun{

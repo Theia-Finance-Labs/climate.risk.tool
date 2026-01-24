@@ -7,7 +7,7 @@
 read_land_cover_legend(base_dir)
 }
 \arguments{
-\item{base_dir}{Character. Base directory path containing land_cover_legend_and_index.xlsx}
+\item{base_dir}{Character. Base directory path containing land_cover_legend.csv}
 }
 \value{
 Tibble with columns: land_cover_code (numeric), land_cover_class (character),

@@ -38,7 +38,7 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{hazard_configs}{Named list from load_hazards_and_inventory()$configs}
 
-\item{hazards_dir}{Character path to hazards directory containing hazard.yml and mapping tables}
+\item{hazards_dir}{Character path to hazards/config directory containing hazard YAML files}
 
 \item{adm1_boundaries}{Optional sf object with ADM1 (state) boundaries for state assignment and validation}
 

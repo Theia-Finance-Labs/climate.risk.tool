@@ -448,7 +448,7 @@ read_cnae_labor_productivity_exposure <- function(base_dir) {
 #' @description Reads precomputed hazard statistics from CSV file containing hazard data
 #'   aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard
 #'   values for assets without coordinates but with province or municipality information.
-#' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
+#' @param base_dir Character string specifying the base directory. The function looks for precomputed_adm_hazards.csv in base_dir/hazards/
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
 #'   gwl, return_period, hazard_type, min, max, mean, median,
 #'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
@@ -466,7 +466,7 @@ read_precomputed_hazards <- function(base_dir) {
   message("[read_precomputed_hazards] Reading precomputed hazard statistics from: ", base_dir)
 
   # Define file path
-  precomputed_path <- file.path(base_dir, "precomputed_adm_hazards.csv")
+  precomputed_path <- file.path(base_dir, "hazards", "precomputed_adm_hazards.csv")
 
   # Check if file exists
   if (!file.exists(precomputed_path)) {

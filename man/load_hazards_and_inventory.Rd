@@ -12,9 +12,9 @@ load_hazards_and_inventory(
 )
 }
 \arguments{
-\item{hazards_dir}{Character path to hazards directory containing hazard.yml files}
+\item{hazards_dir}{Character path to hazards/config directory containing hazard YAML files}
 
-\item{hazard_indicators_dir}{Character path to hazard_indicators directory}
+\item{hazard_indicators_dir}{Character path to hazards/indicators directory}
 
 \item{hazards_override_path}{Optional path to a config_overrides.yml file.
 When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignored.}
@@ -35,9 +35,9 @@ ensemble (ensemble variant), source ("tif", "nc", or "csv")
 \description{
 Self-contained loader that:
 \enumerate{
-\item Reads hazard configs from \verb{hazards/} (one hazard.yml per hazard)
+\item Reads hazard configs from \verb{hazards/config/} (one YAML per hazard)
 \item Loads NetCDF indicators from \verb{hazards/indicators/} root
-\item Loads TIF indicators from \verb{hazards/indicators/<indicator_folder>/} using hazards_metadata.csv
+\item Loads TIF indicators from \verb{hazards/indicators/<indicator_folder>/} using metadata.csv
 \item Generates a unified inventory with hazard metadata
 \item Returns both hazards and inventory
 }
@@ -48,7 +48,7 @@ Load hazards (TIF + NC) and build complete inventory
 \examples{
 \dontrun{
 result <- load_hazards_and_inventory(
-  hazards_dir = file.path(base_dir, "hazards"),
+  hazards_dir = file.path(base_dir, "hazards", "config"),
   hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
   aggregate_factor = 1L
 )

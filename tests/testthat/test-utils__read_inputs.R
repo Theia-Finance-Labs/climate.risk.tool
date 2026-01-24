@@ -89,7 +89,7 @@ testthat::test_that("read_companies handles missing file gracefully", {
 
 # Contract:
 # - read_precomputed_hazards(base_dir) -> data.frame
-# - Reads precomputed_adm_hazards.csv from base_dir/
+# - Reads precomputed_adm_hazards.csv from base_dir/hazards/
 # - Returns data frame with columns: region, adm_level, scenario_code, gwl,
 #   return_period, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
 # - adm_level values: "ADM1" (province), "ADM2" (municipality)

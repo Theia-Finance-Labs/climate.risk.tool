@@ -27,7 +27,7 @@ library(climate.risk.tool)
 
 # Path to your base data directory. It must contain:
 # - damage_and_cost_factors.csv
-# - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
+# - hazards/precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
 # - hazards/indicators/<indicator_folder>/metadata.csv (metadata for TIF hazards)
 # - hazards/indicators/ directory with .tif, .nc, or .csv indicator files
 # - hazards/config/ directory with <HazardName>.yml files

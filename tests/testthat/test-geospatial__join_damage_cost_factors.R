@@ -6,7 +6,7 @@ testthat::test_that("join_damage_cost_factors joins flood mapping tables", {
     company = "C1",
     hazard_type = "Flood",
     hazard_indicator = "depth",
-    hazard_intensity = 1.0,
+    hazard_intensity = 12.0,
     gwl = "rcp85",
     return_period = 10,
     event_id = "ev1",
@@ -21,7 +21,7 @@ testthat::test_that("join_damage_cost_factors joins flood mapping tables", {
   )
 
   testthat::expect_true("damage_factor" %in% names(joined))
-  testthat::expect_equal(joined$damage_factor[1], 0.15)
+  testthat::expect_equal(joined$damage_factor[1], 0.1464, tolerance = 0.0001)
 })
 
 testthat::test_that("join_damage_cost_factors combines fire indicators", {

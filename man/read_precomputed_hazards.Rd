@@ -7,7 +7,7 @@
 read_precomputed_hazards(base_dir)
 }
 \arguments{
-\item{base_dir}{Character string specifying the base directory containing precomputed_adm_hazards.csv}
+\item{base_dir}{Character string specifying the base directory. The function looks for precomputed_adm_hazards.csv in base_dir/hazards/}
 }
 \value{
 tibble with precomputed hazard statistics including columns: region, adm_level,

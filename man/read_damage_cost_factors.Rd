@@ -7,7 +7,7 @@
 read_damage_cost_factors(base_dir)
 }
 \arguments{
-\item{base_dir}{Character string specifying the base directory containing damage_and_cost_factors.csv}
+\item{base_dir}{Character string specifying the base directory containing hazards/mappings/damage_and_cost_factors.csv}
 }
 \value{
 tibble with damage and cost factors
