@@ -53,6 +53,52 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       gsub("[^A-Za-z0-9_]", "_", value)
     }
 
+    highlight_variables <- function(text, indicator_vars, mapping_vars, input_vars, constant_vars) {
+      if (is.null(text) || length(text) == 0) return("")
+      
+      # Escape variables for regex and sort by length descending to avoid partial matches
+      wrap_vars <- function(vars, color, label) {
+        if (is.null(vars) || length(vars) == 0) return(character(0))
+        vars <- vars[nzchar(vars)]
+        if (length(vars) == 0) return(character(0))
+        vars <- unique(vars)
+        vars <- vars[order(nchar(vars), decreasing = TRUE)]
+        
+        # Create a mapping of var to styled span
+        replacements <- setNames(
+          sprintf('<span style="color: %s; font-weight: 600;" title="%s">%s</span>', color, label, vars),
+          vars
+        )
+        replacements
+      }
+      
+      all_replacements <- c(
+        wrap_vars(indicator_vars, "#002776", "Indicator"),
+        wrap_vars(mapping_vars, "#009C3B", "Mapping"),
+        wrap_vars(input_vars, "#9333ea", "Input/Asset"),
+        wrap_vars(constant_vars, "#64748b", "Constant")
+      )
+      
+      if (length(all_replacements) == 0) return(text)
+      
+      # Use a placeholder strategy to avoid double replacement (replacing part of a span)
+      placeholders <- sprintf("___VAR_PLACEHOLDER_%d___", seq_along(all_replacements))
+      
+      temp_text <- text
+      for (i in seq_along(all_replacements)) {
+        var_name <- names(all_replacements)[i]
+        # Regex for exact word match
+        pattern <- paste0("\\b", var_name, "\\b")
+        temp_text <- gsub(pattern, placeholders[i], temp_text)
+      }
+      
+      for (i in seq_along(all_replacements)) {
+        temp_text <- gsub(placeholders[i], all_replacements[i], temp_text)
+      }
+      
+      temp_text
+    }
+
     drop_nulls <- function(values) {
       if (!is.list(values)) {
         return(values)
@@ -60,31 +106,127 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       values[!vapply(values, is.null, logical(1))]
     }
 
-    get_inventory_ensembles <- function(inventory_df, hazard_type, indicator_key) {
-      if (is.null(inventory_df) || !is.data.frame(inventory_df)) {
+    get_indicator_dim_values <- function(base_dir, indicator_cfg, key) {
+      if (is.null(base_dir) || !nzchar(base_dir)) {
         return(character(0))
       }
-      required_cols <- c("hazard_type", "hazard_indicator", "ensemble")
-      if (!all(required_cols %in% names(inventory_df))) {
+      if (is.null(indicator_cfg) || is.null(indicator_cfg$file)) {
+        return(character(0))
+      }
+      if (!identical(indicator_cfg$source, "nc")) {
         return(character(0))
       }
 
-      ensembles <- inventory_df |>
-        dplyr::filter(
-          .data$hazard_type == hazard_type,
-          .data$hazard_indicator == indicator_key
-        ) |>
-        dplyr::pull(.data$ensemble)
-      ensembles <- unique(as.character(ensembles))
-      ensembles <- ensembles[!is.na(ensembles) & nzchar(ensembles)]
-      ensembles
+      indicator_path <- file.path(base_dir, "hazards", "indicators", indicator_cfg$file)
+      if (!file.exists(indicator_path)) {
+        # Try aggregated fallback if the base file is missing
+        base_path <- sub("__agg\\d+\\.nc$", ".nc", indicator_path)
+        agg_factor <- getOption("climate_risk_tool_nc_aggregate_factor", 1L)
+        agg_factor <- as.integer(agg_factor)
+        if (agg_factor > 1) {
+          agg_path <- sub("\\.nc$", paste0("__agg", agg_factor, ".nc"), base_path)
+          if (file.exists(agg_path)) {
+            indicator_path <- agg_path
+          }
+        }
+        if (!file.exists(indicator_path)) {
+          pattern <- paste0(basename(sub("\\.nc$", "", base_path)), "__agg\\d+\\.nc$")
+          dir_path <- dirname(base_path)
+          if (dir.exists(dir_path)) {
+            agg_files <- list.files(dir_path, pattern = pattern, full.names = TRUE)
+            if (length(agg_files) > 0) {
+              indicator_path <- agg_files[1]
+            }
+          }
+        }
+      }
+      if (!file.exists(indicator_path)) {
+        return(character(0))
+      }
+
+      nc <- tryCatch(ncdf4::nc_open(indicator_path), error = function(e) NULL)
+      if (is.null(nc)) {
+        return(character(0))
+      }
+      on.exit(try(ncdf4::nc_close(nc), silent = TRUE), add = TRUE)
+
+      dim_names <- names(nc$dim)
+      if (length(dim_names) == 0) {
+        return(character(0))
+      }
+
+      name_eq <- function(x, opts) any(tolower(x) == tolower(opts))
+      lon_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("lon", "longitude", "x")), logical(1))]
+      lat_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("lat", "latitude", "y")), logical(1))]
+      ens_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("ensemble")), logical(1))]
+      gwl_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("gwl", "GWL", "scenario")), logical(1))]
+      season_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("season")), logical(1))]
+      remaining <- setdiff(dim_names, c(lon_dim[1], lat_dim[1], ens_dim, gwl_dim, season_dim))
+      rp_dim <- if (length(remaining) > 0) remaining[[1]] else "return_period"
+
+      target_dim <- switch(
+        key,
+        ensemble = if (length(ens_dim) > 0) ens_dim[1] else NULL,
+        gwl = if (length(gwl_dim) > 0) gwl_dim[1] else NULL,
+        season = if (length(season_dim) > 0) season_dim[1] else NULL,
+        return_period = if (rp_dim %in% dim_names) rp_dim else NULL,
+        NULL
+      )
+      if (is.null(target_dim) || !(target_dim %in% dim_names)) {
+        return(character(0))
+      }
+
+      vals <- nc$dim[[target_dim]]$vals
+      if (is.null(vals) || length(vals) == 0) {
+        return(character(0))
+      }
+
+      normalize_indexed_dim <- function(raw_vals, mapping) {
+        if (is.null(raw_vals) || length(raw_vals) == 0) return(raw_vals)
+        if ((is.integer(raw_vals) || is.numeric(raw_vals)) &&
+          length(raw_vals) == length(mapping) &&
+          all(as.integer(raw_vals) == seq_along(mapping))) {
+          return(mapping)
+        }
+        raw_vals
+      }
+
+      if (identical(key, "ensemble")) {
+        vals <- normalize_indexed_dim(vals, c("mean", "median", "p10", "p90", "min", "max", "std"))
+      }
+      if (identical(key, "gwl")) {
+        vals <- normalize_indexed_dim(vals, c("present", "1.5", "2", "3"))
+      }
+      if (identical(key, "season")) {
+        vals <- normalize_indexed_dim(vals, c("Summer", "Autumn", "Winter", "Spring"))
+      }
+
+      vals <- as.character(vals)
+      vals[!is.na(vals) & nzchar(vals)]
     }
 
-    get_fixed_choices <- function(key, current_value, hazard_type, indicator_key, inventory_df) {
-      if (identical(key, "ensemble")) {
-        choices <- get_inventory_ensembles(inventory_df, hazard_type, indicator_key)
-      } else {
-        choices <- character(0)
+    get_fixed_choices <- function(key, current_value, hazard_type, indicator_key, indicator_cfg, inventory_df, base_dir) {
+      if (is.null(inventory_df) || !is.data.frame(inventory_df) || nrow(inventory_df) == 0) {
+        inventory_df <- NULL
+      }
+
+      # Valid columns to look for in inventory
+      valid_cols <- c("ensemble", "gwl", "return_period", "season")
+      
+      choices <- character(0)
+      if (!is.null(inventory_df) && key %in% valid_cols && key %in% names(inventory_df)) {
+        # Filter inventory for this hazard and indicator
+        sub_inv <- inventory_df[inventory_df$hazard_type == hazard_type & 
+                                inventory_df$hazard_indicator == indicator_key, ]
+        if (nrow(sub_inv) > 0) {
+          choices <- unique(as.character(sub_inv[[key]]))
+          choices <- choices[!is.na(choices) & nzchar(choices)]
+        }
+      }
+
+      dim_choices <- get_indicator_dim_values(base_dir, indicator_cfg, key)
+      if (length(dim_choices) > 0) {
+        choices <- unique(c(choices, dim_choices))
       }
 
       if (!is.null(current_value) && nzchar(as.character(current_value))) {
@@ -117,13 +259,20 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       }
 
       inventory_df <- inventory_reactive()
+      base_dir <- base_dir_reactive()
 
-      metadata_row <- function(label, value) {
-        if (is.null(value) || length(value) == 0) {
-          value <- "None"
+      settings_row <- function(label, value_ui) {
+        if (is.null(value_ui) || length(value_ui) == 0) {
+          value_ui <- ""
         }
-        if (length(value) > 1) {
-          value <- paste(value, collapse = ", ")
+        if (is.atomic(value_ui) && length(value_ui) > 1) {
+          value_ui <- paste(value_ui, collapse = ", ")
+        }
+        if (is.atomic(value_ui)) {
+          value_ui <- shiny::tags$span(
+            style = "color: #111827; word-break: break-all;",
+            value_ui
+          )
         }
         shiny::tags$div(
           style = "display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px;",
@@ -131,7 +280,7 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
             style = "min-width: 200px; font-weight: 600; color: #4b5563; flex-shrink: 0;",
             label
           ),
-          shiny::tags$span(style = "color: #111827; word-break: break-all;", value)
+          shiny::tags$div(style = "flex: 1;", value_ui)
         )
       }
 
@@ -165,21 +314,23 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
                     fixed_value,
                     hazard_type,
                     indicator_key,
-                    inventory_df
+                    indicator_cfg,
+                    inventory_df,
+                    base_dir
                   )
                   if (length(fixed_choices) > 1) {
-                    shiny::selectInput(
-                      ns(paste0("fixed__", hazard_id, "__", indicator_id, "__", safe_id(fixed_key))),
+                    settings_row(
                       paste0("Fixed: ", fixed_key),
-                      choices = fixed_choices,
-                      selected = as.character(fixed_value)
+                      shiny::selectInput(
+                        ns(paste0("fixed__", hazard_id, "__", indicator_id, "__", safe_id(fixed_key))),
+                        label = NULL,
+                        choices = fixed_choices,
+                        selected = as.character(fixed_value),
+                        width = "100%"
+                      )
                     )
                   } else {
-                    shiny::div(
-                      class = "text-muted",
-                      style = "margin-bottom: 5px;",
-                      paste0("Fixed: ", fixed_key, " = ", fixed_value)
-                    )
+                    settings_row(paste0("Fixed: ", fixed_key), fixed_value)
                   }
                 })
               )
@@ -191,16 +342,20 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
               shiny::h5(indicator_key, style = "color: #002776; margin-top: 0; font-weight: 700;"),
               shiny::div(
                 style = "margin-bottom: 10px;",
-                metadata_row("File", indicator_cfg$file),
-                metadata_row("Variable", indicator_cfg$variable),
-                metadata_row("Index", paste(indicator_cfg$index, collapse = ", ")),
-                metadata_row("Categorical", if (isTRUE(indicator_cfg$categorical)) "TRUE" else "FALSE")
+                settings_row("File", indicator_cfg$file),
+                settings_row("Variable", indicator_cfg$variable),
+                settings_row("Index", paste(indicator_cfg$index, collapse = ", ")),
+                settings_row("Categorical", if (isTRUE(indicator_cfg$categorical)) "TRUE" else "FALSE")
               ),
-              shiny::selectInput(
-                ns(paste0("indicator_agg__", hazard_id, "__", indicator_id)),
+              settings_row(
                 "Aggregation",
-                choices = agg_choices,
-                selected = indicator_cfg$agg
+                shiny::selectInput(
+                  ns(paste0("indicator_agg__", hazard_id, "__", indicator_id)),
+                  label = NULL,
+                  choices = agg_choices,
+                  selected = indicator_cfg$agg,
+                  width = "100%"
+                )
               ),
               if (!is.null(fixed_ui)) fixed_ui
             )
@@ -237,20 +392,25 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
                 shiny::h5(mapping_key, style = "color: #009C3B; margin-top: 0; font-weight: 700;"),
                 shiny::div(
                   style = "margin-bottom: 10px;",
-                  metadata_row("File", mapping_cfg$file),
-                  metadata_row("Indicator intensity keys", on_indicator_intensity),
-                  metadata_row("Indicator index keys", on_indicator_index),
-                  metadata_row("Asset keys", on_assets)
+                  settings_row("File", mapping_cfg$file),
+                  settings_row("Variables", mapping_cfg$variables),
+                  settings_row("Indicator intensity keys", on_indicator_intensity),
+                  settings_row("Indicator index keys", on_indicator_index),
+                  settings_row("Asset keys", on_assets)
                 ),
                 if (!is.null(intensity_match) && length(on_indicator_intensity) > 0) {
-                  shiny::selectInput(
-                    ns(paste0("mapping_intensity_match__", hazard_id, "__", mapping_id)),
+                  settings_row(
                     "Intensity Match",
-                    choices = intensity_choices,
-                    selected = intensity_match
+                    shiny::selectInput(
+                      ns(paste0("mapping_intensity_match__", hazard_id, "__", mapping_id)),
+                      label = NULL,
+                      choices = intensity_choices,
+                      selected = intensity_match,
+                      width = "100%"
+                    )
                   )
                 } else if (!is.null(intensity_match)) {
-                  metadata_row("Intensity match", paste0(intensity_match, " (No intensity keys)"))
+                  settings_row("Intensity match", paste0(intensity_match, " (No intensity keys)"))
                 }
               )
             })
@@ -258,29 +418,74 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
 
           shocks_ui <- NULL
           if (!is.null(hazard_cfg$shocks) && length(hazard_cfg$shocks) > 0) {
-            shocks_ui <- lapply(names(hazard_cfg$shocks), function(shock_type) {
-              shock_cfg <- hazard_cfg$shocks[[shock_type]]
-              lapply(shock_cfg$equations, function(eq) {
-                shiny::div(
-                  class = "shock-config",
-                  style = "padding: 12px; margin-bottom: 15px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px;",
-                  shiny::h5(eq$name, style = "color: #C21807; margin-top: 0; font-weight: 700;"),
+            # Collect variables for highlighting
+            indicator_vars <- names(hazard_cfg$indicators)
+            mapping_vars <- unlist(lapply(hazard_cfg$mappings, function(m) m$variables))
+            asset_keys <- unlist(lapply(hazard_cfg$mappings, function(m) m$join$on_assets))
+            input_vars <- unique(c("revenue", "asset_category", asset_keys))
+            
+            shocks_ui <- list(
+              shiny::div(
+                style = "margin-bottom: 15px; display: flex; gap: 15px; font-size: 0.8em; color: #64748b; font-style: italic;",
+                shiny::span("Variable legend:"),
+                shiny::span(style = "color: #002776; font-weight: 600;", "● Indicator"),
+                shiny::span(style = "color: #009C3B; font-weight: 600;", "● Mapping"),
+                shiny::span(style = "color: #9333ea; font-weight: 600;", "● Input/Asset"),
+                shiny::span(style = "color: #64748b; font-weight: 600;", "● Constant")
+              ),
+              lapply(names(hazard_cfg$shocks), function(shock_type) {
+                shock_cfg <- hazard_cfg$shocks[[shock_type]]
+                lapply(shock_cfg$equations, function(eq) {
+                  constant_vars <- names(eq$constants)
+                  highlighted_eq <- highlight_variables(eq$equation, indicator_vars, mapping_vars, input_vars, constant_vars)
+                  highlighted_when <- if (!is.null(eq$when)) highlight_variables(eq$when, indicator_vars, mapping_vars, input_vars, constant_vars) else NULL
+                  
                   shiny::div(
-                    style = "margin-bottom: 10px;",
-                    metadata_row("Shock Type", shock_type),
-                    if (!is.null(eq$when)) metadata_row("Condition", eq$when),
-                    shiny::tags$div(
-                      style = "margin-top: 8px;",
-                      shiny::tags$span(style = "min-width: 200px; font-weight: 600; color: #4b5563; display: inline-block;", "Equation:"),
-                      shiny::tags$pre(
-                        style = "background: #f8fafc; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; margin-top: 4px; font-family: monospace; white-space: pre-wrap; color: #111827;",
-                        eq$equation
+                    class = "shock-config",
+                    style = "padding: 12px; margin-bottom: 15px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px;",
+                    shiny::h5(eq$name, style = "color: #C21807; margin-top: 0; font-weight: 700;"),
+                    shiny::div(
+                      style = "margin-bottom: 10px;",
+                      settings_row("Shock Type", shock_type),
+                      if (!is.null(eq$when)) {
+                        settings_row(
+                          "Condition",
+                          shiny::tags$code(
+                            style = "background: #f1f5f9; padding: 2px 4px; border-radius: 4px; color: #1e293b;",
+                            shiny::HTML(highlighted_when)
+                          )
+                        )
+                      },
+                      shiny::tags$div(
+                        style = "margin-top: 12px;",
+                        shiny::tags$div(style = "font-weight: 600; color: #4b5563; margin-bottom: 6px;", "Equation:"),
+                        shiny::tags$div(
+                          style = "background: #f8fafc; padding: 15px; border-radius: 6px; border: 1px solid #e2e8f0; font-family: monospace; font-size: 0.95em; line-height: 1.5; white-space: pre-wrap; color: #1e293b; box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);",
+                          shiny::HTML(highlighted_eq)
+                        )
                       )
-                    )
+                    ),
+                    if (length(eq$constants) > 0) {
+                      shiny::tags$div(
+                        style = "margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0;",
+                        shiny::tags$div(style = "font-size: 0.85em; font-weight: 600; color: #64748b; margin-bottom: 5px;", "Constants:"),
+                        shiny::tags$div(
+                          style = "display: flex; gap: 10px; flex-wrap: wrap;",
+                          lapply(names(eq$constants), function(cname) {
+                            shiny::tags$span(
+                              style = "font-size: 0.85em; background: #f1f5f9; padding: 1px 6px; border-radius: 4px; border: 1px solid #e2e8f0;",
+                              shiny::tags$span(style = "color: #64748b; font-weight: 600;", cname),
+                              " = ",
+                              eq$constants[[cname]]
+                            )
+                          })
+                        )
+                      )
+                    }
                   )
-                )
+                })
               })
-            })
+            )
           }
 
           shiny::tags$details(
@@ -292,6 +497,9 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
             shiny::div(
               class = "hazard-panel__table",
               style = "padding: 20px; background: #f9fafb;",
+              
+              settings_row("Primary Indicator", hazard_cfg$primary_indicator),
+              shiny::hr(style = "margin-top: 10px; margin-bottom: 20px; border-top: 1px solid #e5e7eb;"),
               
               # Indicators Section
               shiny::div(
@@ -355,11 +563,27 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
           if (!is.null(base_indicator$fixed) && length(base_indicator$fixed) > 0) {
             fixed_override <- list()
             inventory_df <- inventory_reactive()
+            base_dir <- base_dir_reactive()
             for (fixed_key in names(base_indicator$fixed)) {
-              fixed_choices <- get_fixed_choices(fixed_key, base_indicator$fixed[[fixed_key]], hazard_type, indicator_key, inventory_df)
+              fixed_choices <- get_fixed_choices(
+                fixed_key,
+                base_indicator$fixed[[fixed_key]],
+                hazard_type,
+                indicator_key,
+                base_indicator,
+                inventory_df,
+                base_dir
+              )
               if (length(fixed_choices) > 1) {
                 fixed_input <- input[[paste0("fixed__", hazard_id, "__", indicator_id, "__", safe_id(fixed_key))]]
                 if (!is.null(fixed_input) && fixed_input != as.character(base_indicator$fixed[[fixed_key]])) {
+                  # Try to preserve numeric type if base was numeric
+                  if (is.numeric(base_indicator$fixed[[fixed_key]])) {
+                    fixed_input_num <- suppressWarnings(as.numeric(fixed_input))
+                    if (!is.na(fixed_input_num)) {
+                      fixed_input <- fixed_input_num
+                    }
+                  }
                   fixed_override[[fixed_key]] <- fixed_input
                 }
               }
