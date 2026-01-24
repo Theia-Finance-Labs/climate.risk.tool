@@ -24,15 +24,6 @@
 #'
 #' @noRd
 filter_inventory_for_ui <- function(inventory, hazard_configs) {
-  if (is.null(inventory) || nrow(inventory) == 0 || is.null(hazard_configs)) {
-    return(tibble::tibble(
-      hazard_type = character(),
-      hazard_indicator = character(),
-      gwl = character(),
-      return_period = numeric()
-    ))
-  }
-
   # Get all configured hazard types
   configured_types <- names(hazard_configs)
 

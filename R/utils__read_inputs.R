@@ -380,13 +380,7 @@ read_damage_cost_factors <- function(base_dir) {
         }
       } else {
         NA_real_
-      },
-      # Handle hazard_intensity OR specific indicator columns like depth
-      hazard_intensity = dplyr::coalesce(
-        if ("hazard_intensity" %in% df_names) as.numeric(.data$hazard_intensity) else NULL,
-        if ("depth" %in% df_names) as.numeric(.data$depth) else NULL,
-        NA_real_
-      )
+      }
     ) |>
     # Normalize state names (remove accents, convert to ASCII)
     dplyr::mutate(
@@ -405,41 +399,63 @@ read_damage_cost_factors <- function(base_dir) {
   factors_df
 }
 
-#' Read CNAE Labor Productivity Exposure data from CSV file
+#' Load mapping table from hazard config
 #'
-#' @title Read CNAE Labor Productivity Exposure lookup table
-#' @description Reads CNAE sector codes and their labor productivity exposure classification
-#'   from CSV file. Used to determine metric (high/median/low) for Heat hazard damage factors.
-#' @param base_dir Character string specifying the base directory containing hazards/mappings/cnae_labor_productivity_exposure.csv
-#' @return tibble with columns: cnae (numeric), description, lp_exposure (character: "high", "median", "low")
+#' @title Load mapping table from config
+#' @description Loads a mapping table specified in a hazard config file. This is a generalized
+#'   function that replaces hardcoded mapping readers like read_cnae_labor_productivity_exposure
+#'   and read_land_cover_legend. Mapping tables are defined in hazard YAML config files
+#'   under the mappings section.
+#' @param base_dir Character string specifying the base directory
+#' @param hazard_configs Named list of hazard configs from load_hazard_configs()
+#' @param hazard_type Character name of the hazard type (e.g., "Heat", "Fire")
+#' @param mapping_key Character key of the mapping in the config (e.g., "cnae_exposure", "land_cover_legend")
+#' @return tibble with mapping data
 #' @examples
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+#' hazards_dir <- file.path(base_dir, "hazards", "config")
+#' hazard_configs <- load_hazard_configs(hazards_dir)
+#' cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cnae_exposure")
 #' }
 #' @export
-read_cnae_labor_productivity_exposure <- function(base_dir) {
-  message("[read_cnae_labor_productivity_exposure] Reading CNAE exposure data from: ", base_dir)
-
-  # Define file path - now inside hazards/mappings
-  cnae_path <- file.path(base_dir, "hazards", "mappings", "cnae_labor_productivity_exposure.csv")
-
-  # Check if file exists
-  if (!file.exists(cnae_path)) {
-    stop("CNAE labor productivity exposure file not found at: ", cnae_path)
+load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapping_key) {
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    stop("hazard_configs is required")
   }
-
-  # Read CNAE data
-  cnae_df <- readr::read_csv(cnae_path, show_col_types = FALSE) |>
-    tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case) |>
-    dplyr::mutate(
-      cnae = as.numeric(.data$cnae)
-    ) |>
-    dplyr::select("cnae", "description", "lp_exposure")
-
-  message("[read_cnae_labor_productivity_exposure] Loaded ", nrow(cnae_df), " CNAE records")
-  cnae_df
+  if (!hazard_type %in% names(hazard_configs)) {
+    stop("Hazard type '", hazard_type, "' not found in hazard_configs")
+  }
+  
+  hazard_config <- hazard_configs[[hazard_type]]
+  if (is.null(hazard_config$mappings) || !mapping_key %in% names(hazard_config$mappings)) {
+    stop("Mapping '", mapping_key, "' not found in hazard config for '", hazard_type, "'")
+  }
+  
+  mapping <- hazard_config$mappings[[mapping_key]]
+  mappings_dir <- file.path(base_dir, "hazards", "mappings")
+  table_path <- file.path(mappings_dir, mapping$file)
+  
+  if (!file.exists(table_path)) {
+    stop("Mapping table not found: ", table_path)
+  }
+  
+  # Read the mapping table based on file extension
+  ext <- tolower(tools::file_ext(table_path))
+  if (ext == "csv") {
+    mapping_df <- readr::read_csv(table_path, show_col_types = FALSE) |> tibble::as_tibble()
+  } else if (ext %in% c("xlsx", "xls")) {
+    mapping_df <- readxl::read_excel(table_path) |> tibble::as_tibble()
+  } else {
+    stop("Unsupported mapping table extension: ", ext)
+  }
+  
+  # Apply snake_case conversion for consistency
+  mapping_df <- mapping_df |>
+    dplyr::rename_with(to_snake_case)
+  
+  message("[load_mapping_from_config] Loaded mapping '", mapping_key, "' for hazard '", hazard_type, "': ", nrow(mapping_df), " records")
+  mapping_df
 }
 
 #' Read precomputed administrative hazard statistics from CSV file
@@ -648,66 +664,6 @@ read_hazards_mapping <- function(mapping_path) {
   return(mapping)
 }
 
-#' Read Land Cover Legend and Risk Metrics
-#'
-#' @title Read Land Cover Legend
-#' @description Reads the land cover legend Excel file that maps land cover codes
-#'   to risk metrics. Used for Fire hazard to translate land cover extraction
-#'   results into fire risk percentages.
-#' @param base_dir Character. Base directory path containing land_cover_legend.csv
-#' @return Tibble with columns: land_cover_code (numeric), land_cover_class (character),
-#'   land_cover_category (numeric), land_cover_risk (numeric between 0 and 1)
-#' @examples
-#' \dontrun{
-#' legend <- read_land_cover_legend("workspace/demo_inputs")
-#' # Returns tibble with columns: land_cover_code, land_cover_class,
-#' # land_cover_category, land_cover_risk
-#' }
-#' @export
-read_land_cover_legend <- function(base_dir) {
-  # Define file path - now inside hazards/mappings as CSV
-  file_path <- file.path(base_dir, "hazards", "mappings", "land_cover_legend.csv")
-
-  if (!file.exists(file_path)) {
-    stop("Land cover legend file not found: ", file_path)
-  }
-
-  message("[read_land_cover_legend] Reading land cover legend from: ", file_path)
-
-  # Read CSV file
-  legend_df <- readr::read_csv(file_path, show_col_types = FALSE)
-
-  # Validate required columns (try both old and new names)
-  if ("Code" %in% names(legend_df)) {
-    legend_clean <- legend_df |>
-      dplyr::select(
-        land_cover_code = "Code",
-        land_cover_class = "Class",
-        land_cover_category = "Category",
-        land_cover_risk = "Risk"
-      )
-  } else if ("land_cover" %in% names(legend_df)) {
-    legend_clean <- legend_df |>
-      dplyr::select(
-        land_cover_code = "land_cover",
-        land_cover_class = "Class",
-        land_cover_category = "Category",
-        land_cover_risk = "land_cover_risk"
-      )
-  } else {
-    stop("Land cover legend file missing required columns ('Code' or 'land_cover')")
-  }
-
-  legend_clean <- legend_clean |>
-    dplyr::mutate(
-      land_cover_code = as.numeric(.data$land_cover_code),
-      land_cover_risk = as.numeric(.data$land_cover_risk)
-    )
-
-  message("[read_land_cover_legend] Loaded ", nrow(legend_clean), " land cover categories")
-
-  return(legend_clean)
-}
 
 #' Load region name mapping dictionary
 #'

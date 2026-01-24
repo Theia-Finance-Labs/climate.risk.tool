@@ -10,7 +10,7 @@
 #'   Options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest"
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, state, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
-#'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
+#'   hazard_name, hazard_type, hazard_indicator, indicator-specific columns, matching_method
 #' @noRd
 extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean") {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
@@ -207,10 +207,10 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         hazard_vals <- ifelse(is.na(hazard_vals), NA_real_, round(hazard_vals))
       }
 
-      # Combine statistics with asset data
+      indicator_col <- as.character(hazard_indicator)
       df_i <- dplyr::bind_cols(
         sf::st_drop_geometry(assets_sf),
-        tibble::tibble(hazard_intensity = hazard_vals)
+        tibble::tibble(.indicator_value = hazard_vals)
       ) |>
         dplyr::mutate(
           # Use hazard_name directly (no extra suffix)
@@ -223,14 +223,16 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
           ensemble = hazard_ensemble,
           source = hazard_source,
           matching_method = "coordinates",
+          !!rlang::sym(indicator_col) := .data$.indicator_value,
           # Replace NAs with 0
-          hazard_intensity = dplyr::coalesce(.data$hazard_intensity, 0)
+          !!rlang::sym(indicator_col) := dplyr::coalesce(.data[[indicator_col]], 0)
         ) |>
         dplyr::select(
           "asset", "company", "latitude", "longitude",
           "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
           "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-          "hazard_indicator", "return_period", "gwl", "season", "ensemble", "source", "hazard_intensity", "matching_method"
+          "hazard_indicator", "return_period", "gwl", "season", "ensemble", "source",
+          dplyr::all_of(indicator_col), "matching_method"
         )
 
       results_list[[i]] <- df_i
@@ -394,8 +396,6 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
 
     asset_hazard_data <- asset_hazard_data |>
       dplyr::mutate(
-        # Extract the value from the column matching the aggregation method
-        hazard_intensity = .data$hazard_value,
         # Emit the inventory hazard name (already has ensemble suffix if needed)
         hazard_name = .data$hazard_name,
         matching_method = match_level,
@@ -415,13 +415,26 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         # Ensure season/ensemble columns exist (fill with NA if missing in precomputed data)
         season = if ("season" %in% names(.data)) .data$season else NA_character_,
         ensemble = if ("ensemble" %in% names(.data)) .data$ensemble else NA_character_
-      ) |>
-      dplyr::select(
-        "asset", "company", "latitude", "longitude",
-        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "return_period", "gwl", "season", "ensemble", "source", "hazard_intensity", "matching_method"
       )
+
+    indicator_groups <- split(asset_hazard_data, asset_hazard_data$hazard_indicator)
+    indicator_rows <- lapply(names(indicator_groups), function(indicator_name) {
+      group <- indicator_groups[[indicator_name]]
+      group |>
+        dplyr::mutate(!!rlang::sym(indicator_name) := .data$hazard_value)
+    })
+
+    asset_hazard_data <- dplyr::bind_rows(indicator_rows)
+
+    base_cols <- c(
+      "asset", "company", "latitude", "longitude",
+      "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
+      "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
+      "hazard_indicator", "return_period", "gwl", "season", "ensemble", "source", "matching_method"
+    )
+    indicator_cols <- unique(asset_hazard_data$hazard_indicator)
+    asset_hazard_data <- asset_hazard_data |>
+      dplyr::select(dplyr::any_of(c(base_cols, indicator_cols)))
 
     # Add fire/land_cover rows with default value 0.5 (not precomputed)
     if (nrow(fire_land_cover) > 0) {
@@ -451,7 +464,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
           return_period = land_cover_meta$return_period[1],
           gwl = land_cover_meta$gwl[1],
           source = if ("source" %in% names(land_cover_meta)) land_cover_meta$source[1] else "tif",
-          hazard_intensity = 0.5, # Default land_cover_risk value
+          land_cover = NA_real_,
           matching_method = match_level
         )
 

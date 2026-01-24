@@ -9,9 +9,16 @@ indicators:
 mappings:
   drought_sensitivity:
     file: drought_factors.csv
+    variables: [damage_factor]
     intensity_match: closest
     join:
-      on_hazard: [gwl, season]
-      on_assets: [asset_subtype]
-      on_intensity: [spi3]
+      on_indicator_index: [gwl, season]
+      on_assets: [asset_subtype, state]
+      on_indicator_intensity: [spi3]
 
+shocks:
+  revenue:
+    equations:
+      - name: drought_agriculture
+        when: "asset_category == 'agriculture'"
+        equation: "pmax(0, revenue * (1 - damage_factor))"

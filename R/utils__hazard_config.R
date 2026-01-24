@@ -205,12 +205,21 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
         join <- list()
       }
 
-      on_intensity <- character(0)
-      on_hazard <- character(0)
+      on_indicator_intensity <- character(0)
+      on_indicator_index <- character(0)
       on_assets <- character(0)
-      if (!is.null(join$on_intensity)) on_intensity <- as.character(unlist(join$on_intensity, use.names = FALSE))
-      if (!is.null(join$on_hazard)) on_hazard <- as.character(unlist(join$on_hazard, use.names = FALSE))
+      if (!is.null(join$on_indicator_intensity)) {
+        on_indicator_intensity <- as.character(unlist(join$on_indicator_intensity, use.names = FALSE))
+      }
+      if (!is.null(join$on_indicator_index)) {
+        on_indicator_index <- as.character(unlist(join$on_indicator_index, use.names = FALSE))
+      }
       if (!is.null(join$on_assets)) on_assets <- as.character(unlist(join$on_assets, use.names = FALSE))
+
+      variables <- character(0)
+      if (!is.null(mapping$variables)) {
+        variables <- as.character(unlist(mapping$variables, use.names = FALSE))
+      }
 
       intensity_match <- mapping$intensity_match
       if (is.null(intensity_match) || !nzchar(as.character(intensity_match))) {
@@ -221,11 +230,60 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
         key = mapping_key,
         file = as.character(mapping$file),
         intensity_match = as.character(intensity_match),
+        variables = variables,
         join = list(
-          on_intensity = on_intensity,
-          on_hazard = on_hazard,
+          on_indicator_intensity = on_indicator_intensity,
+          on_indicator_index = on_indicator_index,
           on_assets = on_assets
         )
+      )
+    }
+  }
+
+  shocks <- list()
+  if (!is.null(config$shocks) && length(config$shocks) > 0) {
+    for (shock_type in names(config$shocks)) {
+      shock_block <- config$shocks[[shock_type]]
+      equations_raw <- shock_block$equations
+      if (is.null(equations_raw) || length(equations_raw) == 0) {
+        next
+      }
+
+      equations <- list()
+      for (i in seq_along(equations_raw)) {
+        equation_def <- equations_raw[[i]]
+        if (is.null(equation_def$equation) || !nzchar(as.character(equation_def$equation))) {
+          stop(
+            "shock '", shock_type, "' equation missing 'equation' field",
+            if (!is.null(file_path)) paste0(": ", file_path) else ""
+          )
+        }
+
+        equation_name <- equation_def$name
+        if (is.null(equation_name) || !nzchar(as.character(equation_name))) {
+          equation_name <- paste0(shock_type, "_eq_", i)
+        }
+
+        equation_when <- NULL
+        if (!is.null(equation_def$when) && nzchar(as.character(equation_def$when))) {
+          equation_when <- as.character(equation_def$when)
+        }
+
+        equation_constants <- list()
+        if (!is.null(equation_def$constants) && is.list(equation_def$constants)) {
+          equation_constants <- equation_def$constants
+        }
+
+        equations[[equation_name]] <- list(
+          name = as.character(equation_name),
+          when = equation_when,
+          equation = as.character(equation_def$equation),
+          constants = equation_constants
+        )
+      }
+
+      shocks[[shock_type]] <- list(
+        equations = equations
       )
     }
   }
@@ -243,6 +301,7 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
     indicators = indicators,
     mappings = mappings,
     primary_indicator = as.character(primary_indicator),
+    shocks = shocks,
     path = file_path
   )
 

@@ -15,8 +15,8 @@ testthat::test_that("read_hazard_config parses indicators and mappings", {
     "  damage_and_cost_factors:",
     "    file: damage_and_cost_factors.csv",
     "    join:",
-    "      on_intensity: [depth]",
-    "      on_hazard: [return_period]",
+    "      on_indicator_intensity: [depth]",
+    "      on_indicator_index: [return_period]",
     "      on_assets: [asset_category]"
   )
   writeLines(yaml_text, config_path)
@@ -33,8 +33,8 @@ testthat::test_that("read_hazard_config parses indicators and mappings", {
 
   testthat::expect_true("damage_and_cost_factors" %in% names(config$mappings))
   join_keys <- config$mappings$damage_and_cost_factors$join
-  testthat::expect_equal(join_keys$on_intensity, "depth")
-  testthat::expect_equal(join_keys$on_hazard, "return_period")
+  testthat::expect_equal(join_keys$on_indicator_intensity, "depth")
+  testthat::expect_equal(join_keys$on_indicator_index, "return_period")
   testthat::expect_equal(join_keys$on_assets, "asset_category")
 })
 
@@ -70,8 +70,8 @@ testthat::test_that("load_hazard_configs reads hazard config YAML and normalizes
       damage_and_cost_factors = list(
         file = "damage_and_cost_factors.csv",
         join = list(
-          on_intensity = c("depth"),
-          on_hazard = c("return_period"),
+          on_indicator_intensity = c("depth"),
+          on_indicator_index = c("return_period"),
           on_assets = c("asset_category")
         )
       )
@@ -100,8 +100,8 @@ testthat::test_that("load_hazard_configs reads hazard config YAML and normalizes
 
   mapping_cfg <- flood_cfg$mappings$damage_and_cost_factors
   testthat::expect_equal(mapping_cfg$file, "damage_and_cost_factors.csv")
-  testthat::expect_equal(mapping_cfg$join$on_intensity, c("depth"))
-  testthat::expect_equal(mapping_cfg$join$on_hazard, c("return_period"))
+  testthat::expect_equal(mapping_cfg$join$on_indicator_intensity, c("depth"))
+  testthat::expect_equal(mapping_cfg$join$on_indicator_index, c("return_period"))
   testthat::expect_equal(mapping_cfg$join$on_assets, c("asset_category"))
   testthat::expect_equal(mapping_cfg$intensity_match, "exact")
 })
@@ -146,7 +146,7 @@ testthat::test_that("load_hazard_configs allows mappings without join keys", {
   configs <- load_hazard_configs(hazards_dir)
   mapping_cfg <- configs$Heat$mappings$exposure_links
   testthat::expect_true(is.list(mapping_cfg$join))
-  testthat::expect_equal(mapping_cfg$join$on_intensity, character(0))
+  testthat::expect_equal(mapping_cfg$join$on_indicator_intensity, character(0))
 })
 
 testthat::test_that("load_hazard_configs deep-merges overrides when provided", {
@@ -168,8 +168,8 @@ testthat::test_that("load_hazard_configs deep-merges overrides when provided", {
       damage_and_cost_factors = list(
         file = "damage_and_cost_factors.csv",
         join = list(
-          on_intensity = c("depth"),
-          on_hazard = c("return_period"),
+          on_indicator_intensity = c("depth"),
+          on_indicator_index = c("return_period"),
           on_assets = c("asset_category")
         )
       )

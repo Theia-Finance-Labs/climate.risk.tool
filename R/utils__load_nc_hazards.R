@@ -54,9 +54,6 @@ load_nc_hazards_with_metadata <- function(indicator_path,
                                           aggregate_factor = 1L,
                                           cache_aggregated = TRUE,
                                           force_reaggregate = FALSE) {
-  if (is.null(indicator_path) || !nzchar(indicator_path)) {
-    stop("indicator_path is required for NetCDF loading")
-  }
 
   # Resolve aggregated fallback when requested
   f <- indicator_path

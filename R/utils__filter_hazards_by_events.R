@@ -44,9 +44,6 @@
 #' }
 #' @export
 filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, hazard_configs = NULL) {
-  if (!tibble::is_tibble(events) && !is.data.frame(events)) {
-    return(hazards)
-  }
 
   available_names <- names(hazards)
 

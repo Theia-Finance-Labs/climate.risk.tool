@@ -64,7 +64,10 @@ Defined via `{base_dir}/hazards/config/<HazardName>.yml` files and loaded by `lo
 Each hazard config YAML declares:
 - optional `primary_indicator`
 - `indicators` (file, variable, index, fixed, agg, categorical)
-- `mappings` (file + join contracts)
+- `mappings` (file + join contracts using `on_indicator_index`/`on_indicator_intensity` + optional `variables` to select mapping columns)
+- `shocks` (equations for revenue/profit, optional `when` filters, optional `constants`)
+
+Shock equations are evaluated by `evaluate_hazard_shock()` during acute shock application.
 
 Hazard name is derived from the YAML filename (e.g., `Flood.yml` → `Flood`).
 
@@ -354,7 +357,7 @@ configs <- hazard_data$configs
   2. No coordinates + municipality → precomputed ADM2 lookup
   3. No coordinates + state → precomputed ADM1 lookup
   4. None → Error
-- Returns long format with columns: `hazard_intensity`, `matching_method`, etc.
+- Returns long format with indicator-specific columns (e.g., `depth`, `hi`, `spi3`, `fwi`), plus `matching_method`, etc.
 - Includes diagnostic logging to show asset routing and matching method summary
 
 **`extract_spatial_statistics(assets_df, hazards, hazards_inventory, aggregation_method)`** → long format data.frame (internal)
@@ -375,7 +378,7 @@ configs <- hazard_data$configs
 
 **`join_damage_cost_factors(assets_with_hazards, hazard_configs, hazards_dir)`** → data.frame
 - Joins mapping tables defined in hazard config YAML files
-- Uses explicit join keys: `on_intensity`, `on_hazard`, `on_assets`
+- Uses explicit join keys: `on_indicator_intensity`, `on_indicator_index`, `on_assets`
 - Applies `intensity_match` when configured (e.g., closest match)
 
 ### Financial Calculations
@@ -716,12 +719,12 @@ Assets output now includes drought metadata:
 
 **Revenue Shock Formula**:
 - Uses Cobb-Douglas production function to calculate labor productivity loss
-- Formula: `weighted_lp_loss = (hazard_intensity / 365) × damage_factor`
+- Formula: `weighted_lp_loss = (hi / 365) × damage_factor`
 - Then adjusts labor input and calculates output change
 
 **Implementation Files**:
-- Data Loading: `R/utils__read_inputs.R` - `read_cnae_labor_productivity_exposure()`
-- Matching: `R/geospatial__join_damage_cost_factors.R` - `join_compound_damage_factors()` (now accepts `cnae_exposure` parameter)
+- Data Loading: `R/utils__read_inputs.R` - `load_mapping_from_config()` (generalized config-based loader)
+- Matching: `R/geospatial__join_damage_cost_factors.R` - `join_damage_cost_factors()` (loads mappings from config automatically)
 - Shock Application: `R/shock__apply_acute_revenue_shock.R` - `apply_compound_shock()` (unchanged)
 
 **Data Requirements**:
@@ -774,15 +777,15 @@ Assets output now includes drought metadata:
 - Profits can become negative from Fire damage (as with other profit shocks)
 
 **Implementation Files**:
-- Data loading: `R/utils__read_inputs.R` - `read_land_cover_legend()`
+- Data loading: `R/utils__read_inputs.R` - `load_mapping_from_config()` (generalized config-based loader)
 - Extraction: `R/geospatial__extract_hazard_statistics.R` - mode aggregation for categorical land cover
-- Damage factors: `R/geospatial__join_damage_cost_factors.R` - `join_fire_damage_factors()`
+- Damage factors: `R/geospatial__join_damage_cost_factors.R` - `join_damage_cost_factors()` (loads mappings from config automatically)
 - Revenue shock: `R/shock__apply_acute_revenue_shock.R` - `apply_fire_revenue_shock()`
 - Profit shock: `R/shock__apply_acute_profit_shock.R` - Fire case in event loop
 
 **Data Requirements**:
 - `damage_and_cost_factors.csv` must include rows with:
-  - `hazard_type = "Fire"`, `hazard_indicator = "FWI"`, `hazard_intensity` = 0 to 50
+  - `hazard_type = "Fire"`, `hazard_indicator = "FWI"`, `fwi` = 0 to 50
   - Columns: `asset_category` (commercial building/industrial building/agriculture), `damage_factor`, `cost_factor`
 - `land_cover_legend_and_index.xlsx` with columns: `Code`, `Class`, `Category`, `Risk`
 - Hazard files:

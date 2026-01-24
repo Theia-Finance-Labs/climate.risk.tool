@@ -1,5 +1,7 @@
 # Tests for apply_acute_revenue_shock
 
+hazard_configs <- climate.risk.tool:::load_hazard_configs(get_hazards_dir())
+
 testthat::test_that("apply_acute_revenue_shock applies Flood shocks correctly", {
   yearly_baseline <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
@@ -22,7 +24,7 @@ testthat::test_that("apply_acute_revenue_shock applies Flood shocks correctly", 
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
 
@@ -50,7 +52,7 @@ testthat::test_that("apply_acute_revenue_shock applies Heat shocks with Cobb-Dou
   assets_factors <- data.frame(
     asset = "A1",
     hazard_type = "Heat",
-    hazard_intensity = 50, # days with extreme heat
+    hi = 50, # days with extreme heat
     damage_factor = -0.042, # labor productivity loss (negative)
     event_id = "event_1",
     asset_category = "commercial building" # Heat doesn't use this but include for consistency
@@ -62,7 +64,7 @@ testthat::test_that("apply_acute_revenue_shock applies Heat shocks with Cobb-Dou
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
 
@@ -107,7 +109,7 @@ testthat::test_that("apply_acute_revenue_shock processes events in event_id orde
     stringsAsFactors = FALSE
   )
 
-  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Should process event_a first (alphabetically), then event_z
   # event_a: 1200 * (1 - 20/365) = 1134.25
@@ -140,7 +142,7 @@ testthat::test_that("apply_acute_revenue_shock applies agriculture flood damage 
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Agriculture: First apply damage factor, then business disruption
   # Step 1: revenue * (1 - damage_factor) = 1200 * (1 - 0.3) = 840
@@ -175,7 +177,7 @@ testthat::test_that("apply_acute_revenue_shock prevents agriculture revenue from
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Agriculture: damage + disruption should not go below 0
   # Step 1: 1200 * (1 - 0.95) = 60
@@ -208,7 +210,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Commercial building: Only business disruption applied
   # revenue * (1 - disruption_days/365) = 1200 * (1 - 10/365) = 1167.12
@@ -239,7 +241,7 @@ testthat::test_that("apply_acute_revenue_shock applies only business disruption 
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Industrial building: Only business disruption applied
   # revenue * (1 - disruption_days/365) = 1200 * (1 - 15/365) = 1150.68
@@ -269,7 +271,7 @@ testthat::test_that("apply_acute_revenue_shock applies Drought shocks to agricul
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
 
@@ -307,7 +309,7 @@ testthat::test_that("apply_acute_revenue_shock floors Drought-shocked revenue at
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   testthat::expect_equal(result$revenue[result$year == 2030], 0)
   testthat::expect_equal(result$revenue[result$year == 2025], 1000)
@@ -336,7 +338,7 @@ testthat::test_that("apply_acute_revenue_shock ignores Drought for non-agricultu
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   # Revenue should be unchanged (drought doesn't affect non-agriculture)
   testthat::expect_equal(result$revenue, yearly_baseline$revenue)
@@ -365,7 +367,7 @@ testthat::test_that("apply_acute_revenue_shock handles multiple droughts in same
     event_year = c(2030L, 2030L)
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   # Shocks should be sequential:
   # After event_1: 1200 * (1 - 0.3) = 840
@@ -403,7 +405,7 @@ testthat::test_that("apply_acute_revenue_shock applies Fire revenue shock to agr
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))
 
@@ -444,7 +446,7 @@ testthat::test_that("apply_acute_revenue_shock applies Fire with default land_co
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   expected_revenue <- 1200 * (1 - 0.5 * 0.15 * (30 / 365))
   testthat::expect_equal(result$revenue[result$year == 2030], expected_revenue, tolerance = 0.1)
@@ -475,7 +477,7 @@ testthat::test_that("apply_acute_revenue_shock handles missing days_danger_total
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   # With days_danger_total = 0, fire damage = 0, so revenue unchanged
   testthat::expect_equal(result$revenue[result$year == 2030], 1200)
@@ -509,7 +511,7 @@ testthat::test_that("apply_acute_revenue_shock prevents Fire revenue from going 
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   # Revenue should be >= 0
   testthat::expect_true(result$revenue[result$year == 2030] >= 0)
@@ -544,7 +546,7 @@ testthat::test_that("apply_acute_revenue_shock processes Fire events in event_id
     stringsAsFactors = FALSE
   )
 
-  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Should process event_a first (alphabetically), then event_z
   # event_a: damage = 0.5 * 0.10 * (20/365) = 0.00274, revenue = 1200 * (1 - 0.00274) = 1196.71
@@ -579,7 +581,7 @@ testthat::test_that("apply_acute_revenue_shock ignores Fire for non-agriculture 
     event_year = 2030L
   )
 
-  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events)
+  result <- apply_acute_revenue_shock(yearly_baseline, assets_factors, acute_events, hazard_configs)
 
   # Revenue should be unchanged (Fire revenue shock only affects agriculture)
   testthat::expect_equal(result$revenue, yearly_baseline$revenue)

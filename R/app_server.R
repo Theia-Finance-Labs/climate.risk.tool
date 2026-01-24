@@ -144,7 +144,18 @@ app_server <- function(input, output, session) {
 
         # Load supporting data files from base_dir
         values$precomputed_hazards <- read_precomputed_hazards(base_dir)
-        values$cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+        
+        # Load cnae_exposure from config if Heat hazard is present
+        if ("Heat" %in% names(values$hazard_configs)) {
+          heat_config <- values$hazard_configs[["Heat"]]
+          if (!is.null(heat_config$mappings) && "cnae_exposure" %in% names(heat_config$mappings)) {
+            values$cnae_exposure <- load_mapping_from_config(base_dir, values$hazard_configs, "Heat", "cnae_exposure")
+          } else {
+            values$cnae_exposure <- NULL
+          }
+        } else {
+          values$cnae_exposure <- NULL
+        }
 
         # Load ADM1 and ADM2 boundaries for state assignment and validation
         state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")

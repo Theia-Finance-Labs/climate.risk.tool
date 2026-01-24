@@ -18,7 +18,8 @@ testthat::test_that("extract_hazard_statistics returns standardized columns", {
 
   testthat::expect_true(is.data.frame(results))
   testthat::expect_gt(nrow(results), 0)
-  testthat::expect_true(all(c("hazard_indicator", "hazard_intensity", "gwl", "return_period") %in% names(results)))
+  testthat::expect_true(all(c("hazard_indicator", "gwl", "return_period") %in% names(results)))
+  testthat::expect_true(any(c("depth", "hi", "spi3", "fwi", "days_danger_total", "land_cover") %in% names(results)))
 })
 
 testthat::test_that("extract_spatial_statistics handles closest and small buffer extraction", {
@@ -70,7 +71,7 @@ testthat::test_that("extract_spatial_statistics handles closest and small buffer
     hazards_inventory = hazards_inventory,
     aggregation_method = "closest"
   )
-  testthat::expect_equal(closest_results$hazard_intensity, 7)
+  testthat::expect_equal(closest_results$depth, 7)
 
   mean_results <- extract_spatial_statistics(
     assets_df = assets_df,
@@ -78,6 +79,6 @@ testthat::test_that("extract_spatial_statistics handles closest and small buffer
     hazards_inventory = hazards_inventory,
     aggregation_method = "mean"
   )
-  testthat::expect_equal(mean_results$hazard_intensity, 7)
+  testthat::expect_equal(mean_results$depth, 7)
 })
 

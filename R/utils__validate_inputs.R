@@ -205,9 +205,9 @@ validate_damage_factors_states <- function(damage_factors_df, adm1_names, valida
 #' Validate required non-NA fields per hazard type in damage factors (HARDCODED)
 #'
 #' Enforces specific required columns per `hazard_type`:
-#' - Flood: hazard_intensity, hazard_unit, asset_category, damage_factor,
+#' - Flood: depth, hazard_unit, asset_category, damage_factor,
 #'             cost_factor, hazard_indicator, business_disruption
-#' - Drought:  hazard_intensity, hazard_unit, asset_category, damage_factor,
+#' - Drought:  spi3, hazard_unit, asset_category, damage_factor,
 #'             hazard_indicator, province, subtype, season, off_window
 #' - Heat: gwl, damage_factor, hazard_indicator, province, metric
 #'
@@ -227,11 +227,11 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
   # Hardcoded mapping of hazard_type -> required columns
   required_by_hazard <- list(
     Flood = c(
-      "hazard_intensity", "hazard_unit", "asset_category", "damage_factor",
+      "depth", "hazard_unit", "asset_category", "damage_factor",
       "cost_factor", "hazard_indicator", "business_disruption"
     ),
     Drought = c(
-      "hazard_intensity", "hazard_unit", "asset_category", "damage_factor",
+      "spi3", "hazard_unit", "asset_category", "damage_factor",
       "hazard_indicator", "state", "subtype", "season", "off_window"
     ),
     Heat = c(

@@ -1,7 +1,7 @@
 #' Join mapping tables for hazards (internal)
 #'
 #' @param assets_with_hazards Data frame in long format with asset and hazard information
-#'   including hazard_type, hazard_indicator, hazard_intensity, gwl, return_period, event_id
+#'   including hazard_type, hazard_indicator, indicator-specific values, gwl, return_period, event_id
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #' @param hazards_dir Character path to hazards/config directory
 #' @return Data frame with mapping columns joined
@@ -44,13 +44,27 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
       mapping <- hazard_config$mappings[[mapping_key]]
       mapping_df <- read_hazard_mapping_table(mappings_dir, mapping$file)
 
-      intensity_cols <- mapping$join$on_intensity
-      hazard_cols <- mapping$join$on_hazard
+      intensity_cols <- mapping$join$on_indicator_intensity
+      hazard_cols <- mapping$join$on_indicator_index
       asset_cols <- mapping$join$on_assets
 
       join_cols <- unique(c(intensity_cols, hazard_cols, asset_cols))
       if (length(join_cols) == 0) {
         stop("Mapping '", mapping_key, "' has no join columns")
+      }
+
+      variables <- mapping$variables
+      if (!is.null(variables) && length(variables) > 0) {
+        keep_cols <- unique(c(join_cols, variables))
+        missing_in_mapping <- setdiff(keep_cols, names(mapping_df))
+        if (length(missing_in_mapping) > 0) {
+          stop(
+            "Missing selected columns in mapping '", mapping_key, "': ",
+            paste(missing_in_mapping, collapse = ", ")
+          )
+        }
+        mapping_df <- mapping_df |>
+          dplyr::select(dplyr::all_of(keep_cols))
       }
 
       missing_in_assets <- setdiff(join_cols, names(base_table))
@@ -111,20 +125,20 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
       dplyr::slice(1)
   }
 
+  indicator_cols <- names(hazard_config$indicators)
   indicator_wide <- hazard_assets |>
-    dplyr::select("asset", "event_id", "hazard_indicator", "hazard_intensity") |>
-    tidyr::pivot_wider(
-      names_from = "hazard_indicator",
-      values_from = "hazard_intensity",
-      values_fn = mean
+    dplyr::select("asset", "event_id", dplyr::any_of(indicator_cols)) |>
+    dplyr::group_by(.data$asset, .data$event_id) |>
+    dplyr::summarize(
+      dplyr::across(dplyr::any_of(indicator_cols), ~ mean(.x, na.rm = TRUE)),
+      .groups = "drop"
     )
 
   base_cols <- c(
     "asset", "company", "latitude", "longitude", "municipality", "state",
     "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
     "cnae", "hazard_name", "hazard_type", "hazard_indicator", "return_period",
-    "gwl", "season", "ensemble", "source", "matching_method", "event_id", "event_year",
-    "hazard_intensity"
+    "gwl", "season", "ensemble", "source", "matching_method", "event_id", "event_year"
   )
   base_cols <- base_cols[base_cols %in% names(primary_rows)]
 

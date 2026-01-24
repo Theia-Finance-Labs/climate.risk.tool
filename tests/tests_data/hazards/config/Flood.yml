@@ -8,9 +8,25 @@ indicators:
 mappings:
   damage_and_cost_factors:
     file: damage_and_cost_factors.csv
+    variables: [damage_factor, cost_factor, business_disruption]
     intensity_match: closest
     join:
-      on_intensity: [depth]
-      on_hazard: [return_period]
+      on_indicator_intensity: [depth]
+      on_indicator_index: [return_period]
       on_assets: [asset_category]
+
+shocks:
+  revenue:
+    equations:
+      - name: flood_non_agriculture
+        when: "asset_category != 'agriculture'"
+        equation: "pmax(0, revenue * (1 - pmin(365, business_disruption) / 365))"
+      - name: flood_agriculture
+        when: "asset_category == 'agriculture'"
+        equation: "pmax(0, revenue * (1 - damage_factor) * (1 - pmin(365, business_disruption) / 365))"
+  profit:
+    equations:
+      - name: flood_buildings
+        when: "asset_category %in% c('commercial building', 'industrial building')"
+        equation: "damage_factor * cost_factor"
 

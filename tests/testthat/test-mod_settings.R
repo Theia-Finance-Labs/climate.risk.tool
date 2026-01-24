@@ -26,8 +26,8 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
         file = "damage_and_cost_factors.csv",
         intensity_match = "closest",
         join = list(
-          on_intensity = c("depth"),
-          on_hazard = c("return_period"),
+          on_indicator_intensity = c("depth"),
+          on_indicator_index = c("return_period"),
           on_assets = c("asset_category")
         )
       )

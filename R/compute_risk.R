@@ -260,6 +260,7 @@ compute_risk <- function(assets,
     yearly_baseline_profits = yearly_baseline,
     assets_with_factors = assets_factors,
     events = events,
+    hazard_configs = hazard_configs,
     companies = companies
   )
 

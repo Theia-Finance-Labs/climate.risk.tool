@@ -56,9 +56,11 @@ hazards_inventory <- hazard_data$inventory
 precomputed_hazards <- read_precomputed_hazards(base_dir)
 damage_factors <- read_damage_cost_factors(base_dir)
 
-# Optional: Load additional data for specific hazard types
-cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)  # For Heat hazards
-land_cover_legend <- read_land_cover_legend(base_dir)  # For Fire hazards
+# Optional: Load mapping tables from hazard configs (if needed for visualization/validation)
+hazards_dir <- file.path(base_dir, "hazards", "config")
+hazard_configs <- load_hazard_configs(hazards_dir)
+cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cnae_exposure")  # For Heat hazards
+land_cover_legend <- load_mapping_from_config(base_dir, hazard_configs, "Fire", "land_cover_legend")  # For Fire hazards
 
 # Create events data frame with required columns
 # Hazard names use the format: {HazardType}__{indicator}__GWL={scenario}__RP={return_period}__ensemble={variant}__season={season}

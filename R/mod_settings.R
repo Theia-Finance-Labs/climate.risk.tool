@@ -126,12 +126,12 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
           value <- paste(value, collapse = ", ")
         }
         shiny::tags$div(
-          style = "display: flex; gap: 8px; align-items: baseline;",
+          style = "display: flex; gap: 8px; align-items: baseline; margin-bottom: 4px;",
           shiny::tags$span(
-            style = "min-width: 110px; font-weight: 600; color: #4b5563;",
+            style = "min-width: 200px; font-weight: 600; color: #4b5563; flex-shrink: 0;",
             label
           ),
-          shiny::tags$span(style = "color: #111827;", value)
+          shiny::tags$span(style = "color: #111827; word-break: break-all;", value)
         )
       }
 
@@ -211,18 +211,23 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
             mappings_ui <- lapply(names(hazard_cfg$mappings), function(mapping_key) {
               mapping_cfg <- hazard_cfg$mappings[[mapping_key]]
               mapping_id <- safe_id(mapping_key)
+              intensity_match <- mapping_cfg$intensity_match
               intensity_choices <- c("exact", "closest")
-              if (!mapping_cfg$intensity_match %in% intensity_choices) {
-                intensity_choices <- unique(c(mapping_cfg$intensity_match, intensity_choices))
+              if (!is.null(intensity_match) && !intensity_match %in% intensity_choices) {
+                intensity_choices <- unique(c(intensity_match, intensity_choices))
               }
 
               join_cfg <- mapping_cfg$join
-              on_intensity <- character(0)
-              on_hazard <- character(0)
+              on_indicator_intensity <- character(0)
+              on_indicator_index <- character(0)
               on_assets <- character(0)
               if (!is.null(join_cfg)) {
-                if (length(join_cfg$on_intensity) > 0) on_intensity <- join_cfg$on_intensity
-                if (length(join_cfg$on_hazard) > 0) on_hazard <- join_cfg$on_hazard
+                if (length(join_cfg$on_indicator_intensity) > 0) {
+                  on_indicator_intensity <- join_cfg$on_indicator_intensity
+                }
+                if (length(join_cfg$on_indicator_index) > 0) {
+                  on_indicator_index <- join_cfg$on_indicator_index
+                }
                 if (length(join_cfg$on_assets) > 0) on_assets <- join_cfg$on_assets
               }
 
@@ -233,21 +238,48 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
                 shiny::div(
                   style = "margin-bottom: 10px;",
                   metadata_row("File", mapping_cfg$file),
-                  metadata_row("Intensity keys", on_intensity),
-                  metadata_row("Hazard keys", on_hazard),
+                  metadata_row("Indicator intensity keys", on_indicator_intensity),
+                  metadata_row("Indicator index keys", on_indicator_index),
                   metadata_row("Asset keys", on_assets)
                 ),
-                if (!is.null(mapping_cfg$intensity_match)) {
+                if (!is.null(intensity_match) && length(on_indicator_intensity) > 0) {
                   shiny::selectInput(
                     ns(paste0("mapping_intensity_match__", hazard_id, "__", mapping_id)),
                     "Intensity Match",
                     choices = intensity_choices,
-                    selected = mapping_cfg$intensity_match
+                    selected = intensity_match
                   )
-                } else {
-                  metadata_row("Intensity match", "Not available")
+                } else if (!is.null(intensity_match)) {
+                  metadata_row("Intensity match", paste0(intensity_match, " (No intensity keys)"))
                 }
               )
+            })
+          }
+
+          shocks_ui <- NULL
+          if (!is.null(hazard_cfg$shocks) && length(hazard_cfg$shocks) > 0) {
+            shocks_ui <- lapply(names(hazard_cfg$shocks), function(shock_type) {
+              shock_cfg <- hazard_cfg$shocks[[shock_type]]
+              lapply(shock_cfg$equations, function(eq) {
+                shiny::div(
+                  class = "shock-config",
+                  style = "padding: 12px; margin-bottom: 15px; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 6px;",
+                  shiny::h5(eq$name, style = "color: #C21807; margin-top: 0; font-weight: 700;"),
+                  shiny::div(
+                    style = "margin-bottom: 10px;",
+                    metadata_row("Shock Type", shock_type),
+                    if (!is.null(eq$when)) metadata_row("Condition", eq$when),
+                    shiny::tags$div(
+                      style = "margin-top: 8px;",
+                      shiny::tags$span(style = "min-width: 200px; font-weight: 600; color: #4b5563; display: inline-block;", "Equation:"),
+                      shiny::tags$pre(
+                        style = "background: #f8fafc; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; margin-top: 4px; font-family: monospace; white-space: pre-wrap; color: #111827;",
+                        eq$equation
+                      )
+                    )
+                  )
+                )
+              })
             })
           }
 
@@ -274,6 +306,15 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
                   style = "margin-top: 20px; padding: 15px; background: #f0fdf4; border-radius: 8px; border: 1px solid #d1fae5;",
                   shiny::tags$h4("Mappings", style = "margin-top: 0; margin-bottom: 15px; color: #009C3B; font-size: 1.1em; font-weight: 700; border-bottom: 2px solid #009C3B; display: inline-block; padding-bottom: 2px;"),
                   mappings_ui
+                )
+              },
+
+              # Shocks Section
+              if (!is.null(shocks_ui)) {
+                shiny::div(
+                  style = "margin-top: 20px; padding: 15px; background: #fef2f2; border-radius: 8px; border: 1px solid #fee2e2;",
+                  shiny::tags$h4("Shocks", style = "margin-top: 0; margin-bottom: 15px; color: #C21807; font-size: 1.1em; font-weight: 700; border-bottom: 2px solid #C21807; display: inline-block; padding-bottom: 2px;"),
+                  shocks_ui
                 )
               }
             )

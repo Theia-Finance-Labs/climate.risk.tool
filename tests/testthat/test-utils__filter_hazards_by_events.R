@@ -1,19 +1,3 @@
-testthat::test_that("filter_hazards_by_events returns all hazards when events is not a dataframe", {
-  # Create mock hazards
-  hazards <- list(
-    "hazard1" = terra::rast(ncols = 10, nrows = 10),
-    "hazard2" = terra::rast(ncols = 10, nrows = 10),
-    "hazard3" = terra::rast(ncols = 10, nrows = 10)
-  )
-
-  # Call with non-dataframe events
-  result <- filter_hazards_by_events(hazards, events = NULL)
-
-  # Should return all hazards unchanged
-  expect_equal(length(result), 3)
-  expect_equal(names(result), names(hazards))
-})
-
 testthat::test_that("filter_hazards_by_events handles NetCDF hazards with exact matching", {
   # Create mock NetCDF hazards
   hazards <- list(

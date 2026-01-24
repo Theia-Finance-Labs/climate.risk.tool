@@ -140,24 +140,65 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
 })
 
 
-testthat::test_that("read_cnae_labor_productivity_exposure returns data.frame", {
+# Tests for function: load_mapping_from_config
+
+# Contract:
+# - load_mapping_from_config(base_dir, hazard_configs, hazard_type, mapping_key) -> data.frame
+# - Loads mapping tables from hazard config files (generalized replacement for hardcoded readers)
+# - Returns tibble with mapping data, columns converted to snake_case
+
+
+testthat::test_that("load_mapping_from_config loads cnae_exposure from Heat config", {
   base_dir <- get_test_data_dir()
-  cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+  hazards_dir <- file.path(base_dir, "hazards", "config")
+  hazard_configs <- load_hazard_configs(hazards_dir)
+  
+  cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cnae_exposure")
 
   testthat::expect_s3_class(cnae_exposure, "data.frame")
   testthat::expect_gt(nrow(cnae_exposure), 0)
 
-  # Check columns
+  # Check columns (snake_case conversion applied)
   testthat::expect_true(all(c("cnae", "description", "lp_exposure") %in% names(cnae_exposure)))
   testthat::expect_true(is.numeric(cnae_exposure$cnae))
   testthat::expect_type(cnae_exposure$lp_exposure, "character")
 })
 
 
-testthat::test_that("read_cnae_labor_productivity_exposure handles missing file gracefully", {
-  fake_dir <- "/nonexistent/path"
+testthat::test_that("load_mapping_from_config loads land_cover_legend from Fire config", {
+  base_dir <- get_test_data_dir()
+  hazards_dir <- file.path(base_dir, "hazards", "config")
+  hazard_configs <- load_hazard_configs(hazards_dir)
+  
+  legend <- load_mapping_from_config(base_dir, hazard_configs, "Fire", "land_cover_legend")
+
+  testthat::expect_s3_class(legend, "data.frame")
+  testthat::expect_gt(nrow(legend), 0)
+  
+  # Should have land cover related columns (exact names depend on CSV structure)
+  testthat::expect_true(any(grepl("land_cover|code|class|category|risk", names(legend), ignore.case = TRUE)))
+})
+
+
+testthat::test_that("load_mapping_from_config errors on missing hazard type", {
+  base_dir <- get_test_data_dir()
+  hazards_dir <- file.path(base_dir, "hazards", "config")
+  hazard_configs <- load_hazard_configs(hazards_dir)
+  
   testthat::expect_error(
-    read_cnae_labor_productivity_exposure(fake_dir),
-    "CNAE labor productivity exposure file not found at"
+    load_mapping_from_config(base_dir, hazard_configs, "Nonexistent", "cnae_exposure"),
+    "Hazard type 'Nonexistent' not found"
+  )
+})
+
+
+testthat::test_that("load_mapping_from_config errors on missing mapping key", {
+  base_dir <- get_test_data_dir()
+  hazards_dir <- file.path(base_dir, "hazards", "config")
+  hazard_configs <- load_hazard_configs(hazards_dir)
+  
+  testthat::expect_error(
+    load_mapping_from_config(base_dir, hazard_configs, "Heat", "nonexistent_mapping"),
+    "Mapping 'nonexistent_mapping' not found"
   )
 })

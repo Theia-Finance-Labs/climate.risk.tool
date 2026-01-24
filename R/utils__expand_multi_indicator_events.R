@@ -36,19 +36,6 @@
 #'
 #' @noRd
 expand_multi_indicator_events <- function(events, hazards_inventory, hazard_configs) {
-  if (is.null(events) || nrow(events) == 0) {
-    return(events)
-  }
-
-  if (!"hazard_type" %in% names(events)) {
-    warning("[expand_multi_indicator_events] events missing 'hazard_type' column, returning as-is")
-    return(events)
-  }
-
-  # Identify which hazard types are multi-indicator
-  if (is.null(hazard_configs)) {
-    return(events)
-  }
 
   multi_indicator_types <- names(hazard_configs)[
     vapply(names(hazard_configs), function(htype) is_multi_indicator_hazard(hazard_configs, htype), logical(1))

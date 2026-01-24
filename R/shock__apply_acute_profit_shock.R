@@ -1,14 +1,12 @@
-#' Apply Acute Shock to Yearly Profit Trajectories (Placeholder)
+#' Apply Acute Shock to Yearly Profit Trajectories
 #'
-#' @title Apply Acute Shock to Yearly Profit (Placeholder)
-#' @description Placeholder function that passes through profit values unchanged.
-#'   This is a temporary implementation that maintains the expected output structure
-#'   while the actual shock calculation logic is being developed. Unlike revenue shocks,
-#'   profit shocks may involve fixed costs or operational disruptions that aren't
-#'   proportional to revenue impacts.
+#' @title Apply Acute Shock to Yearly Profit
+#' @description Applies profit shocks from acute climate events based on hazard configuration
+#'   equations. Profit shocks are computed per event and aggregated by asset-year.
 #' @param yearly_trajectories tibble with columns: asset, company, year, revenue, profit
-#' @param assets_factors tibble with hazard data and cost factors (currently unused)
-#' @param acute_events tibble with acute event information (currently unused)
+#' @param assets_factors tibble with hazard data and mapping factors
+#' @param acute_events tibble with acute event information including event_id, hazard_type, event_year
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #' @return tibble with columns: asset, company, year, revenue, profit
 #' @examples
 #' \dontrun{
@@ -19,17 +17,23 @@
 #'   revenue = c(1000, 1200),
 #'   profit = c(100, 120)
 #' )
-#' assets_factors <- data.frame(asset = "A1", hazard_type = "flood", cost_factor = 100)
-#' acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030)
-#' result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+#' assets_factors <- data.frame(asset = "A1", hazard_type = "Flood", cost_factor = 100)
+#' acute_events <- data.frame(event_id = "e1", hazard_type = "Flood", event_year = 2030)
+#' hazard_configs <- list(
+#'   Flood = list(shocks = list())
+#' )
+#' result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 #' }
 #' @export
 apply_acute_profit_shock <- function(
   yearly_trajectories,
   assets_factors,
-  acute_events
+  acute_events,
+  hazard_configs
 ) {
-  # --- APPLY ACUTE DAMAGE TO PROFITS BY EVENT ---
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    stop("hazard_configs is required to apply profit shocks")
+  }
 
   # Initialize empty results
   shocks_by_asset_year <- tibble::tibble(
@@ -42,61 +46,41 @@ apply_acute_profit_shock <- function(
   acute_events <- acute_events |>
     dplyr::arrange(.data$event_id)
 
-  # Process each event and check its hazard type
+  # Process each event and compute damage
   for (i in seq_len(nrow(acute_events))) {
     event <- acute_events[i, ]
-    hazard_type <- event$hazard_type
-    event_year <- event$event_year
+    hazard_type <- as.character(event$hazard_type)
+    hazard_config <- hazard_configs[[hazard_type]]
+    if (is.null(hazard_config)) {
+      next
+    }
 
-    if (hazard_type %in% c("Flood", "Flood")) {
-      # Flood events: calculate acute damage as damage_factor * cost_factor
-      # Only apply to commercial building and industrial building (NOT agriculture)
-      assets_flood <- assets_factors |>
-        dplyr::filter(.data$hazard_type %in% c("Flood", "Flood")) |>
-        dplyr::filter(.data$event_id == event$event_id) |>
-        dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
-        dplyr::mutate(
-          acute_damage = as.numeric(.data$damage_factor) * as.numeric(.data$cost_factor)
-        )
+    event_assets <- assets_factors |>
+      dplyr::filter(
+        .data$hazard_type == hazard_type,
+        .data$event_id == event$event_id
+      )
 
-      # Create shock data for this event
-      if (nrow(assets_flood) > 0) {
-        flood_shocks <- assets_flood |>
-          dplyr::select("asset", "acute_damage") |>
-          dplyr::mutate(event_year = event_year)
+    if (nrow(event_assets) == 0) {
+      next
+    }
 
-        shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, flood_shocks)
-      }
-    } else if (hazard_type == "Fire") {
-      # Fire events: building destruction for commercial/industrial buildings
-      # Fire damage = land_cover_risk × damage_factor(FWI) × (days_danger_total/365) × cost_factor
-      # Only apply to commercial building and industrial building (NOT agriculture)
-      assets_fire <- assets_factors |>
-        dplyr::filter(.data$hazard_type == "Fire") |>
-        dplyr::filter(.data$event_id == event$event_id) |>
-        dplyr::filter(.data$asset_category %in% c("commercial building", "industrial building")) |>
-        dplyr::mutate(
-          # Calculate full fire damage formula using components
-          acute_damage = as.numeric(.data$land_cover_risk) *
-            as.numeric(.data$damage_factor) *
-            (as.numeric(.data$days_danger_total) / 365) *
-            as.numeric(.data$cost_factor)
-        )
+    event_assets <- event_assets |>
+      dplyr::mutate(event_year = as.numeric(event$event_year))
 
-      # Create shock data for this event
-      if (nrow(assets_fire) > 0) {
-        fire_shocks <- assets_fire |>
-          dplyr::select("asset", "acute_damage") |>
-          dplyr::mutate(event_year = event_year)
+    event_damage <- evaluate_hazard_shock(
+      assets_event = event_assets,
+      hazard_config = hazard_config,
+      shock_type = "profit",
+      combine = "sum"
+    )
 
-        shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, fire_shocks)
-      }
-    } else if (hazard_type == "Drought") {
-      # Drought events: TODO - implement drought-specific logic
-      # For now, no damage applied for drought events
-    } else {
-      # Other hazard types: TODO - implement as needed
-      # For now, no damage applied for other hazard types
+    if (nrow(event_damage) > 0) {
+      event_damage <- event_damage |>
+        dplyr::mutate(event_year = as.numeric(event$event_year)) |>
+        dplyr::rename(acute_damage = "shock_value")
+
+      shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, event_damage)
     }
   }
 
@@ -127,7 +111,6 @@ apply_acute_profit_shock <- function(
       ) |>
       dplyr::select(-"acute_damage_to_apply")
   }
-
 
   return(result)
 }

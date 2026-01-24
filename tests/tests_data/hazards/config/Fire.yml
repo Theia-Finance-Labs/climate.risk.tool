@@ -20,13 +20,27 @@ indicators:
 mappings:
   ignition_factors:
     file: ignition_factors.csv
+    variables: [damage_factor, cost_factor]
     intensity_match: closest
     join:
-      on_hazard: [gwl, return_period]
+      on_indicator_index: [gwl, return_period]
       on_assets: [asset_category]
-      on_intensity: [fwi]
+      on_indicator_intensity: [fwi]
   land_cover_legend:
     file: land_cover_legend.csv
+    variables: [land_cover_risk]
     join:
-      on_intensity: [land_cover]
+      on_indicator_intensity: [land_cover]
+
+shocks:
+  revenue:
+    equations:
+      - name: fire_agriculture
+        when: "asset_category == 'agriculture'"
+        equation: "pmax(0, revenue * (1 - (dplyr::coalesce(land_cover_risk, 0.5) * damage_factor * (dplyr::coalesce(days_danger_total, 0) / 365))))"
+  profit:
+    equations:
+      - name: fire_buildings
+        when: "asset_category %in% c('commercial building', 'industrial building')"
+        equation: "dplyr::coalesce(land_cover_risk, 0.5) * damage_factor * (dplyr::coalesce(days_danger_total, 0) / 365) * cost_factor"
 

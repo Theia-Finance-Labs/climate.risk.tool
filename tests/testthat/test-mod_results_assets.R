@@ -21,7 +21,8 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     event_year = c(2030, 2040),
     hazard_type = c("Fire", "Flood"),  # A1 is fire, A2 is flood
     hazard_name = c("Fire__RP50", "Flood__RP10"),  # A1 is Fire, A2 is Flood
-    hazard_intensity = c(1.5, 2.5),
+    fwi = c(1.5, NA_real_),
+    depth = c(NA_real_, 2.5),
     damage_factor = c(0.1, 0.2),
     cost_factor = c(1000, 2000),
     share_of_economic_activity = c(0.6, 0.4),  # A1 is 0.6 (Fire), A2 is 0.4 (Flood)
