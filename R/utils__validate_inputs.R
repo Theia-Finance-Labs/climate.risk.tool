@@ -50,6 +50,12 @@ validate_input_coherence <- function(
     validation_results$errors <- c(validation_results$errors, "hazard_configs is empty")
   }
 
+  validation_results <- validate_required_input_columns(
+    assets_df = assets_df,
+    companies_df = companies_df,
+    validation_results = validation_results
+  )
+
   validation_results <- validate_assets_geography(
     assets_df,
     adm1_names,
@@ -209,7 +215,7 @@ validate_damage_factors_states <- function(damage_factors_df, adm1_names, valida
 #'             cost_factor, hazard_indicator, business_disruption
 #' - Drought:  spi3, hazard_unit, asset_category, damage_factor,
 #'             hazard_indicator, province, subtype, season, off_window
-#' - Heat: gwl, damage_factor, hazard_indicator, province, metric
+#' - Heat: scenario_name, damage_factor, hazard_indicator, province, metric
 #'
 #' @param damage_factors_df Damage factors data frame
 #' @param validation_results List with errors and warnings vectors
@@ -235,7 +241,7 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
       "hazard_indicator", "state", "subtype", "season", "off_window"
     ),
     Heat = c(
-      "gwl", "damage_factor", "hazard_indicator", "state", "metric"
+      "scenario_name", "damage_factor", "hazard_indicator", "state", "metric"
     )
   )
 
@@ -286,6 +292,45 @@ validate_damage_factors_required_fields <- function(damage_factors_df, validatio
   }
 
   return(validation_results)
+}
+
+#' Validate required input columns for assets and companies
+#'
+#' @param assets_df Assets data frame
+#' @param companies_df Companies data frame
+#' @param validation_results List with errors and warnings vectors
+#' @return Updated validation_results list
+#' @noRd
+validate_required_input_columns <- function(assets_df, companies_df, validation_results) {
+  catalog <- get_input_columns_catalog()
+
+  if (!is.null(assets_df)) {
+    missing_assets <- setdiff(catalog$assets_required, names(assets_df))
+    if (length(missing_assets) > 0) {
+      validation_results$errors <- c(
+        validation_results$errors,
+        paste0(
+          "Assets table is missing required column(s): ",
+          paste(missing_assets, collapse = ", ")
+        )
+      )
+    }
+  }
+
+  if (!is.null(companies_df)) {
+    missing_companies <- setdiff(catalog$companies_required, names(companies_df))
+    if (length(missing_companies) > 0) {
+      validation_results$errors <- c(
+        validation_results$errors,
+        paste0(
+          "Companies table is missing required column(s): ",
+          paste(missing_companies, collapse = ", ")
+        )
+      )
+    }
+  }
+
+  validation_results
 }
 
 
@@ -824,7 +869,7 @@ validate_events_table <- function(events_df, validation_results) {
   }
 
   # Required columns for events
-  required_cols <- c("hazard_type", "hazard_name", "gwl", "return_period", "event_year")
+  required_cols <- c("hazard_type", "hazard_name", "scenario_name", "return_period", "event_year")
   missing_cols <- setdiff(required_cols, names(events_df))
 
   if (length(missing_cols) > 0) {

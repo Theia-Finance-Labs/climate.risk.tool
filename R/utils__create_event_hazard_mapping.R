@@ -19,11 +19,11 @@
 #'   - All 3 rows share the same event_id, event_year, season
 #'
 #' @param events Tibble. User-defined events (one row per event).
-#'   Expected columns: event_id, hazard_type, hazard_name, gwl,
+#'   Expected columns: event_id, hazard_type, hazard_name, scenario_name,
 #'   return_period, event_year, season
 #'
 #' @param hazards_inventory Tibble. Full inventory from load_hazards_and_inventory()
-#'   Expected columns: hazard_type, hazard_indicator, gwl,
+#'   Expected columns: hazard_type, hazard_indicator, scenario_name,
 #'   return_period, hazard_name
 #'
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
@@ -69,7 +69,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, hazard_config
         dplyr::filter(
           tolower(.data$hazard_type) == tolower(event_row$hazard_type),
           .data$hazard_indicator == primary_ind,
-          .data$gwl == event_row$gwl,
+          .data$scenario_name == event_row$scenario_name,
           as.numeric(.data$return_period) == as.numeric(event_row$return_period)
         )
 
@@ -137,7 +137,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, hazard_config
         exact_match <- matched |>
           dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
           dplyr::filter(
-            .data$gwl == event$gwl,
+            .data$scenario_name == event$scenario_name,
             .data$rp_numeric == event_rp_numeric
           )
 

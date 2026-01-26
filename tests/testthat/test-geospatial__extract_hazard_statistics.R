@@ -18,7 +18,7 @@ testthat::test_that("extract_hazard_statistics returns standardized columns", {
 
   testthat::expect_true(is.data.frame(results))
   testthat::expect_gt(nrow(results), 0)
-  testthat::expect_true(all(c("hazard_indicator", "gwl", "return_period") %in% names(results)))
+  testthat::expect_true(all(c("hazard_indicator", "scenario_name", "return_period") %in% names(results)))
   testthat::expect_true(any(c("depth", "hi", "spi3", "fwi", "days_danger_total", "land_cover") %in% names(results)))
 })
 
@@ -43,7 +43,7 @@ testthat::test_that("extract_spatial_statistics handles closest and small buffer
     hazard_type = "Flood",
     hazard_indicator = "depth",
     return_period = 100,
-    gwl = "present",
+    scenario_name = "present",
     season = NA_character_,
     ensemble = "mean",
     source = "tif",

@@ -2,7 +2,7 @@ indicators:
   depth:
     file: flood_depth
     variable: depth
-    index: [gwl, return_period]
+    index: [scenario_name, return_period]
     agg: median
 
 mappings:
@@ -20,13 +20,12 @@ shocks:
     equations:
       - name: flood_non_agriculture
         when: "asset_category != 'agriculture'"
-        equation: "pmax(0, revenue * (1 - pmin(365, business_disruption) / 365))"
+        equation: "revenue ~ revenue * (1 - pmin(365, business_disruption) / 365)"
       - name: flood_agriculture
         when: "asset_category == 'agriculture'"
-        equation: "pmax(0, revenue * (1 - damage_factor) * (1 - pmin(365, business_disruption) / 365))"
+        equation: "revenue ~ revenue * (1 - damage_factor) * (1 - pmin(365, business_disruption) / 365)"
   profit:
     equations:
       - name: flood_buildings
         when: "asset_category %in% c('commercial building', 'industrial building')"
-        equation: "damage_factor * cost_factor"
-
+        equation: "profit ~ profit - (damage_factor * cost_factor)"

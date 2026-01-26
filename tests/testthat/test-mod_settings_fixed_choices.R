@@ -24,7 +24,7 @@ testthat::test_that("mod_settings uses indicator file dimensions for fixed choic
       hi = list(
         file = "hi.nc",
         variable = "hi",
-        index = c("gwl"),
+        index = c("scenario_name"),
         fixed = list(ensemble = "mean"),
         agg = "closest"
       )

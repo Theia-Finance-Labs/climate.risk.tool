@@ -466,9 +466,9 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
 #'   values for assets without coordinates but with province or municipality information.
 #' @param base_dir Character string specifying the base directory. The function looks for precomputed_adm_hazards.csv in base_dir/hazards/
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
-#'   gwl, return_period, hazard_type, min, max, mean, median,
+#'   scenario_name, return_period, hazard_type, min, max, mean, median,
 #'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
-#'   Note: scenario_code may be present in the CSV but is not used (gwl is used instead).
+#'   Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
 #' @examples
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
@@ -490,142 +490,148 @@ read_precomputed_hazards <- function(base_dir) {
   }
 
   # Read the precomputed hazards CSV with optimized options
-  # Using show_col_types = FALSE to skip type checking during read (faster)
+  # Providing col_types explicitly speeds up reading large files
   precomputed_df <- readr::read_csv(
     precomputed_path,
-    show_col_types = FALSE
+    col_types = readr::cols(
+      region = "c", adm_level = "c", scenario_name = "c",
+      return_period = "d", hazard_type = "c", hazard_indicator = "c",
+      ensemble = "c", season = "c", .default = "d"
+    ),
+    show_col_types = FALSE,
+    lazy = FALSE,
+    progress = FALSE
   ) |>
     tibble::as_tibble() |>
-    # Convert column names to snake_case for consistency
     dplyr::rename_with(to_snake_case)
 
-  df_names <- names(precomputed_df)
+  message("  File read complete (", nrow(precomputed_df), " rows). Normalizing indicators...")
 
-  # Normalize hazard indicators to match config keys (e.g., HI -> hi, SPI3 -> spi3, depth(cm) -> depth)
-  # Also normalize hazard_type for consistency (if present)
-  precomputed_df <- precomputed_df |>
-    dplyr::mutate(
-      hazard_type = if ("hazard_type" %in% df_names) {
-        stringr::str_to_title(tolower(.data$hazard_type))
-      } else {
-        # Fallback to a placeholder or attempt to infer
-        NA_character_
-      },
-      hazard_indicator = dplyr::case_when(
-        tolower(.data$hazard_indicator) == "hi" ~ "hi",
-        tolower(.data$hazard_indicator) == "fwi" ~ "fwi",
-        tolower(.data$hazard_indicator) == "spi3" ~ "spi3",
-        grepl("depth", tolower(.data$hazard_indicator)) ~ "depth",
-        TRUE ~ tolower(.data$hazard_indicator)
-      )
+  # Optimization: Use Unique-Mapping for expensive string operations
+  # This avoids millions of string manipulations and regex calls
+  
+  # 1. Normalize hazard_indicator
+  if ("hazard_indicator" %in% names(precomputed_df)) {
+    unique_inds <- unique(precomputed_df$hazard_indicator)
+    unique_inds_lower <- tolower(unique_inds)
+    ind_mapping <- dplyr::case_when(
+      unique_inds_lower == "hi" ~ "hi",
+      unique_inds_lower == "fwi" ~ "fwi",
+      unique_inds_lower == "spi3" ~ "spi3",
+      grepl("depth", unique_inds_lower, fixed = TRUE) ~ "depth",
+      TRUE ~ unique_inds_lower
     )
-
-  # Infer hazard_type from hazard_indicator if missing
-  if ("hazard_type" %in% names(precomputed_df) && all(is.na(precomputed_df$hazard_type))) {
-    precomputed_df <- precomputed_df |>
-      dplyr::mutate(
-        hazard_type = dplyr::case_when(
-          .data$hazard_indicator == "hi" ~ "Heat",
-          .data$hazard_indicator == "fwi" ~ "Fire",
-          .data$hazard_indicator == "spi3" ~ "Drought",
-          .data$hazard_indicator == "depth" ~ "Flood",
-          TRUE ~ .data$hazard_type
-        )
-      )
+    names(ind_mapping) <- unique_inds
+    precomputed_df$hazard_indicator <- ind_mapping[precomputed_df$hazard_indicator]
   }
 
-  # Filter to a single representative ensemble variant per hazard scenario
-  # Prefer "mean", then "median", then first available.
-  # This prevents duplicates when the CSV contains multiple ensemble versions of the same data.
-  group_cols <- c("region", "adm_level", "gwl", "return_period", "hazard_type", "hazard_indicator")
+  # 2. Normalize hazard_type
+  if ("hazard_type" %in% names(precomputed_df)) {
+    unique_types <- unique(precomputed_df$hazard_type)
+    type_mapping <- stringr::str_to_title(tolower(unique_types))
+    names(type_mapping) <- unique_types
+    precomputed_df$hazard_type <- type_mapping[precomputed_df$hazard_type]
+  } else {
+    precomputed_df$hazard_type <- NA_character_
+  }
+
+  # 3. Infer missing hazard_type
+  is_missing_type <- is.na(precomputed_df$hazard_type)
+  if (any(is_missing_type)) {
+    precomputed_df$hazard_type[is_missing_type] <- dplyr::case_when(
+      precomputed_df$hazard_indicator[is_missing_type] == "hi" ~ "Heat",
+      precomputed_df$hazard_indicator[is_missing_type] == "fwi" ~ "Fire",
+      precomputed_df$hazard_indicator[is_missing_type] == "spi3" ~ "Drought",
+      precomputed_df$hazard_indicator[is_missing_type] == "depth" ~ "Flood",
+      TRUE ~ precomputed_df$hazard_type[is_missing_type]
+    )
+  }
+
+  message("  Deduplicating...")
+
+  # Deduplicate variant per hazard scenario
+  group_cols <- c("region", "adm_level", "scenario_name", "return_period", "hazard_type", "hazard_indicator")
   has_season <- "season" %in% names(precomputed_df)
-  if (has_season) {
-    group_cols <- c(group_cols, "season")
-  }
+  if (has_season) group_cols <- c(group_cols, "season")
 
+  # Use unique-mapping for ensemble priority
+  unique_ensembles <- unique(precomputed_df$ensemble)
+  ensemble_priority_map <- dplyr::case_when(
+    tolower(unique_ensembles) == "mean" ~ 1L,
+    tolower(unique_ensembles) == "median" ~ 2L,
+    is.na(unique_ensembles) ~ 3L,
+    TRUE ~ 4L
+  )
+  names(ensemble_priority_map) <- unique_ensembles
+  
   precomputed_df <- precomputed_df |>
-    dplyr::mutate(
-      ensemble_priority = dplyr::case_when(
-        tolower(.data$ensemble) == "mean" ~ 1L,
-        tolower(.data$ensemble) == "median" ~ 2L,
-        is.na(.data$ensemble) ~ 3L,
-        TRUE ~ 4L
-      )
-    ) |>
-    dplyr::group_by(dplyr::across(dplyr::any_of(group_cols))) |>
+    dplyr::mutate(ensemble_priority = ensemble_priority_map[.data$ensemble]) |>
     dplyr::arrange(.data$ensemble_priority) |>
-    dplyr::slice(1) |>
-    dplyr::ungroup() |>
+    dplyr::distinct(dplyr::across(dplyr::any_of(group_cols)), .keep_all = TRUE) |>
     dplyr::select(-"ensemble_priority")
 
-  # Validate adm_level values
-  valid_adm_levels <- c("ADM1", "ADM2")
-  invalid_levels <- setdiff(unique(precomputed_df$adm_level), valid_adm_levels)
-  if (length(invalid_levels) > 0) {
-    warning("Found unexpected adm_level values: ", paste(invalid_levels, collapse = ", "))
+  # 4. Optimized hazard_name construction using unique combinations
+  message("  Building hazard names...")
+  distinct_cols <- c("hazard_type", "hazard_indicator", "scenario_name", "return_period")
+  if (has_season) distinct_cols <- c(distinct_cols, "season")
+  
+  combos <- precomputed_df |>
+    dplyr::distinct(dplyr::across(dplyr::any_of(distinct_cols)))
+  
+  combo_season_suffix <- ""
+  if (has_season) {
+    combo_season_suffix <- dplyr::if_else(
+      !is.na(combos$season) & combos$season != "",
+      paste0("__season=", combos$season),
+      ""
+    )
   }
+  
+  combos <- combos |>
+    dplyr::mutate(
+      hazard_name = paste0(
+        .data$hazard_type, "__", .data$hazard_indicator,
+        "__scenario_name=", .data$scenario_name,
+        "__RP=", .data$return_period,
+        combo_season_suffix,
+        "__ensemble=mean"
+      )
+    )
+  
+  # Join names back to full data frame (much faster than rowwise paste0)
+  join_cols <- intersect(names(combos), names(precomputed_df))
+  precomputed_df <- precomputed_df |>
+    dplyr::left_join(combos, by = join_cols)
 
-  message("[read_precomputed_hazards] Loaded ", nrow(precomputed_df), " precomputed hazard records")
-  message("  ADM1 (province) records: ", sum(precomputed_df$adm_level == "ADM1"))
-  message("  ADM2 (municipality) records: ", sum(precomputed_df$adm_level == "ADM2"))
-
-  # Transform data: construct proper hazard_name and create ensemble-specific rows
-  # Unified naming WITHOUT ensemble suffix (base event format)
-  # Use pivot_longer instead of loop for better performance
-
-  # Define ensemble columns to pivot (must match valid aggregation methods)
+  # Define ensemble columns to pivot
   summary_cols <- intersect(
     c("mean", "median", "p10", "p90", "min", "max", "mode"),
     names(precomputed_df)
   )
   
   if (length(summary_cols) == 0) {
-    stop("No valid aggregation columns (mean, median, etc.) found in precomputed hazards file")
+    stop("No valid aggregation columns found in precomputed hazards file")
   }
+
+  message("  Pivoting...")
+
   precomputed_final <- precomputed_df |>
     tidyr::pivot_longer(
       cols = dplyr::all_of(summary_cols),
       names_to = "aggregation_method",
       values_to = "hazard_value",
-      values_drop_na = FALSE
+      values_drop_na = TRUE
     ) |>
     dplyr::mutate(
-      # App policy: the representative ensemble is always labeled 'mean' internally
       ensemble = "mean",
-      # Build hazard_name efficiently
-      season_suffix = dplyr::if_else(
-        has_season & !is.na(.data$season) & .data$season != "",
-        paste0("__season=", .data$season),
-        ""
-      ),
-      hazard_name = paste0(
-        .data$hazard_type, "__", .data$hazard_indicator,
-        "__GWL=", .data$gwl,
-        "__RP=", .data$return_period,
-        .data$season_suffix,
-        "__ensemble=mean"
-      )
-    ) |>
-    dplyr::select(-"season_suffix")
+      scenario_name = as.character(.data$scenario_name)
+    )
 
-  # Preserve season column if it exists (for drought hazards)
   if (has_season) {
-    precomputed_final <- precomputed_final |>
-      dplyr::mutate(
-        gwl = as.character(.data$gwl),
-        season = as.character(.data$season)
-      )
-    season_count <- sum(!is.na(precomputed_final$season))
-    message("  Season column preserved with ", season_count, " non-NA values")
-  } else {
-    precomputed_final <- precomputed_final |>
-      dplyr::mutate(
-        gwl = as.character(.data$gwl)
-      )
+    precomputed_final$season <- as.character(precomputed_final$season)
   }
 
-  message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
-
+  message("[read_precomputed_hazards] Loaded ", nrow(precomputed_final), " final records")
   precomputed_final
 }
 
@@ -633,7 +639,7 @@ read_precomputed_hazards <- function(base_dir) {
 #'
 #' @title Read TIF hazard mapping file
 #' @description Reads a metadata CSV file that maps TIF filenames
-#'   to hazard metadata (type, indicator, gwl, return period).
+#'   to hazard metadata (type, indicator, scenario_name, return period).
 #' @param mapping_path Character path to a metadata CSV file
 #' @return Tibble with mapping information
 #' @noRd
@@ -648,7 +654,7 @@ read_hazards_mapping <- function(mapping_path) {
   # Validate required columns
   required_cols <- c(
     "hazard_file", "hazard_indicator",
-    "gwl", "return_period"
+    "scenario_name", "return_period"
   )
   missing_cols <- setdiff(required_cols, names(mapping))
   if (length(missing_cols) > 0) {
@@ -672,6 +678,8 @@ read_hazards_mapping <- function(mapping_path) {
 #'   names with special characters. This is used to display original names in the frontend
 #'   while keeping normalized names for internal processing.
 #' @param base_dir Base directory containing areas subdirectory
+#' @param adm1_sf Optional sf object for ADM1 boundaries (if already loaded)
+#' @param adm2_sf Optional sf object for ADM2 boundaries (if already loaded)
 #' @return Named list with two elements:
 #'   - province: Named character vector mapping normalized province names to original names
 #'   - municipality: Named character vector mapping normalized municipality names to original names
@@ -682,44 +690,48 @@ read_hazards_mapping <- function(mapping_path) {
 #' # Access original name: name_mapping$province["Sao Paulo"] returns "São Paulo"
 #' }
 #' @export
-load_region_name_mapping <- function(base_dir) {
+load_region_name_mapping <- function(base_dir, adm1_sf = NULL, adm2_sf = NULL) {
   # Initialize result list
   mapping <- list(province = character(0), municipality = character(0))
 
   # Load province (ADM1) names
-  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
-  if (file.exists(province_path)) {
-    provinces_sf <- sf::st_read(province_path, quiet = TRUE)
+  if (!is.null(adm1_sf)) {
+    provinces_sf <- adm1_sf
+  } else {
+    province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
+    provinces_sf <- if (file.exists(province_path)) sf::st_read(province_path, quiet = TRUE) else NULL
+  }
 
-    if ("shapeName" %in% names(provinces_sf)) {
-      # Get original names
-      original_names <- as.character(provinces_sf$shapeName)
+  if (!is.null(provinces_sf) && "shapeName" %in% names(provinces_sf)) {
+    # Get original names
+    original_names <- as.character(provinces_sf$shapeName)
 
-      # Get normalized names (same way as used throughout the codebase)
-      normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
+    # Get normalized names (same way as used throughout the codebase)
+    normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
 
-      # Create mapping: normalized -> original
-      mapping$province <- original_names
-      names(mapping$province) <- normalized_names
-    }
+    # Create mapping: normalized -> original
+    mapping$province <- original_names
+    names(mapping$province) <- normalized_names
   }
 
   # Load municipality (ADM2) names
-  municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
-  if (file.exists(municipality_path)) {
-    municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE)
+  if (!is.null(adm2_sf)) {
+    municipalities_sf <- adm2_sf
+  } else {
+    municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+    municipalities_sf <- if (file.exists(municipality_path)) sf::st_read(municipality_path, quiet = TRUE) else NULL
+  }
 
-    if ("shapeName" %in% names(municipalities_sf)) {
-      # Get original names
-      original_names <- as.character(municipalities_sf$shapeName)
+  if (!is.null(municipalities_sf) && "shapeName" %in% names(municipalities_sf)) {
+    # Get original names
+    original_names <- as.character(municipalities_sf$shapeName)
 
-      # Get normalized names (same way as used throughout the codebase)
-      normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
+    # Get normalized names (same way as used throughout the codebase)
+    normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
 
-      # Create mapping: normalized -> original
-      mapping$municipality <- original_names
-      names(mapping$municipality) <- normalized_names
-    }
+    # Create mapping: normalized -> original
+    mapping$municipality <- original_names
+    names(mapping$municipality) <- normalized_names
   }
 
   message(

@@ -53,52 +53,6 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       gsub("[^A-Za-z0-9_]", "_", value)
     }
 
-    highlight_variables <- function(text, indicator_vars, mapping_vars, input_vars, constant_vars) {
-      if (is.null(text) || length(text) == 0) return("")
-      
-      # Escape variables for regex and sort by length descending to avoid partial matches
-      wrap_vars <- function(vars, color, label) {
-        if (is.null(vars) || length(vars) == 0) return(character(0))
-        vars <- vars[nzchar(vars)]
-        if (length(vars) == 0) return(character(0))
-        vars <- unique(vars)
-        vars <- vars[order(nchar(vars), decreasing = TRUE)]
-        
-        # Create a mapping of var to styled span
-        replacements <- setNames(
-          sprintf('<span style="color: %s; font-weight: 600;" title="%s">%s</span>', color, label, vars),
-          vars
-        )
-        replacements
-      }
-      
-      all_replacements <- c(
-        wrap_vars(indicator_vars, "#002776", "Indicator"),
-        wrap_vars(mapping_vars, "#009C3B", "Mapping"),
-        wrap_vars(input_vars, "#9333ea", "Input/Asset"),
-        wrap_vars(constant_vars, "#64748b", "Constant")
-      )
-      
-      if (length(all_replacements) == 0) return(text)
-      
-      # Use a placeholder strategy to avoid double replacement (replacing part of a span)
-      placeholders <- sprintf("___VAR_PLACEHOLDER_%d___", seq_along(all_replacements))
-      
-      temp_text <- text
-      for (i in seq_along(all_replacements)) {
-        var_name <- names(all_replacements)[i]
-        # Regex for exact word match
-        pattern <- paste0("\\b", var_name, "\\b")
-        temp_text <- gsub(pattern, placeholders[i], temp_text)
-      }
-      
-      for (i in seq_along(all_replacements)) {
-        temp_text <- gsub(placeholders[i], all_replacements[i], temp_text)
-      }
-      
-      temp_text
-    }
-
     drop_nulls <- function(values) {
       if (!is.list(values)) {
         return(values)
@@ -168,9 +122,11 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
         key,
         ensemble = if (length(ens_dim) > 0) ens_dim[1] else NULL,
         gwl = if (length(gwl_dim) > 0) gwl_dim[1] else NULL,
+        scenario_name = if (length(gwl_dim) > 0) gwl_dim[1] else NULL,
         season = if (length(season_dim) > 0) season_dim[1] else NULL,
         return_period = if (rp_dim %in% dim_names) rp_dim else NULL,
-        NULL
+        # Default to exact match if not one of the standard ones
+        if (key %in% dim_names) key else NULL
       )
       if (is.null(target_dim) || !(target_dim %in% dim_names)) {
         return(character(0))
@@ -194,7 +150,7 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       if (identical(key, "ensemble")) {
         vals <- normalize_indexed_dim(vals, c("mean", "median", "p10", "p90", "min", "max", "std"))
       }
-      if (identical(key, "gwl")) {
+      if (identical(key, "scenario_name")) {
         vals <- normalize_indexed_dim(vals, c("present", "1.5", "2", "3"))
       }
       if (identical(key, "season")) {
@@ -210,11 +166,11 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
         inventory_df <- NULL
       }
 
-      # Valid columns to look for in inventory
-      valid_cols <- c("ensemble", "gwl", "return_period", "season")
+      # Valid columns to look for in inventory (include all potential index names)
+      valid_cols <- c("ensemble", "scenario_name", "return_period", "season", "gwl")
       
       choices <- character(0)
-      if (!is.null(inventory_df) && key %in% valid_cols && key %in% names(inventory_df)) {
+      if (!is.null(inventory_df) && (key %in% valid_cols || key %in% names(inventory_df))) {
         # Filter inventory for this hazard and indicator
         sub_inv <- inventory_df[inventory_df$hazard_type == hazard_type & 
                                 inventory_df$hazard_indicator == indicator_key, ]
@@ -345,7 +301,9 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
                 settings_row("File", indicator_cfg$file),
                 settings_row("Variable", indicator_cfg$variable),
                 settings_row("Index", paste(indicator_cfg$index, collapse = ", ")),
-                settings_row("Categorical", if (isTRUE(indicator_cfg$categorical)) "TRUE" else "FALSE")
+                if (is_categorical) {
+                  settings_row("Categorical", "TRUE")
+                }
               ),
               settings_row(
                 "Aggregation",
@@ -420,9 +378,13 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
           if (!is.null(hazard_cfg$shocks) && length(hazard_cfg$shocks) > 0) {
             # Collect variables for highlighting
             indicator_vars <- names(hazard_cfg$indicators)
-            mapping_vars <- unlist(lapply(hazard_cfg$mappings, function(m) m$variables))
-            asset_keys <- unlist(lapply(hazard_cfg$mappings, function(m) m$join$on_assets))
-            input_vars <- unique(c("revenue", "asset_category", asset_keys))
+            mapping_vars <- character(0)
+            asset_keys <- character(0)
+            if (!is.null(hazard_cfg$mappings) && length(hazard_cfg$mappings) > 0) {
+              mapping_vars <- unlist(lapply(hazard_cfg$mappings, function(m) m$variables), use.names = FALSE)
+              asset_keys <- unlist(lapply(hazard_cfg$mappings, function(m) m$join$on_assets), use.names = FALSE)
+            }
+            input_vars <- unique(asset_keys)
             
             shocks_ui <- list(
               shiny::div(
@@ -436,9 +398,25 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
               lapply(names(hazard_cfg$shocks), function(shock_type) {
                 shock_cfg <- hazard_cfg$shocks[[shock_type]]
                 lapply(shock_cfg$equations, function(eq) {
-                  constant_vars <- names(eq$constants)
-                  highlighted_eq <- highlight_variables(eq$equation, indicator_vars, mapping_vars, input_vars, constant_vars)
-                  highlighted_when <- if (!is.null(eq$when)) highlight_variables(eq$when, indicator_vars, mapping_vars, input_vars, constant_vars) else NULL
+                  constant_vars <- if (!is.null(eq$constants)) names(eq$constants) else character(0)
+                  highlighted_eq <- highlight_formula(
+                    eq$equation,
+                    indicator_vars = indicator_vars,
+                    mapping_vars = mapping_vars,
+                    constant_vars = constant_vars,
+                    input_vars = input_vars
+                  )
+                  highlighted_when <- if (!is.null(eq$when)) {
+                    highlight_formula(
+                      eq$when,
+                      indicator_vars = indicator_vars,
+                      mapping_vars = mapping_vars,
+                      constant_vars = constant_vars,
+                      input_vars = input_vars
+                    )
+                  } else {
+                    NULL
+                  }
                   
                   shiny::div(
                     class = "shock-config",

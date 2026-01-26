@@ -1,4 +1,4 @@
-spi3,gwl,season,asset_subtype,hazard_unit,asset_category,damage_factor,hazard_indicator,state,off_window
+spi3,scenario_name,season,asset_subtype,hazard_unit,asset_category,damage_factor,hazard_indicator,state,off_window
 -2,present,Summer,Corn,SPI3,agriculture,0.254285714285714,SPI3,Other,0.15
 -1.68,present,Winter,Sugarcane,SPI3,agriculture,0.2248,SPI3,Paraiba,0.3
 -1.67,present,Summer,Coffee,SPI3,agriculture,0.2137,SPI3,Bahia,0.25

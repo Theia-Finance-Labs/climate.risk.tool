@@ -24,7 +24,7 @@ testthat::test_that("mod_settings uses aggregated indicator file when base file 
       fwi = list(
         file = "fwi.nc",
         variable = "fwi",
-        index = c("gwl"),
+        index = c("scenario_name"),
         fixed = list(ensemble = "mean"),
         agg = "closest"
       )

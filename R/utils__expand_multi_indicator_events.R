@@ -21,12 +21,12 @@
 #'
 #' @param events Tibble. User-configured events from mod_hazards_events_server.
 #'   Expected columns: event_id, hazard_type, hazard_indicator (primary),
-#'   hazard_name (primary), gwl, return_period,
+#'   hazard_name (primary), scenario_name, return_period,
 #'   event_year, season
 #'
 #' @param hazards_inventory Tibble. Full inventory with all indicators from
 #'   load_hazards_and_inventory()$inventory.
-#'   Expected columns: hazard_type, hazard_indicator, gwl,
+#'   Expected columns: hazard_type, hazard_indicator, scenario_name,
 #'   return_period, hazard_name, ensemble, source
 #'
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
@@ -92,13 +92,13 @@ expand_multi_indicator_events <- function(events, hazards_inventory, hazard_conf
       # Static indicators have their own fixed scenario/RP that differs from user selection
       if (indicator == "land_cover") {
         # Use the scenario/RP from inventory for this static indicator
-        new_event$gwl <- matched$gwl[1]
+        new_event$scenario_name <- matched$scenario_name[1]
         new_event$return_period <- as.numeric(matched$return_period[1])
         new_event$hazard_name <- matched$hazard_name[1]
 
         message(
           "    ", indicator, ": using static values (scenario=",
-          new_event$gwl, ", RP=", new_event$return_period, ")"
+          new_event$scenario_name, ", RP=", new_event$return_period, ")"
         )
       } else {
         # For dynamic indicators (FWI, days_danger_total), use user-selected scenario/RP
@@ -108,7 +108,7 @@ expand_multi_indicator_events <- function(events, hazards_inventory, hazard_conf
         exact_match <- matched |>
           dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
           dplyr::filter(
-            .data$gwl == event$gwl,
+            .data$scenario_name == event$scenario_name,
             .data$rp_numeric == event_rp_numeric
           )
 
@@ -117,13 +117,13 @@ expand_multi_indicator_events <- function(events, hazards_inventory, hazard_conf
           new_event$return_period <- event_rp_numeric
           message(
             "    ", indicator, ": using user-selected values (scenario=",
-            event$gwl, ", RP=", event_rp_numeric, ")"
+            event$scenario_name, ", RP=", event_rp_numeric, ")"
           )
         } else {
           warning(
             "  No exact match in inventory for ",
             event$hazard_type, "/", indicator,
-            " with gwl=", event$gwl,
+            " with scenario_name=", event$scenario_name,
             ", RP=", event_rp_numeric
           )
           # Fall back to first available for this indicator

@@ -6,7 +6,7 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `hazard_type`, `hazard_name`, `gwl`, `return_period`, `event_year` (or NA).
+#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `return_period`, `event_year` (or NA).
 #'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
@@ -225,10 +225,11 @@ compute_risk <- function(assets,
     hazards = hazards,
     hazards_inventory = filtered_inventory,
     precomputed_hazards = precomputed_hazards,
+    hazard_configs = hazard_configs,
     aggregation_method = aggregation_method
   )
 
-  # Step 2.3: Join event information (event_year, gwl) from events
+  # Step 2.3: Join event information (event_year, scenario_name) from events
   # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
   # For single-indicator hazards, use hazard_name directly
   events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, hazard_configs)

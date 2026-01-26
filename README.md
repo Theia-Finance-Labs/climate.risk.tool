@@ -63,14 +63,14 @@ cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cna
 land_cover_legend <- load_mapping_from_config(base_dir, hazard_configs, "Fire", "land_cover_legend")  # For Fire hazards
 
 # Create events data frame with required columns
-# Hazard names use the format: {HazardType}__{indicator}__GWL={scenario}__RP={return_period}__ensemble={variant}__season={season}
+# Hazard names use the format: {HazardType}__{indicator}__scenario_name={scenario}__RP={return_period}__ensemble={variant}__season={season}
 events <- data.frame(
   hazard_type = c("Flood", "Heat", "Drought", "Fire"),
   hazard_name = c(
-    "Flood__depth(cm)__GWL=present__RP=100",
-    "Heat__HI__GWL=2__RP=10__ensemble=median",
-    "Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=median",
-    "Fire__FWI__GWL=3__RP=50__ensemble=median"
+    "Flood__depth(cm)__scenario_name=present__RP=100",
+    "Heat__HI__scenario_name=2__RP=10__ensemble=median",
+    "Drought__SPI3__scenario_name=1.5__RP=10__season=Summer__ensemble=median",
+    "Fire__FWI__scenario_name=3__RP=50__ensemble=median"
   ),
   scenario_name = c("present", "2", "1.5", "3"),
   scenario_code = c("present", "2", "1.5", "3"),
@@ -225,11 +225,11 @@ Required columns:
 - `hazard_file`
 - `hazard_type`
 - `hazard_indicator`
-- `gwl`
+- `scenario_name`
 - `return_period`
 
 The script matches `hazard_file` to the TIFF filenames found in each indicator folder and uses:
-- unique `gwl` values → NetCDF dimension `GWL`
+- unique `scenario_name` values → NetCDF dimension `GWL`
 - unique `return_period` values → NetCDF dimension `return_period`
 
 #### Output folder layout
@@ -317,8 +317,8 @@ The package supports NetCDF (.nc) hazard data format:
 - Auto-discovers from directory structure and file dimensions
 - Uses terra-based lazy loading for efficient memory usage
 - Loads 'mean' ensemble by default for each hazard scenario
-- Naming format: `{HazardType}__{indicator}__GWL={level}__RP={period}__ensemble={variant}__season={season}`
-- Example: `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=mean`
+- Naming format: `{HazardType}__{indicator}__scenario_name={level}__RP={period}__ensemble={variant}__season={season}`
+- Example: `Drought__SPI3__scenario_name=1.5__RP=10__season=Summer__ensemble=mean`
 - Supports multiple dimensions: GWL, return_period, ensemble, season
 - Spatial extraction computes statistics from raster values using polygon-based extraction
 

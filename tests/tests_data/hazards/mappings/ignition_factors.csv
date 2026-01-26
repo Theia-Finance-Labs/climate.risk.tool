@@ -1,4 +1,4 @@
-fwi,gwl,return_period,asset_category,hazard_unit,damage_factor,cost_factor,hazard_indicator
+fwi,scenario_name,return_period,asset_category,hazard_unit,damage_factor,cost_factor,hazard_indicator
 1,present,10,commercial building,FWI,0.02,838625.370183151,FWI
 47,present,10,industrial building,FWI,0.94,1774630.20177975,FWI
 0,present,10,commercial building,FWI,0,838625.370183151,FWI

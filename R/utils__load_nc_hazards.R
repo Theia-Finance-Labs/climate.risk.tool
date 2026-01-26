@@ -394,7 +394,7 @@ load_nc_hazards_with_metadata <- function(indicator_path,
 
     hazard_name <- paste0(
       hazard_type, "__", hazard_indicator,
-      "__GWL=", gwl_label,
+      "__scenario_name=", gwl_label,
       "__RP=", rp_label
     )
     if (has_season) {
@@ -407,27 +407,59 @@ load_nc_hazards_with_metadata <- function(indicator_path,
     rp_numeric <- suppressWarnings(as.numeric(rp_label))
     if (is.na(rp_numeric)) rp_numeric <- ir
 
-    inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
+    # Build inventory row dynamically based on index columns
+    inventory_row <- tibble::tibble(
       hazard_type = hazard_type,
       hazard_indicator = hazard_indicator,
-      gwl = gwl_label,
-      return_period = rp_numeric,
       hazard_name = hazard_name,
       ensemble = ens_label,
-      season = if (has_season) season_label else NA_character_,
       source = "nc",
       agg = indicator_config$agg,
       categorical = indicator_config$categorical
     )
+    
+    # Map internal labels to the requested index names from config
+    # We always keep scenario_name, return_period, season as fallbacks if they are not in index
+    # but we ALSO add the specific index names
+    
+    # Internal to label mapping
+    internal_labels <- list(
+      gwl = gwl_label,
+      return_period = rp_numeric,
+      season = season_label
+    )
+    
+    # Add all index columns
+    for (idx_col in index_dims) {
+      if (idx_col %in% names(internal_labels)) {
+        val <- internal_labels[[idx_col]]
+        if (idx_col == "return_period") val <- suppressWarnings(as.numeric(val))
+        inventory_row[[idx_col]] <- val
+      } else {
+        # If it's a custom index name not in our standard mapping, we might have trouble
+        # but for now we only support standard ones
+        inventory_row[[idx_col]] <- NA_character_
+      }
+    }
+    
+    # Ensure backward compatibility columns exist in inventory
+    inventory_row$scenario_name <- gwl_label
+    inventory_row$return_period <- rp_numeric
+    if (!"season" %in% names(inventory_row)) {
+      inventory_row$season <- if (has_season) season_label else NA_character_
+    }
+
+    inventory_rows[[length(inventory_rows) + 1]] <- inventory_row
   }
 
   inventory <- if (length(inventory_rows) > 0) {
     dplyr::bind_rows(inventory_rows)
   } else {
+    # ... (rest of the function)
     tibble::tibble(
       hazard_type = character(),
       hazard_indicator = character(),
-      gwl = character(),
+      scenario_name = character(),
       return_period = numeric(),
       hazard_name = character(),
       ensemble = character(),

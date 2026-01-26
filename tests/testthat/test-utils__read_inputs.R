@@ -106,7 +106,7 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
 
   # Should have required columns
   required_cols <- c(
-    "region", "adm_level", "gwl",
+        "region", "adm_level", "scenario_name",
     "return_period", "hazard_type", "hazard_name",
     "aggregation_method", "hazard_value"
   )

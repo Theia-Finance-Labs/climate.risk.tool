@@ -17,7 +17,7 @@
 #'   Values > 1 spatially aggregate each raster on load so that tests can run with lower resolution.
 #' @return A list with two elements:
 #'   - `hazards`: Named list of SpatRaster objects (combined from all sources)
-#'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, gwl,
+#'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
 #'     return_period, hazard_name (unified format),
 #'     ensemble (ensemble variant), source ("tif", "nc", or "csv")
 #' @examples
@@ -61,7 +61,7 @@ load_hazards_and_inventory <- function(
   tif_inventory <- tibble::tibble(
     hazard_type = character(),
     hazard_indicator = character(),
-    gwl = character(),
+    scenario_name = character(),
     return_period = numeric(),
     hazard_name = character(),
     ensemble = character(),
@@ -122,11 +122,14 @@ load_hazards_and_inventory <- function(
         all_hazards <- c(all_hazards, tif_list)
 
         if (nrow(tif_mapping) > 0) {
-          tif_inventory <- tif_mapping |>
+          # Get index configuration for this hazard type
+          index_cols <- indicator$index
+          
+          tif_inventory_rows <- tif_mapping |>
             dplyr::mutate(
               hazard_name = paste0(
                 .data$hazard_type, "__", .data$hazard_indicator,
-                "__GWL=", .data$gwl,
+                "__scenario_name=", .data$scenario_name,
                 "__RP=", .data$return_period,
                 "__ensemble=mean"
               ),
@@ -135,18 +138,32 @@ load_hazards_and_inventory <- function(
               source = "tif",
               agg = indicator$agg,
               categorical = indicator$categorical
-            ) |>
+            )
+          
+          # Ensure all index columns exist in the inventory
+          for (idx_col in index_cols) {
+            if (!idx_col %in% names(tif_inventory_rows)) {
+               # If an index column is missing from TIF mapping, we might have an issue
+               # but we'll try to fallback to standard names if they match
+               if (idx_col == "gwl" && "scenario_name" %in% names(tif_inventory_rows)) {
+                 tif_inventory_rows[[idx_col]] <- tif_inventory_rows$scenario_name
+               } else {
+                 tif_inventory_rows[[idx_col]] <- NA_character_
+               }
+            }
+          }
+
+          tif_inventory <- tif_inventory_rows |>
             dplyr::select(
               "hazard_type",
               "hazard_indicator",
-              "gwl",
-              "return_period",
               "hazard_name",
               "ensemble",
               "season",
               "source",
               "agg",
-              "categorical"
+              "categorical",
+              dplyr::any_of(c("scenario_name", "return_period", index_cols))
             )
           inventory <- dplyr::bind_rows(inventory, tif_inventory)
         }

@@ -47,64 +47,66 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, 
 
   available_names <- names(hazards)
 
-  # For multi-indicator hazards, expand internally to get all required hazard_names
-  # This doesn't modify the events dataframe - just gets the list of hazard_names to load
+  # Use hazard configs to expand to all indicators (not just primary)
   if (!is.null(hazards_inventory) && "hazard_type" %in% names(events) && !is.null(hazard_configs)) {
-    multi_indicator_types <- names(hazard_configs)[
-      vapply(names(hazard_configs), function(htype) is_multi_indicator_hazard(hazard_configs, htype), logical(1))
-    ]
+    desired_names <- character()
 
-    # Get hazard_names for single-indicator events (use as-is)
-    single_indicator_names <- events |>
-      dplyr::filter(!(.data$hazard_type %in% multi_indicator_types)) |>
-      dplyr::pull(.data$hazard_name) |>
-      as.character() |>
-      unique()
+    for (i in seq_len(nrow(events))) {
+      event <- events[i, ]
+      required_indicators <- get_required_indicators(hazard_configs, event$hazard_type)
+      if (is.null(required_indicators) || length(required_indicators) == 0) next
 
-    # Get hazard_names for multi-indicator events (expand to all required indicators)
-    multi_indicator_events <- events |>
-      dplyr::filter(.data$hazard_type %in% multi_indicator_types)
+      for (indicator in required_indicators) {
+        matched <- hazards_inventory |>
+          dplyr::filter(
+            .data$hazard_type == event$hazard_type,
+            .data$hazard_indicator == indicator
+          )
 
-    multi_indicator_names <- character()
-    if (nrow(multi_indicator_events) > 0) {
-      for (i in seq_len(nrow(multi_indicator_events))) {
-        event <- multi_indicator_events[i, ]
-        required_indicators <- get_required_indicators(hazard_configs, event$hazard_type)
+        if (nrow(matched) == 0) next
 
-        for (indicator in required_indicators) {
-          matched <- hazards_inventory |>
-            dplyr::filter(
-              .data$hazard_type == event$hazard_type,
-              .data$hazard_indicator == indicator
-            )
+        index_cols <- hazard_configs[[event$hazard_type]]$indicators[[indicator]]$index
+        if (length(index_cols) == 0) {
+          desired_names <- c(desired_names, matched$hazard_name[1])
+          next
+        }
 
-          if (nrow(matched) == 0) next
-
-          # Handle static vs dynamic indicators
-          if (indicator == "land_cover") {
-            hazard_name <- matched$hazard_name[1]
-          } else {
-            event_rp_numeric <- as.numeric(event$return_period)
-            exact_match <- matched |>
-              dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
-              dplyr::filter(
-                .data$gwl == event$gwl,
-                .data$rp_numeric == event_rp_numeric
-              )
-
-            hazard_name <- if (nrow(exact_match) > 0) {
-              exact_match$hazard_name[1]
-            } else {
-              matched$hazard_name[1]
+        filtered <- matched
+        for (idx_col in index_cols) {
+          # Handle gwl/scenario_name aliases
+          if (!idx_col %in% names(event)) {
+            if (idx_col == "gwl" && "scenario_name" %in% names(event)) {
+              filtered <- filtered |>
+                dplyr::filter(.data$scenario_name == event$scenario_name)
+              next
             }
+            if (idx_col == "scenario_name" && "gwl" %in% names(event)) {
+              filtered <- filtered |>
+                dplyr::filter(.data$scenario_name == event$gwl)
+              next
+            }
+            filtered <- filtered[0, ]
+            next
           }
 
-          multi_indicator_names <- c(multi_indicator_names, hazard_name)
+          if (idx_col == "return_period") {
+            event_rp_numeric <- as.numeric(event$return_period)
+            filtered <- filtered |>
+              dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
+              dplyr::filter(.data$rp_numeric == event_rp_numeric)
+          } else {
+            filtered <- filtered |>
+              dplyr::filter(.data[[idx_col]] == event[[idx_col]])
+          }
+        }
+
+        if (nrow(filtered) > 0) {
+          desired_names <- c(desired_names, filtered$hazard_name)
         }
       }
     }
 
-    desired_names <- unique(c(single_indicator_names, multi_indicator_names))
+    desired_names <- unique(desired_names)
   } else {
     # Fallback: no inventory provided, use hazard_name as-is
     desired_names <- events |>
@@ -132,6 +134,8 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, 
 
     # Also consider the base event name (without ensemble suffix)
     base_event <- sub("__ensemble=.*$", "", desired)
+    # Handle old GWL= naming in desired_names if they come from old event data
+    base_event <- sub("__GWL=", "__scenario_name=", base_event)
     base_event_mean <- paste0(base_event, "__ensemble=mean")
 
     candidates <- unique(c(desired, desired_mean, base_event, base_event_mean))

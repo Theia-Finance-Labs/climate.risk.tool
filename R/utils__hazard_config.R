@@ -180,6 +180,11 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
       indicator_categorical <- isTRUE(indicator$categorical)
     }
 
+    indicator_inference <- list()
+    if (!is.null(indicator$inference)) {
+      indicator_inference <- indicator$inference
+    }
+
     indicators[[indicator_key]] <- list(
       key = indicator_key,
       file = as.character(indicator$file),
@@ -188,6 +193,7 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
       fixed = indicator_fixed,
       agg = as.character(indicator_agg),
       categorical = indicator_categorical,
+      inference = indicator_inference,
       source = indicator_source
     )
   }
@@ -209,12 +215,12 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
       on_indicator_index <- character(0)
       on_assets <- character(0)
       if (!is.null(join$on_indicator_intensity)) {
-        on_indicator_intensity <- as.character(unlist(join$on_indicator_intensity, use.names = FALSE))
+        on_indicator_intensity <- unlist(join$on_indicator_intensity)
       }
       if (!is.null(join$on_indicator_index)) {
-        on_indicator_index <- as.character(unlist(join$on_indicator_index, use.names = FALSE))
+        on_indicator_index <- unlist(join$on_indicator_index)
       }
-      if (!is.null(join$on_assets)) on_assets <- as.character(unlist(join$on_assets, use.names = FALSE))
+      if (!is.null(join$on_assets)) on_assets <- unlist(join$on_assets)
 
       variables <- character(0)
       if (!is.null(mapping$variables)) {
@@ -296,11 +302,28 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
     stop("primary_indicator '", primary_indicator, "' not found in indicators")
   }
 
+  index_indicator <- config$index_indicator
+  if (is.null(index_indicator) || !nzchar(as.character(index_indicator))) {
+    has_index <- vapply(indicators, function(ind) length(ind$index) > 0, logical(1))
+    if (any(has_index)) {
+      index_indicator <- names(indicators)[which(has_index)[1]]
+    } else {
+      index_indicator <- primary_indicator
+    }
+  }
+  if (!index_indicator %in% names(indicators)) {
+    stop("index_indicator '", index_indicator, "' not found in indicators")
+  }
+  if (length(indicators[[index_indicator]]$index) == 0) {
+    stop("index_indicator '", index_indicator, "' has no index defined")
+  }
+
   normalized <- list(
     name = as.character(hazard_name),
     indicators = indicators,
     mappings = mappings,
     primary_indicator = as.character(primary_indicator),
+    index_indicator = as.character(index_indicator),
     shocks = shocks,
     path = file_path
   )
@@ -319,6 +342,23 @@ get_primary_indicator <- function(hazard_configs, hazard_type) {
     return(NA_character_)
   }
   hazard_configs[[hazard_type]]$primary_indicator
+}
+
+#' Get index indicator from hazard configs (internal)
+#'
+#' @param hazard_configs Named list of hazard configs
+#' @param hazard_type Character hazard type name
+#' @return Character index indicator or NA_character_
+#' @noRd
+get_index_indicator <- function(hazard_configs, hazard_type) {
+  if (is.null(hazard_configs) || !hazard_type %in% names(hazard_configs)) {
+    return(NA_character_)
+  }
+  cfg <- hazard_configs[[hazard_type]]
+  if (!is.null(cfg$index_indicator) && nzchar(as.character(cfg$index_indicator))) {
+    return(cfg$index_indicator)
+  }
+  cfg$primary_indicator
 }
 
 #' Get required indicators from hazard configs (internal)

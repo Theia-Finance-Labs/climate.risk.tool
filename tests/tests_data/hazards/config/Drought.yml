@@ -2,7 +2,7 @@ indicators:
   spi3:
     file: spi3.nc
     variable: spi3
-    index: [gwl, return_period, season]
+    index: [scenario_name, return_period, season]
     fixed: { ensemble: mean }
     agg: closest
 
@@ -12,7 +12,7 @@ mappings:
     variables: [damage_factor]
     intensity_match: closest
     join:
-      on_indicator_index: [gwl, season]
+      on_indicator_index: [scenario_name, season]
       on_assets: [asset_subtype, state]
       on_indicator_intensity: [spi3]
 
@@ -21,4 +21,4 @@ shocks:
     equations:
       - name: drought_agriculture
         when: "asset_category == 'agriculture'"
-        equation: "pmax(0, revenue * (1 - damage_factor))"
+        equation: "revenue ~ revenue * (1 - damage_factor)"

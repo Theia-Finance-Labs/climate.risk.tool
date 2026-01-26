@@ -1,7 +1,7 @@
 #' Join mapping tables for hazards (internal)
 #'
 #' @param assets_with_hazards Data frame in long format with asset and hazard information
-#'   including hazard_type, hazard_indicator, indicator-specific values, gwl, return_period, event_id
+#'   including hazard_type, hazard_indicator, indicator-specific values, scenario_name, return_period, event_id
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #' @param hazards_dir Character path to hazards/config directory
 #' @return Data frame with mapping columns joined
@@ -48,14 +48,31 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
       hazard_cols <- mapping$join$on_indicator_index
       asset_cols <- mapping$join$on_assets
 
-      join_cols <- unique(c(intensity_cols, hazard_cols, asset_cols))
+      join_cols <- c(intensity_cols, hazard_cols, asset_cols)
+      # Remove duplicates but preserve names if possible
+      if (length(join_cols) > 0) {
+        # Keep first occurrence of each key-value pair
+        join_cols <- join_cols[!duplicated(paste0(names(join_cols), "=", join_cols))]
+      }
+
+      # Join keys: names are columns in assets (base_table), values are columns in mapping_df
+      # If unnamed, the same name is used for both.
+      get_left_cols <- function(x) {
+        nms <- names(x)
+        if (is.null(nms)) return(as.character(x))
+        ifelse(nms == "", as.character(x), nms)
+      }
+
+      mapping_cols <- unname(join_cols)
+      asset_cols_to_check <- get_left_cols(join_cols)
+
       if (length(join_cols) == 0) {
         stop("Mapping '", mapping_key, "' has no join columns")
       }
 
       variables <- mapping$variables
       if (!is.null(variables) && length(variables) > 0) {
-        keep_cols <- unique(c(join_cols, variables))
+        keep_cols <- unique(c(mapping_cols, variables))
         missing_in_mapping <- setdiff(keep_cols, names(mapping_df))
         if (length(missing_in_mapping) > 0) {
           stop(
@@ -67,8 +84,8 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
           dplyr::select(dplyr::all_of(keep_cols))
       }
 
-      missing_in_assets <- setdiff(join_cols, names(base_table))
-      missing_in_mapping <- setdiff(join_cols, names(mapping_df))
+      missing_in_assets <- setdiff(asset_cols_to_check, names(base_table))
+      missing_in_mapping <- setdiff(mapping_cols, names(mapping_df))
       if (length(missing_in_assets) > 0) {
         stop("Missing join columns in assets for mapping '", mapping_key, "': ", paste(missing_in_assets, collapse = ", "))
       }
@@ -82,11 +99,11 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
         mapping_df <- mapping_df |>
           dplyr::mutate(return_period = as.numeric(.data$return_period))
       }
-      if ("gwl" %in% join_cols) {
+      if ("scenario_name" %in% join_cols) {
         base_table <- base_table |>
-          dplyr::mutate(gwl = as.character(.data$gwl))
+          dplyr::mutate(scenario_name = as.character(.data$scenario_name))
         mapping_df <- mapping_df |>
-          dplyr::mutate(gwl = as.character(.data$gwl))
+          dplyr::mutate(scenario_name = as.character(.data$scenario_name))
       }
 
       base_table <- apply_intensity_matching(base_table, mapping_df, intensity_cols, mapping$intensity_match)
@@ -134,16 +151,15 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
       .groups = "drop"
     )
 
-  base_cols <- c(
-    "asset", "company", "latitude", "longitude", "municipality", "state",
-    "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
-    "cnae", "hazard_name", "hazard_type", "hazard_indicator", "return_period",
-    "gwl", "season", "ensemble", "source", "matching_method", "event_id", "event_year"
-  )
-  base_cols <- base_cols[base_cols %in% names(primary_rows)]
-
+  # Get all indicator index dimensions dynamically
+  index_indicator <- hazard_config$index_indicator
+  if (is.null(index_indicator) || !nzchar(as.character(index_indicator))) {
+    index_indicator <- primary_indicator
+  }
+  
+  # Prepare base table from primary rows, keeping all non-indicator columns
   base_table <- primary_rows |>
-    dplyr::select(dplyr::all_of(base_cols)) |>
+    dplyr::select(-dplyr::any_of(indicator_cols)) |>
     dplyr::distinct()
 
   base_table <- dplyr::left_join(

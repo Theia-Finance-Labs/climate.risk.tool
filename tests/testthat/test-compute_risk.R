@@ -18,7 +18,7 @@ testthat::test_that("compute_risk runs with config-driven hazards", {
     hazard_type = "Flood",
     hazard_indicator = flood_row$hazard_indicator,
     hazard_name = flood_row$hazard_name,
-    gwl = flood_row$gwl,
+    scenario_name = flood_row$scenario_name,
     return_period = flood_row$return_period,
     event_year = 2030,
     season = NA_character_
@@ -64,7 +64,7 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     hazard_type = "Flood",
     hazard_indicator = flood_row$hazard_indicator,
     hazard_name = flood_row$hazard_name,
-    gwl = flood_row$gwl,
+    scenario_name = flood_row$scenario_name,
     return_period = flood_row$return_period,
     event_year = 2030,
     season = NA_character_

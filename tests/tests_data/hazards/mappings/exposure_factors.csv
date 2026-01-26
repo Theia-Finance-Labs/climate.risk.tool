@@ -1,4 +1,4 @@
-gwl,state,lp_exposure,damage_factor,hazard_indicator
+scenario_name,state,lp_exposure,damage_factor,hazard_indicator
 1.5,Piaui,low,-0.030012801,HI
 NA,Amapa,median,-0.040461681,HI
 NA,Amazonas,median,-0.0420186,HI

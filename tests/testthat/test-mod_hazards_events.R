@@ -13,14 +13,14 @@ testthat::test_that("mod_hazards_events_server loads events via load_config func
   inventory_df <- tibble::tibble(
     hazard_type = c("Heat"),
     hazard_indicator = c("hi"),
-    gwl = c("GWL=2.0"),
+    scenario_name = c("GWL=2.0"),
     return_period = c(50),
     hazard_name = c("Heat__hi__GWL=2.0__RP=50__ensemble=mean")
   )
 
   config_df <- tibble::tibble(
     hazard_type = "Heat",
-    gwl = "GWL=2.0",
+    scenario_name = "GWL=2.0",
     return_period = 50,
     event_year = 2040,
     season = NA_character_
@@ -29,10 +29,10 @@ testthat::test_that("mod_hazards_events_server loads events via load_config func
   tmp <- tempfile(fileext = ".xlsx")
   writexl::write_xlsx(config_df, tmp)
 
-  hazard_configs <- list(
+      hazard_configs <- list(
     Heat = list(
       primary_indicator = "hi",
-      indicators = list(hi = list())
+      indicators = list(hi = list(index = c("scenario_name", "return_period")))
     )
   )
   shiny::testServer(mod_hazards_events_server, args = list(
@@ -47,7 +47,7 @@ testthat::test_that("mod_hazards_events_server loads events via load_config func
     ev <- events_rv()
     testthat::expect_equal(nrow(ev), 1)
     testthat::expect_equal(ev$hazard_type[1], "Heat")
-    testthat::expect_equal(ev$gwl[1], "GWL=2.0")
+    testthat::expect_equal(ev$scenario_name[1], "GWL=2.0")
     testthat::expect_equal(ev$return_period[1], 50)
     testthat::expect_equal(ev$event_year[1], 2040L)
     testthat::expect_true(is.na(ev$season[1]))
@@ -61,7 +61,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
   hazard_configs <- list(
     Flood = list(
       primary_indicator = "depth",
-      indicators = list(depth = list())
+      indicators = list(depth = list(index = c("scenario_name", "return_period")))
     )
   )
   shiny::testServer(mod_hazards_events_server, args = list(
@@ -70,7 +70,7 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
       data.frame(
         hazard_type = c("Flood", "Flood"),
         hazard_indicator = c("depth", "depth"),
-        gwl = c("rcp85", "rcp85"),
+                scenario_name = c("rcp85", "rcp85"),
         return_period = c(100, 10),
         hazard_name = c(
           "Flood__depth__GWL=rcp85__RP=100__ensemble=mean",
@@ -89,8 +89,8 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 
     # Provide selections for the first event
     session$setInputs("hazard_type_1" = "Flood")
-    session$setInputs("gwl_1" = "rcp85")
-    session$setInputs("return_period_1" = 100)
+    session$setInputs("filter_1_scenario_name" = "rcp85")
+    session$setInputs("filter_1_return_period" = 100)
     session$setInputs("year_1" = 2030)
 
     # First click of add_event should save the current event and increment counter
@@ -101,8 +101,8 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
 
     # Add a second event
     session$setInputs("hazard_type_2" = "Flood")
-    session$setInputs("gwl_2" = "rcp85")
-    session$setInputs("return_period_2" = 10)
+    session$setInputs("filter_2_scenario_name" = "rcp85")
+    session$setInputs("filter_2_return_period" = 10)
     session$setInputs("year_2" = 2035)
     session$setInputs(add_event = 2)
 
@@ -120,7 +120,7 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
   hazard_configs <- list(
     Flood = list(
       primary_indicator = "depth",
-      indicators = list(depth = list())
+      indicators = list(depth = list(index = c("scenario_name", "return_period")))
     )
   )
   shiny::testServer(mod_hazards_events_server, args = list(
@@ -129,7 +129,7 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
       data.frame(
         hazard_type = c("Flood", "Flood"),
         hazard_indicator = c("depth", "depth"),
-        gwl = c("rcp85", "rcp85"),
+                scenario_name = c("rcp85", "rcp85"),
         return_period = c(100, 10),
         hazard_name = c(
           "Flood__depth__GWL=rcp85__RP=100__ensemble=mean",
@@ -140,15 +140,15 @@ testthat::test_that("mod_hazards_events_server shows only one form at a time", {
     }),
     hazard_configs = shiny::reactive(hazard_configs)
   ), {
-    # Initially, one form is present (hazard_type_1, gwl_1, return_period_1)
+    # Initially, one form is present (hazard_type_1, scenario_1, return_period_1)
     ui_html <- htmltools::renderTags(output$events_ui)$html
     testthat::expect_true(grepl("hazard_type_1", ui_html))
     testthat::expect_false(grepl("hazard_type_2", ui_html))
 
     # Add first event
     session$setInputs("hazard_type_1" = "Flood")
-    session$setInputs("gwl_1" = "rcp85")
-    session$setInputs("return_period_1" = 100)
+    session$setInputs("filter_1_scenario_name" = "rcp85")
+    session$setInputs("filter_1_return_period" = 100)
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1) # This is now the first 'add_event' click
 
@@ -165,7 +165,7 @@ testthat::test_that("mod_hazards_events_server captures season for Drought event
   hazard_configs <- list(
     Drought = list(
       primary_indicator = "spi3",
-      indicators = list(spi3 = list())
+      indicators = list(spi3 = list(index = c("scenario_name", "return_period", "season")))
     )
   )
   shiny::testServer(mod_hazards_events_server, args = list(
@@ -174,7 +174,7 @@ testthat::test_that("mod_hazards_events_server captures season for Drought event
       data.frame(
         hazard_type = c("Drought"),
         hazard_indicator = c("spi3"),
-        gwl = c("present"),
+        scenario_name = c("present"),
         return_period = c(10),
         hazard_name = c("Drought__spi3__GWL=present__RP=10__ensemble=mean"),
         stringsAsFactors = FALSE
@@ -184,9 +184,9 @@ testthat::test_that("mod_hazards_events_server captures season for Drought event
   ), {
     # Set up drought event with season
     session$setInputs("hazard_type_1" = "Drought")
-    session$setInputs("gwl_1" = "present")
-    session$setInputs("return_period_1" = 10)
-    session$setInputs("season_1" = "Summer")
+    session$setInputs("filter_1_scenario_name" = "present")
+    session$setInputs("filter_1_return_period" = 10)
+    session$setInputs("filter_1_season" = "Summer")
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1)
 
@@ -204,7 +204,7 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
   hazard_configs <- list(
     Flood = list(
       primary_indicator = "depth",
-      indicators = list(depth = list())
+      indicators = list(depth = list(index = c("scenario_name", "return_period")))
     )
   )
   shiny::testServer(mod_hazards_events_server, args = list(
@@ -213,7 +213,7 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
       data.frame(
         hazard_type = c("Flood"),
         hazard_indicator = c("depth"),
-        gwl = c("rcp85"),
+        scenario_name = c("rcp85"),
         return_period = c(100),
         hazard_name = c("Flood__depth__GWL=rcp85__RP=100__ensemble=mean"),
         stringsAsFactors = FALSE
@@ -223,8 +223,8 @@ testthat::test_that("mod_hazards_events_server sets season to NA for non-Drought
   ), {
     # Set up flood event (no season should be captured)
     session$setInputs("hazard_type_1" = "Flood")
-    session$setInputs("gwl_1" = "rcp85")
-    session$setInputs("return_period_1" = 100)
+    session$setInputs("filter_1_scenario_name" = "rcp85")
+    session$setInputs("filter_1_return_period" = 100)
     session$setInputs("year_1" = 2030)
     session$setInputs(add_event = 1)
 

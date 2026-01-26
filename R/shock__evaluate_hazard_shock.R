@@ -39,8 +39,51 @@ evaluate_hazard_shock <- function(assets_event, hazard_config, shock_type, combi
       constants <- list()
     }
 
-    eq_expr <- rlang::parse_expr(equation_def$equation)
+    # Support R formula style: revenue ~ ... or profit ~ ...
+    raw_eq <- as.character(equation_def$equation)
+    if (grepl("~", raw_eq)) {
+      # Extract the right-hand side of the formula
+      eq_parts <- strsplit(raw_eq, "~")[[1]]
+      if (length(eq_parts) != 2) {
+        stop("Invalid formula style in equation: ", raw_eq)
+      }
+      # The target (revenue or profit) is on the left, formula on the right
+      # We evaluate the right side and assign it to shock_value
+      eq_expr <- rlang::parse_expr(trimws(eq_parts[2]))
+    } else {
+      eq_expr <- rlang::parse_expr(raw_eq)
+    }
+
     value <- rlang::eval_tidy(eq_expr, data = eq_data, env = rlang::env(!!!constants))
+
+    # Apply global pmax(0, ...) condition only to revenue shocks
+    if (shock_type == "revenue") {
+      value <- pmax(0, as.numeric(value))
+    } else {
+      # For profit shocks, we allow negative values (losses)
+      # and we return the DELTA (the shock value to be subtracted)
+      # If the formula was "profit ~ profit - ...", we want to return the "..." part
+      # But our current logic in apply_acute_profit_shock expects shock_value to be the damage to SUBTRACT.
+      # So if formula is "profit ~ profit - (damage)", we should return (damage).
+      # If formula is "profit ~ damage", we should return (profit - damage).
+      
+      raw_eq <- as.character(equation_def$equation)
+      if (grepl("~", raw_eq)) {
+        eq_parts <- strsplit(raw_eq, "~")[[1]]
+        target_var <- trimws(eq_parts[1])
+        
+        # If target is profit, we want to return (baseline_profit - new_profit)
+        # so that apply_acute_profit_shock can subtract it.
+        if (target_var == "profit") {
+          baseline_profit <- eq_data$profit
+          value <- as.numeric(baseline_profit) - as.numeric(value)
+        } else {
+          value <- as.numeric(value)
+        }
+      } else {
+        value <- as.numeric(value)
+      }
+    }
 
     if (length(value) == 1) {
       value <- rep(value, nrow(eq_data))

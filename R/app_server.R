@@ -164,7 +164,12 @@ app_server <- function(input, output, session) {
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
 
         # Load region name mapping for displaying original names in frontend
-        values$region_name_mapping <- load_region_name_mapping(base_dir)
+        # Pass already loaded boundaries to avoid redundant file reads
+        values$region_name_mapping <- load_region_name_mapping(
+          base_dir, 
+          adm1_sf = values$adm1_boundaries, 
+          adm2_sf = values$adm2_boundaries
+        )
 
         values$status <- "Data files loaded. Ready to select input folder and run analysis."
         values$data_loaded <- TRUE

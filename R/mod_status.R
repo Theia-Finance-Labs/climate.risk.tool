@@ -101,12 +101,12 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
 
       # Prepare display data (exclude season column - it's now embedded in hazard_name)
       display_data <- events |>
-        dplyr::select("event_id", "hazard_type", "hazard_name", "gwl", "return_period", "event_year") |>
+        dplyr::select("event_id", "hazard_type", "hazard_name", "scenario_name", "return_period", "event_year") |>
         dplyr::rename(
           "Event ID" = "event_id",
           "Hazard Type" = "hazard_type",
           "Hazard Name" = "hazard_name",
-          "GWL" = "gwl",
+          "Scenario" = "scenario_name",
           "Return Period (years)" = "return_period",
           "Shock Year" = "event_year"
         )

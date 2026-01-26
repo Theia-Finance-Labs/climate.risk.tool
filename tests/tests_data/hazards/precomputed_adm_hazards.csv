@@ -1,4 +1,4 @@
-"region","adm_level","gwl","return_period","hazard_type","hazard_indicator","min","max","mean","median","p2_5","p5","p10","p90","p95","p97_5","ensemble","season"
+"region","adm_level","scenario_name","return_period","hazard_type","hazard_indicator","min","max","mean","median","p2_5","p5","p10","p90","p95","p97_5","ensemble","season"
 "Amazonas","ADM1","present",100,"Flood","depth(cm)",1,4713,891.384585284338,811,42,83,168,1747,1966,2093,NA,NA
 "Mato Grosso","ADM1","present",100,"Flood","depth(cm)",1,4544,446.09992707597,308,15,29,57,1046,1349,1638,NA,NA
 "Barcelos","ADM2","present",100,"Flood","depth(cm)",1,2559,681.08123653113,541,21,42,85,1489,1797,2046,NA,NA

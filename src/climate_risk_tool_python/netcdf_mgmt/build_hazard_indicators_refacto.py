@@ -73,14 +73,17 @@ def _load_indicator_metadata(indicator_dir: str) -> pd.DataFrame:
         "hazard_file",
         "hazard_type",
         "hazard_indicator",
-        "gwl",
+        "scenario_name",
         "return_period",
     ]
     for col in required_cols:
         if col not in md.columns:
-            raise ValueError(f"Missing required column '{col}' in metadata.csv")
+            if col == "scenario_name" and "gwl" in md.columns:
+                md = md.rename(columns={"gwl": "scenario_name"})
+            else:
+                raise ValueError(f"Missing required column '{col}' in metadata.csv")
 
-    for col in ["hazard_file", "hazard_type", "hazard_indicator", "gwl"]:
+    for col in ["hazard_file", "hazard_type", "hazard_indicator", "scenario_name"]:
         md[col] = md[col].astype(str).str.strip()
 
     return md

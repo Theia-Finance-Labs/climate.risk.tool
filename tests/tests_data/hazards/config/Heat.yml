@@ -2,7 +2,7 @@ indicators:
   hi:
     file: hi.nc
     variable: hi
-    index: [gwl, return_period]
+    index: [scenario_name, return_period]
     fixed: { ensemble: mean }
     agg: closest
 
@@ -16,7 +16,7 @@ mappings:
     file: exposure_factors.csv
     variables: [damage_factor]
     join:
-      on_indicator_index: [gwl]
+      on_indicator_index: [scenario_name]
       on_assets: [state, lp_exposure]
       on_indicator_intensity: []
 
@@ -25,13 +25,13 @@ shocks:
     equations:
       - name: heat_labor_productivity
         equation: |
-          {
+          revenue ~ {
             weighted_lp_loss <- (hi / 365) * damage_factor
             L_adjusted <- L0 * (1 + weighted_lp_loss)
             Y_base <- exp(lnA + B1 * log(K0) + B2 * log(L0) + B3 * log(E0))
             Y_shock <- exp(lnA + B1 * log(K0) + B2 * log(L_adjusted) + B3 * log(E0))
             change <- (Y_shock / Y_base) - 1
-            pmax(0, revenue * (1 + change))
+            revenue * (1 + change)
           }
         constants:
           L0: 339.2285
@@ -41,4 +41,3 @@ shocks:
           B1: 0.602
           B2: 0.455
           B3: 0.147
-

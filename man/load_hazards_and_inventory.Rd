@@ -27,7 +27,7 @@ Values > 1 spatially aggregate each raster on load so that tests can run with lo
 A list with two elements:
 \itemize{
 \item \code{hazards}: Named list of SpatRaster objects (combined from all sources)
-\item \code{inventory}: Tibble with columns: hazard_type, hazard_indicator, gwl,
+\item \code{inventory}: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
 return_period, hazard_name (unified format),
 ensemble (ensemble variant), source ("tif", "nc", or "csv")
 }

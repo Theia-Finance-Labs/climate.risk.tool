@@ -138,6 +138,28 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       assets_df
     }
 
+    drop_empty_columns <- function(df) {
+      if (is.null(df) || nrow(df) == 0 || ncol(df) == 0) {
+        return(df)
+      }
+
+      cols_to_keep <- purrr::map_lgl(names(df), function(col_name) {
+        col_data <- df[[col_name]]
+        
+        # For character columns, check for NA or empty strings
+        if (is.character(col_data)) {
+          # Check if there's at least one non-NA, non-empty value
+          has_content <- !is.na(col_data) & nzchar(col_data) > 0
+          any(has_content)
+        } else {
+          # For other types, check for at least one non-NA value
+          !all(is.na(col_data))
+        }
+      })
+
+      df[, cols_to_keep, drop = FALSE]
+    }
+
     extract_unique_hazards <- function(assets_df) {
       hazard_name_exists <- "hazard_name" %in% names(assets_df)
       hazard_type_exists <- "hazard_type" %in% names(assets_df)
@@ -238,10 +260,12 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
             ))
           }
 
+          # Drop empty columns for display only (download keeps all columns)
+          display_assets <- drop_empty_columns(formatted_assets)
           session$userData$hazard_tables_data[[idx]] <- formatted_assets
 
           DT::datatable(
-            formatted_assets,
+            display_assets,
             options = list(
               pageLength = 25,
               scrollX = TRUE

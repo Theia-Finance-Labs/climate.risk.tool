@@ -68,6 +68,14 @@ apply_acute_profit_shock <- function(
     event_assets <- event_assets |>
       dplyr::mutate(event_year = as.numeric(event$event_year))
 
+    # Join with yearly_trajectories to get baseline revenue/profit for the event year
+    event_assets <- event_assets |>
+      dplyr::left_join(
+        yearly_trajectories |>
+          dplyr::select("asset", "year", "revenue", "profit"),
+        by = c("asset" = "asset", "event_year" = "year")
+      )
+
     event_damage <- evaluate_hazard_shock(
       assets_event = event_assets,
       hazard_config = hazard_config,

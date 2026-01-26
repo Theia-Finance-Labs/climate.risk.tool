@@ -36,6 +36,25 @@ testthat::test_that("validate_input_coherence errors on empty hazard_configs", {
   )
 })
 
+testthat::test_that("validate_input_coherence errors on missing required input columns", {
+  assets <- data.frame(asset = "A1", company = "C1")
+  companies <- data.frame(company = "C1")
+
+  testthat::expect_error(
+    validate_input_coherence(
+      assets_df = assets,
+      companies_df = companies,
+      hazards_dir = get_hazards_dir(),
+      hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list()))),
+      precomputed_hazards_df = NULL,
+      adm1_names = character(0),
+      adm2_names = character(0),
+      events_df = NULL
+    ),
+    "missing required column"
+  )
+})
+
 testthat::test_that("validate_input_coherence does not error when assets with coords are in states missing precomputed data", {
   # Asset with coordinates in a state (e.g., Amapa)
   assets <- data.frame(
@@ -62,7 +81,7 @@ testthat::test_that("validate_input_coherence does not error when assets with co
     hazard_type = "Flood",
     hazard_indicator = "depth",
     hazard_name = "Flood__depth__GWL=present__RP=10__ensemble=mean",
-    gwl = "present",
+    scenario_name = "present",
     return_period = 10,
     event_year = 2030
   )
@@ -120,7 +139,7 @@ testthat::test_that("validate_input_coherence ERRORS when asset WITHOUT coords i
     hazard_type = "Flood",
     hazard_indicator = "depth",
     hazard_name = "Flood__depth__GWL=present__RP=10__ensemble=mean",
-    gwl = "present",
+    scenario_name = "present",
     return_period = 10,
     event_year = 2030
   )

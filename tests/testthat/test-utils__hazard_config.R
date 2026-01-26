@@ -8,7 +8,7 @@ testthat::test_that("read_hazard_config parses indicators and mappings", {
     "  depth:",
     "    file: flood_depth.nc",
     "    variable: depth",
-    "    index: [gwl, return_period]",
+    "    index: [scenario_name, return_period]",
     "    agg: median",
     "",
     "mappings:",
@@ -27,7 +27,7 @@ testthat::test_that("read_hazard_config parses indicators and mappings", {
   testthat::expect_true("depth" %in% names(config$indicators))
   testthat::expect_equal(config$indicators$depth$file, "flood_depth.nc")
   testthat::expect_equal(config$indicators$depth$variable, "depth")
-  testthat::expect_equal(config$indicators$depth$index, c("gwl", "return_period"))
+  testthat::expect_equal(config$indicators$depth$index, c("scenario_name", "return_period"))
   testthat::expect_equal(config$indicators$depth$agg, "median")
   testthat::expect_equal(config$primary_indicator, "depth")
 
@@ -42,8 +42,8 @@ testthat::test_that("load_hazard_configs reads configs from hazards folder", {
   temp_dir <- tempfile("hazards_root_")
   dir.create(temp_dir, recursive = TRUE, showWarnings = FALSE)
 
-  writeLines(c("indicators: {depth: {file: flood_depth.nc, variable: depth, agg: mean}}"), file.path(temp_dir, "Flood.yml"))
-  writeLines(c("indicators: {hi: {file: hi.nc, variable: hi, agg: mean}}"), file.path(temp_dir, "Heat.yml"))
+  writeLines(c("indicators: {depth: {file: flood_depth.nc, variable: depth, agg: mean, index: [return_period]}}"), file.path(temp_dir, "Flood.yml"))
+  writeLines(c("indicators: {hi: {file: hi.nc, variable: hi, agg: mean, index: [gwl]}}"), file.path(temp_dir, "Heat.yml"))
 
   registry <- load_hazard_configs(temp_dir)
 
@@ -62,7 +62,7 @@ testthat::test_that("load_hazard_configs reads hazard config YAML and normalizes
       depth = list(
         file = "flood_depth.nc",
         variable = "depth",
-        index = c("gwl", "return_period"),
+        index = c("scenario_name", "return_period"),
         agg = "median"
       )
     ),
@@ -93,10 +93,11 @@ testthat::test_that("load_hazard_configs reads hazard config YAML and normalizes
   testthat::expect_equal(depth_cfg$key, "depth")
   testthat::expect_equal(depth_cfg$file, "flood_depth.nc")
   testthat::expect_equal(depth_cfg$variable, "depth")
-  testthat::expect_equal(depth_cfg$index, c("gwl", "return_period"))
+  testthat::expect_equal(depth_cfg$index, c("scenario_name", "return_period"))
   testthat::expect_equal(depth_cfg$agg, "median")
   testthat::expect_false(depth_cfg$categorical)
   testthat::expect_true(is.list(depth_cfg$fixed))
+  testthat::expect_true(is.list(depth_cfg$inference))
 
   mapping_cfg <- flood_cfg$mappings$damage_and_cost_factors
   testthat::expect_equal(mapping_cfg$file, "damage_and_cost_factors.csv")
@@ -129,7 +130,7 @@ testthat::test_that("load_hazard_configs allows mappings without join keys", {
       days_hot_total = list(
         file = "hi.nc",
         variable = "days_hot_total",
-        index = c("gwl", "return_period"),
+        index = c("scenario_name", "return_period"),
         fixed = list(ensemble = "mean"),
         agg = "closest"
       )
@@ -160,7 +161,7 @@ testthat::test_that("load_hazard_configs deep-merges overrides when provided", {
       depth = list(
         file = "flood_depth.nc",
         variable = "depth",
-        index = c("gwl", "return_period"),
+        index = c("scenario_name", "return_period"),
         agg = "median"
       )
     ),
@@ -217,7 +218,7 @@ testthat::test_that("load_hazard_configs ignores missing override file", {
       depth = list(
         file = "flood_depth.nc",
         variable = "depth",
-        index = c("gwl", "return_period"),
+        index = c("scenario_name", "return_period"),
         agg = "median"
       )
     )

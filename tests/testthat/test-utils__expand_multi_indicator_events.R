@@ -24,7 +24,7 @@ testthat::test_that("expand_multi_indicator_events expands single Fire event int
     hazard_type = "Fire",
     hazard_indicator = "fwi", # Primary indicator
     hazard_name = "Fire__fwi__GWL=present__RP=10__ensemble=mean",
-    gwl = "present",
+    scenario_name = "present",
     return_period = 10,
     event_year = 2030,
     season = NA_character_
@@ -64,7 +64,7 @@ testthat::test_that("expand_multi_indicator_events sets correct scenario/RP for 
     hazard_type = "Fire",
     hazard_indicator = "fwi",
     hazard_name = "Fire__fwi__GWL=present__RP=10__ensemble=mean",
-    gwl = "present",
+    scenario_name = "present",
     return_period = 10,
     event_year = 2030,
     season = NA_character_
@@ -81,12 +81,12 @@ testthat::test_that("expand_multi_indicator_events sets correct scenario/RP for 
   # FWI and days_danger_total should use user-selected scenario/RP
   fwi_event <- expanded |> dplyr::filter(.data$hazard_indicator == "fwi")
   testthat::expect_equal(nrow(fwi_event), 1)
-  testthat::expect_equal(fwi_event$gwl[1], "present")
+  testthat::expect_equal(fwi_event$scenario_name[1], "present")
   testthat::expect_equal(fwi_event$return_period[1], 10)
 
   days_event <- expanded |> dplyr::filter(.data$hazard_indicator == "days_danger_total")
   testthat::expect_equal(nrow(days_event), 1)
-  testthat::expect_equal(days_event$gwl[1], "present")
+  testthat::expect_equal(days_event$scenario_name[1], "present")
   testthat::expect_equal(days_event$return_period[1], 10)
 })
 
@@ -106,7 +106,7 @@ testthat::test_that("expand_multi_indicator_events passes through single-indicat
     hazard_type = c("Flood", "Heat", "Drought"),
     hazard_indicator = c("depth", "hi", "spi3"),
     hazard_name = c("Flood__depth__GWL=rcp85__RP=10__ensemble=mean", "Heat__hi__GWL=present__RP=10__ensemble=mean", "Drought__spi3__GWL=present__RP=10__ensemble=mean"),
-    gwl = c("rcp85", "present", "present"),
+    scenario_name = c("rcp85", "present", "present"),
     return_period = c(10, 10, 10),
     event_year = c(2030, 2030, 2030),
     season = c(NA_character_, NA_character_, "Summer")
@@ -142,7 +142,7 @@ testthat::test_that("expand_multi_indicator_events preserves event metadata", {
     hazard_type = "Fire",
     hazard_indicator = "fwi",
     hazard_name = "Fire__fwi__GWL=present__RP=10__ensemble=mean",
-    gwl = "present",
+    scenario_name = "present",
     return_period = 10,
     event_year = 2030,
     season = "Summer" # Preserve this
@@ -172,7 +172,7 @@ testthat::test_that("expand_multi_indicator_events handles mixed multi and singl
     hazard_type = c("Fire", "Flood"),
     hazard_indicator = c("fwi", "depth"),
     hazard_name = c("Fire__fwi__GWL=present__RP=10__ensemble=mean", "Flood__depth__GWL=rcp85__RP=10__ensemble=mean"),
-    gwl = c("present", "rcp85"),
+    scenario_name = c("present", "rcp85"),
     return_period = c(10, 10),
     event_year = c(2030, 2030),
     season = c(NA_character_, NA_character_)
@@ -208,7 +208,7 @@ testthat::test_that("expand_multi_indicator_events handles empty events", {
     hazard_type = character(0),
     hazard_indicator = character(0),
     hazard_name = character(0),
-    gwl = character(0),
+    scenario_name = character(0),
     return_period = numeric(0),
     event_year = integer(0),
     season = character(0)

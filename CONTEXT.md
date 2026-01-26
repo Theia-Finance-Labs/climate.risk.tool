@@ -62,7 +62,8 @@ The tool uses a **unified hazard configuration architecture** that supports both
 Defined via `{base_dir}/hazards/config/<HazardName>.yml` files and loaded by `load_hazard_configs()` in `R/utils__hazard_config.R`.
 
 Each hazard config YAML declares:
-- optional `primary_indicator`
+- optional `primary_indicator` (indicator used for hazard-specific logic)
+- optional `index_indicator` (indicator used to populate UI indexing/filter dropdowns)
 - `indicators` (file, variable, index, fixed, agg, categorical)
 - `mappings` (file + join contracts using `on_indicator_index`/`on_indicator_intensity` + optional `variables` to select mapping columns)
 - `shocks` (equations for revenue/profit, optional `when` filters, optional `constants`)
@@ -88,6 +89,7 @@ Settings UI:
 Helper functions (config-driven):
 - `is_multi_indicator_hazard(hazard_configs, hazard_type)` → TRUE/FALSE
 - `get_primary_indicator(hazard_configs, hazard_type)` → indicator key
+- `get_index_indicator(hazard_configs, hazard_type)` → indicator key
 - `get_required_indicators(hazard_configs, hazard_type)` → vector of indicators
 
 #### UI Inventory Filtering
@@ -101,7 +103,7 @@ The `hazard_indicator` dimension is **completely hidden** from users.
 
 Implementation:
 1. `load_hazards_and_inventory()` loads full inventory (all indicators)
-2. `filter_inventory_for_ui()` filters to only primary indicators
+2. `filter_inventory_for_ui()` filters to only index indicators
 3. UI dropdowns populated from filtered inventory
 4. Multi-indicator complexity handled internally
 
@@ -203,18 +205,18 @@ Files:
 
 #### 4. `precomputed_adm_hazards.csv`
 Location: `{base_dir}/hazards/precomputed_adm_hazards.csv`
-Columns: region, adm_level (ADM1/ADM2), hazard_type, gwl, return_period, min, max, mean, median, p2_5, p5, p95, p97_5
+Columns: region, adm_level (ADM1/ADM2), hazard_type, scenario_name, return_period, min, max, mean, median, p2_5, p5, p95, p97_5
 
 Pre-aggregated hazard statistics for administrative regions. Eliminates need for GeoJSON boundary files.
 
-- Incremental refresh logic: `data-raw/precompute_hazards.py` drops any existing rows sharing the same (`region`, `adm_level`, `hazard_type`, `hazard_indicator`, `gwl`, `return_period`, `ensemble`, `season`) keys before appending newly computed results. This guarantees a clean overwrite when hazards are reprocessed.
+- Incremental refresh logic: `data-raw/precompute_hazards.py` drops any existing rows sharing the same (`region`, `adm_level`, `hazard_type`, `hazard_indicator`, `scenario_name`, `return_period`, `ensemble`, `season`) keys before appending newly computed results. This guarantees a clean overwrite when hazards are reprocessed.
 - Metadata alignment: `load_hazards_metadata(metadata_path)` (Python helper in `data-raw/precompute_hazards.py`) loads indicator-level `metadata.csv` files and enforces that GeoTIFF-derived scenario names and indicators use the curated metadata instead of filename heuristics.
 - Spatial index optimization: For each spatial chunk, uses `adm_gdf.sindex.intersection(chunk_bbox)` to find only overlapping regions (typically 5-10) instead of joining against all 5570 regions. Accumulates point→region mappings across chunks, then aggregates once at the end. This reduces spatial join overhead by ~1000x for large region datasets.
 - Coordinate cache helper: `build_coordinate_region_lookup(lats, lons, adm_gdf)` (Python helper in `data-raw/precompute_hazards.py`) constructs a reusable `lon`/`lat` → `region` lookup before iterating dimension chunks; it returns a DataFrame with columns (`lon`, `lat`, `region`) when the grid has ≤5M points and otherwise falls back to chunk-level spatial joins. This keeps spatial joins constant cost across every hazard dimension slice while staying memory-bounded.
 
 #### 5. `metadata.csv`
 Location: `{base_dir}/hazards/indicators/<indicator_folder>/metadata.csv`
-Columns: hazard_file, hazard_type, hazard_indicator, gwl, return_period
+Columns: hazard_file, hazard_type, hazard_indicator, scenario_name, return_period
 
 Maps GeoTIFF indicators to metadata for UI display and filtering.
 
@@ -319,7 +321,7 @@ Examples:
 - Loads NetCDF indicators from `{base_dir}/hazards/indicators/`
 - Loads GeoTIFF indicators from `{base_dir}/hazards/indicators/<indicator_folder>/`
 - Returns: `list(hazards = ..., inventory = tibble(...), configs = list(...))`
-- Inventory includes `gwl`, `return_period`, `agg`, `categorical`, `source`
+- Inventory includes `scenario_name`, `return_period`, `agg`, `categorical`, `source`
 
 **Application Usage:**
 ```r
@@ -338,8 +340,8 @@ configs <- hazard_data$configs
 ```
 
 **Naming Convention:**
-- NC: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
-- With season: `{hazard_type}__{indicator}__GWL={gwl}__RP={rp}__season={season}__ensemble=mean` (e.g., `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=mean`)
+- NC: `{hazard_type}__{indicator}__scenario_name={scenario_name}__RP={rp}__ensemble=mean` (e.g., `Drought__CDD__GWL=present__RP=10__ensemble=mean`)
+- With season: `{hazard_type}__{indicator}__scenario_name={scenario_name}__RP={rp}__season={season}__ensemble=mean` (e.g., `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=mean`)
 
 ### Geospatial Processing
 
@@ -432,7 +434,7 @@ configs <- hazard_data$configs
   3. Return Period (10, 100, 1000 years)
 - Shock year input
 - Add button, configured events table
-- Output: events dataframe with event_id, hazard_type, gwl, event_year
+- Output: events dataframe with event_id, hazard_type, scenario_name, event_year
 
 **`mod_results_assets`** - Asset-level results display
 
@@ -710,12 +712,12 @@ Assets output now includes drought metadata:
 
 **Damage Factor Matching**:
 - **Province**: Uses asset province for geographic matching
-- **GWL**: Uses gwl from events (matches gwl column in mapping tables)
+- **Scenario**: Uses scenario_name from events (matches scenario_name column in mapping tables)
 - **Metric Selection** (new): Based on sector CNAE code:
   - If asset has sector (CNAE code) and found in CNAE exposure file → use corresponding LP exposure value (high/median/low)
   - If sector is missing/NA → use "median" (default)
   - Exception: If sector is missing AND `asset_category == "agriculture"` → use "high"
-- **Join**: Matches on `hazard_type`, `province`, `gwl`, AND `metric` (not hardcoded to "median")
+- **Join**: Matches on `hazard_type`, `province`, `scenario_name`, AND `metric` (not hardcoded to "median")
 
 **Revenue Shock Formula**:
 - Uses Cobb-Douglas production function to calculate labor productivity loss
@@ -730,7 +732,7 @@ Assets output now includes drought metadata:
 **Data Requirements**:
 - `damage_and_cost_factors.csv` must include rows with:
   - `hazard_type = "Compound"`, `metric` in ("high", "median", "low")
-  - Columns: `province`, `gwl`, `metric`, `damage_factor`
+  - Columns: `province`, `scenario_name`, `metric`, `damage_factor`
 - `cnae_labor_productivity_exposure.xlsx` with columns: `cnae` (numeric), `sector`/`description`, `decision`/`lp_exposure` ("High"/"Median"/"Low" normalized to lowercase)
 - Assets should have `sector` column with numeric CNAE codes (no leading zeros, e.g., 6 not 06)
 

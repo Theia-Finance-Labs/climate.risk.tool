@@ -21,7 +21,7 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
 
   # Inventory should be a tibble/dataframe
   expect_s3_class(result$inventory, "data.frame")
-  expect_true(all(c("gwl", "return_period") %in% names(result$inventory)))
+  expect_true(all(c("scenario_name", "return_period") %in% names(result$inventory)))
 
   # Check if TIF hazards were loaded (if metadata.csv files exist in indicator folders)
   metadata_files <- list.files(
@@ -89,7 +89,7 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
   expect_true(any(grepl("hi", nc_names)))
 
   # Should have GWL values
-  expect_true(all(grepl("GWL=", nc_names)))
+    testthat::expect_true(all(grepl("scenario_name=", nc_names)))
 
   # Should have return period values
   expect_true(all(grepl("RP=", nc_names)))

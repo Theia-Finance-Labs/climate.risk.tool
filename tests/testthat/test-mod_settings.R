@@ -15,7 +15,7 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
       depth = list(
         file = "revealed_depth",
         variable = "depth",
-        index = c("gwl", "return_period"),
+        index = c("scenario_name", "return_period"),
         fixed = list(ensemble = "mean"),
         agg = "median",
         categorical = FALSE

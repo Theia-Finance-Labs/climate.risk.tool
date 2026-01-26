@@ -18,7 +18,7 @@ compute_shock_trajectories(
 
 \item{assets_with_factors}{tibble with hazard data and damage/cost factors}
 
-\item{events}{tibble with columns: event_id, hazard_type, hazard_name, gwl, return_period, event_year (or NA)}
+\item{events}{tibble with columns: event_id, hazard_type, hazard_name, scenario_name, return_period, event_year (or NA)}
 
 \item{hazard_configs}{Named list from load_hazards_and_inventory()$configs}
 

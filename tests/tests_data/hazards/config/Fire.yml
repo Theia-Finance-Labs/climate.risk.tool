@@ -4,18 +4,22 @@ indicators:
     variable: land_cover
     agg: mode
     categorical: true
+    inference:
+      default: 0.5
   fwi:
     file: fwi.nc
     variable: fwi
-    index: [gwl, return_period]
+    index: [scenario_name, return_period]
     fixed: { ensemble: mean }
     agg: closest
   days_danger_total:
     file: days_danger_total.nc
     variable: days_danger_total
-    index: [gwl, return_period]
+    index: [scenario_name, return_period]
     fixed: { ensemble: mean }
     agg: closest
+    inference:
+      default: 0
 
 mappings:
   ignition_factors:
@@ -23,7 +27,7 @@ mappings:
     variables: [damage_factor, cost_factor]
     intensity_match: closest
     join:
-      on_indicator_index: [gwl, return_period]
+      on_indicator_index: [scenario_name, return_period]
       on_assets: [asset_category]
       on_indicator_intensity: [fwi]
   land_cover_legend:
@@ -37,10 +41,9 @@ shocks:
     equations:
       - name: fire_agriculture
         when: "asset_category == 'agriculture'"
-        equation: "pmax(0, revenue * (1 - (dplyr::coalesce(land_cover_risk, 0.5) * damage_factor * (dplyr::coalesce(days_danger_total, 0) / 365))))"
+        equation: "revenue ~ revenue * (1 - (land_cover_risk * damage_factor * (days_danger_total / 365)))"
   profit:
     equations:
       - name: fire_buildings
         when: "asset_category %in% c('commercial building', 'industrial building')"
-        equation: "dplyr::coalesce(land_cover_risk, 0.5) * damage_factor * (dplyr::coalesce(days_danger_total, 0) / 365) * cost_factor"
-
+        equation: "profit ~ profit - (land_cover_risk * damage_factor * (days_danger_total / 365) * cost_factor)"
