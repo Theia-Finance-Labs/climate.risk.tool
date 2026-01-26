@@ -229,7 +229,7 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
 
       intensity_match <- mapping$intensity_match
       if (is.null(intensity_match) || !nzchar(as.character(intensity_match))) {
-        intensity_match <- "exact"
+        intensity_match <- "closest"
       }
 
       mappings[[mapping_key]] <- list(

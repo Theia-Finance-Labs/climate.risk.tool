@@ -22,8 +22,8 @@ testthat::test_that("expand_multi_indicator_events expands single Fire event int
   events <- tibble::tibble(
     event_id = "event_fire_1",
     hazard_type = "Fire",
-    hazard_indicator = "fwi", # Primary indicator
-    hazard_name = "Fire__fwi__GWL=present__RP=10__ensemble=mean",
+    hazard_indicator = "fire_weather_index", # Primary indicator
+    hazard_name = "Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean",
     scenario_name = "present",
     return_period = 10,
     event_year = 2030,
@@ -44,7 +44,7 @@ testthat::test_that("expand_multi_indicator_events expands single Fire event int
   # Should have all three indicators
   indicators <- unique(expanded$hazard_indicator)
   testthat::expect_true("land_cover" %in% indicators)
-  testthat::expect_true("fwi" %in% indicators)
+  testthat::expect_true("fire_weather_index" %in% indicators)
   testthat::expect_true("days_danger_total" %in% indicators)
 })
 
@@ -62,8 +62,8 @@ testthat::test_that("expand_multi_indicator_events sets correct scenario/RP for 
   events <- tibble::tibble(
     event_id = "event_fire_1",
     hazard_type = "Fire",
-    hazard_indicator = "fwi",
-    hazard_name = "Fire__fwi__GWL=present__RP=10__ensemble=mean",
+    hazard_indicator = "fire_weather_index",
+    hazard_name = "Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean",
     scenario_name = "present",
     return_period = 10,
     event_year = 2030,
@@ -79,7 +79,7 @@ testthat::test_that("expand_multi_indicator_events sets correct scenario/RP for 
   testthat::expect_true(grepl("land_cover", land_cover_event$hazard_name[1], fixed = TRUE))
 
   # FWI and days_danger_total should use user-selected scenario/RP
-  fwi_event <- expanded |> dplyr::filter(.data$hazard_indicator == "fwi")
+  fwi_event <- expanded |> dplyr::filter(.data$hazard_indicator == "fire_weather_index")
   testthat::expect_equal(nrow(fwi_event), 1)
   testthat::expect_equal(fwi_event$scenario_name[1], "present")
   testthat::expect_equal(fwi_event$return_period[1], 10)
@@ -104,8 +104,8 @@ testthat::test_that("expand_multi_indicator_events passes through single-indicat
   events <- tibble::tibble(
     event_id = c("event_flood_1", "event_compound_1", "event_drought_1"),
     hazard_type = c("Flood", "Heat", "Drought"),
-    hazard_indicator = c("depth", "hi", "spi3"),
-    hazard_name = c("Flood__depth__GWL=rcp85__RP=10__ensemble=mean", "Heat__hi__GWL=present__RP=10__ensemble=mean", "Drought__spi3__GWL=present__RP=10__ensemble=mean"),
+    hazard_indicator = c("flood_depth", "heat_index", "standardized_precipitation_index_3"),
+    hazard_name = c("Flood__flood_depth__GWL=rcp85__RP=10__ensemble=mean", "Heat__heat_index__GWL=present__RP=10__ensemble=mean", "Drought__standardized_precipitation_index_3__GWL=present__RP=10__ensemble=mean"),
     scenario_name = c("rcp85", "present", "present"),
     return_period = c(10, 10, 10),
     event_year = c(2030, 2030, 2030),
@@ -140,8 +140,8 @@ testthat::test_that("expand_multi_indicator_events preserves event metadata", {
   events <- tibble::tibble(
     event_id = "event_fire_1",
     hazard_type = "Fire",
-    hazard_indicator = "fwi",
-    hazard_name = "Fire__fwi__GWL=present__RP=10__ensemble=mean",
+    hazard_indicator = "fire_weather_index",
+    hazard_name = "Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean",
     scenario_name = "present",
     return_period = 10,
     event_year = 2030,
@@ -170,8 +170,8 @@ testthat::test_that("expand_multi_indicator_events handles mixed multi and singl
   events <- tibble::tibble(
     event_id = c("event_fire_1", "event_flood_1"),
     hazard_type = c("Fire", "Flood"),
-    hazard_indicator = c("fwi", "depth"),
-    hazard_name = c("Fire__fwi__GWL=present__RP=10__ensemble=mean", "Flood__depth__GWL=rcp85__RP=10__ensemble=mean"),
+    hazard_indicator = c("fire_weather_index", "flood_depth"),
+    hazard_name = c("Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean", "Flood__flood_depth__GWL=rcp85__RP=10__ensemble=mean"),
     scenario_name = c("present", "rcp85"),
     return_period = c(10, 10),
     event_year = c(2030, 2030),

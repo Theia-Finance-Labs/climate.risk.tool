@@ -52,7 +52,7 @@ testthat::test_that("apply_acute_revenue_shock applies Heat shocks with Cobb-Dou
   assets_factors <- data.frame(
     asset = "A1",
     hazard_type = "Heat",
-    hi = 50, # days with extreme heat
+    heat_index = 50, # days with extreme heat
     damage_factor = -0.042, # labor productivity loss (negative)
     event_id = "event_1",
     asset_category = "commercial building" # Heat doesn't use this but include for consistency

@@ -104,7 +104,7 @@ testthat::test_that("load_hazard_configs reads hazard config YAML and normalizes
   testthat::expect_equal(mapping_cfg$join$on_indicator_intensity, c("depth"))
   testthat::expect_equal(mapping_cfg$join$on_indicator_index, c("return_period"))
   testthat::expect_equal(mapping_cfg$join$on_assets, c("asset_category"))
-  testthat::expect_equal(mapping_cfg$intensity_match, "exact")
+  testthat::expect_equal(mapping_cfg$intensity_match, "closest")
 })
 
 testthat::test_that("load_hazard_configs errors on missing required keys", {

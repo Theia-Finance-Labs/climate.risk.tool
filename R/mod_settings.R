@@ -323,12 +323,7 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
           if (!is.null(hazard_cfg$mappings) && length(hazard_cfg$mappings) > 0) {
             mappings_ui <- lapply(names(hazard_cfg$mappings), function(mapping_key) {
               mapping_cfg <- hazard_cfg$mappings[[mapping_key]]
-              mapping_id <- safe_id(mapping_key)
               intensity_match <- mapping_cfg$intensity_match
-              intensity_choices <- c("exact", "closest")
-              if (!is.null(intensity_match) && !intensity_match %in% intensity_choices) {
-                intensity_choices <- unique(c(intensity_match, intensity_choices))
-              }
 
               join_cfg <- mapping_cfg$join
               on_indicator_intensity <- character(0)
@@ -356,19 +351,13 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
                   settings_row("Indicator index keys", on_indicator_index),
                   settings_row("Asset keys", on_assets)
                 ),
-                if (!is.null(intensity_match) && length(on_indicator_intensity) > 0) {
-                  settings_row(
-                    "Intensity Match",
-                    shiny::selectInput(
-                      ns(paste0("mapping_intensity_match__", hazard_id, "__", mapping_id)),
-                      label = NULL,
-                      choices = intensity_choices,
-                      selected = intensity_match,
-                      width = "100%"
-                    )
-                  )
-                } else if (!is.null(intensity_match)) {
-                  settings_row("Intensity match", paste0(intensity_match, " (No intensity keys)"))
+                if (!is.null(intensity_match)) {
+                  display_val <- if (length(on_indicator_intensity) > 0) {
+                    as.character(intensity_match)
+                  } else {
+                    paste0(intensity_match, " (No intensity keys)")
+                  }
+                  settings_row("Intensity match", display_val)
                 }
               )
             })
@@ -578,24 +567,6 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
 
         if (length(indicator_overrides) > 0) {
           hazard_override$indicators <- indicator_overrides
-        }
-
-        mapping_overrides <- list()
-        if (!is.null(base_config$mappings) && length(base_config$mappings) > 0) {
-          for (mapping_key in names(base_config$mappings)) {
-            base_mapping <- base_config$mappings[[mapping_key]]
-            if (!is.null(base_mapping$intensity_match)) {
-              mapping_id <- safe_id(mapping_key)
-              intensity_input <- input[[paste0("mapping_intensity_match__", hazard_id, "__", mapping_id)]]
-              if (!is.null(intensity_input) && intensity_input != base_mapping$intensity_match) {
-                mapping_overrides[[mapping_key]] <- list(intensity_match = intensity_input)
-              }
-            }
-          }
-        }
-
-        if (length(mapping_overrides) > 0) {
-          hazard_override$mappings <- mapping_overrides
         }
 
         hazard_override <- drop_nulls(hazard_override)

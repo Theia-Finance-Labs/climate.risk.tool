@@ -24,7 +24,6 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
     mappings = list(
       damage_and_cost_factors = list(
         file = "damage_and_cost_factors.csv",
-        intensity_match = "closest",
         join = list(
           on_indicator_intensity = c("depth"),
           on_indicator_index = c("return_period"),
@@ -52,13 +51,11 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
 
     hazard_id <- safe_id("Flood")
     indicator_id <- safe_id("depth")
-    mapping_id <- safe_id("damage_and_cost_factors")
     fixed_id <- safe_id("ensemble")
 
     inputs <- list()
     inputs[[paste0("indicator_agg__", hazard_id, "__", indicator_id)]] <- "mean"
     inputs[[paste0("fixed__", hazard_id, "__", indicator_id, "__", fixed_id)]] <- "median"
-    inputs[[paste0("mapping_intensity_match__", hazard_id, "__", mapping_id)]] <- "exact"
     inputs[["save_overrides"]] <- 1
     do.call(session$setInputs, inputs)
     session$flushReact()
@@ -69,7 +66,7 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
     overrides <- yaml::read_yaml(override_path)
     testthat::expect_equal(overrides$Flood$indicators$depth$agg, "mean")
     testthat::expect_equal(overrides$Flood$indicators$depth$fixed$ensemble, "median")
-    testthat::expect_equal(overrides$Flood$mappings$damage_and_cost_factors$intensity_match, "exact")
+    testthat::expect_true(is.null(overrides$Flood$mappings))
     testthat::expect_true(is.null(overrides$Flood$primary_indicator))
 
     session$setInputs(reset_overrides = 1)

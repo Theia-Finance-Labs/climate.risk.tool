@@ -82,7 +82,7 @@ Overrides:
 
 Settings UI:
 - The app includes a **Settings** tab for editing override parameters
-- Editable fields: indicator `agg`/`categorical`/`fixed`, mapping `intensity_match`
+- Editable fields: indicator `agg`/`categorical`/`fixed`
 - Saving writes `{base_dir}/hazards/config_overrides.yml` and triggers hazard reload
 - Reset wipes the override file (writes empty) to restore defaults
 

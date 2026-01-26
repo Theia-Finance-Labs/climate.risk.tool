@@ -5,29 +5,29 @@ indicators:
     agg: mode
     categorical: true
     inference:
-      default: 0.5
-  fwi:
-    file: fwi.nc
+      default: 0.5    
+  fire_weather_index:
+    file: fire_weather_index.nc
     variable: fwi
-    index: [scenario_name, return_period]
+    index: [gwl, return_period]
     fixed: { ensemble: mean }
     agg: closest
   days_danger_total:
     file: days_danger_total.nc
     variable: days_danger_total
-    index: [scenario_name, return_period]
+    index: [gwl, return_period]
     fixed: { ensemble: mean }
     agg: closest
     inference:
-      default: 0
+      default: 0    
+
+index_indicator: fire_weather_index
 
 mappings:
   ignition_factors:
     file: ignition_factors.csv
     variables: [damage_factor, cost_factor]
-    intensity_match: closest
     join:
-      on_indicator_index: [scenario_name, return_period]
       on_assets: [asset_category]
       on_indicator_intensity: [fwi]
   land_cover_legend:

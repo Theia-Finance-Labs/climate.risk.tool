@@ -1,18 +1,19 @@
 indicators:
-  spi3:
-    file: spi3.nc
+  standardized_precipitation_index_3:
+    file: standardized_precipitation_index_3.nc
     variable: spi3
-    index: [scenario_name, return_period, season]
+    index: [gwl, return_period, season]
     fixed: { ensemble: mean }
     agg: closest
+
+index_indicator: standardized_precipitation_index_3
 
 mappings:
   drought_sensitivity:
     file: drought_factors.csv
     variables: [damage_factor]
-    intensity_match: closest
     join:
-      on_indicator_index: [scenario_name, season]
+      on_indicator_index: [season]
       on_assets: [asset_subtype, state]
       on_indicator_intensity: [spi3]
 
