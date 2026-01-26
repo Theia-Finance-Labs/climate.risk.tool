@@ -204,7 +204,7 @@ compute_risk <- function(assets,
 
   # Filter hazards to only those referenced by events
   # Note: For multi-indicator hazards (Fire), this will internally expand to load all required indicators
-  # Note: For NC hazards, only the median ensemble is loaded by default
+  # Note: For NC hazards, only the mean ensemble is loaded by default
   hazards <- filter_hazards_by_events(hazards, events, hazards_inventory, hazard_configs)
 
 
@@ -213,9 +213,9 @@ compute_risk <- function(assets,
   # ============================================================================
 
   # Filter inventory to match filtered hazards (prevent warnings about unfound hazards)
-  filtered_hazard_names <- names(hazards)
+  filtered_hazard_keys <- names(hazards)
   filtered_inventory <- hazards_inventory |>
-    dplyr::filter(.data$hazard_name %in% filtered_hazard_names)
+    dplyr::filter(.data$indicator_key %in% filtered_hazard_keys)
 
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/state only

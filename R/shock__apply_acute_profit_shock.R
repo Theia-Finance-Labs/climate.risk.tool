@@ -69,10 +69,12 @@ apply_acute_profit_shock <- function(
       dplyr::mutate(event_year = as.numeric(event$event_year))
 
     # Join with yearly_trajectories to get baseline revenue/profit for the event year
+    # Ensure profit is numeric to avoid type mismatch
     event_assets <- event_assets |>
       dplyr::left_join(
         yearly_trajectories |>
-          dplyr::select("asset", "year", "revenue", "profit"),
+          dplyr::select("asset", "year", "revenue", "profit") |>
+          dplyr::mutate(profit = as.numeric(.data$profit)),
         by = c("asset" = "asset", "event_year" = "year")
       )
 

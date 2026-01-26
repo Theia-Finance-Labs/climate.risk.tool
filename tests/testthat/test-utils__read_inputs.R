@@ -90,8 +90,9 @@ testthat::test_that("read_companies handles missing file gracefully", {
 # Contract:
 # - read_precomputed_hazards(base_dir) -> data.frame
 # - Reads precomputed_adm_hazards.csv from base_dir/hazards/
-# - Returns data frame with columns: region, adm_level, scenario_code, gwl,
-#   return_period, hazard_type, min, max, mean, median, p2_5, p5, p95, p97_5
+# - Maps indicator_file/indicator_variable to hazard_type + hazard_indicator from config
+# - Returns data frame with columns: region, adm_level, scenario_name, return_period,
+#   hazard_type, hazard_indicator, hazard_name, aggregation_method, hazard_value
 # - adm_level values: "ADM1" (province), "ADM2" (municipality)
 # - Used to look up hazard statistics for assets matched by municipality or province name
 
@@ -106,9 +107,9 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
 
   # Should have required columns
   required_cols <- c(
-        "region", "adm_level", "scenario_name",
-    "return_period", "hazard_type", "hazard_name",
-    "aggregation_method", "hazard_value"
+    "region", "adm_level", "scenario_name",
+    "return_period", "hazard_type", "hazard_indicator",
+    "hazard_name", "hazard_key", "aggregation_method", "hazard_value"
   )
   testthat::expect_true(all(required_cols %in% names(precomputed)))
 
@@ -126,6 +127,16 @@ testthat::test_that("read_precomputed_hazards loads CSV and returns expected str
   
   # aggregation_method should contain the summary statistics
   testthat::expect_true(all(c("mean", "median") %in% unique(precomputed$aggregation_method)))
+  
+  # scenario_name should be populated (from scenario_name or gwl)
+  testthat::expect_false(any(is.na(precomputed$scenario_name)))
+  
+  # hazard_type and hazard_indicator should be mapped from config
+  testthat::expect_true(all(c("Flood", "Drought", "Fire", "Heat") %in% unique(precomputed$hazard_type)))
+  testthat::expect_true(all(c("flood_depth", "standardized_precipitation_index_3", "fire_weather_index", "heat_index") %in% unique(precomputed$hazard_indicator)))
+
+  # hazard_key should be built from precomputed columns
+  testthat::expect_false(any(is.na(precomputed$hazard_key)))
 })
 
 

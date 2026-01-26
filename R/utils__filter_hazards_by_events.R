@@ -1,28 +1,17 @@
-#' Filter hazards by events with NC ensemble handling
+#' Filter hazards by events using indicator keys
 #'
 #' @title Filter hazard rasters to match event requirements
 #' @description Filters a list of hazard rasters to only those referenced by events.
-#'   For NC hazards, only the 'mean' ensemble is loaded by default, so filtering
-#'   matches the base hazard name without ensemble suffix.
+#'   Uses hazards_inventory to map event-driven hazard selection to indicator_key,
+#'   which is the internal key used to index raster hazards.
 #'   For multi-indicator hazards (Fire), internally expands to load all required indicators.
 #'
 #' @param hazards Named list of SpatRaster objects (from load_hazards_and_inventory())
-#' @param events Data frame with event specifications including hazard_name column
-#' @param hazards_inventory Optional. Hazard inventory for multi-indicator expansion. If NULL, assumes single-indicator only.
-#' @param hazard_configs Optional. Hazard config registry from load_hazards_and_inventory()$configs
+#' @param events Data frame with event specifications including hazard_type/scenario/return_period
+#' @param hazards_inventory Hazard inventory from load_hazards_and_inventory()
+#' @param hazard_configs Hazard config registry from load_hazards_and_inventory()$configs
 #'
 #' @return Named list of filtered SpatRaster objects
-#'
-#' @details
-#' The function handles NetCDF hazard filtering:
-#'
-#' **NC hazards**: Base name matching
-#' - If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the mean ensemble:
-#'   - Drought__CDD__GWL=present__RP=5__ensemble=mean (loaded as mean ensemble by default)
-#' - If event already specifies "__ensemble=mean", strips the ensemble suffix and matches base name
-#'
-#' This simplified approach avoids loading multiple ensemble variants and focuses on
-#' the mean ensemble as the representative value for each hazard scenario.
 #'
 #' @examples
 #' \dontrun{
@@ -47,10 +36,16 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, 
 
   available_names <- names(hazards)
 
-  # Use hazard configs to expand to all indicators (not just primary)
-  if (!is.null(hazards_inventory) && "hazard_type" %in% names(events) && !is.null(hazard_configs)) {
-    desired_names <- character()
+  if (is.null(hazards_inventory) || nrow(hazards_inventory) == 0) {
+    stop("hazards_inventory is required to filter hazards by events.")
+  }
+  if (is.null(hazard_configs)) {
+    stop("hazard_configs is required to filter hazards by events.")
+  }
 
+  desired_keys <- character()
+
+  if (!is.null(events) && nrow(events) > 0 && "hazard_type" %in% names(events)) {
     for (i in seq_len(nrow(events))) {
       event <- events[i, ]
       required_indicators <- get_required_indicators(hazard_configs, event$hazard_type)
@@ -67,7 +62,7 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, 
 
         index_cols <- hazard_configs[[event$hazard_type]]$indicators[[indicator]]$index
         if (length(index_cols) == 0) {
-          desired_names <- c(desired_names, matched$hazard_name[1])
+          desired_keys <- c(desired_keys, matched$indicator_key[1])
           next
         }
 
@@ -101,66 +96,19 @@ filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, 
         }
 
         if (nrow(filtered) > 0) {
-          desired_names <- c(desired_names, filtered$hazard_name)
+          desired_keys <- c(desired_keys, filtered$indicator_key)
         }
       }
     }
-
-    desired_names <- unique(desired_names)
-  } else {
-    # Fallback: no inventory provided, use hazard_name as-is
-    desired_names <- events |>
-      dplyr::distinct(.data$hazard_name) |>
-      dplyr::pull(.data$hazard_name) |>
-      as.character() |>
-      unique()
   }
 
-  # Exact matches (for NC hazards with mean ensemble)
-  exact_matches <- available_names[available_names %in% desired_names]
-
-  # Pattern matches for NC hazards (base event name matches)
-  # Since we only load mean ensemble, we match base names directly
-  pattern_matches <- character()
-  for (desired in desired_names) {
-    desired <- as.character(desired)
-
-    # Normalize requested ensemble (or missing ensemble) to loaded ensemble=mean
-    desired_mean <- if (grepl("__ensemble=", desired)) {
-      sub("__ensemble=.*$", "__ensemble=mean", desired)
-    } else {
-      paste0(desired, "__ensemble=mean")
-    }
-
-    # Also consider the base event name (without ensemble suffix)
-    base_event <- sub("__ensemble=.*$", "", desired)
-    # Handle old GWL= naming in desired_names if they come from old event data
-    base_event <- sub("__GWL=", "__scenario_name=", base_event)
-    base_event_mean <- paste0(base_event, "__ensemble=mean")
-
-    candidates <- unique(c(desired, desired_mean, base_event, base_event_mean))
-    matched <- candidates[candidates %in% available_names]
-
-    if (length(matched) > 0) {
-      # Prefer the mean-ensemble match if available
-      if (desired_mean %in% matched) {
-        pattern_matches <- c(pattern_matches, desired_mean)
-      } else if (base_event_mean %in% matched) {
-        pattern_matches <- c(pattern_matches, base_event_mean)
-      } else {
-        pattern_matches <- c(pattern_matches, matched[1])
-      }
-    }
-  }
-
-  # Combine exact and pattern matches
-  selected_names <- unique(c(exact_matches, pattern_matches))
-  filtered_hazards <- hazards[selected_names]
+  desired_keys <- unique(desired_keys)
+  filtered_hazards <- hazards[available_names %in% desired_keys]
 
   message(
-    "[filter_hazards_by_events] Filtered hazards: ", length(selected_names),
+    "[filter_hazards_by_events] Filtered hazards: ", length(names(filtered_hazards)),
     " hazard layers selected from ", length(available_names),
-    " available (", length(desired_names), " events requested)"
+    " available (", nrow(events), " events requested)"
   )
 
   return(filtered_hazards)

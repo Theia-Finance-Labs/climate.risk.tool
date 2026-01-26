@@ -464,11 +464,12 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
 #' @description Reads precomputed hazard statistics from CSV file containing hazard data
 #'   aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard
 #'   values for assets without coordinates but with province or municipality information.
+#'   The file uses indicator metadata (`indicator_file`, `indicator_variable`) which are mapped
+#'   to `hazard_type` and `hazard_indicator` using the hazard config YAML files.
 #' @param base_dir Character string specifying the base directory. The function looks for precomputed_adm_hazards.csv in base_dir/hazards/
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
-#'   scenario_name, return_period, hazard_type, min, max, mean, median,
-#'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
-#'   Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
+#'   scenario_name, return_period, hazard_type, hazard_indicator, hazard_name,
+#'   aggregation_method, hazard_value. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
 #' @examples
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
@@ -494,9 +495,16 @@ read_precomputed_hazards <- function(base_dir) {
   precomputed_df <- readr::read_csv(
     precomputed_path,
     col_types = readr::cols(
-      region = "c", adm_level = "c", scenario_name = "c",
-      return_period = "d", hazard_type = "c", hazard_indicator = "c",
-      ensemble = "c", season = "c", .default = "d"
+      region = "c",
+      adm_level = "c",
+      gwl = "c",
+      return_period = "d",
+      indicator_file = "c",
+      indicator_variable = "c",
+      ensemble = "c",
+      season = "c",
+      scenario_name = "c",
+      .default = "d"
     ),
     show_col_types = FALSE,
     lazy = FALSE,
@@ -505,46 +513,108 @@ read_precomputed_hazards <- function(base_dir) {
     tibble::as_tibble() |>
     dplyr::rename_with(to_snake_case)
 
-  message("  File read complete (", nrow(precomputed_df), " rows). Normalizing indicators...")
+  message("  File read complete (", nrow(precomputed_df), " rows). Mapping indicators from config...")
 
-  # Optimization: Use Unique-Mapping for expensive string operations
-  # This avoids millions of string manipulations and regex calls
-  
-  # 1. Normalize hazard_indicator
-  if ("hazard_indicator" %in% names(precomputed_df)) {
-    unique_inds <- unique(precomputed_df$hazard_indicator)
-    unique_inds_lower <- tolower(unique_inds)
-    ind_mapping <- dplyr::case_when(
-      unique_inds_lower == "hi" ~ "hi",
-      unique_inds_lower == "fwi" ~ "fwi",
-      unique_inds_lower == "spi3" ~ "spi3",
-      grepl("depth", unique_inds_lower, fixed = TRUE) ~ "depth",
-      TRUE ~ unique_inds_lower
-    )
-    names(ind_mapping) <- unique_inds
-    precomputed_df$hazard_indicator <- ind_mapping[precomputed_df$hazard_indicator]
+  # Load hazard configs to map indicator metadata -> hazard_type + hazard_indicator
+  hazards_dir <- file.path(base_dir, "hazards", "config")
+  hazard_configs <- load_hazard_configs(hazards_dir)
+
+  normalize_indicator_file <- function(x) {
+    x <- gsub("/+$", "", as.character(x))
+    tools::file_path_sans_ext(x)
   }
 
-  # 2. Normalize hazard_type
-  if ("hazard_type" %in% names(precomputed_df)) {
-    unique_types <- unique(precomputed_df$hazard_type)
-    type_mapping <- stringr::str_to_title(tolower(unique_types))
-    names(type_mapping) <- unique_types
-    precomputed_df$hazard_type <- type_mapping[precomputed_df$hazard_type]
-  } else {
-    precomputed_df$hazard_type <- NA_character_
+  indicator_registry <- lapply(names(hazard_configs), function(hazard_type) {
+    hazard_config <- hazard_configs[[hazard_type]]
+    lapply(names(hazard_config$indicators), function(indicator_key) {
+      indicator <- hazard_config$indicators[[indicator_key]]
+      tibble::tibble(
+        hazard_type = hazard_type,
+        hazard_indicator = indicator_key,
+        indicator_file = indicator$file,
+        indicator_variable = indicator$variable,
+        variable = indicator$variable,
+        agg = indicator$agg,
+        categorical = indicator$categorical
+      )
+    }) |>
+      dplyr::bind_rows()
+  }) |>
+    dplyr::bind_rows() |>
+    dplyr::mutate(indicator_file_key = normalize_indicator_file(.data$indicator_file))
+
+  precomputed_df <- precomputed_df |>
+    dplyr::mutate(
+      indicator_file_key = normalize_indicator_file(.data$indicator_file),
+      scenario_name = dplyr::na_if(as.character(.data$scenario_name), "NA"),
+      scenario_name = dplyr::na_if(.data$scenario_name, ""),
+      scenario_name = dplyr::coalesce(.data$scenario_name, as.character(.data$gwl)),
+      season = dplyr::na_if(as.character(.data$season), "NA"),
+      ensemble = dplyr::na_if(as.character(.data$ensemble), "NA"),
+      ensemble = dplyr::na_if(.data$ensemble, ""),
+      ensemble = dplyr::coalesce(.data$ensemble, "mean")
+    ) |>
+    dplyr::left_join(
+      indicator_registry |>
+        dplyr::select(
+          "indicator_file_key",
+          "hazard_type",
+          "hazard_indicator",
+          "variable",
+          "agg",
+          "categorical"
+        ),
+      by = "indicator_file_key"
+    )
+
+  # Fallback mapping by indicator_variable if file matching failed
+  is_unmapped <- is.na(precomputed_df$hazard_type)
+  if (any(is_unmapped)) {
+    fallback_registry <- indicator_registry |>
+      dplyr::distinct(.data$indicator_variable, .data$hazard_type, .data$hazard_indicator, .data$variable, .data$agg, .data$categorical)
+
+    fallback_df <- precomputed_df[is_unmapped, ] |>
+      dplyr::left_join(
+        fallback_registry,
+        by = c("indicator_variable" = "indicator_variable"),
+        suffix = c("", "_fallback")
+      )
+
+    precomputed_df$hazard_type[is_unmapped] <- fallback_df$hazard_type_fallback
+    precomputed_df$hazard_indicator[is_unmapped] <- fallback_df$hazard_indicator_fallback
+    precomputed_df$variable[is_unmapped] <- fallback_df$variable_fallback
+    precomputed_df$agg[is_unmapped] <- fallback_df$agg_fallback
+    precomputed_df$categorical[is_unmapped] <- fallback_df$categorical_fallback
   }
 
-  # 3. Infer missing hazard_type
-  is_missing_type <- is.na(precomputed_df$hazard_type)
-  if (any(is_missing_type)) {
-    precomputed_df$hazard_type[is_missing_type] <- dplyr::case_when(
-      precomputed_df$hazard_indicator[is_missing_type] == "hi" ~ "Heat",
-      precomputed_df$hazard_indicator[is_missing_type] == "fwi" ~ "Fire",
-      precomputed_df$hazard_indicator[is_missing_type] == "spi3" ~ "Drought",
-      precomputed_df$hazard_indicator[is_missing_type] == "depth" ~ "Flood",
-      TRUE ~ precomputed_df$hazard_type[is_missing_type]
+  if (any(is.na(precomputed_df$hazard_indicator))) {
+    missing_rows <- precomputed_df |>
+      dplyr::filter(is.na(.data$hazard_indicator)) |>
+      dplyr::distinct(.data$indicator_file, .data$indicator_variable)
+    stop(
+      "Could not resolve hazard_indicator for: ",
+      paste(
+        paste0(missing_rows$indicator_file, " (", missing_rows$indicator_variable, ")"),
+        collapse = ", "
+      )
     )
+  }
+
+  if (any(is.na(precomputed_df$hazard_type))) {
+    missing_rows <- precomputed_df |>
+      dplyr::filter(is.na(.data$hazard_type)) |>
+      dplyr::distinct(.data$indicator_file, .data$indicator_variable)
+    stop(
+      "Could not map indicator metadata to hazard config. Missing mappings for: ",
+      paste(
+        paste0(missing_rows$indicator_file, " (", missing_rows$indicator_variable, ")"),
+        collapse = ", "
+      )
+    )
+  }
+
+  if (any(is.na(precomputed_df$scenario_name))) {
+    stop("scenario_name is missing for some rows; ensure scenario_name or gwl is provided")
   }
 
   message("  Deduplicating...")
@@ -572,36 +642,78 @@ read_precomputed_hazards <- function(base_dir) {
 
   # 4. Optimized hazard_name construction using unique combinations
   message("  Building hazard names...")
-  distinct_cols <- c("hazard_type", "hazard_indicator", "scenario_name", "return_period")
+  
+  # Ensure variable is set (prefer config variable, fallback to indicator_variable or hazard_indicator)
+  if (!"variable" %in% names(precomputed_df)) {
+    precomputed_df$variable <- NA_character_
+  }
+  precomputed_df <- precomputed_df |>
+    dplyr::mutate(
+      variable = dplyr::coalesce(.data$variable, .data$indicator_variable, .data$hazard_indicator)
+    )
+
+  distinct_cols <- c(
+    "hazard_type",
+    "hazard_indicator",
+    "variable",
+    "scenario_name",
+    "return_period",
+    "indicator_file",
+    "indicator_variable",
+    "ensemble"
+  )
   if (has_season) distinct_cols <- c(distinct_cols, "season")
   
   combos <- precomputed_df |>
     dplyr::distinct(dplyr::across(dplyr::any_of(distinct_cols)))
   
-  combo_season_suffix <- ""
-  if (has_season) {
-    combo_season_suffix <- dplyr::if_else(
-      !is.na(combos$season) & combos$season != "",
-      paste0("__season=", combos$season),
-      ""
+  # Construct structured hazard_name for each combination
+  combos$indicator_key <- purrr::pmap_chr(combos, function(...) {
+    row <- list(...)
+    
+    # Map internal labels to standard names for build_indicator_key
+    index_values <- list(
+      return_period = if (!is.na(row$return_period)) row$return_period else NA_real_,
+      gwl = if ("gwl" %in% names(row) && !is.na(row$gwl)) row$gwl else NA_character_,
+      scenario_name = if (!is.na(row$scenario_name)) row$scenario_name else NA_character_,
+      season = if (has_season && !is.na(row$season)) row$season else NA_character_
     )
-  }
-  
-  combos <- combos |>
-    dplyr::mutate(
-      hazard_name = paste0(
-        .data$hazard_type, "__", .data$hazard_indicator,
-        "__scenario_name=", .data$scenario_name,
-        "__RP=", .data$return_period,
-        combo_season_suffix,
-        "__ensemble=mean"
-      )
+    
+    build_indicator_key(
+      indicator_file = row$indicator_file,
+      indicator_variable = row$indicator_variable,
+      index_values = index_values,
+      ensemble = row$ensemble
     )
+  })
+
+  combos$hazard_name <- purrr::pmap_chr(combos, function(...) {
+    row <- list(...)
+    
+    index_values <- list(
+      return_period = if (!is.na(row$return_period)) row$return_period else NA_real_,
+      gwl = if ("gwl" %in% names(row) && !is.na(row$gwl)) row$gwl else NA_character_,
+      scenario_name = if (!is.na(row$scenario_name)) row$scenario_name else NA_character_,
+      season = if (has_season && !is.na(row$season)) row$season else NA_character_
+    )
+    
+    build_hazard_name(
+      hazard_type = row$hazard_type,
+      hazard_indicator = row$hazard_indicator,
+      index_values = index_values,
+      ensemble = row$ensemble
+    )
+  })
   
-  # Join names back to full data frame (much faster than rowwise paste0)
+  # Join names back to full data frame
   join_cols <- intersect(names(combos), names(precomputed_df))
   precomputed_df <- precomputed_df |>
-    dplyr::left_join(combos, by = join_cols)
+    dplyr::left_join(combos |> dplyr::select(dplyr::all_of(c(join_cols, "hazard_name", "indicator_key"))), by = join_cols) |>
+    # hazard_key is the same as indicator_key (implementation detail)
+    dplyr::mutate(hazard_key = .data$indicator_key)
+  
+  precomputed_df <- precomputed_df |>
+    dplyr::select(-"indicator_file_key")
 
   # Define ensemble columns to pivot
   summary_cols <- intersect(
@@ -623,8 +735,11 @@ read_precomputed_hazards <- function(base_dir) {
       values_drop_na = TRUE
     ) |>
     dplyr::mutate(
-      ensemble = "mean",
-      scenario_name = as.character(.data$scenario_name)
+      ensemble = as.character(.data$ensemble),
+      scenario_name = as.character(.data$scenario_name),
+      # Add default metadata columns to match inventory structure
+      agg = NA_character_,
+      categorical = FALSE
     )
 
   if (has_season) {

@@ -18,8 +18,8 @@ testthat::test_that("extract_hazard_statistics returns standardized columns", {
 
   testthat::expect_true(is.data.frame(results))
   testthat::expect_gt(nrow(results), 0)
-  testthat::expect_true(all(c("hazard_indicator", "scenario_name", "return_period") %in% names(results)))
-  testthat::expect_true(any(c("depth", "hi", "spi3", "fwi", "days_danger_total", "land_cover") %in% names(results)))
+  testthat::expect_true(all(c("hazard_indicator", "hazard_key", "scenario_name", "return_period") %in% names(results)))
+  testthat::expect_true(any(c("flood_depth_cm", "hi", "spi3", "fwi", "days_danger_total", "land_cover") %in% names(results)))
 })
 
 testthat::test_that("extract_spatial_statistics handles closest and small buffer extraction", {
@@ -40,8 +40,10 @@ testthat::test_that("extract_spatial_statistics handles closest and small buffer
   hazards <- list("Flood__depth__GWL=present__RP=100__ensemble=mean" = hazard_rast)
   hazards_inventory <- tibble::tibble(
     hazard_name = "Flood__depth__GWL=present__RP=100__ensemble=mean",
+    hazard_key = "Flood__depth__GWL=present__RP=100__ensemble=mean",
     hazard_type = "Flood",
     hazard_indicator = "depth",
+    variable = "depth",
     return_period = 100,
     scenario_name = "present",
     season = NA_character_,
@@ -80,5 +82,74 @@ testthat::test_that("extract_spatial_statistics handles closest and small buffer
     aggregation_method = "mean"
   )
   testthat::expect_equal(mean_results$depth, 7)
+})
+
+testthat::test_that("extract_hazard_statistics surfaces missing precomputed keys", {
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    hazard_key = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    hazard_type = "Heat",
+    hazard_indicator = "heat_index",
+    return_period = 5,
+    scenario_name = "present",
+    season = NA_character_,
+    ensemble = "mean",
+    source = "csv",
+    agg = NA_character_,
+    categorical = FALSE,
+    variable = "hi"
+  )
+
+  precomputed <- tibble::tibble(
+    region = "KnownCity",
+    adm_level = "ADM2",
+    hazard_type = "Heat",
+    hazard_indicator = "heat_index",
+    hazard_name = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    hazard_key = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    scenario_name = "present",
+    return_period = 5,
+    aggregation_method = "mean",
+    hazard_value = 1,
+    ensemble = "mean",
+    season = NA_character_,
+    variable = "hi"
+  )
+
+  assets_df <- tibble::tibble(
+    asset = c("A1", "A2"),
+    company = c("C1", "C2"),
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = c("MissingTown", NA_character_),
+    state = c("MissingState", "MissingState"),
+    asset_category = "test",
+    asset_subtype = "test",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  testthat::expect_error(
+    extract_hazard_statistics(
+      assets_df = assets_df,
+      hazards = list(),
+      hazards_inventory = hazards_inventory,
+      precomputed_hazards = precomputed,
+      aggregation_method = "mean"
+    ),
+    "Missing regions \\(ADM2\\): MissingTown"
+  )
+
+  testthat::expect_error(
+    extract_hazard_statistics(
+      assets_df = assets_df,
+      hazards = list(),
+      hazards_inventory = hazards_inventory,
+      precomputed_hazards = precomputed,
+      aggregation_method = "mean"
+    ),
+    "Missing regions \\(ADM1\\): MissingState"
+  )
 })
 

@@ -1,7 +1,7 @@
 indicators:
   flood_depth:
-    file: flood_depth
-    variable: depth
+    file: flood_depth/
+    variable: flood_depth_cm
     index: [scenario_name, return_period]
     agg: median
 
@@ -12,7 +12,7 @@ mappings:
     file: damage_and_cost_factors.csv
     variables: [damage_factor, cost_factor, business_disruption]
     join:
-      on_indicator_intensity: [depth]
+      on_indicator_intensity: [flood_depth_cm]
       on_assets: [asset_category]
 
 shocks:

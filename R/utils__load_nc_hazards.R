@@ -392,30 +392,57 @@ load_nc_hazards_with_metadata <- function(indicator_path,
 
     has_season <- !inherits(season_vals, "try-error") && length(season_dim) > 0 && !is.na(season_label)
 
-    hazard_name <- paste0(
-      hazard_type, "__", hazard_indicator,
-      "__scenario_name=", gwl_label,
-      "__RP=", rp_label
-    )
-    if (has_season) {
-      hazard_name <- paste0(hazard_name, "__season=", season_label)
-    }
-    hazard_name <- paste0(hazard_name, "__ensemble=", ens_label)
-
-    results[[hazard_name]] <- r
-
     rp_numeric <- suppressWarnings(as.numeric(rp_label))
     if (is.na(rp_numeric)) rp_numeric <- ir
+
+    # Build structured hazard key
+    index_values <- list()
+    if (length(gwl_dim) > 0) index_values$gwl <- gwl_label
+    index_values$return_period <- rp_label
+    if (has_season) index_values$season <- season_label
+    
+    # Map internal labels to standard names for build_indicator_key
+    final_index_values <- list(
+      return_period = rp_numeric,
+      gwl = if (length(gwl_dim) > 0) gwl_label else NA_character_,
+      scenario_name = NA_character_, # NC loader uses gwl by default
+      season = if (has_season) season_label else NA_character_
+    )
+    
+    # Check if config uses scenario_name instead of gwl
+    config_index_dims <- indicator_config$index
+    if (!is.null(config_index_dims) && "scenario_name" %in% config_index_dims && !"gwl" %in% config_index_dims) {
+      final_index_values$scenario_name <- final_index_values$gwl
+      final_index_values$gwl <- NA_character_
+    }
+
+    indicator_key <- build_indicator_key(
+      indicator_file = basename(f),
+      indicator_variable = if (!is.null(indicator_config$variable) && nzchar(indicator_config$variable)) indicator_config$variable else hazard_indicator,
+      index_values = final_index_values,
+      ensemble = ens_label
+    )
+    
+    hazard_name <- build_hazard_name(
+      hazard_type = hazard_type,
+      hazard_indicator = hazard_indicator,
+      index_values = final_index_values,
+      ensemble = ens_label
+    )
+
+    results[[indicator_key]] <- r
 
     # Build inventory row dynamically based on index columns
     inventory_row <- tibble::tibble(
       hazard_type = hazard_type,
       hazard_indicator = hazard_indicator,
       hazard_name = hazard_name,
+      indicator_key = indicator_key,
       ensemble = ens_label,
       source = "nc",
       agg = indicator_config$agg,
-      categorical = indicator_config$categorical
+      categorical = indicator_config$categorical,
+      variable = indicator_config$variable
     )
     
     # Map internal labels to the requested index names from config
@@ -462,6 +489,7 @@ load_nc_hazards_with_metadata <- function(indicator_path,
       scenario_name = character(),
       return_period = numeric(),
       hazard_name = character(),
+      indicator_key = character(),
       ensemble = character(),
       season = character(),
       source = character(),

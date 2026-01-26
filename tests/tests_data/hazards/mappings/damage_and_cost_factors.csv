@@ -1,4 +1,4 @@
-depth,asset_category,damage_factor,cost_factor,business_disruption
+flood_depth_cm,asset_category,damage_factor,cost_factor,business_disruption
 0,commercial building,0,838625.370183151,0
 38,industrial building,0.5092,1774630.20177975,20
 8,industrial building,0.1072,1774630.20177975,4

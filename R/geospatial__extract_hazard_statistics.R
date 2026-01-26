@@ -110,9 +110,9 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
   message("  [extract_spatial_statistics] Extracting hazard statistics...")
 
   # Filter to raster hazards (NetCDF or TIF) that actually exist in the hazards list
-  available_hazard_names <- names(hazards)
+  available_hazard_keys <- names(hazards)
   raster_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source %in% c("nc", "tif"), .data$hazard_name %in% available_hazard_names)
+    dplyr::filter(.data$source %in% c("nc", "tif"), .data$indicator_key %in% available_hazard_keys)
 
   all_results <- list()
 
@@ -165,13 +165,20 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       hazard_meta <- combined_inventory |> dplyr::slice(i)
 
       base_hazard_name <- hazard_meta$hazard_name
+      base_indicator_key <- hazard_meta$indicator_key
       hazard_source <- hazard_meta$source
-      hazard_rast <- hazards[[base_hazard_name]]
-
+      hazard_rast <- hazards[[base_indicator_key]]
+      
       # Skip if hazard raster is not found
       if (is.null(hazard_rast)) {
+        # Fallback: try looking up by hazard_name just in case
+        hazard_rast <- hazards[[base_hazard_name]]
+      }
+
+      # Skip if hazard raster is not found (really)
+      if (is.null(hazard_rast)) {
         warning(
-          "Hazard '", base_hazard_name, "' not found in hazards list. ",
+          "Hazard '", base_hazard_name, "' (key: ", base_indicator_key, ") not found in hazards list. ",
           "Skipping extraction for this hazard."
         )
         results_list[[i]] <- NULL
@@ -190,104 +197,112 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       # Exclude metadata columns that shouldn't be passed through
       inventory_index_cols <- setdiff(
         names(hazard_meta),
-        c("hazard_type", "hazard_indicator", "hazard_name", "scenario_name", "return_period", 
-          "season", "ensemble", "source", "agg", "categorical")
+        c("hazard_type", "hazard_indicator", "hazard_name", "hazard_key", "indicator_key", "scenario_name", "return_period", 
+          "season", "ensemble", "source", "agg", "categorical", "variable")
       )
       extra_index_values <- hazard_meta[inventory_index_cols]
 
-      # Determine aggregation method for this indicator (config-driven)
-      # Use per-indicator agg from inventory if available, otherwise fallback to global parameter
-      effective_aggregation_method <- if (!is.null(hazard_meta$agg) && !is.na(hazard_meta$agg)) {
-        hazard_meta$agg
-      } else {
-        aggregation_method
+    # Determine aggregation method for this indicator (config-driven)
+    # Use per-indicator agg from inventory if available, otherwise fallback to global parameter
+    effective_aggregation_method <- if (!is.null(hazard_meta$agg) && !is.na(hazard_meta$agg)) {
+      hazard_meta$agg
+    } else {
+      aggregation_method
+    }
+    
+    # For categorical hazards, if no valid method is set, default to "mode"
+    if (isTRUE(hazard_meta$categorical)) {
+      if (!effective_aggregation_method %in% c("mode", "closest")) {
+        effective_aggregation_method <- "mode"
       }
-      
-      # For categorical hazards, if no valid method is set, default to "mode"
-      if (isTRUE(hazard_meta$categorical)) {
-        if (!effective_aggregation_method %in% c("mode", "closest")) {
-          effective_aggregation_method <- "mode"
-        }
-      }
+    }
 
-      if (is.null(effective_aggregation_method) ||
-        !effective_aggregation_method %in% c(names(aggregation_functions), "closest")) {
-        stop(
-          "Invalid aggregation method '", effective_aggregation_method, "' for indicator ",
-          hazard_indicator, ". Valid options: ", paste(c(names(aggregation_functions), "closest"), collapse = ", ")
-        )
-      }
+    if (is.null(effective_aggregation_method) ||
+      !effective_aggregation_method %in% c(names(aggregation_functions), "closest")) {
+      stop(
+        "Invalid aggregation method '", effective_aggregation_method, "' for indicator ",
+        hazard_indicator, ". Valid options: ", paste(c(names(aggregation_functions), "closest"), collapse = ", ")
+      )
+    }
 
-      agg_func <- if (effective_aggregation_method == "closest") NULL else aggregation_functions[[effective_aggregation_method]]
+    agg_func <- if (effective_aggregation_method == "closest") NULL else aggregation_functions[[effective_aggregation_method]]
 
-      message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
+    message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
 
-      # Get raster CRS - should already be set during load_nc_hazards_with_metadata
-      r_crs <- terra::crs(hazard_rast)
-      if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
+    # Get raster CRS - should already be set during load_nc_hazards_with_metadata
+    r_crs <- terra::crs(hazard_rast)
+    if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
-      # Fast path: vectorized terra::extract over all geometries at once (huge speedup vs per-asset crop/mask)
-      if (effective_aggregation_method == "closest") {
-        assets_centroids_sf <- sf::st_as_sf(assets_sf, sf_column_name = "centroid")
-        assets_centroids_sf <- sf::st_transform(assets_centroids_sf, r_crs)
-        geom_vect <- terra::vect(assets_centroids_sf)
+    # Fast path: vectorized terra::extract over all geometries at once (huge speedup vs per-asset crop/mask)
+    if (effective_aggregation_method == "closest") {
+      assets_centroids_sf <- sf::st_as_sf(assets_sf, sf_column_name = "centroid")
+      assets_centroids_sf <- sf::st_transform(assets_centroids_sf, r_crs)
+      geom_vect <- terra::vect(assets_centroids_sf)
 
-        extracted <- tryCatch(
-          terra::extract(hazard_rast, geom_vect),
-          error = function(e) NULL
-        )
-      } else {
-        assets_sf_transformed <- sf::st_transform(assets_sf, r_crs)
-        geom_vect <- terra::vect(assets_sf_transformed)
+      extracted <- tryCatch(
+        terra::extract(hazard_rast, geom_vect),
+        error = function(e) NULL
+      )
+    } else {
+      assets_sf_transformed <- sf::st_transform(assets_sf, r_crs)
+      geom_vect <- terra::vect(assets_sf_transformed)
 
-        extracted <- tryCatch(
-          terra::extract(hazard_rast, geom_vect, fun = agg_func, na.rm = TRUE, small = TRUE),
-          error = function(e) NULL
-        )
-      }
+      extracted <- tryCatch(
+        terra::extract(hazard_rast, geom_vect, fun = agg_func, na.rm = TRUE, small = TRUE),
+        error = function(e) NULL
+      )
+    }
 
-      n_geoms <- nrow(assets_sf)
-      hazard_vals <- if (!is.null(extracted) && nrow(extracted) == n_geoms) {
-        # terra::extract returns an ID column + one column per layer; hazard_rast is single-layer here
-        as.numeric(extracted[[ncol(extracted)]])
-      } else {
-        rep(NA_real_, n_geoms)
-      }
+    n_geoms <- nrow(assets_sf)
+    hazard_vals <- if (!is.null(extracted) && nrow(extracted) == n_geoms) {
+      # terra::extract returns an ID column + one column per layer; hazard_rast is single-layer here
+      as.numeric(extracted[[ncol(extracted)]])
+    } else {
+      rep(NA_real_, n_geoms)
+    }
 
-      # For categorical indicators, round to nearest integer
-      if (isTRUE(hazard_meta$categorical)) {
-        hazard_vals <- ifelse(is.na(hazard_vals), NA_real_, round(hazard_vals))
-      }
+    # For categorical indicators, round to nearest integer
+    if (isTRUE(hazard_meta$categorical)) {
+      hazard_vals <- ifelse(is.na(hazard_vals), NA_real_, round(hazard_vals))
+    }
 
-      indicator_col <- as.character(hazard_indicator)
-      df_i <- dplyr::bind_cols(
-        sf::st_drop_geometry(assets_sf),
-        tibble::tibble(.indicator_value = hazard_vals)
+      # Use variable name from inventory if available, otherwise fallback to hazard_indicator
+    indicator_col <- if (!is.null(hazard_meta$variable) && !is.na(hazard_meta$variable)) {
+      as.character(hazard_meta$variable)
+    } else {
+      as.character(hazard_indicator)
+    }
+
+    df_i <- dplyr::bind_cols(
+      sf::st_drop_geometry(assets_sf),
+      tibble::tibble(.indicator_value = hazard_vals)
+    ) |>
+      dplyr::mutate(
+        # Use hazard_name directly (no extra suffix)
+        hazard_name = base_hazard_name,
+        hazard_key = base_hazard_name,  # Public key is hazard_name
+        indicator_key = base_indicator_key, # Internal key
+        hazard_type = hazard_type,
+        scenario_name = hazard_scenario_name,
+        hazard_indicator = hazard_indicator,
+        return_period = hazard_return_period,
+        season = hazard_season,
+        ensemble = hazard_ensemble,
+        source = hazard_source,
+        matching_method = "coordinates",
+        !!rlang::sym(indicator_col) := .data$.indicator_value,
+        # Replace NAs with 0
+        !!rlang::sym(indicator_col) := dplyr::coalesce(.data[[indicator_col]], 0)
       ) |>
-        dplyr::mutate(
-          # Use hazard_name directly (no extra suffix)
-          hazard_name = base_hazard_name,
-          hazard_type = hazard_type,
-          scenario_name = hazard_scenario_name,
-          hazard_indicator = hazard_indicator,
-          return_period = hazard_return_period,
-          season = hazard_season,
-          ensemble = hazard_ensemble,
-          source = hazard_source,
-          matching_method = "coordinates",
-          !!rlang::sym(indicator_col) := .data$.indicator_value,
-          # Replace NAs with 0
-          !!rlang::sym(indicator_col) := dplyr::coalesce(.data[[indicator_col]], 0)
-        ) |>
-        # Add extra index columns from inventory
-        dplyr::bind_cols(extra_index_values) |>
-        dplyr::select(
-          "asset", "company", "latitude", "longitude",
-          "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-          "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-          "hazard_indicator", "return_period", "scenario_name", "season", "ensemble", "source",
-          dplyr::all_of(indicator_col), "matching_method", dplyr::any_of(inventory_index_cols)
-        )
+      # Add extra index columns from inventory
+      dplyr::bind_cols(extra_index_values) |>
+      dplyr::select(
+        "asset", "company", "latitude", "longitude",
+        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
+        "share_of_economic_activity", "cnae", "hazard_name", "hazard_key", "indicator_key", "hazard_type",
+        "hazard_indicator", "return_period", "scenario_name", "season", "ensemble", "source",
+        dplyr::all_of(indicator_col), "matching_method", dplyr::any_of(inventory_index_cols)
+      )
 
       results_list[[i]] <- df_i
     }
@@ -324,12 +339,27 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   required_hazards_inventory <- hazards_inventory |>
     dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
   
+  # Early check: if no hazards in inventory, that's the real problem
+  if (nrow(required_hazards_inventory) == 0) {
+    stop(
+      "No hazards available for precomputed lookup.\n",
+      "  Total hazards in inventory: ", nrow(hazards_inventory), "\n",
+      "  This usually means filter_hazards_by_events selected 0 hazards.\n",
+      "  Check your event configuration and ensure events match available hazards."
+    )
+  }
+  
   required_hazard_names <- required_hazards_inventory |>
     dplyr::pull(.data$hazard_name) |>
     unique()
+  
+  message("    Required hazards (", length(required_hazard_names), "): ", 
+          paste(head(required_hazard_names, 3), collapse = ", "),
+          if (length(required_hazard_names) > 3) paste0(" (+ ", length(required_hazard_names) - 3, " more)") else "")
 
   # Step 1: Matching Strategy (Vectorized Joins)
   # Pre-filter precomputed data for required hazards to speed up joins
+  # We use hazard_name which is now the structured key
   precomp_filtered <- precomputed_hazards |>
     dplyr::filter(.data$hazard_name %in% required_hazard_names)
 
@@ -356,25 +386,126 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     dplyr::mutate(matching_method = "state", source = "precomputed (state)")
 
   combined_matches <- dplyr::bind_rows(assets_with_adm2, assets_with_adm1)
+  
+  # Filter by required hazard names
+  combined_matches <- combined_matches |>
+    dplyr::filter(.data$hazard_name %in% required_hazard_names)
 
   # Validate all assets matched
   missing_assets <- setdiff(assets_df$asset, combined_matches$asset)
   if (length(missing_assets) > 0) {
-    stop(
-      "Could not find precomputed hazard data for assets: ", paste(missing_assets, collapse = ", "),
-      ". Please check that municipality and state names match the precomputed data regions."
+    missing_df <- assets_df |>
+      dplyr::filter(.data$asset %in% missing_assets)
+    missing_municipalities <- missing_df |>
+      dplyr::filter(!is.na(.data$municipality), nzchar(as.character(.data$municipality))) |>
+      dplyr::pull(.data$municipality) |>
+      unique()
+    missing_states <- missing_df |>
+      dplyr::filter(!is.na(.data$state), nzchar(as.character(.data$state))) |>
+      dplyr::pull(.data$state) |>
+      unique()
+    
+    # Check which regions are actually missing from precomputed data
+    present_municipalities <- unique(precomputed_hazards$region[precomputed_hazards$adm_level == "ADM2"])
+    present_states <- unique(precomputed_hazards$region[precomputed_hazards$adm_level == "ADM1"])
+    
+    truly_missing_municipalities <- setdiff(missing_municipalities, present_municipalities)
+    truly_missing_states <- setdiff(missing_states, present_states)
+    
+    # Build detailed error message showing which hazards are missing for which regions
+    error_parts <- character()
+    
+    # Show truly missing regions first
+    if (length(truly_missing_municipalities) > 0) {
+      error_parts <- c(error_parts, paste0("Missing regions (ADM2): ", paste(truly_missing_municipalities, collapse = ", ")))
+    }
+    if (length(truly_missing_states) > 0) {
+      error_parts <- c(error_parts, paste0("Missing regions (ADM1): ", paste(truly_missing_states, collapse = ", ")))
+    }
+    
+    # Show which regions exist but are missing required hazards
+    regions_with_some_data <- intersect(
+      c(missing_municipalities, missing_states),
+      c(present_municipalities, present_states)
     )
+    
+    if (length(regions_with_some_data) > 0) {
+      # For each region with partial data, show which hazards are missing
+      for (region in regions_with_some_data) {
+        # Check if it's a municipality or state
+        is_municipality <- region %in% present_municipalities
+        adm_level_filter <- if (is_municipality) "ADM2" else "ADM1"
+        
+        # Get available hazards for this region
+        available_for_region <- precomputed_hazards |>
+          dplyr::filter(.data$region == !!region, .data$adm_level == !!adm_level_filter)
+        
+        available_names <- unique(available_for_region$hazard_name)
+        missing_names_for_region <- setdiff(required_hazard_names, available_names)
+        
+        error_parts <- c(
+          error_parts,
+          paste0(region, " (", adm_level_filter, "): missing ", length(missing_names_for_region), 
+                 " hazards - ", paste(head(missing_names_for_region, 3), collapse = ", "),
+                 if (length(missing_names_for_region) > 3) paste0(" (+ ", length(missing_names_for_region) - 3, " more)") else "")
+        )
+      }
+    }
+    
+    # Build final error message with hazard names being searched
+    error_msg_parts <- character()
+    
+    # Show what hazards we're looking for
+    error_msg_parts <- c(
+      error_msg_parts,
+      paste0("Searching for ", length(required_hazard_names), " hazards:"),
+      paste0("  ", paste(head(required_hazard_names, 5), collapse = "\n  "),
+             if (length(required_hazard_names) > 5) paste0("\n  (+ ", length(required_hazard_names) - 5, " more)") else "")
+    )
+    
+    # Show region/hazard specific issues
+    if (length(error_parts) > 0) {
+      error_msg_parts <- c(
+        error_msg_parts,
+        "",
+        "Issues found:",
+        paste0("  ", error_parts)
+      )
+    } else {
+      error_msg_parts <- c(
+        error_msg_parts,
+        "",
+        "All regions found in precomputed data but got 0 matches after filtering.",
+        "Check that hazard names in inventory match precomputed hazard_name format."
+      )
+    }
+    
+    stop(paste(error_msg_parts, collapse = "\n"))
   }
 
   # Step 2: Filter by correct aggregation method (Vectorized)
   # Respect per-hazard overrides from inventory
+  
+  # Ensure inventory has required columns for join
+  inventory_for_join <- hazards_inventory
+  if (!"agg" %in% names(inventory_for_join)) inventory_for_join$agg <- NA_character_
+  
+  # Join to get agg info
   combined_matches <- combined_matches |>
     dplyr::left_join(
-      hazards_inventory |> dplyr::select("hazard_name", "agg"),
-      by = "hazard_name"
+      inventory_for_join |> dplyr::select("hazard_name", "agg"),
+      by = "hazard_name",
+      suffix = c("", "_inv")
     ) |>
     dplyr::mutate(
-      effective_agg = dplyr::coalesce(.data$agg, .env$aggregation_method),
+      agg_from_inv = .data$agg_inv
+    ) |>
+    dplyr::select(-"agg_inv")
+  
+  # Now apply aggregation filtering
+  combined_matches <- combined_matches |>
+    dplyr::mutate(
+      effective_agg = dplyr::coalesce(.data$agg_from_inv, aggregation_method),
       # Handle aliases: 'closest' is treated as 'mean' for precomputed data
       effective_agg = dplyr::if_else(.data$effective_agg == "closest", "mean", .data$effective_agg)
     ) |>
@@ -398,28 +529,37 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   metadata_cols <- c(
     "asset", "company", "latitude", "longitude", "municipality", "state",
     "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
-    "cnae", "hazard_name", "hazard_type", "hazard_indicator", "return_period",
+    "cnae", "hazard_name", "hazard_key", "indicator_key", "hazard_type", "hazard_indicator", "return_period",
     "scenario_name", "season", "ensemble", "source", "matching_method"
   )
   
   # Add dynamic index columns from inventory
   inventory_index_cols <- setdiff(
     names(hazards_inventory),
-    c("hazard_type", "hazard_indicator", "hazard_name", "ensemble", "source", "agg", "categorical")
+    c("hazard_type", "hazard_indicator", "hazard_name", "hazard_key", "indicator_key", "ensemble", "source", "agg", "categorical", "variable", "aggregation_method")
   )
   metadata_cols <- unique(c(metadata_cols, inventory_index_cols))
 
-  # Create indicator-specific columns (vectorized)
-  unique_indicators <- unique(combined_matches$hazard_indicator)
-  final_data <- combined_matches
+  # Create indicator-specific columns using variable names (e.g., flood_depth_cm not flood_depth)
+  # Use variable column if available, otherwise fallback to hazard_indicator
+  combined_matches <- combined_matches |>
+    dplyr::mutate(
+      indicator_column_name = dplyr::coalesce(.data$variable, .data$hazard_indicator)
+    )
   
-  for (ind in unique_indicators) {
+  unique_variable_names <- unique(combined_matches$indicator_column_name)
+  final_data <- combined_matches 
+  
+  for (col_name in unique_variable_names) {
     final_data <- final_data |>
-      dplyr::mutate(!!ind := dplyr::if_else(.data$hazard_indicator == !!ind, .data$hazard_value, NA_real_))
+      dplyr::mutate(
+        !!col_name := dplyr::if_else(.data$indicator_column_name == !!col_name, .data$hazard_value, NA_real_)
+      )
   }
   
   final_data <- final_data |>
-    dplyr::select(dplyr::any_of(c(metadata_cols, unique_indicators)))
+    dplyr::select(-"indicator_column_name") |>
+    dplyr::select(dplyr::any_of(c(metadata_cols, unique_variable_names)))
 
   # Step 4: Handle special fire/land_cover (not precomputed)
   fire_land_cover <- hazards_inventory |>

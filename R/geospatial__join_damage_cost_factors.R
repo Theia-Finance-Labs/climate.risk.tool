@@ -142,12 +142,21 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
       dplyr::slice(1)
   }
 
-  indicator_cols <- names(hazard_config$indicators)
+  # Use variable names from config if available, otherwise fallback to indicator keys
+  indicator_cols <- vapply(names(hazard_config$indicators), function(k) {
+    var <- hazard_config$indicators[[k]]$variable
+    if (!is.null(var) && nzchar(var)) var else k
+  }, character(1))
+  
+  # Also include indicator keys as fallback in case they are already in hazard_assets
+  # but NOT in config variable names
+  all_indicator_cols <- unique(c(names(hazard_config$indicators), indicator_cols))
+  
   indicator_wide <- hazard_assets |>
-    dplyr::select("asset", "event_id", dplyr::any_of(indicator_cols)) |>
+    dplyr::select("asset", "event_id", dplyr::any_of(all_indicator_cols)) |>
     dplyr::group_by(.data$asset, .data$event_id) |>
     dplyr::summarize(
-      dplyr::across(dplyr::any_of(indicator_cols), ~ mean(.x, na.rm = TRUE)),
+      dplyr::across(dplyr::any_of(all_indicator_cols), ~ mean(.x, na.rm = TRUE)),
       .groups = "drop"
     )
 
@@ -159,7 +168,7 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
   
   # Prepare base table from primary rows, keeping all non-indicator columns
   base_table <- primary_rows |>
-    dplyr::select(-dplyr::any_of(indicator_cols)) |>
+    dplyr::select(-dplyr::any_of(all_indicator_cols)) |>
     dplyr::distinct()
 
   base_table <- dplyr::left_join(

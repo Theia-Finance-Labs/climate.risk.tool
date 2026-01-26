@@ -22,6 +22,8 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
   # Inventory should be a tibble/dataframe
   expect_s3_class(result$inventory, "data.frame")
   expect_true(all(c("scenario_name", "return_period") %in% names(result$inventory)))
+  expect_true(all(c("indicator_file", "indicator_variable", "indicator_key", "hazard_key", "hazard_name") %in% names(result$inventory)))
+  expect_true(all(result$inventory$hazard_key == result$inventory$indicator_key))
 
   # Check if TIF hazards were loaded (if metadata.csv files exist in indicator folders)
   metadata_files <- list.files(
@@ -34,6 +36,8 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
     tif_inventory <- result$inventory |> dplyr::filter(source == "tif")
     expect_true(nrow(tif_inventory) > 0)
     expect_true(any(grepl("tif", result$inventory$source)))
+    expect_true("variable" %in% names(tif_inventory))
+    expect_false(any(is.na(tif_inventory$variable)))
   }
 })
 
@@ -78,21 +82,16 @@ test_that("load_hazards_and_inventory NC names parse folder structure correctly"
   )
 
 
-  # Check naming convention
+  # Check naming convention for indicator keys
   nc_names <- names(result$hazards)
 
-  # Names should contain hazard_type from config
-  # e.g., "Heat__hi__GWL=present__RP=5__ensemble=mean"
-  expect_true(any(grepl("Heat", nc_names)))
+  # Names should be indicator keys derived from file + variable
+  expect_true(any(grepl("heat_index", nc_names)))
+  expect_true(any(grepl("standardized_precipitation_index_3", nc_names)))
 
-  # Should contain hazard_indicator
-  expect_true(any(grepl("hi", nc_names)))
-
-  # Should have GWL values
-    testthat::expect_true(all(grepl("scenario_name=", nc_names)))
-
-  # Should have return period values
-  expect_true(all(grepl("RP=", nc_names)))
+  # Should include scenario_name and return_period tags
+  testthat::expect_true(all(grepl("scenario_name=", nc_names)))
+  testthat::expect_true(all(grepl("return_period=", nc_names)))
 })
 
 test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly", {

@@ -76,7 +76,8 @@ validate_input_coherence <- function(
       adm2_names,
       validation_results,
       assets_df = assets_df,
-      events_df = events_df
+      events_df = events_df,
+      hazard_configs = hazard_configs
     )
   }
 
@@ -454,6 +455,7 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
 #' @param validation_results List with errors and warnings vectors
 #' @param assets_df Optional assets data frame to check hazard coverage for specific regions
 #' @param events_df Optional events data frame to know which hazards are required
+#' @param hazard_configs Optional hazard configs list for variable name resolution
 #' @return Updated validation_results list
 #' @noRd
 validate_precomputed_hazards_geography <- function(
@@ -462,7 +464,8 @@ validate_precomputed_hazards_geography <- function(
   adm2_names,
   validation_results,
   assets_df = NULL,
-  events_df = NULL
+  events_df = NULL,
+  hazard_configs = NULL
 ) {
   # Validate provinces (if column exists)
   if ("region" %in% names(precomputed_hazards_df) && length(adm1_names) > 0) {
@@ -588,91 +591,115 @@ validate_precomputed_hazards_geography <- function(
         dplyr::distinct()
 
       # Check if all required hazards are present
-      for (i in seq_len(nrow(required_hazards))) {
-        hazard_type <- required_hazards$hazard_type[i]
-        hazard_indicator <- required_hazards$hazard_indicator[i]
+    for (i in seq_len(nrow(required_hazards))) {
+      hazard_type <- required_hazards$hazard_type[i]
+      hazard_indicator <- required_hazards$hazard_indicator[i]
+      
+      # Determine the display name (variable name if possible)
+      # We look up the variable name from hazard_configs
+      hazard_var <- if (!is.null(hazard_configs) &&
+        !is.null(hazard_configs[[hazard_type]]) &&
+        !is.null(hazard_configs[[hazard_type]]$indicators[[hazard_indicator]]) &&
+        !is.null(hazard_configs[[hazard_type]]$indicators[[hazard_indicator]]$variable)) {
+        hazard_configs[[hazard_type]]$indicators[[hazard_indicator]]$variable
+      } else {
+        hazard_indicator
+      }
 
-        has_hazard <- municipality_hazards |>
-          dplyr::filter(
-            .data$hazard_type == !!hazard_type,
-            .data$hazard_indicator == !!hazard_indicator
-          ) |>
-          nrow() > 0
+      has_hazard <- municipality_hazards |>
+        dplyr::filter(
+          .data$hazard_type == !!hazard_type,
+          # Try matching by indicator key OR variable name
+          (.data$hazard_indicator == !!hazard_indicator | .data$hazard_indicator == !!hazard_var)
+        ) |>
+        nrow() > 0
 
-        if (!has_hazard) {
-          # Check if state has this hazard (fallback)
-          state_for_municipality <- assets_df |>
-            dplyr::filter(.data$municipality == !!municipality) |>
-            dplyr::pull(.data$state) |>
-            unique() |>
-            head(1)
+      if (!has_hazard) {
+        # Check if state has this hazard (fallback)
+        state_for_municipality <- assets_df |>
+          dplyr::filter(.data$municipality == !!municipality) |>
+          dplyr::pull(.data$state) |>
+          unique() |>
+          head(1)
 
-          if (length(state_for_municipality) > 0 && !is.na(state_for_municipality)) {
-            state_has_hazard <- precomputed_hazards_df |>
-              dplyr::filter(
-                .data$region == !!state_for_municipality,
-                .data$adm_level == "ADM1",
-                .data$hazard_type == !!hazard_type,
-                .data$hazard_indicator == !!hazard_indicator
-              ) |>
-              nrow() > 0
+        if (length(state_for_municipality) > 0 && !is.na(state_for_municipality)) {
+          state_has_hazard <- precomputed_hazards_df |>
+            dplyr::filter(
+              .data$region == !!state_for_municipality,
+              .data$adm_level == "ADM1",
+              .data$hazard_type == !!hazard_type,
+              # Try matching by indicator key OR variable name
+              (.data$hazard_indicator == !!hazard_indicator | .data$hazard_indicator == !!hazard_var)
+            ) |>
+            nrow() > 0
 
-            if (!state_has_hazard) {
-              validation_results$errors <- c(
-                validation_results$errors,
-                paste0(
-                  "Municipality '", municipality, "' is missing precomputed hazard data for ",
-                  hazard_type, "__", hazard_indicator, ". ",
-                  "State '", state_for_municipality, "' also lacks this hazard data."
-                )
-              )
-            }
-          } else {
+          if (!state_has_hazard) {
             validation_results$errors <- c(
               validation_results$errors,
               paste0(
                 "Municipality '", municipality, "' is missing precomputed hazard data for ",
-                hazard_type, "__", hazard_indicator, "."
+                hazard_type, "__", hazard_var, ". ",
+                "State '", state_for_municipality, "' also lacks this hazard data."
               )
             )
           }
-        }
-      }
-    }
-
-    # Check hazard coverage for states (for all assets with states)
-    for (state in asset_states) {
-      state_hazards <- precomputed_hazards_df |>
-        dplyr::filter(
-          .data$region == !!state,
-          .data$adm_level == "ADM1"
-        ) |>
-        dplyr::select("hazard_type", "hazard_indicator") |>
-        dplyr::distinct()
-
-      # Check if all required hazards are present
-      for (i in seq_len(nrow(required_hazards))) {
-        hazard_type <- required_hazards$hazard_type[i]
-        hazard_indicator <- required_hazards$hazard_indicator[i]
-
-        has_hazard <- state_hazards |>
-          dplyr::filter(
-            .data$hazard_type == !!hazard_type,
-            .data$hazard_indicator == !!hazard_indicator
-          ) |>
-          nrow() > 0
-
-        if (!has_hazard) {
+        } else {
           validation_results$errors <- c(
             validation_results$errors,
             paste0(
-              "State '", state, "' is missing precomputed hazard data for ",
-              hazard_type, "__", hazard_indicator, "."
+              "Municipality '", municipality, "' is missing precomputed hazard data for ",
+              hazard_type, "__", hazard_var, "."
             )
           )
         }
       }
     }
+  }
+
+  # Check hazard coverage for states (for all assets with states)
+  for (state in asset_states) {
+    state_hazards <- precomputed_hazards_df |>
+      dplyr::filter(
+        .data$region == !!state,
+        .data$adm_level == "ADM1"
+      ) |>
+      dplyr::select("hazard_type", "hazard_indicator") |>
+      dplyr::distinct()
+
+    # Check if all required hazards are present
+    for (i in seq_len(nrow(required_hazards))) {
+      hazard_type <- required_hazards$hazard_type[i]
+      hazard_indicator <- required_hazards$hazard_indicator[i]
+
+      # Determine the display name (variable name if possible)
+      hazard_var <- if (!is.null(hazard_configs) &&
+        !is.null(hazard_configs[[hazard_type]]) &&
+        !is.null(hazard_configs[[hazard_type]]$indicators[[hazard_indicator]]) &&
+        !is.null(hazard_configs[[hazard_type]]$indicators[[hazard_indicator]]$variable)) {
+        hazard_configs[[hazard_type]]$indicators[[hazard_indicator]]$variable
+      } else {
+        hazard_indicator
+      }
+
+      has_hazard <- state_hazards |>
+        dplyr::filter(
+          .data$hazard_type == !!hazard_type,
+          # Try matching by indicator key OR variable name
+          (.data$hazard_indicator == !!hazard_indicator | .data$hazard_indicator == !!hazard_var)
+        ) |>
+        nrow() > 0
+
+      if (!has_hazard) {
+        validation_results$errors <- c(
+          validation_results$errors,
+          paste0(
+            "State '", state, "' is missing precomputed hazard data for ",
+            hazard_type, "__", hazard_var, "."
+          )
+        )
+      }
+    }
+  }
   }
 
   return(validation_results)

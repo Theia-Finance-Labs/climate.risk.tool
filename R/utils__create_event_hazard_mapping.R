@@ -89,16 +89,34 @@ create_event_hazard_mapping <- function(events, hazards_inventory, hazard_config
   single_events <- events |>
     dplyr::filter(!(.data$hazard_type %in% multi_indicator_types)) |>
     dplyr::mutate(
-      hazard_name = as.character(.data$hazard_name),
-      # NetCDF loader policy: we only load one representative ensemble, labeled 'mean'.
-      # Normalize events that omit ensemble or request a different ensemble (e.g., median)
-      # so joins against extracted asset hazard_name (inventory) succeed.
-      hazard_name = dplyr::if_else(
-        grepl("__ensemble=", .data$hazard_name),
-        sub("__ensemble=.*$", "__ensemble=mean", .data$hazard_name),
-        paste0(.data$hazard_name, "__ensemble=mean")
-      )
-    ) |>
+      hazard_name = as.character(.data$hazard_name)
+    )
+  
+  # Ensure hazard_name is structured for single events if it's not already
+  # (e.g. if it's a simple name like "Flood")
+  if (nrow(single_events) > 0) {
+    single_events$hazard_name <- purrr::map_chr(seq_len(nrow(single_events)), function(i) {
+      row <- single_events[i, ]
+      
+      # Look it up from inventory to get the structured name (semantic name)
+      primary_ind <- get_primary_indicator(hazard_configs, row$hazard_type)
+      matched <- hazards_inventory |>
+        dplyr::filter(
+          tolower(.data$hazard_type) == tolower(row$hazard_type),
+          .data$hazard_indicator == primary_ind,
+          .data$scenario_name == row$scenario_name,
+          as.numeric(.data$return_period) == as.numeric(row$return_period)
+        )
+      
+      if (nrow(matched) > 0) {
+        return(matched$hazard_name[1])
+      } else {
+        return(row$hazard_name) # Fallback
+      }
+    })
+  }
+  
+  single_events <- single_events |>
     dplyr::select("hazard_name", "event_id", "event_year")
 
   # Process multi-indicator events (expand to all indicators)

@@ -1,4 +1,4 @@
 hazard_file,hazard_type,hazard_indicator,scenario_name,return_period
-global_pc_h10glob.tif,Flood,depth,present,10
-global_rcp85_h10glob.tif,Flood,depth,rcp85,10
-global_rcp85_h100glob.tif,Flood,depth,rcp85,100
+global_pc_h10glob.tif,Flood,flood_depth_cm,present,10
+global_rcp85_h10glob.tif,Flood,flood_depth_cm,rcp85,10
+global_rcp85_h100glob.tif,Flood,flood_depth_cm,rcp85,100

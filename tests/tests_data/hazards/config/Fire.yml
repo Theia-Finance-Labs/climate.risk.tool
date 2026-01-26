@@ -1,6 +1,6 @@
 indicators:
   land_cover:
-    file: land_cover
+    file: land_cover/
     variable: land_cover
     agg: mode
     categorical: true

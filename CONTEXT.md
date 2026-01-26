@@ -205,7 +205,8 @@ Files:
 
 #### 4. `precomputed_adm_hazards.csv`
 Location: `{base_dir}/hazards/precomputed_adm_hazards.csv`
-Columns: region, adm_level (ADM1/ADM2), hazard_type, scenario_name, return_period, min, max, mean, median, p2_5, p5, p95, p97_5
+Columns: region, adm_level (ADM1/ADM2), gwl, return_period, indicator_file, indicator_variable,
+ensemble, season, scenario_name, min, max, mean, median, p2_5, p5, p10, p90, p95, p97_5
 
 Pre-aggregated hazard statistics for administrative regions. Eliminates need for GeoJSON boundary files.
 
