@@ -124,7 +124,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
       # Remove internal keys from display
       assets_df <- assets_df |>
-        dplyr::select(-dplyr::any_of(c("indicator_key", "hazard_key")))
+        dplyr::select(-dplyr::any_of(c("indicator_key", "hazard_key", "hazard_indicator")))
 
       if (!include_sector_name) {
         assets_df <- assets_df |>

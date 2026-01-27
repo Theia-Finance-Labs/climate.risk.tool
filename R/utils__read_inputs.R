@@ -657,6 +657,7 @@ read_precomputed_hazards <- function(base_dir) {
     "hazard_indicator",
     "variable",
     "scenario_name",
+    "gwl",
     "return_period",
     "indicator_file",
     "indicator_variable",
@@ -667,41 +668,73 @@ read_precomputed_hazards <- function(base_dir) {
   combos <- precomputed_df |>
     dplyr::distinct(dplyr::across(dplyr::any_of(distinct_cols)))
   
+  get_index_dims <- function(hazard_type, hazard_indicator) {
+    if (is.null(hazard_configs) || !hazard_type %in% names(hazard_configs)) {
+      return(character())
+    }
+    indicator_cfg <- hazard_configs[[hazard_type]]$indicators[[hazard_indicator]]
+    if (is.null(indicator_cfg) || is.null(indicator_cfg$index)) {
+      return(character())
+    }
+    index_dims <- as.character(indicator_cfg$index)
+    index_dims <- index_dims[!is.na(index_dims)]
+    index_dims
+  }
+
+  build_index_values <- function(row) {
+    index_dims <- get_index_dims(row$hazard_type, row$hazard_indicator)
+    has_index <- function(name) length(index_dims) > 0 && name %in% index_dims
+    list(
+      return_period = if (has_index("return_period") && !is.na(row$return_period)) row$return_period else NA_real_,
+      gwl = if (has_index("gwl") && !is.na(row$gwl)) row$gwl else NA_character_,
+      scenario_name = if (has_index("scenario_name") && !is.na(row$scenario_name)) row$scenario_name else NA_character_,
+      season = if (has_season && has_index("season") && !is.na(row$season)) row$season else NA_character_
+    )
+  }
+
   # Construct structured hazard_name for each combination
+  # Use fixed ensemble from config if specified, otherwise use actual ensemble from data
   combos$indicator_key <- purrr::pmap_chr(combos, function(...) {
     row <- list(...)
     
-    # Map internal labels to standard names for build_indicator_key
-    index_values <- list(
-      return_period = if (!is.na(row$return_period)) row$return_period else NA_real_,
-      gwl = if ("gwl" %in% names(row) && !is.na(row$gwl)) row$gwl else NA_character_,
-      scenario_name = if (!is.na(row$scenario_name)) row$scenario_name else NA_character_,
-      season = if (has_season && !is.na(row$season)) row$season else NA_character_
-    )
+    index_values <- build_index_values(row)
+    
+    # Get fixed ensemble from config if it exists
+    effective_ensemble <- row$ensemble
+    if (!is.null(hazard_configs) && row$hazard_type %in% names(hazard_configs)) {
+      indicator_cfg <- hazard_configs[[row$hazard_type]]$indicators[[row$hazard_indicator]]
+      if (!is.null(indicator_cfg$fixed) && !is.null(indicator_cfg$fixed$ensemble)) {
+        effective_ensemble <- indicator_cfg$fixed$ensemble
+      }
+    }
     
     build_indicator_key(
       indicator_file = row$indicator_file,
       indicator_variable = row$indicator_variable,
       index_values = index_values,
-      ensemble = row$ensemble
+      ensemble = effective_ensemble
     )
   })
 
   combos$hazard_name <- purrr::pmap_chr(combos, function(...) {
     row <- list(...)
     
-    index_values <- list(
-      return_period = if (!is.na(row$return_period)) row$return_period else NA_real_,
-      gwl = if ("gwl" %in% names(row) && !is.na(row$gwl)) row$gwl else NA_character_,
-      scenario_name = if (!is.na(row$scenario_name)) row$scenario_name else NA_character_,
-      season = if (has_season && !is.na(row$season)) row$season else NA_character_
-    )
+    index_values <- build_index_values(row)
+    
+    # Get fixed ensemble from config if it exists
+    effective_ensemble <- row$ensemble
+    if (!is.null(hazard_configs) && row$hazard_type %in% names(hazard_configs)) {
+      indicator_cfg <- hazard_configs[[row$hazard_type]]$indicators[[row$hazard_indicator]]
+      if (!is.null(indicator_cfg$fixed) && !is.null(indicator_cfg$fixed$ensemble)) {
+        effective_ensemble <- indicator_cfg$fixed$ensemble
+      }
+    }
     
     build_hazard_name(
       hazard_type = row$hazard_type,
       hazard_indicator = row$hazard_indicator,
       index_values = index_values,
-      ensemble = row$ensemble
+      ensemble = effective_ensemble
     )
   })
   

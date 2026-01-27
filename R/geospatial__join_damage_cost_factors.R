@@ -22,6 +22,14 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
     stop("hazards mappings directory does not exist: ", mappings_dir)
   }
 
+  # CRITICAL: Deduplicate input data by (asset, event_id, hazard_type, hazard_indicator)
+  # This prevents many-to-many issues when the same indicator appears multiple times
+  # for the same asset/event (e.g., from spatial + precomputed sources, or extraction bugs)
+  assets_with_hazards <- assets_with_hazards |>
+    dplyr::group_by(.data$asset, .data$event_id, .data$hazard_type, .data$hazard_indicator) |>
+    dplyr::slice(1) |>
+    dplyr::ungroup()
+
   results <- list()
 
   for (hazard_type in names(hazard_configs)) {
@@ -108,11 +116,25 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
 
       base_table <- apply_intensity_matching(base_table, mapping_df, intensity_cols, mapping$intensity_match)
 
+      # Ensure mapping keys are unique to avoid many-to-many joins
+      # For numeric columns, take the mean. For character/other, take the first.
+      # This prevents duplicate rows if the mapping table has multiple entries for the same join keys.
+      mapping_df <- mapping_df |>
+        dplyr::group_by(dplyr::across(dplyr::all_of(mapping_cols))) |>
+        dplyr::summarize(
+          dplyr::across(
+            dplyr::setdiff(names(mapping_df), mapping_cols),
+            ~ if (is.numeric(.x)) mean(.x, na.rm = TRUE) else dplyr::first(.x)
+          ),
+          .groups = "drop"
+        )
+
+      # Perform the join. We use many-to-one because we just deduplicated mapping_df.
       base_table <- dplyr::left_join(
         base_table,
         mapping_df,
         by = join_cols,
-        relationship = "many-to-many"
+        relationship = "many-to-one"
       )
     }
 
@@ -123,7 +145,12 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
     stop("No hazards joined with mapping tables")
   }
 
-  return(dplyr::bind_rows(results))
+  # When combining results from different hazards, we might have different columns
+  # from different mapping tables. We use bind_rows which handles this.
+  # Each hazard type has been processed separately, so we just combine them.
+  combined <- dplyr::bind_rows(results)
+
+  return(combined)
 }
 
 #' Build wide indicator table for mapping joins (internal)
@@ -167,14 +194,17 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
   }
   
   # Prepare base table from primary rows, keeping all non-indicator columns
+  # CRITICAL: Ensure we deduplicate primary_rows by (asset, event_id) before proceeding
+  # This prevents duplicate rows if primary_rows has multiple entries per asset/event
   base_table <- primary_rows |>
     dplyr::select(-dplyr::any_of(all_indicator_cols)) |>
-    dplyr::distinct()
+    dplyr::distinct(.data$asset, .data$event_id, .keep_all = TRUE)
 
   base_table <- dplyr::left_join(
     base_table,
     indicator_wide,
-    by = c("asset", "event_id")
+    by = c("asset", "event_id"),
+    relationship = "one-to-one"
   )
 
   return(base_table)

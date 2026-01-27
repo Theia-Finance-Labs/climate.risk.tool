@@ -232,12 +232,40 @@ compute_risk <- function(assets,
   # Step 2.3: Join event information (event_year, scenario_name) from events
   # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
   # For single-indicator hazards, use hazard_name directly
-  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, hazard_configs)
+  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, hazard_configs) |>
+    dplyr::rename(
+      event_scenario_name = "scenario_name",
+      event_return_period = "return_period",
+      event_season = "season",
+      event_hazard_name = "hazard_name"
+    )
 
   assets_with_events <- assets_long |>
     dplyr::inner_join(
-      events_expanded_for_join |> dplyr::select("hazard_name", "event_id", "event_year"),
-      by = "hazard_name", relationship = "many-to-many"
+      events_expanded_for_join |>
+        dplyr::select(
+          "indicator_key",
+          "event_id",
+          "event_year",
+          "event_scenario_name",
+          "event_return_period",
+          "event_season",
+          "event_hazard_name"
+        ),
+      by = "indicator_key",
+      relationship = "many-to-many"
+    ) |>
+    dplyr::mutate(
+      hazard_name = .data$event_hazard_name,
+      scenario_name = .data$event_scenario_name,
+      return_period = .data$event_return_period,
+      season = .data$event_season
+    ) |>
+    dplyr::select(
+      -"event_hazard_name",
+      -"event_scenario_name",
+      -"event_return_period",
+      -"event_season"
     )
 
   # Step 2.4: Join mapping tables for hazard-specific factors

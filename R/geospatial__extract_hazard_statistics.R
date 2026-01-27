@@ -155,8 +155,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     }
 
     # Process raster inventory
-    combined_inventory <- raster_inventory |>
-      dplyr::mutate(base_event_id = .data$hazard_name)
+    combined_inventory <- raster_inventory
 
     n_hazards <- nrow(combined_inventory)
     results_list <- vector("list", n_hazards)
@@ -198,7 +197,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       inventory_index_cols <- setdiff(
         names(hazard_meta),
         c("hazard_type", "hazard_indicator", "hazard_name", "hazard_key", "indicator_key", "scenario_name", "return_period", 
-          "season", "ensemble", "source", "agg", "categorical", "variable")
+          "season", "ensemble", "source", "agg", "categorical", "variable", "indicator_file", "indicator_variable", "indicator_file_key")
       )
       extra_index_values <- hazard_meta[inventory_index_cols]
 
@@ -349,19 +348,21 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     )
   }
   
-  required_hazard_names <- required_hazards_inventory |>
-    dplyr::pull(.data$hazard_name) |>
+  # Use indicator_key for precomputed lookups (matches the file-based keys in precomputed data)
+  # For multi-indicator hazards, this will include multiple keys per event
+  required_indicator_keys <- required_hazards_inventory |>
+    dplyr::pull(.data$indicator_key) |>
     unique()
   
-  message("    Required hazards (", length(required_hazard_names), "): ", 
-          paste(head(required_hazard_names, 3), collapse = ", "),
-          if (length(required_hazard_names) > 3) paste0(" (+ ", length(required_hazard_names) - 3, " more)") else "")
+  message("    Required indicators (", length(required_indicator_keys), "): ", 
+          paste(head(required_indicator_keys, 3), collapse = ", "),
+          if (length(required_indicator_keys) > 3) paste0(" (+ ", length(required_indicator_keys) - 3, " more)") else "")
 
   # Step 1: Matching Strategy (Vectorized Joins)
   # Pre-filter precomputed data for required hazards to speed up joins
-  # We use hazard_name which is now the structured key
+  # Match by indicator_key (file-based identifier that exists in precomputed data)
   precomp_filtered <- precomputed_hazards |>
-    dplyr::filter(.data$hazard_name %in% required_hazard_names)
+    dplyr::filter(.data$indicator_key %in% required_indicator_keys)
 
   # Join with Municipality (ADM2) first
   assets_with_adm2 <- assets_df |>
@@ -387,9 +388,9 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
 
   combined_matches <- dplyr::bind_rows(assets_with_adm2, assets_with_adm1)
   
-  # Filter by required hazard names
+  # Filter by required indicator keys
   combined_matches <- combined_matches |>
-    dplyr::filter(.data$hazard_name %in% required_hazard_names)
+    dplyr::filter(.data$indicator_key %in% required_indicator_keys)
 
   # Validate all assets matched
   missing_assets <- setdiff(assets_df$asset, combined_matches$asset)
@@ -440,14 +441,15 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         available_for_region <- precomputed_hazards |>
           dplyr::filter(.data$region == !!region, .data$adm_level == !!adm_level_filter)
         
-        available_names <- unique(available_for_region$hazard_name)
-        missing_names_for_region <- setdiff(required_hazard_names, available_names)
+          available_keys <- unique(available_for_region$indicator_key)
+          missing_keys_for_region <- setdiff(required_indicator_keys, available_keys)
+          missing_keys_for_region <- unique(missing_keys_for_region)
         
         error_parts <- c(
           error_parts,
-          paste0(region, " (", adm_level_filter, "): missing ", length(missing_names_for_region), 
-                 " hazards - ", paste(head(missing_names_for_region, 3), collapse = ", "),
-                 if (length(missing_names_for_region) > 3) paste0(" (+ ", length(missing_names_for_region) - 3, " more)") else "")
+          paste0(region, " (", adm_level_filter, "): missing ", length(missing_keys_for_region), 
+                 " indicator keys - ", paste(head(missing_keys_for_region, 3), collapse = ", "),
+                 if (length(missing_keys_for_region) > 3) paste0(" (+ ", length(missing_keys_for_region) - 3, " more)") else "")
         )
       }
     }
@@ -455,12 +457,12 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     # Build final error message with hazard names being searched
     error_msg_parts <- character()
     
-    # Show what hazards we're looking for
+    # Show what indicators we're looking for
     error_msg_parts <- c(
       error_msg_parts,
-      paste0("Searching for ", length(required_hazard_names), " hazards:"),
-      paste0("  ", paste(head(required_hazard_names, 5), collapse = "\n  "),
-             if (length(required_hazard_names) > 5) paste0("\n  (+ ", length(required_hazard_names) - 5, " more)") else "")
+      paste0("Searching for ", length(required_indicator_keys), " indicators:"),
+      paste0("  ", paste(head(required_indicator_keys, 5), collapse = "\n  "),
+             if (length(required_indicator_keys) > 5) paste0("\n  (+ ", length(required_indicator_keys) - 5, " more)") else "")
     )
     
     # Show region/hazard specific issues
@@ -476,7 +478,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         error_msg_parts,
         "",
         "All regions found in precomputed data but got 0 matches after filtering.",
-        "Check that hazard names in inventory match precomputed hazard_name format."
+        "Check that indicator_key construction matches precomputed inputs."
       )
     }
     
@@ -511,13 +513,13 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     ) |>
     dplyr::filter(.data$aggregation_method == .data$effective_agg)
 
-  # Validate each asset has all required hazards with the correct aggregation
+  # Validate each asset has all required indicators with the correct aggregation
   asset_hazard_counts <- combined_matches |>
     dplyr::group_by(.data$asset) |>
-    dplyr::summarise(n_hazards = dplyr::n_distinct(.data$hazard_name), .groups = "drop")
+    dplyr::summarise(n_indicators = dplyr::n_distinct(.data$indicator_key), .groups = "drop")
   
-  if (any(asset_hazard_counts$n_hazards < length(required_hazard_names))) {
-    bad_assets <- asset_hazard_counts$asset[asset_hazard_counts$n_hazards < length(required_hazard_names)]
+  if (any(asset_hazard_counts$n_indicators < length(required_indicator_keys))) {
+    bad_assets <- asset_hazard_counts$asset[asset_hazard_counts$n_indicators < length(required_indicator_keys)]
     stop(
       "Some assets are missing required aggregation methods in precomputed data: ",
       paste(bad_assets, collapse = ", ")
@@ -536,7 +538,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   # Add dynamic index columns from inventory
   inventory_index_cols <- setdiff(
     names(hazards_inventory),
-    c("hazard_type", "hazard_indicator", "hazard_name", "hazard_key", "indicator_key", "ensemble", "source", "agg", "categorical", "variable", "aggregation_method")
+    c("hazard_type", "hazard_indicator", "hazard_name", "hazard_key", "indicator_key", "ensemble", "source", "agg", "categorical", "variable", "aggregation_method",
+      "indicator_file", "indicator_variable", "indicator_file_key")
   )
   metadata_cols <- unique(c(metadata_cols, inventory_index_cols))
 
@@ -545,7 +548,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   combined_matches <- combined_matches |>
     dplyr::mutate(
       indicator_column_name = dplyr::coalesce(.data$variable, .data$hazard_indicator)
-    )
+    ) |>
+    dplyr::select(-dplyr::any_of(c("indicator_file", "indicator_variable")))
   
   unique_variable_names <- unique(combined_matches$indicator_column_name)
   final_data <- combined_matches 
@@ -578,6 +582,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
           hazard_name = fire_land_cover$hazard_name[j],
           hazard_type = fire_land_cover$hazard_type[j],
           hazard_indicator = fire_land_cover$hazard_indicator[j],
+          indicator_key = fire_land_cover$indicator_key[j],  # CRITICAL: Set indicator_key for event matching
           return_period = fire_land_cover$return_period[j],
           scenario_name = fire_land_cover$scenario_name[j],
           source = "tif",

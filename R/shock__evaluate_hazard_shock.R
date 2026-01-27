@@ -54,6 +54,9 @@ evaluate_hazard_shock <- function(assets_event, hazard_config, shock_type, combi
       eq_expr <- rlang::parse_expr(raw_eq)
     }
 
+    # Debug info for the error reported by user
+    # message("Evaluating equation '", equation_name, "' for ", nrow(eq_data), " rows")
+    
     value <- rlang::eval_tidy(eq_expr, data = eq_data, env = rlang::env(!!!constants))
 
     # Apply global pmax(0, ...) condition only to revenue shocks
@@ -88,10 +91,16 @@ evaluate_hazard_shock <- function(assets_event, hazard_config, shock_type, combi
     if (length(value) == 1) {
       value <- rep(value, nrow(eq_data))
     }
+    
     if (length(value) != nrow(eq_data)) {
+      # If we have a mismatch, it's often because of a join issue that was missed
+      # or because the equation returned a vector of different size.
+      # We provide more context in the error message.
       stop(
         "Shock equation '", equation_name, "' returned ", length(value),
-        " values for ", nrow(eq_data), " rows"
+        " values for ", nrow(eq_data), " rows. ",
+        "Assets in eq_data: ", paste(head(unique(eq_data$asset), 5), collapse = ", "),
+        ". This usually indicates a data join issue (many-to-many) in previous steps."
       )
     }
 

@@ -164,8 +164,24 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
       }
 
       # Prepare new row - start with basic columns
+      # Generate unique event_id based on existing events to avoid duplicates
+      cur_events <- events_rv()
+      next_id <- if (nrow(cur_events) > 0 && "event_id" %in% names(cur_events)) {
+        existing_ids <- cur_events$event_id
+        # Extract numeric part from existing IDs (e.g., "ev1" -> 1)
+        numeric_ids <- as.integer(gsub("^ev", "", existing_ids))
+        numeric_ids <- numeric_ids[!is.na(numeric_ids)]
+        if (length(numeric_ids) > 0) {
+          max(numeric_ids) + 1L
+        } else {
+          1L
+        }
+      } else {
+        1L
+      }
+      
       new_row <- tibble::tibble(
-        event_id = paste0("ev", nrow(events_rv()) + 1L),
+        event_id = paste0("ev", next_id),
         hazard_type = haz_type,
         hazard_indicator = hazard_indicator_val,
         hazard_name = hazard_name_val,
@@ -197,9 +213,8 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
       # 3. Ensure season exists
       if (!"season" %in% names(new_row)) new_row$season <- NA_character_
 
-      cur <- events_rv()
       # bind_rows handles different column sets gracefully
-      events_rv(dplyr::bind_rows(cur, new_row))
+      events_rv(dplyr::bind_rows(cur_events, new_row))
       counter(k + 1L)
     })
 

@@ -2,6 +2,7 @@
 #' @noRd
 build_indicator_key <- function(indicator_file, indicator_variable, index_values, ensemble = "mean") {
   file_part <- gsub("/+$", "", as.character(indicator_file))
+  file_part <- sub("__agg\\d+$", "", tools::file_path_sans_ext(file_part))
   var_part <- as.character(indicator_variable)
   
   key <- paste0(file_part, "__", var_part)
@@ -34,38 +35,37 @@ build_indicator_key <- function(indicator_file, indicator_variable, index_values
 }
 
 #' Build a semantic hazard name (public identifier)
+#' @description Creates a semantic hazard name with explicit column names.
+#'   Format: hazard_type__hazard_indicator__return_period=X__gwl=Y__season=Z__ensemble=W
+#'   This is the user-facing identifier that includes the hazard type prefix.
 #' @noRd
 build_hazard_name <- function(hazard_type, hazard_indicator, index_values, ensemble = "mean") {
   key <- paste0(hazard_type, "__", hazard_indicator)
   
-  # Add index dimensions in specific order
-  # Order: scenario_name -> return_period -> season
-  # We prefer scenario_name over gwl for the semantic name
-  
-  scen <- if (!is.null(index_values$scenario_name) && !is.na(index_values$scenario_name)) {
-    index_values$scenario_name
-  } else if (!is.null(index_values$gwl) && !is.na(index_values$gwl)) {
-    index_values$gwl
-  } else {
-    NULL
-  }
-  
-  if (!is.null(scen)) {
-    key <- paste0(key, "__", scen)
-  }
+  # Add index dimensions in specific order with explicit column names
+  # Order: return_period -> gwl -> scenario_name -> season -> ensemble
+  # This format shows column names for clarity (e.g., return_period=5 instead of just 5)
   
   if (!is.null(index_values$return_period) && !is.na(index_values$return_period)) {
     val <- index_values$return_period
     if (is.numeric(val) && val == as.integer(val)) val <- as.integer(val)
-    key <- paste0(key, "__", val)
+    key <- paste0(key, "__return_period=", val)
+  }
+  
+  if (!is.null(index_values$gwl) && !is.na(index_values$gwl)) {
+    key <- paste0(key, "__gwl=", index_values$gwl)
+  }
+  
+  if (!is.null(index_values$scenario_name) && !is.na(index_values$scenario_name)) {
+    key <- paste0(key, "__scenario_name=", index_values$scenario_name)
   }
   
   if (!is.null(index_values$season) && !is.na(index_values$season)) {
-    key <- paste0(key, "__", index_values$season)
+    key <- paste0(key, "__season=", index_values$season)
   }
   
   if (!is.null(ensemble) && !is.na(ensemble) && ensemble != "" && ensemble != "NA") {
-    key <- paste0(key, "__", ensemble)
+    key <- paste0(key, "__ensemble=", ensemble)
   }
   
   return(key)

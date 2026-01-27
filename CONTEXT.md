@@ -313,6 +313,7 @@ Examples:
 
 **`read_precomputed_hazards(base_dir)`** → data.frame
 - Reads from `{base_dir}/hazards/precomputed_adm_hazards.csv`
+- Builds `indicator_key`/`hazard_name` using config index dims (gwl vs scenario_name)
 
 
 ### Hazard Loading Workflow
@@ -354,7 +355,7 @@ configs <- hazard_data$configs
 **`extract_hazard_statistics(assets_df, hazards, hazards_inventory, precomputed_hazards, aggregation_method)`** → long format data.frame
 - **Main orchestrator** that dispatches to specialized extraction functions:
   - **Coordinate-based assets** → `extract_spatial_statistics()` for spatial extraction (NetCDF)
-  - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup (matches hazards by exact hazard_name)
+  - **Administrative-based assets** → `extract_precomputed_statistics()` for lookup (matches hazards by `indicator_key`)
 - **Priority cascade** for asset location:
   1. Coordinates → spatial extraction (polygon-based for NetCDF)
   2. No coordinates + municipality → precomputed ADM2 lookup

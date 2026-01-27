@@ -150,6 +150,24 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   testthat::expect_true("ADM2" %in% adm_levels)
 })
 
+testthat::test_that("read_precomputed_hazards builds indicator_key with config index dims", {
+  base_dir <- get_test_data_dir()
+  hazards_dir <- file.path(base_dir, "hazards", "config")
+  hazard_configs <- load_hazard_configs(hazards_dir)
+  precomputed <- read_precomputed_hazards(base_dir)
+
+  drought_index <- hazard_configs$Drought$indicators$standardized_precipitation_index_3$index
+  testthat::expect_true("gwl" %in% drought_index)
+  testthat::expect_false("scenario_name" %in% drought_index)
+
+  drought_rows <- precomputed |>
+    dplyr::filter(.data$hazard_type == "Drought", .data$hazard_indicator == "standardized_precipitation_index_3")
+
+  testthat::expect_gt(nrow(drought_rows), 0)
+  testthat::expect_true(all(grepl("__gwl=", drought_rows$indicator_key)))
+  testthat::expect_false(any(grepl("__scenario_name=", drought_rows$indicator_key)))
+})
+
 
 # Tests for function: load_mapping_from_config
 
