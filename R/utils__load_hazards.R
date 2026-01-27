@@ -376,6 +376,11 @@ validate_no_mixed_hazard_types <- function(hazards_dir) {
   tif_files <- list.files(hazards_dir, pattern = "\\.tif$", full.names = TRUE, recursive = TRUE)
   nc_files <- list.files(hazards_dir, pattern = "\\.nc$", full.names = TRUE, recursive = TRUE)
   csv_files <- list.files(hazards_dir, pattern = "\\.csv$", full.names = TRUE, recursive = TRUE)
+  
+  # Exclude metadata CSV files (metadata.csv, *_factors.csv, *_legend.csv, etc.)
+  # These are configuration/mapping files, not hazard files
+  metadata_patterns <- c("metadata\\.csv$", "_factors\\.csv$", "_legend\\.csv$", "_exposure\\.csv$", "_links\\.csv$")
+  csv_files <- csv_files[!grepl(paste(metadata_patterns, collapse = "|"), basename(csv_files), ignore.case = TRUE)]
 
   # Get directories for each file type
   tif_dirs <- unique(dirname(tif_files))

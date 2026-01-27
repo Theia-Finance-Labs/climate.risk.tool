@@ -122,12 +122,76 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
 
       base_table <- apply_intensity_matching(base_table, mapping_df, intensity_cols, mapping$intensity_match)
 
+      # ========================================================================
+      # HAZARD-TYPE-SPECIFIC TRANSFORMATIONS
+      # Apply any hazard-specific data transformations before joining
+      # ========================================================================
+      
+      # Drought: Fallback to "Other" state when specific combination not found in mapping
+      if (hazard_type == "Drought" && "state" %in% asset_cols_to_check && "Other" %in% unique(mapping_df$state)) {
+        # Build combination keys for mapping table (excluding intensity columns which vary continuously)
+        mapping_key_cols <- intersect(c("state", "asset_subtype", "season", "asset_category"), names(mapping_df))
+        if (length(mapping_key_cols) > 0) {
+          # Create combination keys in mapping
+          mapping_combinations <- mapping_df |>
+            dplyr::select(dplyr::all_of(mapping_key_cols)) |>
+            dplyr::distinct() |>
+            tidyr::unite("mapping_key", dplyr::all_of(mapping_key_cols), sep = "||", remove = FALSE)
+          
+          # Create combination keys in base_table
+          base_key_cols <- intersect(mapping_key_cols, names(base_table))
+          if (length(base_key_cols) > 0) {
+            base_table <- base_table |>
+              tidyr::unite("asset_key", dplyr::all_of(base_key_cols), sep = "||", remove = FALSE, na.rm = FALSE)
+            
+            # Identify rows that don't have a matching combination
+            unmatched <- !(base_table$asset_key %in% mapping_combinations$mapping_key)
+            
+            # For unmatched rows, try replacing state with "Other"
+            if (any(unmatched) && "state" %in% names(base_table)) {
+              # Build alternative keys with "Other" state
+              base_table_other <- base_table[unmatched, ] |>
+                dplyr::mutate(state_test = "Other")
+              
+              if (length(base_key_cols) > 0) {
+                other_key_cols <- base_key_cols
+                other_key_cols[other_key_cols == "state"] <- "state_test"
+                
+                base_table_other <- base_table_other |>
+                  tidyr::unite("other_key", dplyr::all_of(other_key_cols), sep = "||", remove = FALSE, na.rm = FALSE)
+                
+                # Check which "Other" combinations exist in mapping
+                has_other_match <- base_table_other$other_key %in% mapping_combinations$mapping_key
+                
+                if (any(has_other_match)) {
+                  # Store original state and apply fallback
+                  fallback_idx <- which(unmatched)[has_other_match]
+                  
+                  base_table$state_original <- base_table$state
+                  base_table$state[fallback_idx] <- "Other"
+                }
+              }
+            }
+            
+            # Clean up temporary key column
+            base_table$asset_key <- NULL
+          }
+        }
+      }
+
       # Perform the join.
       base_table <- dplyr::left_join(
         base_table,
         mapping_df,
         by = join_cols
       )
+      
+      # Restore original state after join (for Drought)
+      if (hazard_type == "Drought" && "state_original" %in% names(base_table)) {
+        base_table <- base_table |>
+          dplyr::mutate(state = .data$state_original) |>
+          dplyr::select(-"state_original")
+      }
     }
 
     results[[length(results) + 1]] <- base_table
@@ -152,6 +216,7 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
 #' @return Data frame with one row per asset/event and indicator columns
 #' @noRd
 build_indicator_wide <- function(hazard_assets, hazard_config) {
+  
   primary_indicator <- hazard_config$primary_indicator
   primary_rows <- hazard_assets |>
     dplyr::filter(.data$hazard_indicator == primary_indicator)
@@ -191,12 +256,33 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
       next
     }
 
-    indicator_vals <- hazard_assets |>
-      dplyr::filter(.data$hazard_indicator == indicator_key) |>
-      dplyr::select("asset", "event_id", dplyr::any_of(candidate_cols)) |>
+    # FIX: Use !! to force evaluation of loop variable in dplyr context
+    # The issue was that .data$hazard_indicator == indicator_key wasn't capturing indicator_key correctly
+    indicator_key_val <- indicator_key  # Capture loop variable
+    indicator_rows <- hazard_assets |>
+      dplyr::filter(.data$hazard_indicator == !!indicator_key_val)
+
+    # Fallbacks: sometimes hazard_indicator uses variable name or indicator_key is stored in indicator_key column
+    if (nrow(indicator_rows) == 0 && "hazard_indicator" %in% names(hazard_assets)) {
+      indicator_var_val <- indicator_var  # Capture variable
+      indicator_rows <- hazard_assets |>
+        dplyr::filter(.data$hazard_indicator == !!indicator_var_val)
+    }
+    if (nrow(indicator_rows) == 0 && "indicator_key" %in% names(hazard_assets)) {
+      pattern_val <- paste0("^", indicator_var, "__")  # Capture pattern
+      indicator_rows <- hazard_assets |>
+        dplyr::filter(grepl(!!pattern_val, .data$indicator_key))
+    }
+    
+    if (nrow(indicator_rows) == 0) {
+      next
+    }
+    
+    indicator_vals <- indicator_rows |>
+      dplyr::select("asset", "event_id", dplyr::any_of(c(candidate_cols, "hazard_intensity"))) |>
       dplyr::group_by(.data$asset, .data$event_id) |>
       dplyr::summarize(
-        dplyr::across(dplyr::any_of(candidate_cols), function(x) {
+        dplyr::across(dplyr::any_of(c(candidate_cols, "hazard_intensity")), function(x) {
           non_na <- x[!is.na(x)]
           unique_vals <- unique(non_na)
           if (length(unique_vals) > 1) {
@@ -211,13 +297,17 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
         .groups = "drop"
       )
 
-    # Normalize to the variable name used downstream
+    # Normalize to the variable name used downstream (fallback to hazard_intensity)
     if (indicator_var %in% names(indicator_vals)) {
       indicator_vals <- indicator_vals |>
         dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
     } else if (indicator_key %in% names(indicator_vals)) {
       indicator_vals <- indicator_vals |>
         dplyr::rename(!!indicator_var := .data[[indicator_key]]) |>
+        dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
+    } else if ("hazard_intensity" %in% names(indicator_vals)) {
+      indicator_vals <- indicator_vals |>
+        dplyr::rename(!!indicator_var := .data$hazard_intensity) |>
         dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
     }
 
@@ -250,7 +340,7 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
 
   base_table <- primary_rows |>
     dplyr::select(-dplyr::any_of(all_indicator_cols))
-
+  
   base_table <- dplyr::left_join(
     base_table,
     indicator_wide,
@@ -293,7 +383,18 @@ read_hazard_mapping_table <- function(mappings_dir, mapping_file) {
 #' @return Updated asset_df with intensity columns adjusted
 #' @noRd
 apply_intensity_matching <- function(asset_df, mapping_df, intensity_cols, match_type) {
-  if (length(intensity_cols) == 0 || is.null(match_type) || match_type == "exact") {
+  # If no intensity columns, nothing to do
+  if (length(intensity_cols) == 0) {
+    return(asset_df)
+  }
+  
+  # Default to "closest" matching for continuous intensity values
+  if (is.null(match_type)) {
+    match_type <- "closest"
+  }
+  
+  # If explicitly set to "exact", skip intensity matching
+  if (match_type == "exact") {
     return(asset_df)
   }
 

@@ -131,7 +131,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
           dplyr::select(-dplyr::any_of("sector_name"))
       }
 
-      priority_cols <- c("asset", "company", "sector", "sector_name", "sector_code", "share_of_economic_activity", "event_id", "hazard_name", "hazard_type", "matching_method", "return_period", "event_year")
+      priority_cols <- c("asset", "company", "sector", "sector_name", "sector_code", "share_of_economic_activity", "event_id", "hazard_name", "hazard_type", "matching_method", "hazard_return_period", "event_year")
       existing_priority <- intersect(priority_cols, names(assets_df))
       other_cols <- setdiff(names(assets_df), existing_priority)
 
@@ -170,9 +170,13 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
       assets_df |>
         dplyr::mutate(
+          hazard_name_value = if (hazard_name_exists) .data$hazard_name else NA_character_,
+          hazard_type_value = if (hazard_type_exists) .data$hazard_type else NA_character_
+        ) |>
+        dplyr::mutate(
           hazard_label = dplyr::case_when(
-            hazard_name_exists & !is.na(.data$hazard_name) & nzchar(.data$hazard_name) ~ .data$hazard_name,
-            hazard_type_exists & !is.na(.data$hazard_type) & nzchar(.data$hazard_type) ~ .data$hazard_type,
+            !is.na(.data$hazard_name_value) & nzchar(.data$hazard_name_value) ~ .data$hazard_name_value,
+            !is.na(.data$hazard_type_value) & nzchar(.data$hazard_type_value) ~ .data$hazard_type_value,
             TRUE ~ "Unknown hazard"
           )
         ) |>

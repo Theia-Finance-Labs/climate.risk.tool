@@ -248,7 +248,11 @@ compute_risk <- function(assets,
     # Identify all columns that came from the event table (they have .event suffix or no suffix if unique)
     event_cols <- names(events_expanded_for_join)
     # Preserve per-indicator metadata from extraction
-    event_cols <- setdiff(event_cols, c("indicator_key", "hazard_indicator"))
+    event_cols <- setdiff(event_cols, c("indicator_key", "hazard_indicator", "hazard_type", "matching_method"))
+    
+    # CRITICAL: Filter out columns that don't exist in assets_with_events
+    # This can happen if events_expanded_for_join has columns not present in assets_long
+    event_cols <- intersect(event_cols, names(assets_with_events))
     
     for (col in event_cols) {
       event_col_name <- if (paste0(col, ".event") %in% names(assets_with_events)) paste0(col, ".event") else col
@@ -270,6 +274,48 @@ compute_risk <- function(assets,
       }
     }
 
+    # Ensure matching_method is preserved from extraction
+    if (paste0("matching_method", ".extracted") %in% names(assets_with_events)) {
+      assets_with_events$matching_method <- assets_with_events[["matching_method.extracted"]]
+      assets_with_events[["matching_method.extracted"]] <- NULL
+    }
+    if (paste0("matching_method", ".event") %in% names(assets_with_events)) {
+      assets_with_events[["matching_method.event"]] <- NULL
+    }
+
+    # Ensure hazard_type is preserved (required downstream)
+    if (paste0("hazard_type", ".extracted") %in% names(assets_with_events)) {
+      assets_with_events$hazard_type <- assets_with_events[["hazard_type.extracted"]]
+      assets_with_events[["hazard_type.extracted"]] <- NULL
+    }
+    if (paste0("hazard_type", ".event") %in% names(assets_with_events)) {
+      if (!"hazard_type" %in% names(assets_with_events)) {
+        assets_with_events$hazard_type <- assets_with_events[["hazard_type.event"]]
+      }
+      assets_with_events[["hazard_type.event"]] <- NULL
+    }
+
+    # Ensure hazard_name is preserved (needed for display in results)
+    if (paste0("hazard_name", ".event") %in% names(assets_with_events)) {
+      assets_with_events$hazard_name <- assets_with_events[["hazard_name.event"]]
+      assets_with_events[["hazard_name.event"]] <- NULL
+    }
+    if (paste0("hazard_name", ".extracted") %in% names(assets_with_events)) {
+      if (!"hazard_name" %in% names(assets_with_events)) {
+        assets_with_events$hazard_name <- assets_with_events[["hazard_name.extracted"]]
+      }
+      assets_with_events[["hazard_name.extracted"]] <- NULL
+    }
+
+    # Remove the source column entirely as requested - we only care about matching_method
+    # We do this for all possible variants of the source column
+    source_cols <- grep("^source(\\..+)?$", names(assets_with_events), value = TRUE)
+    if (length(source_cols) > 0) {
+      for (scol in source_cols) {
+        assets_with_events[[scol]] <- NULL
+      }
+    }
+
     # Preserve per-indicator metadata from extraction when suffixes exist
     # This must be OUTSIDE the loop to ensure it runs even if event_cols is empty
     if (paste0("hazard_indicator", ".extracted") %in% names(assets_with_events)) {
@@ -280,8 +326,62 @@ compute_risk <- function(assets,
       assets_with_events[["hazard_indicator.event"]] <- NULL
     }
 
+    # Backfill missing index columns (e.g., season) from inventory when absent
+    # This prevents mapping joins from failing when a required index is missing
+    index_backfill_cols <- intersect(
+      c("season", "scenario_name", "return_period", "gwl", "ensemble"),
+      names(hazards_inventory)
+    )
+    if (length(index_backfill_cols) > 0) {
+      inventory_backfill <- hazards_inventory |>
+        dplyr::select("indicator_key", dplyr::any_of(index_backfill_cols)) |>
+        dplyr::distinct(.data$indicator_key, .keep_all = TRUE)
+
+      assets_with_events <- assets_with_events |>
+        dplyr::left_join(inventory_backfill, by = "indicator_key", suffix = c("", ".inv"))
+
+      for (col in index_backfill_cols) {
+        inv_col <- paste0(col, ".inv")
+        if (inv_col %in% names(assets_with_events)) {
+          if (col %in% names(assets_with_events)) {
+            assets_with_events[[col]] <- dplyr::coalesce(assets_with_events[[col]], assets_with_events[[inv_col]])
+          } else {
+            assets_with_events[[col]] <- assets_with_events[[inv_col]]
+          }
+          assets_with_events[[inv_col]] <- NULL
+        }
+      }
+    }
+
   # Step 2.4: Join mapping tables for hazard-specific factors
   assets_factors <- join_damage_cost_factors(assets_with_events, hazard_configs, hazards_dir)
+
+  # Standardize output columns: keep hazard_return_period and remove long-format metadata
+  if ("return_period" %in% names(assets_factors)) {
+    if ("hazard_return_period" %in% names(assets_factors)) {
+      assets_factors$hazard_return_period <- dplyr::coalesce(
+        assets_factors$hazard_return_period,
+        assets_factors$return_period
+      )
+    } else {
+      assets_factors$hazard_return_period <- assets_factors$return_period
+    }
+    assets_factors$return_period <- NULL
+  }
+
+  # Drop long-format only columns and any suffixed columns
+  drop_cols <- c("hazard_indicator", "hazard_intensity", "source", "indicator_key", "hazard_key")
+  drop_cols <- intersect(drop_cols, names(assets_factors))
+  if (length(drop_cols) > 0) {
+    assets_factors <- assets_factors |>
+      dplyr::select(-dplyr::all_of(drop_cols))
+  }
+
+  suffix_cols <- grep("\\.(extracted|event|inv)$", names(assets_factors), value = TRUE)
+  if (length(suffix_cols) > 0) {
+    assets_factors <- assets_factors |>
+      dplyr::select(-dplyr::all_of(suffix_cols))
+  }
 
 
   # ============================================================================

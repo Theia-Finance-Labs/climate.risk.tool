@@ -304,7 +304,8 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         season = hazard_season,
         ensemble = hazard_ensemble,
         source = hazard_source,
-        matching_method = "coordinates",
+        hazard_intensity = .data$.indicator_value,
+        matching_method = "geolocated extracted",
         !!rlang::sym(indicator_col) := .data$.indicator_value
         # DO NOT replace NAs with 0 - keep NAs to indicate extraction failures
       ) |>
@@ -428,7 +429,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       by = c("municipality" = "region"),
       relationship = "many-to-many"
     ) |>
-    dplyr::mutate(matching_method = "municipality", source = "precomputed (municipality)")
+    dplyr::mutate(matching_method = "municipality lookup")
 
   # Join with State (ADM1) for assets that didn't match ADM2
   matched_assets_adm2 <- unique(assets_with_adm2$asset)
@@ -440,7 +441,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       by = c("state" = "region"),
       relationship = "many-to-many"
     ) |>
-    dplyr::mutate(matching_method = "state", source = "precomputed (state)")
+    dplyr::mutate(matching_method = "state lookup")
 
   combined_matches <- dplyr::bind_rows(assets_with_adm2, assets_with_adm1)
   
@@ -612,6 +613,9 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
         )
       )
   }
+
+  # Keep a consistent intensity column for downstream fallback
+  combined_matches$hazard_intensity <- combined_matches$hazard_value
   
   # Define standard columns to keep
   metadata_cols <- c(
@@ -639,7 +643,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   
   final_data <- final_data |>
     dplyr::select(-"indicator_column_name", -"hazard_value", -"effective_agg", -"agg_from_inv", -dplyr::any_of(available_agg_cols)) |>
-    dplyr::select(dplyr::any_of(c(metadata_cols, unique_variable_names)))
+    dplyr::select(dplyr::any_of(c(metadata_cols, "hazard_intensity", unique_variable_names)))
 
   # Step 4: Handle special fire/land_cover (not precomputed)
   fire_land_cover <- hazards_inventory |>
@@ -662,12 +666,19 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
           return_period = fire_land_cover$return_period[j],
           scenario_name = fire_land_cover$scenario_name[j],
           source = "tif",
-          land_cover = NA_real_
+          land_cover = NA_real_,
+          hazard_intensity = NA_real_
         )
     })
     
     land_cover_rows <- dplyr::bind_rows(land_cover_rows_list)
     final_data <- dplyr::bind_rows(final_data, land_cover_rows)
+    
+    # Remove source column if it exists (it might have been added in land_cover_rows)
+    if ("source" %in% names(final_data)) {
+      final_data$source <- NULL
+    }
+    
     message("    Added fire/land_cover with default NA for ", nrow(asset_metadata), " assets")
   }
 
