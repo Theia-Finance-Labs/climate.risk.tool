@@ -85,6 +85,10 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       numeric_cols <- vapply(assets_df, is.numeric, logical(1))
       numeric_col_names <- names(assets_df)[numeric_cols]
       for (col in numeric_col_names) {
+        # Skip rounding for _raw columns to preserve exact extracted values
+        if (grepl("_raw$", col)) {
+          next
+        }
         if (grepl("ratio|intensity", col)) {
           assets_df[[col]] <- round(assets_df[[col]], 4)
         } else if (grepl("cost|value", col)) {

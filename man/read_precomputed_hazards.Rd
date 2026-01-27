@@ -4,10 +4,12 @@
 \alias{read_precomputed_hazards}
 \title{Read precomputed hazard statistics for provinces and municipalities}
 \usage{
-read_precomputed_hazards(base_dir)
+read_precomputed_hazards(base_dir, hazard_configs = NULL)
 }
 \arguments{
 \item{base_dir}{Character string specifying the base directory. The function looks for precomputed_adm_hazards.csv in base_dir/hazards/}
+
+\item{hazard_configs}{Optional named list of hazard configs. If NULL, they are loaded from base_dir/hazards/config.}
 }
 \value{
 tibble with precomputed hazard statistics including columns: region, adm_level,

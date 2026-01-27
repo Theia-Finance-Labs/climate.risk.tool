@@ -366,7 +366,15 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
           shocks_ui <- NULL
           if (!is.null(hazard_cfg$shocks) && length(hazard_cfg$shocks) > 0) {
             # Collect variables for highlighting
-            indicator_vars <- names(hazard_cfg$indicators)
+            # Include both indicator keys and their variable names
+            indicator_vars <- unique(c(
+              names(hazard_cfg$indicators),
+              vapply(hazard_cfg$indicators, function(ind) {
+                if (!is.null(ind$variable) && nzchar(ind$variable)) ind$variable else ""
+              }, character(1))
+            ))
+            indicator_vars <- indicator_vars[nzchar(indicator_vars)]
+            
             mapping_vars <- character(0)
             asset_keys <- character(0)
             if (!is.null(hazard_cfg$mappings) && length(hazard_cfg$mappings) > 0) {

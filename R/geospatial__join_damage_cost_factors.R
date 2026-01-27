@@ -120,6 +120,17 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
           dplyr::mutate(scenario_name = as.character(.data$scenario_name))
       }
 
+      # Save raw intensity values before matching/capping
+      # This preserves the original extracted values in [indicator]_raw columns
+      if (length(intensity_cols) > 0) {
+        for (intensity_col in intensity_cols) {
+          if (intensity_col %in% names(base_table)) {
+            raw_col_name <- paste0(intensity_col, "_raw")
+            base_table[[raw_col_name]] <- base_table[[intensity_col]]
+          }
+        }
+      }
+      
       base_table <- apply_intensity_matching(base_table, mapping_df, intensity_cols, mapping$intensity_match)
 
       # ========================================================================
@@ -185,6 +196,22 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
         mapping_df,
         by = join_cols
       )
+      
+      # Apply defaults for variables that are NA after join
+      if (!is.null(mapping$defaults) && length(mapping$defaults) > 0) {
+        for (var_name in names(mapping$defaults)) {
+          default_value <- mapping$defaults[[var_name]]
+          if (var_name %in% names(base_table)) {
+            # Fill NA values with the default
+            na_mask <- is.na(base_table[[var_name]])
+            if (any(na_mask)) {
+              base_table[[var_name]][na_mask] <- default_value
+              message("  [join_damage_cost_factors] Applied default value '", default_value, 
+                      "' to ", sum(na_mask), " NA values in column '", var_name, "' for ", hazard_type)
+            }
+          }
+        }
+      }
       
       # Restore original state after join (for Drought)
       if (hazard_type == "Drought" && "state_original" %in% names(base_table)) {
