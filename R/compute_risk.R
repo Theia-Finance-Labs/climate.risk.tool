@@ -232,41 +232,53 @@ compute_risk <- function(assets,
   # Step 2.3: Join event information (event_year, scenario_name) from events
   # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
   # For single-indicator hazards, use hazard_name directly
-  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, hazard_configs) |>
-    dplyr::rename(
-      event_scenario_name = "scenario_name",
-      event_return_period = "return_period",
-      event_season = "season",
-      event_hazard_name = "hazard_name"
-    )
+  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, hazard_configs)
+  
+    # Join with explicit suffixes to handle overlapping columns between extraction and events
+    # We prioritize event-level metadata (like scenario_name, return_period) over
+    # metadata extracted from raster filenames.
+    assets_with_events <- assets_long |>
+      dplyr::inner_join(
+        events_expanded_for_join,
+        by = "indicator_key",
+        suffix = c(".extracted", ".event"),
+        relationship = "many-to-many"
+      )
+    
+    # Identify all columns that came from the event table (they have .event suffix or no suffix if unique)
+    event_cols <- names(events_expanded_for_join)
+    # Preserve per-indicator metadata from extraction
+    event_cols <- setdiff(event_cols, c("indicator_key", "hazard_indicator"))
+    
+    for (col in event_cols) {
+      event_col_name <- if (paste0(col, ".event") %in% names(assets_with_events)) paste0(col, ".event") else col
+      extracted_col_name <- paste0(col, ".extracted")
+      
+      # If we have an event-specific version of this column, use it to overwrite/create the main column
+      if (event_col_name %in% names(assets_with_events)) {
+        # CRITICAL FIX: Use simple assignment instead of mutate to avoid many-to-many issues
+        # with character columns that might contain commas or other special characters
+        assets_with_events[[col]] <- assets_with_events[[event_col_name]]
+        
+        # Clean up the suffixed columns
+        if (event_col_name != col) {
+          assets_with_events[[event_col_name]] <- NULL
+        }
+        if (extracted_col_name %in% names(assets_with_events)) {
+          assets_with_events[[extracted_col_name]] <- NULL
+        }
+      }
+    }
 
-  assets_with_events <- assets_long |>
-    dplyr::inner_join(
-      events_expanded_for_join |>
-        dplyr::select(
-          "indicator_key",
-          "event_id",
-          "event_year",
-          "event_scenario_name",
-          "event_return_period",
-          "event_season",
-          "event_hazard_name"
-        ),
-      by = "indicator_key",
-      relationship = "many-to-many"
-    ) |>
-    dplyr::mutate(
-      hazard_name = .data$event_hazard_name,
-      scenario_name = .data$event_scenario_name,
-      return_period = .data$event_return_period,
-      season = .data$event_season
-    ) |>
-    dplyr::select(
-      -"event_hazard_name",
-      -"event_scenario_name",
-      -"event_return_period",
-      -"event_season"
-    )
+    # Preserve per-indicator metadata from extraction when suffixes exist
+    # This must be OUTSIDE the loop to ensure it runs even if event_cols is empty
+    if (paste0("hazard_indicator", ".extracted") %in% names(assets_with_events)) {
+      assets_with_events$hazard_indicator <- assets_with_events[["hazard_indicator.extracted"]]
+      assets_with_events[["hazard_indicator.extracted"]] <- NULL
+    }
+    if (paste0("hazard_indicator", ".event") %in% names(assets_with_events)) {
+      assets_with_events[["hazard_indicator.event"]] <- NULL
+    }
 
   # Step 2.4: Join mapping tables for hazard-specific factors
   assets_factors <- join_damage_cost_factors(assets_with_events, hazard_configs, hazards_dir)

@@ -4,10 +4,14 @@
 \alias{load_region_name_mapping}
 \title{Load mapping from normalized names to original names}
 \usage{
-load_region_name_mapping(base_dir)
+load_region_name_mapping(base_dir, adm1_sf = NULL, adm2_sf = NULL)
 }
 \arguments{
 \item{base_dir}{Base directory containing areas subdirectory}
+
+\item{adm1_sf}{Optional sf object for ADM1 boundaries (if already loaded)}
+
+\item{adm2_sf}{Optional sf object for ADM2 boundaries (if already loaded)}
 }
 \value{
 Named list with two elements:

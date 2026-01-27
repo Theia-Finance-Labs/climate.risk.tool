@@ -467,6 +467,7 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
 #'   The file uses indicator metadata (`indicator_file`, `indicator_variable`) which are mapped
 #'   to `hazard_type` and `hazard_indicator` using the hazard config YAML files.
 #' @param base_dir Character string specifying the base directory. The function looks for precomputed_adm_hazards.csv in base_dir/hazards/
+#' @param hazard_configs Optional named list of hazard configs. If NULL, they are loaded from base_dir/hazards/config.
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
 #'   scenario_name, return_period, hazard_type, hazard_indicator, hazard_name,
 #'   aggregation_method, hazard_value. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
@@ -479,7 +480,7 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
 #'   dplyr::filter(region == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
 #' }
 #' @export
-read_precomputed_hazards <- function(base_dir) {
+read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
   message("[read_precomputed_hazards] Reading precomputed hazard statistics from: ", base_dir)
 
   # Define file path
@@ -515,9 +516,11 @@ read_precomputed_hazards <- function(base_dir) {
 
   message("  File read complete (", nrow(precomputed_df), " rows). Mapping indicators from config...")
 
-  # Load hazard configs to map indicator metadata -> hazard_type + hazard_indicator
-  hazards_dir <- file.path(base_dir, "hazards", "config")
-  hazard_configs <- load_hazard_configs(hazards_dir)
+  # Load hazard configs if not provided
+  if (is.null(hazard_configs)) {
+    hazards_dir <- file.path(base_dir, "hazards", "config")
+    hazard_configs <- load_hazard_configs(hazards_dir)
+  }
 
   normalize_indicator_file <- function(x) {
     x <- gsub("/+$", "", as.character(x))
@@ -625,20 +628,37 @@ read_precomputed_hazards <- function(base_dir) {
   if (has_season) group_cols <- c(group_cols, "season")
 
   # Use unique-mapping for ensemble priority
-  unique_ensembles <- unique(precomputed_df$ensemble)
-  ensemble_priority_map <- dplyr::case_when(
-    tolower(unique_ensembles) == "mean" ~ 1L,
-    tolower(unique_ensembles) == "median" ~ 2L,
-    is.na(unique_ensembles) ~ 3L,
-    TRUE ~ 4L
-  )
-  names(ensemble_priority_map) <- unique_ensembles
-  
+  # If a fixed ensemble is defined in config, prioritize it
+  # Pre-calculate fixed ensembles per indicator to avoid slow lookups in large dataframe
+  fixed_ensemble_map <- list()
+  if (!is.null(hazard_configs)) {
+    for (ht in names(hazard_configs)) {
+      for (hi in names(hazard_configs[[ht]]$indicators)) {
+        cfg <- hazard_configs[[ht]]$indicators[[hi]]
+        if (!is.null(cfg$fixed) && !is.null(cfg$fixed$ensemble)) {
+          fixed_ensemble_map[[paste0(ht, "||", hi)]] <- tolower(cfg$fixed$ensemble)
+        }
+      }
+    }
+  }
+
   precomputed_df <- precomputed_df |>
-    dplyr::mutate(ensemble_priority = ensemble_priority_map[.data$ensemble]) |>
+    dplyr::mutate(
+      .fixed_ensemble = vapply(paste0(.data$hazard_type, "||", .data$hazard_indicator), 
+                               function(k) if (k %in% names(fixed_ensemble_map)) fixed_ensemble_map[[k]] else NA_character_, 
+                               character(1)),
+      ensemble_priority = dplyr::case_when(
+        # Highest priority (0) for the fixed ensemble if specified in config
+        !is.na(.data$.fixed_ensemble) & tolower(.data$ensemble) == .data$.fixed_ensemble ~ 0L,
+        tolower(.data$ensemble) == "mean" ~ 1L,
+        tolower(.data$ensemble) == "median" ~ 2L,
+        is.na(.data$ensemble) ~ 3L,
+        TRUE ~ 4L
+      )
+    ) |>
     dplyr::arrange(.data$ensemble_priority) |>
     dplyr::distinct(dplyr::across(dplyr::any_of(group_cols)), .keep_all = TRUE) |>
-    dplyr::select(-"ensemble_priority")
+    dplyr::select(-"ensemble_priority", -".fixed_ensemble")
 
   # 4. Optimized hazard_name construction using unique combinations
   message("  Building hazard names...")
@@ -694,25 +714,31 @@ read_precomputed_hazards <- function(base_dir) {
 
   # Construct structured hazard_name for each combination
   # Use fixed ensemble from config if specified, otherwise use actual ensemble from data
+  # Also compute effective_ensemble to update the ensemble column
+  combos$effective_ensemble <- purrr::pmap_chr(combos, function(...) {
+    row <- list(...)
+    
+    # Get fixed ensemble from config if it exists
+    effective_ensemble <- as.character(row$ensemble)
+    if (!is.null(hazard_configs) && !is.null(row$hazard_type) && row$hazard_type %in% names(hazard_configs)) {
+      indicator_cfg <- hazard_configs[[row$hazard_type]]$indicators[[row$hazard_indicator]]
+      if (!is.null(indicator_cfg) && !is.null(indicator_cfg$fixed) && !is.null(indicator_cfg$fixed$ensemble)) {
+        effective_ensemble <- as.character(indicator_cfg$fixed$ensemble)
+      }
+    }
+    effective_ensemble
+  })
+  
   combos$indicator_key <- purrr::pmap_chr(combos, function(...) {
     row <- list(...)
     
     index_values <- build_index_values(row)
     
-    # Get fixed ensemble from config if it exists
-    effective_ensemble <- row$ensemble
-    if (!is.null(hazard_configs) && row$hazard_type %in% names(hazard_configs)) {
-      indicator_cfg <- hazard_configs[[row$hazard_type]]$indicators[[row$hazard_indicator]]
-      if (!is.null(indicator_cfg$fixed) && !is.null(indicator_cfg$fixed$ensemble)) {
-        effective_ensemble <- indicator_cfg$fixed$ensemble
-      }
-    }
-    
     build_indicator_key(
       indicator_file = row$indicator_file,
       indicator_variable = row$indicator_variable,
       index_values = index_values,
-      ensemble = effective_ensemble
+      ensemble = row$effective_ensemble
     )
   })
 
@@ -721,56 +747,34 @@ read_precomputed_hazards <- function(base_dir) {
     
     index_values <- build_index_values(row)
     
-    # Get fixed ensemble from config if it exists
-    effective_ensemble <- row$ensemble
-    if (!is.null(hazard_configs) && row$hazard_type %in% names(hazard_configs)) {
-      indicator_cfg <- hazard_configs[[row$hazard_type]]$indicators[[row$hazard_indicator]]
-      if (!is.null(indicator_cfg$fixed) && !is.null(indicator_cfg$fixed$ensemble)) {
-        effective_ensemble <- indicator_cfg$fixed$ensemble
-      }
-    }
-    
     build_hazard_name(
       hazard_type = row$hazard_type,
       hazard_indicator = row$hazard_indicator,
       index_values = index_values,
-      ensemble = effective_ensemble
+      ensemble = row$effective_ensemble
     )
   })
   
   # Join names back to full data frame
+  # Also update ensemble column to match effective_ensemble used in keys
   join_cols <- intersect(names(combos), names(precomputed_df))
   precomputed_df <- precomputed_df |>
-    dplyr::left_join(combos |> dplyr::select(dplyr::all_of(c(join_cols, "hazard_name", "indicator_key"))), by = join_cols) |>
-    # hazard_key is the same as indicator_key (implementation detail)
-    dplyr::mutate(hazard_key = .data$indicator_key)
+    dplyr::left_join(combos |> dplyr::select(dplyr::all_of(c(join_cols, "hazard_name", "indicator_key", "effective_ensemble"))), by = join_cols) |>
+    # Update ensemble column to match the effective_ensemble used in indicator_key
+    dplyr::mutate(
+      ensemble = .data$effective_ensemble,
+      # hazard_key is the same as indicator_key (implementation detail)
+      hazard_key = .data$indicator_key
+    ) |>
+    dplyr::select(-"effective_ensemble")
   
   precomputed_df <- precomputed_df |>
     dplyr::select(-"indicator_file_key")
 
-  # Define ensemble columns to pivot
-  summary_cols <- intersect(
-    c("mean", "median", "p10", "p90", "min", "max", "mode"),
-    names(precomputed_df)
-  )
-  
-  if (length(summary_cols) == 0) {
-    stop("No valid aggregation columns found in precomputed hazards file")
-  }
-
-  message("  Pivoting...")
-
+  # Add default metadata columns to match inventory structure
   precomputed_final <- precomputed_df |>
-    tidyr::pivot_longer(
-      cols = dplyr::all_of(summary_cols),
-      names_to = "aggregation_method",
-      values_to = "hazard_value",
-      values_drop_na = TRUE
-    ) |>
     dplyr::mutate(
-      ensemble = as.character(.data$ensemble),
       scenario_name = as.character(.data$scenario_name),
-      # Add default metadata columns to match inventory structure
       agg = NA_character_,
       categorical = FALSE
     )

@@ -14,37 +14,23 @@ filter_hazards_by_events(
 \arguments{
 \item{hazards}{Named list of SpatRaster objects (from load_hazards_and_inventory())}
 
-\item{events}{Data frame with event specifications including hazard_name column}
+\item{events}{Data frame with event specifications including hazard_type/scenario/return_period}
 
-\item{hazards_inventory}{Optional. Hazard inventory for multi-indicator expansion. If NULL, assumes single-indicator only.}
+\item{hazards_inventory}{Hazard inventory from load_hazards_and_inventory()}
 
-\item{hazard_configs}{Optional. Hazard config registry from load_hazards_and_inventory()$configs}
+\item{hazard_configs}{Hazard config registry from load_hazards_and_inventory()$configs}
 }
 \value{
 Named list of filtered SpatRaster objects
 }
 \description{
 Filters a list of hazard rasters to only those referenced by events.
-For NC hazards, only the 'mean' ensemble is loaded by default, so filtering
-matches the base hazard name without ensemble suffix.
+Uses hazards_inventory to map event-driven hazard selection to indicator_key,
+which is the internal key used to index raster hazards.
 For multi-indicator hazards (Fire), internally expands to load all required indicators.
 }
 \details{
-Filter hazards by events with NC ensemble handling
-
-The function handles NetCDF hazard filtering:
-
-\strong{NC hazards}: Base name matching
-\itemize{
-\item If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the mean ensemble:
-\itemize{
-\item Drought__CDD__GWL=present__RP=5__ensemble=mean (loaded as mean ensemble by default)
-}
-\item If event already specifies "__ensemble=mean", strips the ensemble suffix and matches base name
-}
-
-This simplified approach avoids loading multiple ensemble variants and focuses on
-the mean ensemble as the representative value for each hazard scenario.
+Filter hazards by events using indicator keys
 }
 \examples{
 \dontrun{

@@ -213,7 +213,13 @@ load_nc_hazards_with_metadata <- function(indicator_path,
     # Canonical mappings (as used in precomputed hazards + tests)
   gwl_vals <- normalize_indexed_dim(gwl_vals, c("present", "1.5", "2", "3"))
   season_vals <- normalize_indexed_dim(season_vals, c("Summer", "Autumn", "Winter", "Spring"))
-  ens_vals <- normalize_indexed_dim(ens_vals, c("mean", "min", "max", "std"))
+  
+  # Support both short (4) and long (7) canonical ensemble mappings
+  if (!inherits(ens_vals, "try-error") && length(ens_vals) == 7) {
+    ens_vals <- normalize_indexed_dim(ens_vals, c("mean", "median", "p10", "p90", "min", "max", "std"))
+  } else {
+    ens_vals <- normalize_indexed_dim(ens_vals, c("mean", "min", "max", "std"))
+  }
 
   # Ensemble values (default to mean)
   ens_labels <- if (inherits(ens_vals, "try-error") || length(ens_vals) == 0) {
@@ -269,24 +275,8 @@ load_nc_hazards_with_metadata <- function(indicator_path,
     dim_indices[[dim_name]] <- 1L
   }
 
-  # Close ncdf4 handle before terra opens the file (prevents file lock conflicts)
-  try(ncdf4::nc_close(nc), silent = TRUE)
-
-  nc_path <- normalizePath(f, winslash = "/", mustWork = TRUE)
-  r_all <- tryCatch({
-    terra::rast(nc_path, subds = main_var)
-  }, error = function(e) {
-    warning(
-      "[load_nc_hazards_with_metadata] Failed to load NetCDF via terra: ", basename(f),
-      "\n  Error: ", conditionMessage(e),
-      "\n  Skipping this file."
-    )
-    return(NULL)
-  })
-
-  if (is.null(r_all)) {
-    return(list(hazards = list(), inventory = tibble::tibble()))
-  }
+  # Keep ncdf4 handle open for manual extraction
+  # (We'll close it after extracting all slices)
 
   # Build combinations
   combo_grid <- expand.grid(
@@ -307,60 +297,103 @@ load_nc_hazards_with_metadata <- function(indicator_path,
     is <- combo_grid$season[row_idx]
     ie <- combo_grid$ensemble[row_idx]
 
-    # Determine extra dimensions (beyond lon/lat) in their original order
-    extra_dims <- dim_names[!(dim_names %in% c(lon_dim[1], lat_dim[1]))]
-
-    dim_lengths <- vapply(extra_dims, function(nm) {
-      if (length(ens_dim) > 0 && nm == ens_dim[1]) {
-        length(ens_labels)
-      } else if (length(gwl_dim) > 0 && nm == gwl_dim[1]) {
-        if (inherits(gwl_vals, "try-error")) 1L else length(gwl_vals)
-      } else if (nm == rp_dim) {
-        if (inherits(rp_vals, "try-error")) 1L else length(rp_vals)
-      } else if (length(season_dim) > 0 && nm == season_dim[1]) {
-        if (inherits(season_vals, "try-error")) 1L else length(season_vals)
+    # Build start/count vectors for ncvar_get based on dimension order
+    # Dimensions are in the order they appear in dim_names
+    start_vec <- integer(length(dim_names))
+    count_vec <- integer(length(dim_names))
+    
+    for (i in seq_along(dim_names)) {
+      dim_name <- dim_names[i]
+      
+      if (dim_name == lon_dim[1]) {
+        start_vec[i] <- 1
+        count_vec[i] <- -1  # Get all
+      } else if (dim_name == lat_dim[1]) {
+        start_vec[i] <- 1
+        count_vec[i] <- -1  # Get all
+      } else if (length(ens_dim) > 0 && dim_name == ens_dim[1]) {
+        start_vec[i] <- ie
+        count_vec[i] <- 1
+      } else if (length(gwl_dim) > 0 && dim_name == gwl_dim[1]) {
+        start_vec[i] <- ig
+        count_vec[i] <- 1
+      } else if (dim_name == rp_dim) {
+        start_vec[i] <- ir
+        count_vec[i] <- 1
+      } else if (length(season_dim) > 0 && dim_name == season_dim[1]) {
+        start_vec[i] <- is
+        count_vec[i] <- 1
       } else {
-        1L
+        start_vec[i] <- 1
+        count_vec[i] <- 1
       }
-    }, integer(1))
-
-    dim_indices_extra <- vapply(extra_dims, function(nm) {
-      if (length(ens_dim) > 0 && nm == ens_dim[1]) {
-        ie
-      } else if (length(gwl_dim) > 0 && nm == gwl_dim[1]) {
-        ig
-      } else if (nm == rp_dim) {
-        ir
-      } else if (length(season_dim) > 0 && nm == season_dim[1]) {
-        is
-      } else {
-        1L
-      }
-    }, integer(1))
-
-    layer_idx <- 1L
-    if (length(extra_dims) > 0) {
-      layer_offset <- 0L
-      stride <- 1L
-      for (j in seq_along(extra_dims)) {
-        layer_offset <- layer_offset + (dim_indices_extra[j] - 1L) * stride
-        stride <- stride * dim_lengths[j]
-      }
-      layer_idx <- layer_offset + 1L
     }
-
-    if (layer_idx > terra::nlyr(r_all)) {
-      stop(
-        "Requested layer index ", layer_idx, " exceeds available layers (",
-        terra::nlyr(r_all), ") in NetCDF variable '", main_var, "'."
+    
+    # Extract 2D slice using ncvar_get
+    slice_data <- tryCatch({
+      ncdf4::ncvar_get(nc, main_var, start = start_vec, count = count_vec)
+    }, error = function(e) {
+      warning(
+        "[load_nc_hazards_with_metadata] Failed to extract slice from NetCDF: ", basename(f),
+        "\n  Error: ", conditionMessage(e),
+        "\n  Skipping this slice."
       )
+      return(NULL)
+    })
+    
+    if (is.null(slice_data)) {
+      next
     }
-
-    r <- r_all[[layer_idx]]
+    
+    # Convert to terra raster
+    # ncvar_get returns array with dimensions in the order of the variable (after removing count=1 dims)
+    # terra::rast() expects matrix with [nrow=lat, ncol=lon], with first row = northern edge
+    
+    # The slice_data will have dimensions corresponding to the dims with count=-1
+    # Identify which dimensions are spatial in the extracted slice
+    spatial_dims_in_slice <- c()
+    if (lon_dim[1] %in% dim_names && count_vec[which(dim_names == lon_dim[1])] == -1) {
+      spatial_dims_in_slice <- c(spatial_dims_in_slice, lon_dim[1])
+    }
+    if (lat_dim[1] %in% dim_names && count_vec[which(dim_names == lat_dim[1])] == -1) {
+      spatial_dims_in_slice <- c(spatial_dims_in_slice, lat_dim[1])
+    }
+    
+    # If we have a 2D spatial slice
+    if (length(dim(slice_data)) == 2 && length(spatial_dims_in_slice) == 2) {
+      # Determine the order: which spatial dim is first in the original dimension order?
+      lon_position <- which(dim_names == lon_dim[1])
+      lat_position <- which(dim_names == lat_dim[1])
+      
+      # ncvar_get returns data where the first varying dimension is rows
+      # If lon comes before lat in the NC file: slice_data is [lon, lat]
+      # If lat comes before lon in the NC file: slice_data is [lat, lon]
+      if (lon_position < lat_position) {
+        # slice_data is [lon, lat], need to transpose to [lat, lon]
+        slice_data <- t(slice_data)
+      }
+      # Now slice_data is [lat, lon]
+      
+      # terra::rast expects first row = northern edge (highest lat)
+      # NC files typically have lat in increasing order (south to north)
+      # So we need to flip vertically to put highest lat first
+      if (!inherits(lat_vals, "try-error") && length(lat_vals) > 1) {
+        if (lat_vals[1] < lat_vals[length(lat_vals)]) {
+          # Latitudes are increasing (south to north), flip to put north first
+          slice_data <- slice_data[nrow(slice_data):1, , drop = FALSE]
+        }
+      }
+    }
+    
+    # Create raster from matrix
+    r <- terra::rast(slice_data, crs = "EPSG:4326")
 
     if (is.na(terra::crs(r)) || terra::crs(r) == "") {
       terra::crs(r) <- "EPSG:4326"
     }
+    
+    # Set a proper name for the raster layer (will be used as column name in terra::extract)
+    names(r) <- main_var
 
     if (!inherits(lon_vals, "try-error") && !inherits(lat_vals, "try-error")) {
       n_lon <- length(lon_vals)
@@ -377,12 +410,13 @@ load_nc_hazards_with_metadata <- function(indicator_path,
       terra::ext(r) <- terra::ext(xmin, xmax, ymin, ymax)
     }
 
+    # Raster should be single-layer since we extracted a 2D slice
     if (terra::nlyr(r) != 1) {
-      stop(
-        "Expected single-band raster from NetCDF file '", basename(f),
-        "', but got ", terra::nlyr(r), " bands. ",
-        "Each hazard scenario should be a single 2D layer."
+      warning(
+        "Expected single-band raster from NetCDF slice '", basename(f),
+        "', but got ", terra::nlyr(r), " bands. Using first layer."
       )
+      r <- r[[1]]
     }
 
     gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])
@@ -470,8 +504,19 @@ load_nc_hazards_with_metadata <- function(indicator_path,
     }
     
     # Ensure backward compatibility columns exist in inventory
-    inventory_row$scenario_name <- gwl_label
-    inventory_row$return_period <- rp_numeric
+    # Always add scenario_name for backward compatibility
+    if (!"scenario_name" %in% names(inventory_row)) {
+      inventory_row$scenario_name <- gwl_label
+    }
+    # Always add gwl if it was in the index dimensions
+    if ("gwl" %in% index_dims && !"gwl" %in% names(inventory_row)) {
+      inventory_row$gwl <- gwl_label
+    }
+    # Always add return_period
+    if (!"return_period" %in% names(inventory_row)) {
+      inventory_row$return_period <- rp_numeric
+    }
+    # Always add season if needed
     if (!"season" %in% names(inventory_row)) {
       inventory_row$season <- if (has_season) season_label else NA_character_
     }
@@ -479,6 +524,9 @@ load_nc_hazards_with_metadata <- function(indicator_path,
     inventory_rows[[length(inventory_rows) + 1]] <- inventory_row
   }
 
+  # Close ncdf4 handle
+  try(ncdf4::nc_close(nc), silent = TRUE)
+  
   inventory <- if (length(inventory_rows) > 0) {
     dplyr::bind_rows(inventory_rows)
   } else {

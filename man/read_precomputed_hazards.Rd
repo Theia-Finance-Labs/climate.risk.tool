@@ -11,14 +11,15 @@ read_precomputed_hazards(base_dir)
 }
 \value{
 tibble with precomputed hazard statistics including columns: region, adm_level,
-scenario_name, return_period, hazard_type, min, max, mean, median,
-p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
-Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
+scenario_name, return_period, hazard_type, hazard_indicator, hazard_name,
+aggregation_method, hazard_value. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
 }
 \description{
 Reads precomputed hazard statistics from CSV file containing hazard data
 aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard
 values for assets without coordinates but with province or municipality information.
+The file uses indicator metadata (\code{indicator_file}, \code{indicator_variable}) which are mapped
+to \code{hazard_type} and \code{hazard_indicator} using the hazard config YAML files.
 }
 \details{
 Read precomputed administrative hazard statistics from CSV file

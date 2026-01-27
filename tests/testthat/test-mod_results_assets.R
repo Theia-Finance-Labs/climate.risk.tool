@@ -108,3 +108,72 @@ testthat::test_that("mod_results_assets_server handles results without assets_fa
     testthat::expect_false(is.null(hazard_ui))
   })
 })
+
+testthat::test_that("mod_results_assets_server uses indexing indicator for multi-indicator hazards", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
+  
+  # Simulate Fire multi-indicator hazard with 3 indicators: land_cover, fire_weather_index, days_danger_total
+  # The indexing indicator should be fire_weather_index
+  test_assets_factors <- data.frame(
+    asset = c("A1", "A1", "A1"),
+    company = c("TestCo", "TestCo", "TestCo"),
+    event_id = c("fire_ev1", "fire_ev1", "fire_ev1"),
+    matching_method = c("coordinates", "coordinates", "coordinates"),
+    return_period = c(100, 100, 100),
+    event_year = c(2030, 2030, 2030),
+    hazard_type = c("Fire", "Fire", "Fire"),
+    # Three different hazard_names for the same event (multi-indicator)
+    hazard_name = c(
+      "Fire__land_cover__return_period=0__scenario_name=present__ensemble=mean",
+      "Fire__fire_weather_index__return_period=100__gwl=3__ensemble=mean",
+      "Fire__days_danger_total__return_period=100__gwl=3__ensemble=mean"
+    ),
+    indicator_key = c(
+      "land_cover__land_cover__return_period=0__scenario_name=present__ensemble=mean",
+      "fire_weather_index__fwi__return_period=100__gwl=3__ensemble=mean",
+      "days_danger_total__days_danger_total__return_period=100__gwl=3__ensemble=mean"
+    ),
+    land_cover = c(5, NA_real_, NA_real_),
+    fwi = c(NA_real_, 45.2, NA_real_),
+    days_danger_total = c(NA_real_, NA_real_, 120),
+    damage_factor = c(0.1, 0.1, 0.1),
+    share_of_economic_activity = c(0.6, 0.6, 0.6),
+    stringsAsFactors = FALSE
+  )
+  
+  test_results <- list(
+    assets_factors = test_assets_factors
+  )
+  
+  # Mock hazard configs to specify fire_weather_index as indexing indicator
+  mock_hazard_configs <- list(
+    Fire = list(
+      index_indicator = "fire_weather_index"
+    )
+  )
+  
+  shiny::testServer(mod_results_assets_server, args = list(
+    id = "test",
+    results_reactive = shiny::reactive(test_results),
+    hazard_configs_reactive = shiny::reactive(mock_hazard_configs)
+  ), {
+    # Extract unique hazards should return ONE hazard for the Fire event
+    # and it should use the indexing indicator's hazard_name
+    hazard_ui <- output$hazard_tables
+    testthat::expect_false(is.null(hazard_ui))
+    
+    table_data <- session$userData$hazard_tables_data
+    # Should have exactly 1 table (one per event, not one per indicator)
+    testthat::expect_length(table_data, 1)
+    
+    table_one <- table_data[[1]]
+    testthat::expect_true(is.data.frame(table_one))
+    
+    # The hazard label should be the indexing indicator's hazard_name
+    # NOT the alphabetically first one (land_cover)
+    testthat::expect_true(
+      all(grepl("fire_weather_index", table_one$hazard_name, ignore.case = TRUE))
+    )
+  })
+})

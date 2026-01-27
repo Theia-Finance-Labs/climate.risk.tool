@@ -73,7 +73,7 @@ Shock equations are evaluated by `evaluate_hazard_shock()` during acute shock ap
 Hazard name is derived from the YAML filename (e.g., `Flood.yml` → `Flood`).
 
 Overrides:
-- Optional central overrides file at `{base_dir}/hazards/config_overrides.yml`
+- Optional central overrides file at `{base_dir}/hazards/config/config_overrides.yml`
 - Structure: top-level keys are hazard names (e.g., `Flood`, `Fire`)
 - Deep-merged into each hazard config, so only specified keys are replaced
 - Resetting (wiping the file to empty) or removing it restores defaults
@@ -83,7 +83,7 @@ Overrides:
 Settings UI:
 - The app includes a **Settings** tab for editing override parameters
 - Editable fields: indicator `agg`/`categorical`/`fixed`
-- Saving writes `{base_dir}/hazards/config_overrides.yml` and triggers hazard reload
+- Saving writes `{base_dir}/hazards/config/config_overrides.yml` and triggers hazard reload
 - Reset wipes the override file (writes empty) to restore defaults
 
 Helper functions (config-driven):
@@ -871,6 +871,7 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - Enhanced portfolio-level expected loss summary to show percentage change in total expected loss (baseline to shock) in the hover tooltip of the "Difference" bar, computed by `compute_portfolio_summary()` and displayed in `create_portfolio_summary_plot()`.
 
 ### Bug Fixes
+- **Fixed NetCDF "closest" extraction returning empty values** (2026-01-27): Corrected geometry handling in `extract_spatial_statistics()` for the "closest" aggregation method. Previously, when extracting NetCDF values using `agg: closest`, the code incorrectly tried to use `sf::st_as_sf()` on an already-sf object with a `centroid` column, which resulted in extracting from the wrong geometry and returning empty/default values (e.g., -1 for SPI3, 0 for heat index). Now uses `sf::st_set_geometry()` to properly set the centroid as the active geometry before extraction. This ensures coordinate-based assets get actual hazard values from NetCDF files when using point-based extraction. TIF files were unaffected as they used the polygon geometry correctly.
 - **Fixed Windows path parsing in hazard loading**: Replaced fragile absolute path parsing with robust cross-platform relative path parsing in `load_nc_hazards_with_metadata()` and `load_csv_hazards_with_metadata()`. Previously, path parsing relied on finding the "hazards" directory in absolute paths, which failed on Windows due to differences in `normalizePath()` behavior and path separators. Now uses `normalizePath(..., winslash = "/")` to ensure consistent forward slashes across platforms, then computes relative paths from the known `hazards_dir` parameter. This ensures hazard_type and hazard_indicator are parsed correctly on all platforms. (2025-10-30)
 - **Fixed drought damage factor matching with province fallback**: Enhanced `join_drought_damage_factors()` to handle provinces without specific drought damage data. When a province doesn't have drought factors for a crop (e.g., Amapá province), the function now falls back to the first available province that has data for that crop type. This ensures all agriculture assets affected by drought get proper damage factors, growing_season, and off_window columns. Previously, assets in provinces without drought data would get damage_factor=0 with NA metadata. (2025-10-30)
 - **Fixed NC hazard scenario extraction**: Corrected parsing logic in `load_nc_cube_with_terra()` to properly handle both GIRI-style files (explicit scenario indices like `scenario=_1`) and ensemble-style files (combination indices). Files now correctly extract all scenarios instead of defaulting to "present" only.

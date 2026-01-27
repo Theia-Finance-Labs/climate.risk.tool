@@ -22,13 +22,19 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
     stop("hazards mappings directory does not exist: ", mappings_dir)
   }
 
-  # CRITICAL: Deduplicate input data by (asset, event_id, hazard_type, hazard_indicator)
-  # This prevents many-to-many issues when the same indicator appears multiple times
-  # for the same asset/event (e.g., from spatial + precomputed sources, or extraction bugs)
-  assets_with_hazards <- assets_with_hazards |>
-    dplyr::group_by(.data$asset, .data$event_id, .data$hazard_type, .data$hazard_indicator) |>
-    dplyr::slice(1) |>
-    dplyr::ungroup()
+  # CRITICAL: Check for duplicates in input data by (asset, event_id, hazard_type, hazard_indicator)
+  # Duplicates should NOT exist here. If they do, we stop to find the real bug.
+  dups <- assets_with_hazards |>
+    dplyr::count(.data$asset, .data$event_id, .data$hazard_type, .data$hazard_indicator) |>
+    dplyr::filter(.data$n > 1)
+  
+  if (nrow(dups) > 0) {
+    stop(
+      "[join_damage_cost_factors] Detected ", nrow(dups), " duplicate asset/event/indicator combinations. ",
+      "This indicates a bug earlier in the pipeline. ",
+      "First duplicate: Asset=", dups$asset[1], ", Event=", dups$event_id[1], ", Indicator=", dups$hazard_indicator[1]
+    )
+  }
 
   results <- list()
 
@@ -116,25 +122,11 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
 
       base_table <- apply_intensity_matching(base_table, mapping_df, intensity_cols, mapping$intensity_match)
 
-      # Ensure mapping keys are unique to avoid many-to-many joins
-      # For numeric columns, take the mean. For character/other, take the first.
-      # This prevents duplicate rows if the mapping table has multiple entries for the same join keys.
-      mapping_df <- mapping_df |>
-        dplyr::group_by(dplyr::across(dplyr::all_of(mapping_cols))) |>
-        dplyr::summarize(
-          dplyr::across(
-            dplyr::setdiff(names(mapping_df), mapping_cols),
-            ~ if (is.numeric(.x)) mean(.x, na.rm = TRUE) else dplyr::first(.x)
-          ),
-          .groups = "drop"
-        )
-
-      # Perform the join. We use many-to-one because we just deduplicated mapping_df.
+      # Perform the join.
       base_table <- dplyr::left_join(
         base_table,
         mapping_df,
-        by = join_cols,
-        relationship = "many-to-one"
+        by = join_cols
       )
     }
 
@@ -165,8 +157,11 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
     dplyr::filter(.data$hazard_indicator == primary_indicator)
 
   if (nrow(primary_rows) == 0) {
-    primary_rows <- hazard_assets |>
-      dplyr::slice(1)
+    message(
+      "[build_indicator_wide] Primary indicator '", primary_indicator,
+      "' not found in hazard_assets; falling back to all indicators."
+    )
+    primary_rows <- hazard_assets
   }
 
   # Use variable names from config if available, otherwise fallback to indicator keys
@@ -179,13 +174,59 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
   # but NOT in config variable names
   all_indicator_cols <- unique(c(names(hazard_config$indicators), indicator_cols))
   
+  # Build wide indicator table explicitly per indicator to avoid losing values
   indicator_wide <- hazard_assets |>
-    dplyr::select("asset", "event_id", dplyr::any_of(all_indicator_cols)) |>
-    dplyr::group_by(.data$asset, .data$event_id) |>
-    dplyr::summarize(
-      dplyr::across(dplyr::any_of(all_indicator_cols), ~ mean(.x, na.rm = TRUE)),
-      .groups = "drop"
+    dplyr::select("asset", "event_id") |>
+    dplyr::distinct()
+
+  for (indicator_key in names(hazard_config$indicators)) {
+    indicator_cfg <- hazard_config$indicators[[indicator_key]]
+    indicator_var <- indicator_cfg$variable
+    if (is.null(indicator_var) || !nzchar(indicator_var)) {
+      indicator_var <- indicator_key
+    }
+
+    candidate_cols <- intersect(c(indicator_var, indicator_key), names(hazard_assets))
+    if (length(candidate_cols) == 0) {
+      next
+    }
+
+    indicator_vals <- hazard_assets |>
+      dplyr::filter(.data$hazard_indicator == indicator_key) |>
+      dplyr::select("asset", "event_id", dplyr::any_of(candidate_cols)) |>
+      dplyr::group_by(.data$asset, .data$event_id) |>
+      dplyr::summarize(
+        dplyr::across(dplyr::any_of(candidate_cols), function(x) {
+          non_na <- x[!is.na(x)]
+          unique_vals <- unique(non_na)
+          if (length(unique_vals) > 1) {
+            stop(
+              "[build_indicator_wide] Multiple values for indicator '", indicator_key,
+              "' and asset '", dplyr::first(.data$asset), "' in event '", dplyr::first(.data$event_id),
+              "'. This indicates a bug earlier in the pipeline."
+            )
+          }
+          if (length(unique_vals) == 0) NA else unique_vals[[1]]
+        }),
+        .groups = "drop"
+      )
+
+    # Normalize to the variable name used downstream
+    if (indicator_var %in% names(indicator_vals)) {
+      indicator_vals <- indicator_vals |>
+        dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
+    } else if (indicator_key %in% names(indicator_vals)) {
+      indicator_vals <- indicator_vals |>
+        dplyr::rename(!!indicator_var := .data[[indicator_key]]) |>
+        dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
+    }
+
+    indicator_wide <- dplyr::left_join(
+      indicator_wide,
+      indicator_vals,
+      by = c("asset", "event_id")
     )
+  }
 
   # Get all indicator index dimensions dynamically
   index_indicator <- hazard_config$index_indicator
@@ -194,11 +235,21 @@ build_indicator_wide <- function(hazard_assets, hazard_config) {
   }
   
   # Prepare base table from primary rows, keeping all non-indicator columns
-  # CRITICAL: Ensure we deduplicate primary_rows by (asset, event_id) before proceeding
-  # This prevents duplicate rows if primary_rows has multiple entries per asset/event
+  # CRITICAL: Ensure primary_rows has exactly one entry per asset/event
+  primary_dups <- primary_rows |>
+    dplyr::count(.data$asset, .data$event_id) |>
+    dplyr::filter(.data$n > 1)
+  
+  if (nrow(primary_dups) > 0) {
+    stop(
+      "[build_indicator_wide] Detected duplicate rows in primary indicator '", primary_indicator,
+      "' for asset '", primary_dups$asset[1], "' in event '", primary_dups$event_id[1], "'. ",
+      "This indicates a bug earlier in the pipeline."
+    )
+  }
+
   base_table <- primary_rows |>
-    dplyr::select(-dplyr::any_of(all_indicator_cols)) |>
-    dplyr::distinct(.data$asset, .data$event_id, .keep_all = TRUE)
+    dplyr::select(-dplyr::any_of(all_indicator_cols))
 
   base_table <- dplyr::left_join(
     base_table,
@@ -273,4 +324,3 @@ apply_intensity_matching <- function(asset_df, mapping_df, intensity_cols, match
   asset_df[[intensity_col]] <- closest_vals
   return(asset_df)
 }
-

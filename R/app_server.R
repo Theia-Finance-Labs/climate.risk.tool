@@ -143,7 +143,8 @@ app_server <- function(input, output, session) {
         values$hazard_configs <- hazards_result$configs
 
         # Load supporting data files from base_dir
-        values$precomputed_hazards <- read_precomputed_hazards(base_dir)
+        # Pass hazard_configs to read_precomputed_hazards to ensure overrides are applied
+        values$precomputed_hazards <- read_precomputed_hazards(base_dir, hazard_configs = values$hazard_configs)
         
         # Load cnae_exposure from config if Heat hazard is present
         if ("Heat" %in% names(values$hazard_configs)) {
@@ -201,6 +202,10 @@ app_server <- function(input, output, session) {
         values$hazards <- hazards_result$hazards
         values$hazards_inventory <- hazards_result$inventory
         values$hazard_configs <- hazards_result$configs
+        
+        # ALSO reload precomputed_hazards with new configs to ensure ensemble names and keys are updated
+        # This is critical for assets without coordinates to match the new inventory
+        values$precomputed_hazards <- read_precomputed_hazards(base_dir, hazard_configs = values$hazard_configs)
       }
     } else if (!is.null(base_dir) && base_dir != "") {
       values$status <- "Loading hazards..."

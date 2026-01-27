@@ -106,17 +106,17 @@ create_event_hazard_mapping <- function(events, hazards_inventory, hazard_config
         filtered <- matched
       }
 
-      hazard_name_val <- filtered$hazard_name[1]
-
-      tibble::tibble(
-        indicator_key = filtered$indicator_key[1],
-        event_id = event_row$event_id,
-        event_year = event_row$event_year,
-        scenario_name = event_row$scenario_name,
-        return_period = as.numeric(event_row$return_period),
-        season = if ("season" %in% names(event_row)) event_row$season else NA_character_,
-        hazard_name = hazard_name_val
-      )
+      # Start with all columns from event_row to ensure gwl and other indices are preserved
+      res_row <- event_row |>
+        dplyr::mutate(
+          indicator_key = filtered$indicator_key[1],
+          return_period = as.numeric(.data$return_period),
+          hazard_name = filtered$hazard_name[1],
+          season = if ("season" %in% names(event_row)) as.character(.data$season) else NA_character_
+        )
+      
+      # Ensure it's a tibble
+      tibble::as_tibble(res_row)
     })
   }
 
@@ -129,7 +129,27 @@ create_event_hazard_mapping <- function(events, hazards_inventory, hazard_config
   multi_rows <- purrr::map_dfr(seq_len(nrow(multi_events)), function(i) {
     event <- multi_events |> dplyr::slice(i)
     indicators <- get_required_indicators(hazard_configs, event$hazard_type)
-    build_event_rows(event, indicators)
+    rows <- build_event_rows(event, indicators)
+    
+    # For multi-indicator hazards, use the indexing indicator's hazard_name for ALL indicators
+    if (nrow(rows) > 0) {
+      index_indicator <- get_index_indicator(hazard_configs, event$hazard_type)
+      if (!is.na(index_indicator)) {
+        # Find the hazard_name from the indexing indicator
+        # indicator_key format: "fire_weather_index__fwi__return_period=100__gwl=3__ensemble=mean"
+        # Match at the start of the string
+        index_row <- rows |> dplyr::filter(
+          grepl(paste0("^", index_indicator, "__"), .data$indicator_key, fixed = FALSE)
+        )
+        if (nrow(index_row) > 0) {
+          indexing_hazard_name <- index_row$hazard_name[1]
+          # Apply this hazard_name to all indicators in this event
+          rows <- rows |> dplyr::mutate(hazard_name = indexing_hazard_name)
+        }
+      }
+    }
+    
+    rows
   })
 
   result <- dplyr::bind_rows(single_rows, multi_rows)

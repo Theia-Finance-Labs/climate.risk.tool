@@ -234,7 +234,8 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
     # Fast path: vectorized terra::extract over all geometries at once (huge speedup vs per-asset crop/mask)
     if (effective_aggregation_method == "closest") {
-      assets_centroids_sf <- sf::st_as_sf(assets_sf, sf_column_name = "centroid")
+      # Use centroid column as the active geometry for point extraction
+      assets_centroids_sf <- sf::st_set_geometry(assets_sf, "centroid")
       assets_centroids_sf <- sf::st_transform(assets_centroids_sf, r_crs)
       geom_vect <- terra::vect(assets_centroids_sf)
 
@@ -254,9 +255,24 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
     n_geoms <- nrow(assets_sf)
     hazard_vals <- if (!is.null(extracted) && nrow(extracted) == n_geoms) {
-      # terra::extract returns an ID column + one column per layer; hazard_rast is single-layer here
-      as.numeric(extracted[[ncol(extracted)]])
+      # terra::extract returns an ID column + one column per layer
+      # The raster should be single-layer, so we get the last column (skipping ID column)
+      if (ncol(extracted) == 2) {
+        # Expected: ID + value column
+        as.numeric(extracted[[2]])
+      } else if (ncol(extracted) > 2) {
+        # Multiple layers (shouldn't happen, but handle it)
+        warning("[extract_spatial_statistics] Extraction returned ", ncol(extracted) - 1, " layers for ", base_hazard_name, ", expected 1")
+        as.numeric(extracted[[2]])  # Use first value column
+      } else {
+        # Only ID column, no values
+        warning("[extract_spatial_statistics] Extraction returned no value columns for ", base_hazard_name)
+        rep(NA_real_, n_geoms)
+      }
     } else {
+      if (!is.null(extracted)) {
+        warning("[extract_spatial_statistics] Extraction returned ", nrow(extracted), " rows, expected ", n_geoms, " for ", base_hazard_name)
+      }
       rep(NA_real_, n_geoms)
     }
 
@@ -289,18 +305,28 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         ensemble = hazard_ensemble,
         source = hazard_source,
         matching_method = "coordinates",
-        !!rlang::sym(indicator_col) := .data$.indicator_value,
-        # Replace NAs with 0
-        !!rlang::sym(indicator_col) := dplyr::coalesce(.data[[indicator_col]], 0)
+        !!rlang::sym(indicator_col) := .data$.indicator_value
+        # DO NOT replace NAs with 0 - keep NAs to indicate extraction failures
       ) |>
       # Add extra index columns from inventory
-      dplyr::bind_cols(extra_index_values) |>
+      dplyr::bind_cols(extra_index_values)
+    
+    # Select columns: use all standard columns plus any extra columns from bind_cols
+    # This ensures gwl and other index dimensions are included
+    # IMPORTANT: Exclude .indicator_value (internal temp column) and ID (from terra::extract)
+    df_i <- df_i |>
       dplyr::select(
-        "asset", "company", "latitude", "longitude",
-        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "cnae", "hazard_name", "hazard_key", "indicator_key", "hazard_type",
-        "hazard_indicator", "return_period", "scenario_name", "season", "ensemble", "source",
-        dplyr::all_of(indicator_col), "matching_method", dplyr::any_of(inventory_index_cols)
+        dplyr::any_of(c(
+          "asset", "company", "latitude", "longitude",
+          "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
+          "share_of_economic_activity", "cnae", "hazard_name", "hazard_key", "indicator_key", "hazard_type",
+          "hazard_indicator", "return_period", "scenario_name", "season", "ensemble", "source",
+          indicator_col, "matching_method"
+        )),
+        # Include ALL remaining columns (this will pick up gwl and any other index cols)
+        dplyr::everything(),
+        # Explicitly exclude internal temp columns
+        -dplyr::any_of(c(".indicator_value", "ID", "id"))
       )
 
       results_list[[i]] <- df_i
@@ -311,6 +337,35 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
     if (length(results_list) > 0) {
       raster_results <- dplyr::bind_rows(results_list)
+      
+      # Propagate event-level index values (like gwl) across all indicators with the same hazard_name
+      # Some indicators (like TIF files) don't have these columns, but they should inherit them from the event
+      if ("hazard_name" %in% names(raster_results)) {
+        # For each hazard_name group, find the most complete set of index columns
+        for (hazard_name_val in unique(raster_results$hazard_name)) {
+          hazard_rows <- raster_results$hazard_name == hazard_name_val & !is.na(raster_results$hazard_name)
+          
+          # Find columns that are index-like (gwl, return_period, scenario_name, season, etc.)
+          potential_index_cols <- c("gwl", "scenario_name", "season", "return_period")
+          existing_index_cols <- intersect(potential_index_cols, names(raster_results))
+          
+          # For each index column, if some rows have values and others don't, fill the empty ones
+          for (idx_col in existing_index_cols) {
+            if (idx_col %in% names(raster_results)) {
+              # Get non-NA values for this hazard_name
+              non_na_values <- raster_results[[idx_col]][hazard_rows & !is.na(raster_results[[idx_col]])]
+              
+              # If there are non-NA values, use the most common one to fill NAs
+              if (length(non_na_values) > 0) {
+                fill_value <- non_na_values[1]  # Use first non-NA value
+                # Fill NA values for this hazard_name
+                raster_results[[idx_col]][hazard_rows & is.na(raster_results[[idx_col]])] <- fill_value
+              }
+            }
+          }
+        }
+      }
+      
       all_results[[length(all_results) + 1]] <- raster_results
     }
   }
@@ -361,6 +416,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   # Step 1: Matching Strategy (Vectorized Joins)
   # Pre-filter precomputed data for required hazards to speed up joins
   # Match by indicator_key (file-based identifier that exists in precomputed data)
+  # The indicator_key includes the ensemble value (e.g., __ensemble=mean), so this filters by ensemble too
   precomp_filtered <- precomputed_hazards |>
     dplyr::filter(.data$indicator_key %in% required_indicator_keys)
 
@@ -504,16 +560,15 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     ) |>
     dplyr::select(-"agg_inv")
   
-  # Now apply aggregation filtering
+  # Now determine effective aggregation method for each row
   combined_matches <- combined_matches |>
     dplyr::mutate(
       effective_agg = dplyr::coalesce(.data$agg_from_inv, aggregation_method),
       # Handle aliases: 'closest' is treated as 'mean' for precomputed data
       effective_agg = dplyr::if_else(.data$effective_agg == "closest", "mean", .data$effective_agg)
-    ) |>
-    dplyr::filter(.data$aggregation_method == .data$effective_agg)
+    )
 
-  # Validate each asset has all required indicators with the correct aggregation
+  # Validate each asset has all required indicators
   asset_hazard_counts <- combined_matches |>
     dplyr::group_by(.data$asset) |>
     dplyr::summarise(n_indicators = dplyr::n_distinct(.data$indicator_key), .groups = "drop")
@@ -521,12 +576,43 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   if (any(asset_hazard_counts$n_indicators < length(required_indicator_keys))) {
     bad_assets <- asset_hazard_counts$asset[asset_hazard_counts$n_indicators < length(required_indicator_keys)]
     stop(
-      "Some assets are missing required aggregation methods in precomputed data: ",
+      "Some assets are missing required indicators in precomputed data: ",
       paste(bad_assets, collapse = ", ")
     )
   }
 
   # Step 3: Transform to final format (Vectorized)
+  # Select the appropriate aggregation column (mean, median, p10, etc.) based on effective_agg
+  # and rename it to the indicator variable name
+  
+  # Get variable name for each row
+  combined_matches <- combined_matches |>
+    dplyr::mutate(
+      indicator_column_name = dplyr::coalesce(.data$variable, .data$hazard_indicator)
+    )
+  
+  # For each row, extract the value from the appropriate aggregation column
+  # The precomputed data has columns like: mean, median, p10, p90, p2_5, p5, p95, p97_5, min, max, mode
+  agg_cols <- c("mean", "median", "p10", "p90", "p2_5", "p5", "p95", "p97_5", "min", "max", "mode")
+  available_agg_cols <- intersect(agg_cols, names(combined_matches))
+  
+  if (length(available_agg_cols) == 0) {
+    stop("No aggregation columns (mean, median, p10, p90, etc.) found in precomputed data")
+  }
+  
+  # Extract the value from the correct aggregation column for each row
+  combined_matches$hazard_value <- NA_real_
+  for (agg_col in available_agg_cols) {
+    combined_matches <- combined_matches |>
+      dplyr::mutate(
+        hazard_value = dplyr::if_else(
+          .data$effective_agg == !!agg_col & !is.na(.data[[agg_col]]),
+          .data[[agg_col]],
+          .data$hazard_value
+        )
+      )
+  }
+  
   # Define standard columns to keep
   metadata_cols <- c(
     "asset", "company", "latitude", "longitude", "municipality", "state",
@@ -538,31 +624,21 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   # Add dynamic index columns from inventory
   inventory_index_cols <- setdiff(
     names(hazards_inventory),
-    c("hazard_type", "hazard_indicator", "hazard_name", "hazard_key", "indicator_key", "ensemble", "source", "agg", "categorical", "variable", "aggregation_method",
+    c("hazard_type", "hazard_indicator", "hazard_name", "hazard_key", "indicator_key", "ensemble", "source", "agg", "categorical", "variable",
       "indicator_file", "indicator_variable", "indicator_file_key")
   )
   metadata_cols <- unique(c(metadata_cols, inventory_index_cols))
-
-  # Create indicator-specific columns using variable names (e.g., flood_depth_cm not flood_depth)
-  # Use variable column if available, otherwise fallback to hazard_indicator
-  combined_matches <- combined_matches |>
-    dplyr::mutate(
-      indicator_column_name = dplyr::coalesce(.data$variable, .data$hazard_indicator)
-    ) |>
-    dplyr::select(-dplyr::any_of(c("indicator_file", "indicator_variable")))
   
+  # Create indicator-specific columns using variable names
   unique_variable_names <- unique(combined_matches$indicator_column_name)
   final_data <- combined_matches 
   
   for (col_name in unique_variable_names) {
-    final_data <- final_data |>
-      dplyr::mutate(
-        !!col_name := dplyr::if_else(.data$indicator_column_name == !!col_name, .data$hazard_value, NA_real_)
-      )
+    final_data[[col_name]] <- dplyr::if_else(final_data$indicator_column_name == col_name, final_data$hazard_value, NA_real_)
   }
   
   final_data <- final_data |>
-    dplyr::select(-"indicator_column_name") |>
+    dplyr::select(-"indicator_column_name", -"hazard_value", -"effective_agg", -"agg_from_inv", -dplyr::any_of(available_agg_cols)) |>
     dplyr::select(dplyr::any_of(c(metadata_cols, unique_variable_names)))
 
   # Step 4: Handle special fire/land_cover (not precomputed)

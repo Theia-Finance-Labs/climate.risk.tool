@@ -205,7 +205,7 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       if (is.null(base_dir) || base_dir == "") {
         return(NULL)
       }
-      file.path(base_dir, "hazards", "config_overrides.yml")
+      file.path(base_dir, "hazards", "config", "config_overrides.yml")
     })
 
     output$settings_body <- shiny::renderUI({

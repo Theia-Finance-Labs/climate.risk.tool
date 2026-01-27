@@ -60,7 +60,7 @@ testthat::test_that("mod_settings_server saves and resets overrides", {
     do.call(session$setInputs, inputs)
     session$flushReact()
 
-    override_path <- file.path(temp_dir, "hazards", "config_overrides.yml")
+    override_path <- file.path(temp_dir, "hazards", "config", "config_overrides.yml")
     testthat::expect_true(file.exists(override_path))
 
     overrides <- yaml::read_yaml(override_path)
