@@ -19,7 +19,7 @@ indicators:
     fixed: { ensemble: mean }
     agg: closest
     inference:
-      default: 0    
+      default: 0
 
 index_indicator: fire_weather_index
 

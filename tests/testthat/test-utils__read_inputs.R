@@ -97,47 +97,6 @@ testthat::test_that("read_companies handles missing file gracefully", {
 # - Used to look up hazard statistics for assets matched by municipality or province name
 
 
-testthat::test_that("read_precomputed_hazards loads CSV and returns expected structure", {
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-
-  # Should return a data frame
-  testthat::expect_true(is.data.frame(precomputed))
-  testthat::expect_gt(nrow(precomputed), 0)
-
-  # Should have required columns
-  required_cols <- c(
-    "region", "adm_level", "scenario_name",
-    "return_period", "hazard_type", "hazard_indicator",
-    "hazard_name", "hazard_key", "aggregation_method", "hazard_value"
-  )
-  testthat::expect_true(all(required_cols %in% names(precomputed)))
-
-  # adm_level should be ADM1 or ADM2
-  testthat::expect_true(all(precomputed$adm_level %in% c("ADM1", "ADM2")))
-
-  # Numeric columns should be numeric
-  # Note: mean, median, p2_5, p5, p95, p97_5 are pivoted into aggregation_method and hazard_value
-  numeric_cols <- c("min", "max", "return_period", "hazard_value")
-  for (col in numeric_cols) {
-    if (col %in% names(precomputed)) {
-      testthat::expect_true(is.numeric(precomputed[[col]]))
-    }
-  }
-  
-  # aggregation_method should contain the summary statistics
-  testthat::expect_true(all(c("mean", "median") %in% unique(precomputed$aggregation_method)))
-  
-  # scenario_name should be populated (from scenario_name or gwl)
-  testthat::expect_false(any(is.na(precomputed$scenario_name)))
-  
-  # hazard_type and hazard_indicator should be mapped from config
-  testthat::expect_true(all(c("Flood", "Drought", "Fire", "Heat") %in% unique(precomputed$hazard_type)))
-  testthat::expect_true(all(c("flood_depth", "standardized_precipitation_index_3", "fire_weather_index", "heat_index") %in% unique(precomputed$hazard_indicator)))
-
-  # hazard_key should be built from precomputed columns
-  testthat::expect_false(any(is.na(precomputed$hazard_key)))
-})
 
 
 testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data", {

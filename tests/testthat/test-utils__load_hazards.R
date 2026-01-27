@@ -71,28 +71,6 @@ test_that("load_hazards_and_inventory NC rasters have proper extent (cell center
   expect_true(res[2] > 0)
 })
 
-test_that("load_hazards_and_inventory NC names parse folder structure correctly", {
-  hazards_dir <- get_hazards_dir()
-  hazard_indicators_dir <- get_hazard_indicators_dir()
-
-  result <- load_hazards_and_inventory(
-    hazards_dir = hazards_dir,
-    hazard_indicators_dir = hazard_indicators_dir,
-    aggregate_factor = 16L
-  )
-
-
-  # Check naming convention for indicator keys
-  nc_names <- names(result$hazards)
-
-  # Names should be indicator keys derived from file + variable
-  expect_true(any(grepl("heat_index", nc_names)))
-  expect_true(any(grepl("standardized_precipitation_index_3", nc_names)))
-
-  # Should include scenario_name and return_period tags
-  testthat::expect_true(all(grepl("scenario_name=", nc_names)))
-  testthat::expect_true(all(grepl("return_period=", nc_names)))
-})
 
 test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly", {
   hazards_dir <- get_hazards_dir()

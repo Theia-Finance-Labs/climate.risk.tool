@@ -25,7 +25,7 @@ testthat::test_that("compute_risk runs with config-driven hazards", {
   )
 
   results <- compute_risk(
-      assets = assets,
+    assets = assets,
     companies = companies,
     events = events,
     hazards = hazard_data$hazards,
@@ -86,13 +86,9 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     aggregation_method = "mean"
   )
 
-  # We only snapshot companies results as they are the most stable/important
-  # Using expect_snapshot_value to capture structure representation (matches original format)
-  # This ensures consistent snapshot format across testthat versions
   testthat::expect_snapshot_value(
     results$companies,
     style = "deparse",
     cran = TRUE
   )
 })
-

@@ -29,4 +29,3 @@ shocks:
       - name: flood_buildings
         when: "asset_category %in% c('commercial building', 'industrial building')"
         equation: "profit ~ profit - (damage_factor * cost_factor)"
-

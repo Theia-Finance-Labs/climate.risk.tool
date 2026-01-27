@@ -134,7 +134,7 @@ create_event_hazard_mapping <- function(events, hazards_inventory, hazard_config
     # For multi-indicator hazards, use the indexing indicator's hazard_name for ALL indicators
     if (nrow(rows) > 0) {
       index_indicator <- get_index_indicator(hazard_configs, event$hazard_type)
-      if (!is.na(index_indicator)) {
+      if (!is.null(index_indicator) && length(index_indicator) == 1 && !is.na(index_indicator)) {
         # Find the hazard_name from the indexing indicator
         # indicator_key format: "fire_weather_index__fwi__return_period=100__gwl=3__ensemble=mean"
         # Match at the start of the string
