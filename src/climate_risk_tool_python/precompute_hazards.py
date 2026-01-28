@@ -37,6 +37,7 @@ import shutil
 import signal
 import sys
 import faulthandler
+import argparse
 from typing import Dict, List, Tuple, Any, Optional
 
 import numpy as np
@@ -44,6 +45,8 @@ import pandas as pd
 import geopandas as gpd
 import xarray as xr
 
+import yaml
+import rasterio
 import rasterio.features
 from rasterio.transform import from_bounds
 from affine import Affine
@@ -63,11 +66,10 @@ Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64
 BASE_COLS = [
     "region",
     "adm_level",
-    "scenario_name",
-    "hazard_return_period",
-    "hazard_type",
-    "hazard_indicator",
-    "count",
+    "gwl",
+    "return_period",
+    "indicator_file",
+    "indicator_variable",
     "min",
     "max",
     "mean",
@@ -79,8 +81,8 @@ BASE_COLS = [
     "p95",
     "p97_5",
     "ensemble",
-    "intersects_raster_bounds",
-    "empty_reason",
+    "season",
+    "scenario_name",
 ]
 
 # Window block size when reading a region window in chunks (within bbox window)
@@ -130,22 +132,186 @@ def fix_text(text):
     return unidecode(text) if isinstance(text, str) else text
 
 
-def parse_hazard_from_path(path: str) -> Tuple[str, str]:
-    parts = path.split(os.sep)
-    if "hazards" not in parts:
-        raise ValueError(f"Invalid path structure - 'hazards' not found: {path}")
-    i = parts.index("hazards")
-    if i + 2 >= len(parts):
-        raise ValueError(
-            f"Invalid path structure - missing hazard type/indicator: {path}"
-        )
-    return parts[i + 1], parts[i + 2]
-
-
 def safe_slug(s: str) -> str:
     s = fix_text(s)
     s = "".join(ch if (ch.isalnum() or ch in "-_") else "_" for ch in str(s))
     return s[:200]
+
+
+def resolve_base_dir(input_folder: str) -> str:
+    path = os.path.abspath(input_folder)
+    parts = path.split(os.sep)
+    if "hazards" in parts:
+        idx = parts.index("hazards")
+        if idx > 0:
+            return os.sep.join(parts[:idx])
+    return path
+
+
+def find_adm_boundary(base_dir: str, level: str) -> str:
+    if level not in ("ADM1", "ADM2"):
+        raise ValueError(f"Unsupported ADM level: {level}")
+    subdir = "state" if level == "ADM1" else "municipality"
+    area_dir = os.path.join(base_dir, "areas", subdir)
+    if not os.path.exists(area_dir):
+        raise FileNotFoundError(area_dir)
+    candidates = sorted(glob.glob(os.path.join(area_dir, "*.shp")))
+    if candidates:
+        return candidates[0]
+    candidates = sorted(glob.glob(os.path.join(area_dir, "*.geojson")))
+    if candidates:
+        return candidates[0]
+    raise FileNotFoundError(f"No ADM boundary file found in {area_dir}")
+
+
+def load_hazard_configs(config_dir: str) -> Dict[str, Any]:
+    if not os.path.isdir(config_dir):
+        raise FileNotFoundError(config_dir)
+    configs = {}
+    for path in sorted(glob.glob(os.path.join(config_dir, "*.yml"))):
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        hazard_type = os.path.splitext(os.path.basename(path))[0]
+        configs[hazard_type] = cfg
+    if not configs:
+        raise FileNotFoundError(f"No hazard configs found in {config_dir}")
+    return configs
+
+
+def select_nc_file(indicators_dir: str, indicator_file: str) -> str:
+    direct_path = os.path.join(indicators_dir, indicator_file)
+    if os.path.exists(direct_path):
+        return direct_path
+
+    base = os.path.splitext(indicator_file)[0]
+    pattern = os.path.join(indicators_dir, f"{base}__agg*.nc")
+    candidates = sorted(glob.glob(pattern))
+    if not candidates:
+        raise FileNotFoundError(f"NetCDF file not found for {indicator_file}")
+
+    def agg_key(p):
+        name = os.path.splitext(os.path.basename(p))[0]
+        if "__agg" in name:
+            tail = name.split("__agg", 1)[1]
+            try:
+                return int(tail)
+            except ValueError:
+                return 9999
+        return 9999
+
+    candidates.sort(key=agg_key)
+    return candidates[0]
+
+
+def select_tif_file(indicator_dir: str, hazard_file: str) -> str:
+    direct_path = os.path.join(indicator_dir, hazard_file)
+    if os.path.exists(direct_path):
+        return direct_path
+
+    base = os.path.splitext(hazard_file)[0]
+    pattern = os.path.join(indicator_dir, f"{base}__agg*.tif")
+    candidates = sorted(glob.glob(pattern))
+    if not candidates:
+        raise FileNotFoundError(f"TIF file not found for {hazard_file}")
+
+    def agg_key(p):
+        name = os.path.splitext(os.path.basename(p))[0]
+        if "__agg" in name:
+            tail = name.split("__agg", 1)[1]
+            try:
+                return int(tail)
+            except ValueError:
+                return 9999
+        return 9999
+
+    candidates.sort(key=agg_key)
+    return candidates[0]
+
+
+def read_indicator_metadata(indicator_dir: str) -> pd.DataFrame:
+    metadata_path = os.path.join(indicator_dir, "metadata.csv")
+    if not os.path.exists(metadata_path):
+        raise FileNotFoundError(metadata_path)
+    df = pd.read_csv(metadata_path)
+    expected = {"hazard_file", "scenario_name", "return_period"}
+    missing = expected - set(df.columns)
+    if missing:
+        raise ValueError(f"Missing columns in {metadata_path}: {sorted(missing)}")
+    return df
+
+
+def discover_indicators(
+    hazard_configs: Dict[str, Any], indicators_dir: str
+) -> List[Dict[str, Any]]:
+    indicators = []
+    for hazard_type, cfg in hazard_configs.items():
+        for indicator_key, ind_cfg in (cfg.get("indicators") or {}).items():
+            indicator_file = ind_cfg.get("file")
+            indicator_variable = ind_cfg.get("variable")
+            fixed_ensemble = None
+            if isinstance(ind_cfg.get("fixed"), dict):
+                fixed_ensemble = ind_cfg["fixed"].get("ensemble")
+
+            if not indicator_file:
+                continue
+
+            indicator_path = os.path.join(indicators_dir, indicator_file)
+            is_nc = indicator_file.lower().endswith(".nc")
+            is_dir = indicator_file.endswith(os.sep) or os.path.isdir(indicator_path)
+
+            if is_nc:
+                nc_path = select_nc_file(indicators_dir, indicator_file)
+                indicators.append(
+                    dict(
+                        hazard_type=hazard_type,
+                        hazard_indicator=indicator_key,
+                        indicator_file=indicator_file,
+                        indicator_variable=indicator_variable,
+                        source="nc",
+                        data_path=nc_path,
+                        fixed_ensemble=fixed_ensemble,
+                    )
+                )
+                continue
+
+            if is_dir:
+                indicator_dir = indicator_path.rstrip(os.sep)
+                metadata = read_indicator_metadata(indicator_dir)
+                indicators.append(
+                    dict(
+                        hazard_type=hazard_type,
+                        hazard_indicator=indicator_key,
+                        indicator_file=indicator_file.rstrip(os.sep),
+                        indicator_variable=indicator_variable,
+                        source="tif",
+                        indicator_dir=indicator_dir,
+                        metadata=metadata,
+                        fixed_ensemble=fixed_ensemble,
+                    )
+                )
+                continue
+
+            if indicator_file.lower().endswith(".tif"):
+                indicators.append(
+                    dict(
+                        hazard_type=hazard_type,
+                        hazard_indicator=indicator_key,
+                        indicator_file=indicator_file,
+                        indicator_variable=indicator_variable,
+                        source="tif_single",
+                        data_path=indicator_path,
+                        fixed_ensemble=fixed_ensemble,
+                    )
+                )
+                continue
+
+            raise FileNotFoundError(
+                f"Unsupported indicator file reference: {indicator_file}"
+            )
+
+    if not indicators:
+        raise RuntimeError("No indicators discovered from hazard configs.")
+    return indicators
 
 
 def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
@@ -187,6 +353,15 @@ def ensure_lat_descending(da: xr.DataArray) -> xr.DataArray:
     return da
 
 
+def normalize_latlon_names(da: xr.DataArray) -> xr.DataArray:
+    rename_map = {}
+    if "latitude" in da.dims or "latitude" in da.coords:
+        rename_map["latitude"] = "lat"
+    if "longitude" in da.dims or "longitude" in da.coords:
+        rename_map["longitude"] = "lon"
+    return da.rename(rename_map) if rename_map else da
+
+
 def grid_transform_from_latlon(lats: np.ndarray, lons: np.ndarray) -> Affine:
     lon_min, lon_max = float(lons.min()), float(lons.max())
     lat_min, lat_max = float(lats.min()), float(lats.max())
@@ -197,6 +372,39 @@ def raster_bounds_polygon(lats: np.ndarray, lons: np.ndarray) -> Any:
     lon_min, lon_max = float(lons.min()), float(lons.max())
     lat_min, lat_max = float(lats.min()), float(lats.max())
     return box(lon_min, lat_min, lon_max, lat_max)
+
+
+def build_dim_label_map(
+    ds: xr.Dataset, da: xr.DataArray, dim_name: str
+) -> Dict[Any, Any]:
+    if dim_name in da.coords:
+        values = da[dim_name].values.tolist()
+    else:
+        values = list(range(da.sizes[dim_name]))
+
+    labels_raw = None
+    if isinstance(ds.attrs, dict):
+        labels_raw = ds.attrs.get(f"labels__{dim_name}")
+    if labels_raw is None and isinstance(da.attrs, dict):
+        labels_raw = da.attrs.get(f"labels__{dim_name}")
+
+    labels = None
+    if labels_raw is not None:
+        labels = [x.strip() for x in str(labels_raw).splitlines() if x.strip()]
+        if len(labels) != len(values):
+            labels = None
+
+    if labels is None:
+        labels = values
+
+    return dict(zip(values, labels))
+
+
+def get_dim_value_for_label(dim_map: Dict[Any, Any], label: str) -> Optional[Any]:
+    for value, mapped in dim_map.items():
+        if str(mapped) == str(label):
+            return value
+    return None
 
 
 # -----------------------
@@ -282,6 +490,23 @@ def compute_region_stats_for_slice(
     nodata_value: Optional[float],
     spill_root: str,
 ) -> Dict[str, Any]:
+    # Always use coords from the slice to avoid any misalignment
+    if da_slice.sizes.get("lat", 0) == 0 or da_slice.sizes.get("lon", 0) == 0:
+        return {
+            "region": region_name,
+            "count": 0,
+            "min": np.nan,
+            "max": np.nan,
+            "mean": np.nan,
+            "qs": np.full(len(Q_LIST), np.nan, dtype=np.float64),
+            "intersects_raster_bounds": False,
+            "empty_reason": "empty_slice",
+        }
+    lats = da_slice["lat"].values
+    lons = da_slice["lon"].values
+    transform = grid_transform_from_latlon(lats, lons)
+    raster_bounds_poly = raster_bounds_polygon(lats, lons)
+
     # bounds intersection check
     intersects_bounds = bool(region_geom.intersects(raster_bounds_poly))
     if not intersects_bounds:
@@ -384,6 +609,14 @@ def compute_region_stats_for_slice(
             mblock = mask[mi0:mi1, mj0:mj1]
             if not mblock.any():
                 continue
+            if block.shape != mblock.shape:
+                # Guard against any unexpected shape mismatch
+                min0 = min(block.shape[0], mblock.shape[0])
+                min1 = min(block.shape[1], mblock.shape[1])
+                if min0 == 0 or min1 == 0:
+                    continue
+                block = block[:min0, :min1]
+                mblock = mblock[:min0, :min1]
 
             v = block[mblock]
             # special rule in your prior code
@@ -467,33 +700,36 @@ def compute_region_stats_for_slice(
 def process_nc_file_region_by_region_to_part(
     *,
     nc_path: str,
+    indicator_file: str,
+    indicator_variable: str,
+    hazard_type: str,
+    hazard_indicator: str,
     adm_gdf: gpd.GeoDataFrame,
     adm_level: str,
-    ensemble_filter: str,
     part_csv: str,
     cache_dir: str,
+    fixed_ensemble: Optional[str] = None,
+    append: bool = False,
 ):
-    hazard_type, hazard_indicator = parse_hazard_from_path(nc_path)
-
     ds = xr.open_dataset(nc_path, engine="netcdf4")  # no dask
     try:
         var_name = list(ds.data_vars.keys())[0]
         da = ds[var_name]
+        da = normalize_latlon_names(da)
 
         if "lat" not in da.dims or "lon" not in da.dims:
             raise ValueError(f"Missing lat/lon dims in {nc_path}")
 
         ensemble_used = None
-        if "ensemble" in da.dims:
-            available = [str(x) for x in da["ensemble"].values.tolist()]
-            if ensemble_filter in available:
-                da = da.sel(
-                    ensemble=da["ensemble"].values[available.index(ensemble_filter)]
-                )
-                ensemble_used = ensemble_filter
+        if "ensemble" in da.dims and fixed_ensemble is not None:
+            dim_map = build_dim_label_map(ds, da, "ensemble")
+            value = get_dim_value_for_label(dim_map, fixed_ensemble)
+            if value is not None:
+                da = da.sel(ensemble=value)
+                ensemble_used = fixed_ensemble
             else:
                 da = da.isel(ensemble=0)
-                ensemble_used = str(da["ensemble"].values)
+                ensemble_used = list(dim_map.values())[0]
 
         da = ensure_lat_descending(da)
 
@@ -511,7 +747,15 @@ def process_nc_file_region_by_region_to_part(
             nodata_value = da.encoding.get("_FillValue", None)
 
         non_spatial_dims = [d for d in da.dims if d not in ("lat", "lon")]
-        dim_values = {d: da[d].values for d in non_spatial_dims}
+        dim_values = {}
+        dim_label_maps = {}
+        dim_index_values = {}
+        for d in non_spatial_dims:
+            dim_label_map = build_dim_label_map(ds, da, d)
+            values = list(dim_label_map.keys())
+            dim_values[d] = list(range(len(values)))
+            dim_label_maps[d] = dim_label_map
+            dim_index_values[d] = values
         dim_keys = list(dim_values.keys())
         dim_combos = (
             [
@@ -523,9 +767,9 @@ def process_nc_file_region_by_region_to_part(
         )
 
         os.makedirs(os.path.dirname(part_csv), exist_ok=True)
-        if os.path.exists(part_csv):
+        if not append and os.path.exists(part_csv):
             os.remove(part_csv)
-        header_written = False
+        header_written = os.path.exists(part_csv)
 
         spill_root = os.path.join(
             cache_dir,
@@ -543,7 +787,7 @@ def process_nc_file_region_by_region_to_part(
         ):
             da_slice = da
             for kdim, vdim in dim_combo.items():
-                da_slice = da_slice.sel({kdim: vdim})
+                da_slice = da_slice.isel({kdim: int(vdim)})
             da_slice = da_slice.transpose("lat", "lon")
 
             rows = []
@@ -574,11 +818,10 @@ def process_nc_file_region_by_region_to_part(
                 row = {
                     "region": region_name,
                     "adm_level": adm_level,
-                    "scenario_name": np.nan,
-                    "hazard_return_period": np.nan,
-                    "hazard_type": hazard_type,
-                    "hazard_indicator": hazard_indicator,
-                    "count": int(stats["count"]),
+                    "gwl": np.nan,
+                    "return_period": np.nan,
+                    "indicator_file": indicator_file,
+                    "indicator_variable": indicator_variable,
                     "min": stats["min"],
                     "max": stats["max"],
                     "mean": stats["mean"],
@@ -590,17 +833,25 @@ def process_nc_file_region_by_region_to_part(
                     "p95": float(qs[5]) if qs is not None else np.nan,
                     "p97_5": float(qs[6]) if qs is not None else np.nan,
                     "ensemble": ensemble_used,
-                    "intersects_raster_bounds": bool(stats["intersects_raster_bounds"]),
-                    "empty_reason": stats["empty_reason"],
+                    "season": np.nan,
+                    "scenario_name": np.nan,
                 }
 
                 for dim_name, dim_val in dim_combo.items():
-                    if dim_name in ("GWL", "gwl", "scenario"):
-                        row["scenario_name"] = str(dim_val)
+                    raw_value = dim_index_values[dim_name][int(dim_val)]
+                    dim_label = dim_label_maps[dim_name].get(raw_value, raw_value)
+                    if dim_name in ("GWL", "gwl"):
+                        row["gwl"] = str(dim_label)
+                    elif dim_name in ("scenario", "scenario_name"):
+                        row["scenario_name"] = str(dim_label)
                     elif dim_name == "return_period":
-                        row["hazard_return_period"] = int(dim_val)
+                        row["return_period"] = int(float(dim_label))
+                    elif dim_name == "season":
+                        row["season"] = str(dim_label)
+                    elif dim_name == "ensemble":
+                        row["ensemble"] = str(dim_label)
                     else:
-                        row[dim_name] = dim_val
+                        row[dim_name] = dim_label
 
                 rows.append(row)
 
@@ -656,7 +907,7 @@ def concat_parts_to_final(parts: List[str], out_csv: str) -> None:
 
     final_df = pd.concat(dfs, ignore_index=True)
 
-    # Fill missing statistics with 0 for hazards where NaN/NoData implies "no hazard"
+    # Fill missing statistics with 0 for indicators where NaN/NoData implies "no hazard"
     # (e.g., Flood, Fire). Heat, Drought, and land_cover remain NaN if no data found.
     stat_cols = [
         "min",
@@ -670,9 +921,12 @@ def concat_parts_to_final(parts: List[str], out_csv: str) -> None:
         "p95",
         "p97_5",
     ]
-    fill_mask = ~final_df["hazard_type"].isin(HAZARDS_THAT_DONT_FILL_ZERO)
-    if "hazard_indicator" in final_df.columns:
-        fill_mask &= ~final_df["hazard_indicator"].isin(INDICATORS_THAT_DONT_FILL_ZERO)
+    if "indicator_variable" in final_df.columns:
+        fill_mask = ~final_df["indicator_variable"].isin(
+            INDICATORS_THAT_DONT_FILL_ZERO | {"hi", "spi3"}
+        )
+    else:
+        fill_mask = pd.Series(True, index=final_df.index)
 
     final_df.loc[fill_mask, stat_cols] = final_df.loc[fill_mask, stat_cols].fillna(0)
 
@@ -686,6 +940,125 @@ def concat_parts_to_final(parts: List[str], out_csv: str) -> None:
     print(f"Successfully saved {len(final_df)} rows to {out_csv}", flush=True)
 
 
+def load_tif_as_dataarray(
+    tif_path: str,
+) -> Tuple[xr.DataArray, np.ndarray, np.ndarray, Affine, Any, Optional[float]]:
+    with rasterio.open(tif_path) as src:
+        data = src.read(1)
+        nodata = src.nodata
+        transform = src.transform
+        height, width = data.shape
+
+    cols = np.arange(width)
+    rows = np.arange(height)
+    lons = transform.c + (cols + 0.5) * transform.a
+    lats = transform.f + (rows + 0.5) * transform.e
+
+    if lats[0] < lats[-1]:
+        lats = lats[::-1]
+        data = data[::-1, :]
+
+    da = xr.DataArray(data, dims=("lat", "lon"), coords={"lat": lats, "lon": lons})
+    rb_poly = raster_bounds_polygon(lats, lons)
+    return da, lats, lons, transform, rb_poly, nodata
+
+
+def process_tif_file_region_by_region_to_part(
+    *,
+    tif_path: str,
+    indicator_file: str,
+    indicator_variable: str,
+    hazard_type: str,
+    hazard_indicator: str,
+    adm_gdf: gpd.GeoDataFrame,
+    adm_level: str,
+    part_csv: str,
+    cache_dir: str,
+    scenario_name: Optional[str],
+    return_period: Optional[int],
+    fixed_ensemble: Optional[str] = None,
+    append: bool = False,
+):
+    da, lats, lons, transform, rb_poly, nodata_value = load_tif_as_dataarray(tif_path)
+
+    os.makedirs(os.path.dirname(part_csv), exist_ok=True)
+    if not append and os.path.exists(part_csv):
+        os.remove(part_csv)
+    header_written = os.path.exists(part_csv)
+
+    spill_root = os.path.join(
+        cache_dir,
+        "_spill_region_by_region",
+        f"{safe_slug(hazard_type)}__{safe_slug(hazard_indicator)}__{adm_level}",
+    )
+    cleanup_dir(spill_root)
+    os.makedirs(spill_root, exist_ok=True)
+
+    rows = []
+    for _, reg in tqdm(
+        adm_gdf.iterrows(),
+        total=len(adm_gdf),
+        desc=f"{adm_level} regions | {hazard_type}/{hazard_indicator}",
+        unit="region",
+        leave=False,
+    ):
+        region_name = reg["region"]
+        stats = compute_region_stats_for_slice(
+            da_slice=da,
+            lats=lats,
+            lons=lons,
+            transform=transform,
+            region_geom=reg.geometry,
+            region_name=region_name,
+            raster_bounds_poly=rb_poly,
+            hazard_type=hazard_type,
+            hazard_indicator=hazard_indicator,
+            nodata_value=nodata_value,
+            spill_root=spill_root,
+        )
+
+        qs = stats["qs"]
+        row = {
+            "region": region_name,
+            "adm_level": adm_level,
+            "gwl": np.nan,
+            "return_period": return_period if return_period is not None else np.nan,
+            "indicator_file": indicator_file,
+            "indicator_variable": indicator_variable,
+            "min": stats["min"],
+            "max": stats["max"],
+            "mean": stats["mean"],
+            "median": float(qs[3]) if qs is not None else np.nan,
+            "p2_5": float(qs[0]) if qs is not None else np.nan,
+            "p5": float(qs[1]) if qs is not None else np.nan,
+            "p10": float(qs[2]) if qs is not None else np.nan,
+            "p90": float(qs[4]) if qs is not None else np.nan,
+            "p95": float(qs[5]) if qs is not None else np.nan,
+            "p97_5": float(qs[6]) if qs is not None else np.nan,
+            "ensemble": fixed_ensemble,
+            "season": np.nan,
+            "scenario_name": scenario_name if scenario_name is not None else np.nan,
+        }
+
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    for c in BASE_COLS:
+        if c not in df.columns:
+            df[c] = np.nan
+    extra_cols = [c for c in df.columns if c not in BASE_COLS]
+    df = df[BASE_COLS + extra_cols]
+
+    df.to_csv(
+        part_csv,
+        mode="a",
+        header=(not header_written),
+        index=False,
+        encoding="utf-8-sig",
+    )
+    cleanup_dir(spill_root)
+
+
 def main():
     # reduce native memory/thread oversubscription
     os.environ.setdefault("GDAL_CACHEMAX", GDAL_CACHEMAX)
@@ -695,92 +1068,141 @@ def main():
     os.environ.setdefault("NUMEXPR_MAX_THREADS", "1")
     os.environ.setdefault("HDF5_USE_FILE_LOCKING", "FALSE")
 
-    # -----------------------
-    # PATHS (edit if needed)
-    # -----------------------
-    HAZARDS_DIR = "workspace/demo_inputs_fullnc/hazards"
-    ADM1_PATH = "workspace/demo_inputs_fullnc/areas/state/geoBoundaries-BRA-ADM1.shp"
-    ADM2_PATH = (
-        "workspace/demo_inputs_fullnc/areas/municipality/geoBoundaries-BRA-ADM2.shp"
+    parser = argparse.ArgumentParser(
+        description="Precompute ADM hazard indicators from input folder"
     )
-    ENSEMBLE_FILTER = "median"
-
-    OUT_DIR = "workspace/Climate Data/Precomputed Regional Data"
-    OUT_CSV = os.path.join(OUT_DIR, "precomputed_adm_indicators.csv")
-
-    CACHE_DIR = os.path.join(OUT_DIR, "_cache_region_by_region")
-    PARTS_DIR = os.path.join(OUT_DIR, "_parts")
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    os.makedirs(PARTS_DIR, exist_ok=True)
-
-    nc_files = sorted(
-        glob.glob(
-            os.path.join(HAZARDS_DIR, "**", "*ensemble_return_period*.nc"),
-            recursive=True,
-        )
+    parser.add_argument(
+        "--input_folder",
+        default="tests/tests_data",
+        help="Base input folder (same as run_app base_dir).",
     )
-    if not nc_files:
-        raise FileNotFoundError("No matching NetCDF files found")
+    args = parser.parse_args()
 
-    adm1 = load_adm_shapefile(ADM1_PATH)
-    adm2 = load_adm_shapefile(ADM2_PATH)
+    base_dir = resolve_base_dir(args.input_folder)
+    hazards_dir = os.path.join(base_dir, "hazards")
+    hazards_config_dir = os.path.join(hazards_dir, "config")
+    hazards_indicators_dir = os.path.join(hazards_dir, "indicators")
 
-    for i, nc_path in enumerate(nc_files, 1):
-        ht, hi = parse_hazard_from_path(nc_path)
-        print(
-            f"[{i}/{len(nc_files)}] {ht}/{hi} - {os.path.basename(nc_path)}", flush=True
-        )
+    adm1_path = find_adm_boundary(base_dir, "ADM1")
+    adm2_path = find_adm_boundary(base_dir, "ADM2")
 
+    out_csv = os.path.join(hazards_dir, "precomputed_adm_indicators.csv")
+    cache_dir = os.path.join(hazards_dir, "_precompute_cache")
+    parts_dir = os.path.join(hazards_dir, "_precompute_parts")
+
+    cleanup_dir(cache_dir)
+    cleanup_dir(parts_dir)
+    os.makedirs(cache_dir, exist_ok=True)
+    os.makedirs(parts_dir, exist_ok=True)
+
+    hazard_configs = load_hazard_configs(hazards_config_dir)
+    indicators = discover_indicators(hazard_configs, hazards_indicators_dir)
+
+    adm1 = load_adm_shapefile(adm1_path)
+    adm2 = load_adm_shapefile(adm2_path)
+
+    for i, ind in enumerate(indicators, 1):
+        ht = ind["hazard_type"]
+        hi = ind["hazard_indicator"]
         base = f"{safe_slug(ht)}__{safe_slug(hi)}"
-        part1 = os.path.join(PARTS_DIR, f"{base}__ADM1.csv")
-        part2 = os.path.join(PARTS_DIR, f"{base}__ADM2.csv")
-        done1 = part1 + ".done"
-        done2 = part2 + ".done"
+        part1 = os.path.join(parts_dir, f"{base}__ADM1.csv")
+        part2 = os.path.join(parts_dir, f"{base}__ADM2.csv")
 
-        # ADM1
-        if os.path.exists(done1) and os.path.exists(part1):
-            print(f"  - skip ADM1 (done): {os.path.basename(part1)}", flush=True)
-        else:
-            if os.path.exists(part1) and not os.path.exists(done1):
-                os.remove(part1)
+        print(f"[{i}/{len(indicators)}] {ht}/{hi}", flush=True)
+
+        if ind["source"] == "nc":
+            nc_path = ind["data_path"]
+            print(f"  - NC: {os.path.basename(nc_path)}", flush=True)
             process_nc_file_region_by_region_to_part(
                 nc_path=nc_path,
+                indicator_file=ind["indicator_file"],
+                indicator_variable=ind["indicator_variable"],
+                hazard_type=ht,
+                hazard_indicator=hi,
                 adm_gdf=adm1,
                 adm_level="ADM1",
-                ensemble_filter=ENSEMBLE_FILTER,
                 part_csv=part1,
-                cache_dir=CACHE_DIR,
+                cache_dir=cache_dir,
+                fixed_ensemble=ind.get("fixed_ensemble"),
+                append=False,
             )
-            with open(done1, "w", encoding="utf-8") as f:
-                f.write("ok\n")
-
-        # ADM2
-        if os.path.exists(done2) and os.path.exists(part2):
-            print(f"  - skip ADM2 (done): {os.path.basename(part2)}", flush=True)
-        else:
-            if os.path.exists(part2) and not os.path.exists(done2):
-                os.remove(part2)
             process_nc_file_region_by_region_to_part(
                 nc_path=nc_path,
+                indicator_file=ind["indicator_file"],
+                indicator_variable=ind["indicator_variable"],
+                hazard_type=ht,
+                hazard_indicator=hi,
                 adm_gdf=adm2,
                 adm_level="ADM2",
-                ensemble_filter=ENSEMBLE_FILTER,
                 part_csv=part2,
-                cache_dir=CACHE_DIR,
+                cache_dir=cache_dir,
+                fixed_ensemble=ind.get("fixed_ensemble"),
+                append=False,
             )
-            with open(done2, "w", encoding="utf-8") as f:
-                f.write("ok\n")
+        elif ind["source"] == "tif":
+            metadata = ind["metadata"]
+            indicator_dir = ind["indicator_dir"]
+            for adm_level, adm_gdf, part_csv in (
+                ("ADM1", adm1, part1),
+                ("ADM2", adm2, part2),
+            ):
+                for j, row in metadata.iterrows():
+                    tif_path = select_tif_file(indicator_dir, row["hazard_file"])
+                    scenario_name = row.get("scenario_name", None)
+                    return_period = row.get("return_period", None)
+                    if pd.isna(scenario_name):
+                        scenario_name = None
+                    if pd.isna(return_period):
+                        return_period = None
+                    else:
+                        return_period = int(return_period)
+                    process_tif_file_region_by_region_to_part(
+                        tif_path=tif_path,
+                        indicator_file=ind["indicator_file"],
+                        indicator_variable=ind["indicator_variable"],
+                        hazard_type=ht,
+                        hazard_indicator=hi,
+                        adm_gdf=adm_gdf,
+                        adm_level=adm_level,
+                        part_csv=part_csv,
+                        cache_dir=cache_dir,
+                        scenario_name=scenario_name,
+                        return_period=return_period,
+                        fixed_ensemble=ind.get("fixed_ensemble"),
+                        append=j > 0,
+                    )
+        elif ind["source"] == "tif_single":
+            tif_path = select_tif_file(hazards_indicators_dir, ind["indicator_file"])
+            for adm_level, adm_gdf, part_csv in (
+                ("ADM1", adm1, part1),
+                ("ADM2", adm2, part2),
+            ):
+                process_tif_file_region_by_region_to_part(
+                    tif_path=tif_path,
+                    indicator_file=ind["indicator_file"],
+                    indicator_variable=ind["indicator_variable"],
+                    hazard_type=ht,
+                    hazard_indicator=hi,
+                    adm_gdf=adm_gdf,
+                    adm_level=adm_level,
+                    part_csv=part_csv,
+                    cache_dir=cache_dir,
+                    scenario_name=None,
+                    return_period=None,
+                    fixed_ensemble=ind.get("fixed_ensemble"),
+                    append=False,
+                )
+        else:
+            raise ValueError(f"Unknown indicator source: {ind['source']}")
 
-        # cleanup spill dir just in case
-        cleanup_dir(os.path.join(CACHE_DIR, "_spill_region_by_region"))
+        cleanup_dir(os.path.join(cache_dir, "_spill_region_by_region"))
 
-    part_files = sorted(glob.glob(os.path.join(PARTS_DIR, "*.csv")))
-    completed = [p for p in part_files if os.path.exists(p + ".done")]
-    if not completed:
-        raise RuntimeError(f"No completed part files found in {PARTS_DIR}")
+    part_files = sorted(glob.glob(os.path.join(parts_dir, "*.csv")))
+    if not part_files:
+        raise RuntimeError(f"No part files found in {parts_dir}")
 
-    concat_parts_to_final(completed, OUT_CSV)
-    print(f"Saved: {OUT_CSV}", flush=True)
+    concat_parts_to_final(part_files, out_csv)
+    print(f"Saved: {out_csv}", flush=True)
 
 
 if __name__ == "__main__":
