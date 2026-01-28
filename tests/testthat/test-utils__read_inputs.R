@@ -89,7 +89,7 @@ testthat::test_that("read_companies handles missing file gracefully", {
 
 # Contract:
 # - read_precomputed_hazards(base_dir) -> data.frame
-# - Reads precomputed_adm_hazards.csv from base_dir/hazards/
+# - Reads precomputed_adm_indicators.csv from base_dir/hazards/
 # - Maps indicator_file/indicator_variable to hazard_type + hazard_indicator from config
 # - Returns data frame with columns: region, adm_level, scenario_name, return_period,
 #   hazard_type, hazard_indicator, hazard_name, aggregation_method, hazard_value

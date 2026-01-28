@@ -466,7 +466,7 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
 #'   values for assets without coordinates but with province or municipality information.
 #'   The file uses indicator metadata (`indicator_file`, `indicator_variable`) which are mapped
 #'   to `hazard_type` and `hazard_indicator` using the hazard config YAML files.
-#' @param base_dir Character string specifying the base directory. The function looks for precomputed_adm_hazards.csv in base_dir/hazards/
+#' @param base_dir Character string specifying the base directory. The function looks for precomputed_adm_indicators.csv in base_dir/hazards/
 #' @param hazard_configs Optional named list of hazard configs. If NULL, they are loaded from base_dir/hazards/config.
 #' @return tibble with precomputed hazard statistics including columns: region, adm_level,
 #'   scenario_name, return_period, hazard_type, hazard_indicator, hazard_name,
@@ -484,7 +484,7 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
   message("[read_precomputed_hazards] Reading precomputed hazard statistics from: ", base_dir)
 
   # Define file path
-  precomputed_path <- file.path(base_dir, "hazards", "precomputed_adm_hazards.csv")
+  precomputed_path <- file.path(base_dir, "hazards", "precomputed_adm_indicators.csv")
 
   # Check if file exists
   if (!file.exists(precomputed_path)) {

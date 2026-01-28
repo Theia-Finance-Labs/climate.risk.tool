@@ -60,6 +60,104 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
       values[!vapply(values, is.null, logical(1))]
     }
 
+    get_mapping_preview <- function(base_dir, mapping_cfg) {
+      if (is.null(base_dir) || !nzchar(base_dir)) {
+        return(NULL)
+      }
+      if (is.null(mapping_cfg) || is.null(mapping_cfg$file)) {
+        return(NULL)
+      }
+
+      mapping_path <- file.path(base_dir, "hazards", "mappings", mapping_cfg$file)
+      if (!file.exists(mapping_path)) {
+        return(NULL)
+      }
+
+      ext <- tolower(tools::file_ext(mapping_path))
+      df <- tryCatch({
+        if (ext == "csv") {
+          readr::read_csv(mapping_path, n_max = 100, show_col_types = FALSE)
+        } else if (ext %in% c("xls", "xlsx")) {
+          readxl::read_excel(mapping_path, n_max = 100)
+        } else {
+          NULL
+        }
+      }, error = function(e) NULL)
+
+      if (is.null(df) || nrow(df) == 0) {
+        return(NULL)
+      }
+
+      # Identify join keys
+      join_cfg <- mapping_cfg$join
+      key_cols <- character(0)
+      if (!is.null(join_cfg)) {
+        key_cols <- unique(c(
+          join_cfg$on_indicator_intensity,
+          join_cfg$on_indicator_index,
+          join_cfg$on_assets
+        ))
+      }
+
+      if (length(key_cols) == 0) {
+        return(NULL)
+      }
+
+      # Filter to keys that actually exist in the file
+      key_cols <- intersect(key_cols, names(df))
+      if (length(key_cols) == 0) {
+        return(NULL)
+      }
+
+      # Get unique combinations of keys
+      preview_df <- unique(df[key_cols])
+      
+      # Limit to first few combinations to keep it clean
+      max_preview <- 10
+      if (nrow(preview_df) > max_preview) {
+        preview_df <- head(preview_df, max_preview)
+        has_more <- TRUE
+      } else {
+        has_more <- FALSE
+      }
+
+      # Create a small tabulated view
+      shiny::div(
+        style = "margin-top: 8px; font-size: 0.85em; color: #4b5563;",
+        shiny::div(
+          style = "font-weight: 600; margin-bottom: 4px; color: #374151;", 
+          "Join keys preview (unique values):"
+        ),
+        shiny::tags$table(
+          style = "width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; overflow: hidden;",
+          shiny::tags$thead(
+            shiny::tags$tr(
+              style = "background: #f1f5f9; border-bottom: 1px solid #e2e8f0;",
+              lapply(key_cols, function(col) {
+                shiny::tags$th(style = "padding: 4px 8px; text-align: left; font-weight: 600;", col)
+              })
+            )
+          ),
+          shiny::tags$tbody(
+            lapply(seq_len(nrow(preview_df)), function(i) {
+              shiny::tags$tr(
+                style = if (i %% 2 == 0) "background: #f8fafc;" else "background: #ffffff;",
+                lapply(key_cols, function(col) {
+                  shiny::tags$td(style = "padding: 2px 8px; border-bottom: 1px solid #f1f5f9;", as.character(preview_df[i, col]))
+                })
+              )
+            })
+          )
+        ),
+        if (has_more) {
+          shiny::div(
+            style = "margin-top: 2px; font-style: italic; color: #94a3b8; font-size: 0.9em;",
+            "... and more unique combinations"
+          )
+        }
+      )
+    }
+
     get_indicator_dim_values <- function(base_dir, indicator_cfg, key) {
       if (is.null(base_dir) || !nzchar(base_dir)) {
         return(character(0))
@@ -351,6 +449,7 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
                   settings_row("Indicator index keys", on_indicator_index),
                   settings_row("Asset keys", on_assets)
                 ),
+                get_mapping_preview(base_dir, mapping_cfg),
                 if (!is.null(intensity_match)) {
                   display_val <- if (length(on_indicator_intensity) > 0) {
                     as.character(intensity_match)
@@ -473,7 +572,7 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
               class = "hazard-panel__table",
               style = "padding: 20px; background: #f9fafb;",
               
-              settings_row("Primary Indicator", hazard_cfg$primary_indicator),
+              settings_row("Index Indicator", hazard_cfg$index_indicator),
               shiny::hr(style = "margin-top: 10px; margin-bottom: 20px; border-top: 1px solid #e5e7eb;"),
               
               # Indicators Section

@@ -34,8 +34,8 @@ The tool processes climate risk through a multi-step pipeline orchestrated by `c
 
 Assets are assigned hazard values using this priority:
 1. **Coordinates** (lat/lon) → Spatial extraction from raster files
-2. **Municipality** (ADM2) → Precomputed lookup from `precomputed_adm_hazards.csv`
-3. **Province** (ADM1) → Precomputed lookup from `precomputed_adm_hazards.csv`
+2. **Municipality** (ADM2) → Precomputed lookup from `precomputed_adm_indicators.csv`
+3. **Province** (ADM1) → Precomputed lookup from `precomputed_adm_indicators.csv`
 4. **None** → Error with informative message
 
 This is handled automatically by `extract_hazard_statistics()`.
@@ -175,7 +175,7 @@ To add a new hazard type:
 │       ├── exposure_factors.csv
 │       ├── ignition_factors.csv
 │       └── land_cover_legend.csv
-│   └── precomputed_adm_hazards.csv
+│   └── precomputed_adm_indicators.csv
 └── areas/
     ├── state/
     └── municipality/
@@ -203,8 +203,8 @@ Files:
 - `<HazardName>.yml` (indicator definitions + mapping joins)
 - Mapping tables referenced in the YAML (CSV/XLSX)
 
-#### 4. `precomputed_adm_hazards.csv`
-Location: `{base_dir}/hazards/precomputed_adm_hazards.csv`
+#### 4. `precomputed_adm_indicators.csv`
+Location: `{base_dir}/hazards/precomputed_adm_indicators.csv`
 Columns: region, adm_level (ADM1/ADM2), gwl, return_period, indicator_file, indicator_variable,
 ensemble, season, scenario_name, min, max, mean, median, p2_5, p5, p10, p90, p95, p97_5
 
@@ -312,7 +312,7 @@ Examples:
 - If given a file path, reads that file directly
 
 **`read_precomputed_hazards(base_dir)`** → data.frame
-- Reads from `{base_dir}/hazards/precomputed_adm_hazards.csv`
+- Reads from `{base_dir}/hazards/precomputed_adm_indicators.csv`
 - Builds `indicator_key`/`hazard_name` using config index dims (gwl vs scenario_name)
 
 

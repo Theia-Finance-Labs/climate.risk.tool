@@ -390,7 +390,10 @@ def compute_region_stats_for_slice(
             if hazard_type == "Heat":
                 v = np.where(v > 300, v, np.nan)
 
-            if hazard_type in HAZARDS_THAT_DONT_FILL_ZERO or hazard_indicator in INDICATORS_THAT_DONT_FILL_ZERO:
+            if (
+                hazard_type in HAZARDS_THAT_DONT_FILL_ZERO
+                or hazard_indicator in INDICATORS_THAT_DONT_FILL_ZERO
+            ):
                 if np.issubdtype(v.dtype, np.floating):
                     v = v[~np.isnan(v)]
                 else:
@@ -703,7 +706,7 @@ def main():
     ENSEMBLE_FILTER = "median"
 
     OUT_DIR = "workspace/Climate Data/Precomputed Regional Data"
-    OUT_CSV = os.path.join(OUT_DIR, "precomputed_adm_hazards.csv")
+    OUT_CSV = os.path.join(OUT_DIR, "precomputed_adm_indicators.csv")
 
     CACHE_DIR = os.path.join(OUT_DIR, "_cache_region_by_region")
     PARTS_DIR = os.path.join(OUT_DIR, "_parts")

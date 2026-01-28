@@ -27,7 +27,7 @@ library(climate.risk.tool)
 
 # Path to your base data directory. It must contain:
 # - damage_and_cost_factors.csv
-# - hazards/precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
+# - hazards/precomputed_adm_indicators.csv (precomputed hazard statistics for regions)
 # - hazards/indicators/<indicator_folder>/metadata.csv (metadata for TIF hazards)
 # - hazards/indicators/ directory with .tif, .nc, or .csv indicator files
 # - hazards/config/ directory with <HazardName>.yml files
@@ -368,7 +368,7 @@ To generate the file of pre-computed results, use the pre-computation notebook:
 This Python notebook:
 - Processes hazard data (TIF, NetCDF, and CSV) against administrative boundaries (ADM1/ADM2)
 - Pre-computes hazard statistics for each region
-- Generates `precomputed_adm_hazards.csv` with regional aggregates
+- Generates `precomputed_adm_indicators.csv` with regional aggregates
 - Supports both current climate and future scenarios (present, GWL levels)
 - Handles ensemble statistics (mean, median, percentiles) for NetCDF data
 - Significantly speeds up analysis by avoiding repeated spatial computations
