@@ -38,6 +38,7 @@ testthat::test_that("read_damage_cost_factors normalizes state names", {
   damage_factors <- read_damage_cost_factors(base_dir)
 
   testthat::expect_true("state" %in% names(damage_factors))
+  testthat::expect_true("state_code" %in% names(damage_factors))
 
   # Check that state names are normalized (no accents)
   if ("hazard_type" %in% names(damage_factors)) {
@@ -57,6 +58,10 @@ testthat::test_that("read_damage_cost_factors normalizes state names", {
         info = "Damage factor state names should be ASCII (no accents)"
       )
     }
+  }
+
+  if (any(!is.na(damage_factors$state) & damage_factors$state != "-")) {
+    testthat::expect_true(any(!is.na(damage_factors$state_code)))
   }
 })
 

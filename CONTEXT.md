@@ -59,7 +59,7 @@ The tool uses a **unified hazard configuration architecture** that supports both
 
 #### Configuration Registry
 
-Defined via `{base_dir}/hazards/config/<HazardName>.yml` files and loaded by `load_hazard_configs()` in `R/utils__hazard_config.R`.
+Defined via `{base_dir}/hazards/config/<HazardName>.yml` files and loaded by `load_hazard_configs()` in `R/utils__hazard_config_io.R`.
 
 Each hazard config YAML declares:
 - optional `primary_indicator` (indicator used for hazard-specific logic)
@@ -91,6 +91,16 @@ Helper functions (config-driven):
 - `get_primary_indicator(hazard_configs, hazard_type)` → indicator key
 - `get_index_indicator(hazard_configs, hazard_type)` → indicator key
 - `get_required_indicators(hazard_configs, hazard_type)` → vector of indicators
+
+### Refactor Notes (File Splits)
+
+- **Input validation**: `validate_input_coherence()` remains in `R/utils__validate_inputs.R`; helper validators moved to `R/utils__validate_geography.R`, `R/utils__validate_config_and_events.R`, and `R/utils__validate_companies_cnae.R`.
+- **Input reading**: asset/company readers remain in `R/utils__read_inputs.R`; hazard/mapping readers moved to `R/utils__read_hazards_and_mapping.R`.
+- **Hazard extraction**: `extract_hazard_statistics()` in `R/geospatial__extract_hazard_statistics.R`, with extraction implementations split to `R/geospatial__extract_spatial_statistics.R` and `R/geospatial__extract_precomputed_statistics.R`.
+- **Hazard config IO**: config loading/normalization now in `R/utils__hazard_config_io.R`; query helpers stay in `R/utils__hazard_config.R`.
+- **Settings module**: server helpers extracted to `R/mod_settings_helpers.R`.
+- **Hazards events module**: helper logic extracted to `R/mod_hazards_events_helpers.R`.
+- **NetCDF dimension helpers**: shared dimension normalization in `R/utils__nc_index_utils.R`.
 
 #### UI Inventory Filtering
 
@@ -179,6 +189,7 @@ To add a new hazard type:
 └── areas/
     ├── state/
     └── municipality/
+    └── geo_code_mapping.csv
 
 {input_folder}/  (user-selected folder)
 ├── asset_information.xlsx
@@ -190,6 +201,7 @@ To add a new hazard type:
 #### 1. `asset_information.xlsx`
 Location: User-selected input folder
 Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
+Notes: municipality/state may be provided as IBGE codes when `{base_dir}/areas/geo_code_mapping.csv` is available.
 
 #### 2. `company_information.xlsx`
 Location: User-selected input folder (same folder as asset_information.xlsx)
@@ -217,6 +229,10 @@ Pre-aggregated hazard statistics for administrative regions. Eliminates need for
 
 #### 5. `metadata.csv`
 Location: `{base_dir}/hazards/indicators/<indicator_folder>/metadata.csv`
+#### 6. `geo_code_mapping.csv`
+Location: `{base_dir}/areas/geo_code_mapping.csv`
+Columns: adm_level (ADM1/ADM2), code, state_code, name
+Purpose: Maps IBGE codes to normalized names used internally; required when users provide IBGE codes in inputs.
 Columns: hazard_file, hazard_type, hazard_indicator, scenario_name, return_period
 
 Maps GeoTIFF indicators to metadata for UI display and filtering.
@@ -288,17 +304,22 @@ Examples:
 - `load_adm1_state_names(base_dir)` → Character vector of normalized ADM1 state names
 - `load_adm2_municipality_names(base_dir)` → Character vector of normalized ADM2 municipality names
 
-**Implementation**: `R/utils__validate_inputs.R`
-**Tests**: `tests/testthat/test-utils__validate_inputs.R`
+**Implementation**: `R/utils__validate_inputs.R` (orchestrator), helpers in `R/utils__validate_geography.R`, `R/utils__validate_config_and_events.R`, `R/utils__validate_companies_cnae.R`
+**Tests**: `tests/testthat/test-utils__validate_inputs.R`, `tests/testthat/test-utils__validate_required_input_columns.R`
 
 ### Data Loading
 
 **`read_assets(folder_path)`** → data.frame
 - Reads from `{folder_path}/asset_information.xlsx` (direct) or `{folder_path}/user_input/asset_information.xlsx` (legacy)
 - ASCII-normalizes state and municipality names
+- Accepts IBGE state/municipality codes when `{base_dir}/areas/geo_code_mapping.csv` is present
 - **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
 - Accepts either a folder containing asset_information.xlsx directly, or a base_dir with user_input subdirectory
 - Optional column `cost_factor` overrides mapping cost factors when provided (non-NA)
+
+**`load_geo_code_mapping(base_dir)`** → data.frame
+- Loads `{base_dir}/areas/geo_code_mapping.csv` to map IBGE codes to normalized names
+- Adds normalized name and state-name metadata for both ADM1 and ADM2 levels
 
 **`assign_state_to_assets(assets_df, base_dir)`** → data.frame
 - Assigns states to assets without state data using spatial matching
@@ -476,6 +497,7 @@ run_app(base_dir = "path/to/data")
 - Use `devtools::test_file("tests/testthat/test-function_name.R")` for specific tests
 
 ### Recent Updates
+- Added `test-utils__validate_required_input_columns.R` to cover helper validation of required asset/company columns.
 - Added `test-mod_profit_pathways.R` to cover log-scale clipping logic for non-positive asset profits so charts remain informative.
 - Added drought zero-flooring regression test in `test-shock__apply_acute_revenue_shock.R` to lock revenue at or above zero for extreme damage factors across hazards.
 - Added regression coverage in `test-geospatial__extract_hazard_statistics.R` ensuring `extract_precomputed_statistics()` fails fast with explicit hazard names when precomputed data is missing.

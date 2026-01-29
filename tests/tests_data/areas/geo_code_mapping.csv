@@ -1,0 +1,39 @@
+adm_level,code,state_code,name
+ADM1,11,11,Rondônia
+ADM1,12,12,Acre
+ADM1,13,13,Amazonas
+ADM1,14,14,Roraima
+ADM1,15,15,Pará
+ADM1,16,16,Amapá
+ADM1,17,17,Tocantins
+ADM1,21,21,Maranhão
+ADM1,22,22,Piauí
+ADM1,23,23,Ceará
+ADM1,24,24,Rio Grande do Norte
+ADM1,25,25,Paraíba
+ADM1,26,26,Pernambuco
+ADM1,27,27,Alagoas
+ADM1,28,28,Sergipe
+ADM1,29,29,Bahia
+ADM1,31,31,Minas Gerais
+ADM1,32,32,Espírito Santo
+ADM1,33,33,Rio de Janeiro
+ADM1,35,35,São Paulo
+ADM1,41,41,Paraná
+ADM1,42,42,Santa Catarina
+ADM1,43,43,Rio Grande do Sul
+ADM1,50,50,Mato Grosso do Sul
+ADM1,51,51,Mato Grosso
+ADM1,52,52,Goiás
+ADM1,53,53,Distrito Federal
+ADM2,1100023,11,Ariquemes
+ADM2,1300409,13,Barcelos
+ADM2,1300805,13,Borba
+ADM2,1301100,13,Careiro
+ADM2,1301407,13,Eirunepé
+ADM2,1302405,13,Lábrea
+ADM2,1302504,13,Manacapuru
+ADM2,1302603,13,Manaus
+ADM2,1302702,13,Manicoré
+ADM2,5101704,51,Barra do Bugres
+ADM2,5102504,51,Cáceres

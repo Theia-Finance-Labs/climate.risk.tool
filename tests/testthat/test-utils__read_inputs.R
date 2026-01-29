@@ -37,6 +37,8 @@ testthat::test_that("read_assets parses key columns with correct types and snake
   testthat::expect_true(is.numeric(assets$longitude))
   testthat::expect_type(assets$state, "character")
   testthat::expect_type(assets$municipality, "character")
+  testthat::expect_type(assets$state_code, "character")
+  testthat::expect_type(assets$municipality_code, "character")
   testthat::expect_type(assets$asset_category, "character")
 })
 
@@ -107,6 +109,17 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   adm_levels <- unique(precomputed$adm_level)
   testthat::expect_true("ADM1" %in% adm_levels)
   testthat::expect_true("ADM2" %in% adm_levels)
+  testthat::expect_true("region_code" %in% names(precomputed))
+
+  amazonas_row <- precomputed |>
+    dplyr::filter(.data$adm_level == "ADM1", .data$region == "Amazonas") |>
+    dplyr::slice_head(n = 1)
+  testthat::expect_equal(amazonas_row$region_code, "13")
+
+  manaus_row <- precomputed |>
+    dplyr::filter(.data$adm_level == "ADM2", .data$region == "Manaus") |>
+    dplyr::slice_head(n = 1)
+  testthat::expect_equal(manaus_row$region_code, "1302603")
 })
 
 testthat::test_that("read_precomputed_hazards builds indicator_key with config index dims", {

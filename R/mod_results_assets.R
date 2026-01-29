@@ -55,7 +55,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         return(assets_df)
       }
 
-      # Convert normalized province/municipality names back to original names for display
+      # Convert normalized province/state/municipality names back to original names for display
       if (!is.null(name_mapping)) {
         if ("province" %in% names(assets_df) && !is.null(name_mapping$province) && length(name_mapping$province) > 0) {
           province_lookup <- name_mapping$province
@@ -65,6 +65,18 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
                 !is.na(.data$province) & .data$province %in% names(province_lookup),
                 province_lookup[.data$province],
                 .data$province
+              )
+            )
+        }
+
+        if ("state" %in% names(assets_df) && !is.null(name_mapping$province) && length(name_mapping$province) > 0) {
+          state_lookup <- name_mapping$province
+          assets_df <- assets_df |>
+            dplyr::mutate(
+              state = dplyr::if_else(
+                !is.na(.data$state) & .data$state %in% names(state_lookup),
+                state_lookup[.data$state],
+                .data$state
               )
             )
         }
@@ -135,7 +147,26 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
           dplyr::select(-dplyr::any_of("sector_name"))
       }
 
-      priority_cols <- c("asset", "company", "sector", "sector_name", "sector_code", "share_of_economic_activity", "event_id", "hazard_name", "hazard_type", "matching_method", "hazard_return_period", "event_year")
+      priority_cols <- c(
+        "asset",
+        "company",
+        "sector",
+        "sector_name",
+        "sector_code",
+        "state",
+        "state_code",
+        "province",
+        "province_code",
+        "municipality",
+        "municipality_code",
+        "share_of_economic_activity",
+        "event_id",
+        "hazard_name",
+        "hazard_type",
+        "matching_method",
+        "hazard_return_period",
+        "event_year"
+      )
       existing_priority <- intersect(priority_cols, names(assets_df))
       other_cols <- setdiff(names(assets_df), existing_priority)
 
