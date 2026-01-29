@@ -51,6 +51,60 @@ testthat::test_that("mod_hazards_events_server loads events via load_config func
     testthat::expect_equal(ev$return_period[1], 50)
     testthat::expect_equal(ev$event_year[1], 2040L)
     testthat::expect_true(is.na(ev$season[1]))
+    testthat::expect_equal(ev$hazard_indicator[1], "hi")
+    testthat::expect_equal(ev$hazard_name[1], "Heat__hi__GWL=2.0__RP=50__ensemble=mean")
+  })
+})
+
+testthat::test_that("mod_hazards_events_server download excludes hazard metadata columns", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
+
+  inventory_df <- tibble::tibble(
+    hazard_type = c("Heat"),
+    hazard_indicator = c("hi"),
+    scenario_name = c("GWL=2.0"),
+    return_period = c(50),
+    hazard_name = c("Heat__hi__GWL=2.0__RP=50__ensemble=mean")
+  )
+
+  hazard_configs <- list(
+    Heat = list(
+      primary_indicator = "hi",
+      indicators = list(hi = list(index = c("scenario_name", "return_period")))
+    )
+  )
+
+  shiny::testServer(mod_hazards_events_server, args = list(
+    id = "hz",
+    hazards_inventory = shiny::reactive(inventory_df),
+    hazard_configs = shiny::reactive(hazard_configs)
+  ), {
+    events_rv(tibble::tibble(
+      event_id = "ev1",
+      hazard_type = "Heat",
+      hazard_indicator = "hi",
+      hazard_name = "Heat__hi__GWL=2.0__RP=50__ensemble=mean",
+      scenario_name = "GWL=2.0",
+      return_period = 50,
+      event_year = 2040L,
+      season = NA_character_
+    ))
+
+    tmp <- tempfile(fileext = ".xlsx")
+    output$download_config$content(tmp)
+
+    saved <- readxl::read_excel(tmp)
+    testthat::expect_false("hazard_indicator" %in% names(saved))
+    testthat::expect_false("hazard_name" %in% names(saved))
+    testthat::expect_true(all(c(
+      "event_id",
+      "hazard_type",
+      "scenario_name",
+      "return_period",
+      "event_year",
+      "season"
+    ) %in% names(saved)))
   })
 })
 

@@ -69,6 +69,12 @@ validate_input_coherence <- function(
     validation_results = validation_results
   )
 
+  validation_results <- validate_mapping_tables_against_config(
+    hazards_dir = hazards_dir,
+    hazard_configs = hazard_configs,
+    validation_results = validation_results
+  )
+
   if (!is.null(precomputed_hazards_df)) {
     validation_results <- validate_precomputed_hazards_geography(
       precomputed_hazards_df,
@@ -89,6 +95,12 @@ validate_input_coherence <- function(
   validation_results <- validate_events_table(
     events_df,
     validation_results
+  )
+
+  validation_results <- validate_events_index_columns(
+    events_df = events_df,
+    hazard_configs = hazard_configs,
+    validation_results = validation_results
   )
 
   n_errors <- length(validation_results$errors)
@@ -208,91 +220,114 @@ validate_damage_factors_states <- function(damage_factors_df, adm1_names, valida
   return(validation_results)
 }
 
-
-#' Validate required non-NA fields per hazard type in damage factors (HARDCODED)
+#' Validate mapping tables against hazard configs
 #'
-#' Enforces specific required columns per `hazard_type`:
-#' - Flood: depth, hazard_unit, asset_category, damage_factor,
-#'             cost_factor, hazard_indicator, business_disruption
-#' - Drought:  spi3, hazard_unit, asset_category, damage_factor,
-#'             hazard_indicator, province, subtype, season, off_window
-#' - Heat: scenario_name, damage_factor, hazard_indicator, province, metric
-#'
-#' @param damage_factors_df Damage factors data frame
+#' @param hazards_dir Character path to hazards/config directory
+#' @param hazard_configs Named list of hazard configs
 #' @param validation_results List with errors and warnings vectors
 #' @return Updated validation_results list
 #' @noRd
-validate_damage_factors_required_fields <- function(damage_factors_df, validation_results) {
-  if (!"hazard_type" %in% names(damage_factors_df)) {
-    validation_results$errors <- c(
-      validation_results$errors,
-      "Damage factors table must contain 'hazard_type' column"
-    )
+validate_mapping_tables_against_config <- function(hazards_dir, hazard_configs, validation_results) {
+  if (is.null(hazards_dir) || !dir.exists(hazards_dir)) {
+    validation_results$errors <- c(validation_results$errors, "hazards_dir does not exist")
+    return(validation_results)
+  }
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    validation_results$errors <- c(validation_results$errors, "hazard_configs is empty")
     return(validation_results)
   }
 
-  # Hardcoded mapping of hazard_type -> required columns
-  required_by_hazard <- list(
-    Flood = c(
-      "depth", "hazard_unit", "asset_category", "damage_factor",
-      "cost_factor", "hazard_indicator", "business_disruption"
-    ),
-    Drought = c(
-      "spi3", "hazard_unit", "asset_category", "damage_factor",
-      "hazard_indicator", "state", "subtype", "season", "off_window"
-    ),
-    Heat = c(
-      "scenario_name", "damage_factor", "hazard_indicator", "state", "metric"
-    )
-  )
+  mappings_dir <- file.path(dirname(hazards_dir), "mappings")
+  if (!dir.exists(mappings_dir)) {
+    validation_results$errors <- c(validation_results$errors, "hazards mappings directory does not exist")
+    return(validation_results)
+  }
 
-  # Validate each known hazard type; ignore unknown types for forward-compatibility
-  present_types <- intersect(names(required_by_hazard), unique(stats::na.omit(damage_factors_df$hazard_type)))
-
-  for (hz in present_types) {
-    hz_rows <- damage_factors_df[damage_factors_df$hazard_type == hz, , drop = FALSE]
-    required_cols <- required_by_hazard[[hz]]
-
-    # Check required columns presence first
-    missing_columns <- setdiff(required_cols, names(hz_rows))
-    if (length(missing_columns) > 0) {
-      validation_results$errors <- c(
-        validation_results$errors,
-        paste0(
-          "Damage factors: hazard_type '", hz, "' is missing required column(s): ",
-          paste(missing_columns, collapse = ", ")
-        )
-      )
+  for (hazard_type in names(hazard_configs)) {
+    cfg <- hazard_configs[[hazard_type]]
+    if (is.null(cfg$mappings) || length(cfg$mappings) == 0) {
       next
     }
 
-    # Now ensure non-NA/non-empty values for all rows in required columns
-    for (col_name in required_cols) {
-      col_vals <- hz_rows[[col_name]]
-      is_missing <- is.na(col_vals) | (!is.na(col_vals) & !nzchar(trimws(as.character(col_vals))))
-
-      # Exception: For Flood, cost_factor is not required when asset_category == "agriculture"
-      if (hz == "Flood" && col_name == "cost_factor" && "asset_category" %in% names(hz_rows)) {
-        exempt_idx <- which(tolower(as.character(hz_rows$asset_category)) == "agriculture")
-        if (length(exempt_idx) > 0) {
-          # Do not count missing on exempt rows
-          is_missing[exempt_idx] <- FALSE
-        }
+    for (mapping_key in names(cfg$mappings)) {
+      mapping <- cfg$mappings[[mapping_key]]
+      if (is.null(mapping$file) || !nzchar(as.character(mapping$file))) {
+        validation_results$errors <- c(
+          validation_results$errors,
+          paste0("Mapping '", mapping_key, "' for hazard '", hazard_type, "' has no file defined")
+        )
+        next
       }
-      if (any(is_missing)) {
-        missing_idx <- which(is_missing)
+
+      mapping_df <- read_hazard_mapping_table(mappings_dir, mapping$file)
+      join_cols <- c(
+        mapping$join$on_indicator_intensity,
+        mapping$join$on_indicator_index,
+        mapping$join$on_assets
+      )
+      required_cols <- unique(c(unname(join_cols), mapping$variables))
+      missing_cols <- setdiff(required_cols, names(mapping_df))
+      if (length(missing_cols) > 0) {
         validation_results$errors <- c(
           validation_results$errors,
           paste0(
-            "Damage factors: hazard_type '", hz, "' has missing required column '",
-            col_name, "' in rows: ", paste(missing_idx, collapse = ", ")
+            "Mapping '", mapping_key, "' for hazard '", hazard_type,
+            "' missing columns: ", paste(missing_cols, collapse = ", ")
           )
         )
       }
     }
   }
 
-  return(validation_results)
+  validation_results
+}
+
+#' Validate events contain required index columns from configs
+#'
+#' @param events_df Optional events data frame
+#' @param hazard_configs Named list of hazard configs
+#' @param validation_results List with errors and warnings vectors
+#' @return Updated validation_results list
+#' @noRd
+validate_events_index_columns <- function(events_df, hazard_configs, validation_results) {
+  if (is.null(events_df) || nrow(events_df) == 0) {
+    return(validation_results)
+  }
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    validation_results$errors <- c(validation_results$errors, "hazard_configs is empty")
+    return(validation_results)
+  }
+  if (!"hazard_type" %in% names(events_df)) {
+    validation_results$errors <- c(validation_results$errors, "events_df must contain hazard_type column")
+    return(validation_results)
+  }
+
+  hazard_types <- unique(events_df$hazard_type)
+  for (hazard_type in hazard_types) {
+    if (!hazard_type %in% names(hazard_configs)) {
+      next
+    }
+    idx_indicator <- get_index_indicator(hazard_configs, hazard_type)
+    if (is.na(idx_indicator) || is.null(idx_indicator)) {
+      next
+    }
+    index_cols <- hazard_configs[[hazard_type]]$indicators[[idx_indicator]]$index
+    if (length(index_cols) == 0) {
+      next
+    }
+    missing_cols <- setdiff(index_cols, names(events_df))
+    if (length(missing_cols) > 0) {
+      validation_results$errors <- c(
+        validation_results$errors,
+        paste0(
+          "Events table missing required index column(s) for hazard '",
+          hazard_type, "': ", paste(missing_cols, collapse = ", ")
+        )
+      )
+    }
+  }
+
+  validation_results
 }
 
 #' Validate required input columns for assets and companies

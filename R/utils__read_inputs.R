@@ -40,7 +40,10 @@ read_assets <- function(folder_path) {
     dplyr::rename_with(to_snake_case)
 
   # Convert numeric columns for assets
-  numeric_asset_cols <- c("share_of_economic_activity", "latitude", "longitude", "size_in_m2", "size_in_hectare")
+  numeric_asset_cols <- c(
+    "share_of_economic_activity", "latitude", "longitude",
+    "size_in_m2", "size_in_hectare", "cost_factor"
+  )
 
   assets_raw <- assets_raw |>
     dplyr::mutate(
@@ -620,45 +623,7 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
     stop("scenario_name is missing for some rows; ensure scenario_name or gwl is provided")
   }
 
-  message("  Deduplicating...")
-
-  # Deduplicate variant per hazard scenario
-  group_cols <- c("region", "adm_level", "scenario_name", "return_period", "hazard_type", "hazard_indicator")
   has_season <- "season" %in% names(precomputed_df)
-  if (has_season) group_cols <- c(group_cols, "season")
-
-  # Use unique-mapping for ensemble priority
-  # If a fixed ensemble is defined in config, prioritize it
-  # Pre-calculate fixed ensembles per indicator to avoid slow lookups in large dataframe
-  fixed_ensemble_map <- list()
-  if (!is.null(hazard_configs)) {
-    for (ht in names(hazard_configs)) {
-      for (hi in names(hazard_configs[[ht]]$indicators)) {
-        cfg <- hazard_configs[[ht]]$indicators[[hi]]
-        if (!is.null(cfg$fixed) && !is.null(cfg$fixed$ensemble)) {
-          fixed_ensemble_map[[paste0(ht, "||", hi)]] <- tolower(cfg$fixed$ensemble)
-        }
-      }
-    }
-  }
-
-  precomputed_df <- precomputed_df |>
-    dplyr::mutate(
-      .fixed_ensemble = vapply(paste0(.data$hazard_type, "||", .data$hazard_indicator), 
-                               function(k) if (k %in% names(fixed_ensemble_map)) fixed_ensemble_map[[k]] else NA_character_, 
-                               character(1)),
-      ensemble_priority = dplyr::case_when(
-        # Highest priority (0) for the fixed ensemble if specified in config
-        !is.na(.data$.fixed_ensemble) & tolower(.data$ensemble) == .data$.fixed_ensemble ~ 0L,
-        tolower(.data$ensemble) == "mean" ~ 1L,
-        tolower(.data$ensemble) == "median" ~ 2L,
-        is.na(.data$ensemble) ~ 3L,
-        TRUE ~ 4L
-      )
-    ) |>
-    dplyr::arrange(.data$ensemble_priority) |>
-    dplyr::distinct(dplyr::across(dplyr::any_of(group_cols)), .keep_all = TRUE) |>
-    dplyr::select(-"ensemble_priority", -".fixed_ensemble")
 
   # 4. Optimized hazard_name construction using unique combinations
   message("  Building hazard names...")

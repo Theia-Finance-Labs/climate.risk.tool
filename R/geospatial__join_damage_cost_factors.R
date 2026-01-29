@@ -134,59 +134,40 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
       base_table <- apply_intensity_matching(base_table, mapping_df, intensity_cols, mapping$intensity_match)
 
       # ========================================================================
-      # HAZARD-TYPE-SPECIFIC TRANSFORMATIONS
-      # Apply any hazard-specific data transformations before joining
+      # CONFIG-DRIVEN TRANSFORMATIONS
+      # Apply mapping asset fallbacks before joining
       # ========================================================================
-      
-      # Drought: Fallback to "Other" state when specific combination not found in mapping
-      if (hazard_type == "Drought" && "state" %in% asset_cols_to_check && "Other" %in% unique(mapping_df$state)) {
-        # Build combination keys for mapping table (excluding intensity columns which vary continuously)
-        mapping_key_cols <- intersect(c("state", "asset_subtype", "season", "asset_category"), names(mapping_df))
-        if (length(mapping_key_cols) > 0) {
-          # Create combination keys in mapping
-          mapping_combinations <- mapping_df |>
-            dplyr::select(dplyr::all_of(mapping_key_cols)) |>
-            dplyr::distinct() |>
-            tidyr::unite("mapping_key", dplyr::all_of(mapping_key_cols), sep = "||", remove = FALSE)
-          
-          # Create combination keys in base_table
-          base_key_cols <- intersect(mapping_key_cols, names(base_table))
-          if (length(base_key_cols) > 0) {
-            base_table <- base_table |>
-              tidyr::unite("asset_key", dplyr::all_of(base_key_cols), sep = "||", remove = FALSE, na.rm = FALSE)
-            
-            # Identify rows that don't have a matching combination
-            unmatched <- !(base_table$asset_key %in% mapping_combinations$mapping_key)
-            
-            # For unmatched rows, try replacing state with "Other"
-            if (any(unmatched) && "state" %in% names(base_table)) {
-              # Build alternative keys with "Other" state
-              base_table_other <- base_table[unmatched, ] |>
-                dplyr::mutate(state_test = "Other")
-              
-              if (length(base_key_cols) > 0) {
-                other_key_cols <- base_key_cols
-                other_key_cols[other_key_cols == "state"] <- "state_test"
-                
-                base_table_other <- base_table_other |>
-                  tidyr::unite("other_key", dplyr::all_of(other_key_cols), sep = "||", remove = FALSE, na.rm = FALSE)
-                
-                # Check which "Other" combinations exist in mapping
-                has_other_match <- base_table_other$other_key %in% mapping_combinations$mapping_key
-                
-                if (any(has_other_match)) {
-                  # Store original state and apply fallback
-                  fallback_idx <- which(unmatched)[has_other_match]
-                  
-                  base_table$state_original <- base_table$state
-                  base_table$state[fallback_idx] <- "Other"
-                }
-              }
-            }
-            
-            # Clean up temporary key column
-            base_table$asset_key <- NULL
+      fallback_original_cols <- character()
+      if (!is.null(mapping$assets_fallbacks) && length(mapping$assets_fallbacks) > 0) {
+        left_by_right <- setNames(asset_cols_to_check, mapping_cols)
+        mapping_value_sets <- lapply(mapping_cols, function(col) unique(mapping_df[[col]]))
+        names(mapping_value_sets) <- mapping_cols
+
+        for (fb_col in names(mapping$assets_fallbacks)) {
+          if (!fb_col %in% mapping_cols) {
+            next
           }
+          left_col <- left_by_right[[fb_col]]
+          if (!left_col %in% names(base_table)) {
+            next
+          }
+          fb_def <- mapping$assets_fallbacks[[fb_col]]
+
+          if (!is.null(fb_def$on_missing_or_unknown)) {
+            fallback_val <- fb_def$on_missing_or_unknown
+            in_mapping <- base_table[[left_col]] %in% mapping_value_sets[[fb_col]]
+            missing_or_unknown <- is.na(base_table[[left_col]]) | !in_mapping
+            if (any(missing_or_unknown)) {
+              original_col <- paste0(left_col, "_original")
+              if (!original_col %in% names(base_table)) {
+                base_table[[original_col]] <- base_table[[left_col]]
+                fallback_original_cols <- unique(c(fallback_original_cols, original_col))
+              }
+              base_table[[left_col]][missing_or_unknown] <- fallback_val
+            }
+          }
+
+          # on_unmatched_combination intentionally unsupported
         }
       }
 
@@ -196,6 +177,12 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
         mapping_df,
         by = join_cols
       )
+
+      if (all(c("cost_factor.x", "cost_factor.y") %in% names(base_table))) {
+        base_table$cost_factor <- dplyr::coalesce(base_table$cost_factor.x, base_table$cost_factor.y)
+        base_table$cost_factor.x <- NULL
+        base_table$cost_factor.y <- NULL
+      }
       
       # Apply defaults for variables that are NA after join
       if (!is.null(mapping$defaults) && length(mapping$defaults) > 0) {
@@ -213,11 +200,15 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
         }
       }
       
-      # Restore original state after join (for Drought)
-      if (hazard_type == "Drought" && "state_original" %in% names(base_table)) {
-        base_table <- base_table |>
-          dplyr::mutate(state = .data$state_original) |>
-          dplyr::select(-"state_original")
+      # Restore original values after join for any fallback columns
+      if (length(fallback_original_cols) > 0) {
+        for (original_col in fallback_original_cols) {
+          restored_col <- sub("_original$", "", original_col)
+          if (original_col %in% names(base_table) && restored_col %in% names(base_table)) {
+            base_table[[restored_col]] <- base_table[[original_col]]
+            base_table[[original_col]] <- NULL
+          }
+        }
       }
     }
 

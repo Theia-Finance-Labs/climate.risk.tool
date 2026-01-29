@@ -355,11 +355,10 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
           return()
         }
 
+        # Persist only index-defining columns; hazard metadata is derived on load.
         export_cols <- c(
           "event_id",
           "hazard_type",
-          "hazard_indicator",
-          "hazard_name",
           "scenario_name",
           "return_period",
           "event_year",

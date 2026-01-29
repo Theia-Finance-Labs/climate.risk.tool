@@ -47,6 +47,7 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
       assets_without_coords,
       precomputed_hazards,
       hazards_inventory,
+      hazard_configs,
       aggregation_method
     )
 
@@ -320,7 +321,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
         dplyr::any_of(c(
           "asset", "company", "latitude", "longitude",
           "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-          "share_of_economic_activity", "cnae", "hazard_name", "hazard_key", "indicator_key", "hazard_type",
+          "share_of_economic_activity", "cost_factor", "cnae", "hazard_name", "hazard_key", "indicator_key", "hazard_type",
           "hazard_indicator", "return_period", "scenario_name", "season", "ensemble", "source",
           indicator_col, "matching_method"
         )),
@@ -381,7 +382,7 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
 
 #' Extract statistics from precomputed administrative data (municipality/state lookup)
 #' @noRd
-extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean") {
+extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, hazard_configs = NULL, aggregation_method = "mean") {
   message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
   message("    Using aggregation method: ", aggregation_method)
 
@@ -390,9 +391,31 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     stop("precomputed_hazards is NULL or empty. Cannot perform precomputed lookup.")
   }
 
-  # Identify required hazards (excluding special cases like fire/land_cover)
-  required_hazards_inventory <- hazards_inventory |>
-    dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
+  config_precomputed <- NULL
+  if (!is.null(hazard_configs) && length(hazard_configs) > 0) {
+    config_precomputed <- purrr::map_dfr(names(hazard_configs), function(hazard_type) {
+      cfg <- hazard_configs[[hazard_type]]
+      purrr::map_dfr(names(cfg$indicators), function(ind_key) {
+        ind_cfg <- cfg$indicators[[ind_key]]
+        precomputed_flag <- if (is.null(ind_cfg$precomputed)) TRUE else isTRUE(ind_cfg$precomputed)
+        tibble::tibble(
+          hazard_type = hazard_type,
+          hazard_indicator = ind_key,
+          precomputed = precomputed_flag
+        )
+      })
+    })
+  }
+
+  # Identify required hazards (exclude indicators marked as precomputed = FALSE)
+  required_hazards_inventory <- hazards_inventory
+  if (!is.null(config_precomputed) && nrow(config_precomputed) > 0) {
+    required_hazards_inventory <- required_hazards_inventory |>
+      dplyr::left_join(config_precomputed, by = c("hazard_type", "hazard_indicator")) |>
+      dplyr::mutate(precomputed = dplyr::coalesce(.data$precomputed, TRUE)) |>
+      dplyr::filter(.data$precomputed) |>
+      dplyr::select(-"precomputed")
+  }
   
   # Early check: if no hazards in inventory, that's the real problem
   if (nrow(required_hazards_inventory) == 0) {
@@ -555,11 +578,18 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       inventory_for_join |> dplyr::select("hazard_name", "agg"),
       by = "hazard_name",
       suffix = c("", "_inv")
-    ) |>
-    dplyr::mutate(
-      agg_from_inv = .data$agg_inv
-    ) |>
-    dplyr::select(-"agg_inv")
+    )
+
+  if ("agg_inv" %in% names(combined_matches)) {
+    combined_matches <- combined_matches |>
+      dplyr::mutate(agg_from_inv = .data$agg_inv) |>
+      dplyr::select(-"agg_inv")
+  } else if ("agg" %in% names(combined_matches)) {
+    combined_matches <- combined_matches |>
+      dplyr::mutate(agg_from_inv = .data$agg)
+  } else {
+    combined_matches$agg_from_inv <- NA_character_
+  }
   
   # Now determine effective aggregation method for each row
   combined_matches <- combined_matches |>
@@ -620,7 +650,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   # Define standard columns to keep
   metadata_cols <- c(
     "asset", "company", "latitude", "longitude", "municipality", "state",
-    "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
+    "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity", "cost_factor",
     "cnae", "hazard_name", "hazard_key", "indicator_key", "hazard_type", "hazard_indicator", "return_period",
     "scenario_name", "season", "ensemble", "source", "matching_method"
   )
@@ -645,41 +675,54 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     dplyr::select(-"indicator_column_name", -"hazard_value", -"effective_agg", -"agg_from_inv", -dplyr::any_of(available_agg_cols)) |>
     dplyr::select(dplyr::any_of(c(metadata_cols, "hazard_intensity", unique_variable_names)))
 
-  # Step 4: Handle special fire/land_cover (not precomputed)
-  fire_land_cover <- hazards_inventory |>
-    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover")
-  
-  if (nrow(fire_land_cover) > 0) {
-    # For each asset, add a land_cover row
+  # Step 4: Add placeholder rows for indicators marked as precomputed = FALSE
+  non_precomputed_inventory <- hazards_inventory
+  if (!is.null(config_precomputed) && nrow(config_precomputed) > 0) {
+    non_precomputed_inventory <- non_precomputed_inventory |>
+      dplyr::left_join(config_precomputed, by = c("hazard_type", "hazard_indicator")) |>
+      dplyr::mutate(precomputed = dplyr::coalesce(.data$precomputed, TRUE)) |>
+      dplyr::filter(!.data$precomputed) |>
+      dplyr::select(-"precomputed")
+  } else {
+    non_precomputed_inventory <- non_precomputed_inventory[0, ]
+  }
+
+  if (nrow(non_precomputed_inventory) > 0) {
     asset_metadata <- final_data |>
       dplyr::distinct(.data$asset, .keep_all = TRUE) |>
       dplyr::select(dplyr::any_of(metadata_cols))
-    
-    # We create a row for each asset and each fire/land_cover entry
-    land_cover_rows_list <- lapply(seq_len(nrow(fire_land_cover)), function(j) {
-      asset_metadata |>
+
+    placeholder_rows_list <- lapply(seq_len(nrow(non_precomputed_inventory)), function(j) {
+      indicator_var <- non_precomputed_inventory$variable[j]
+      indicator_var <- if (!is.null(indicator_var) && nzchar(as.character(indicator_var))) {
+        as.character(indicator_var)
+      } else {
+        as.character(non_precomputed_inventory$hazard_indicator[j])
+      }
+
+      row <- asset_metadata |>
         dplyr::mutate(
-          hazard_name = fire_land_cover$hazard_name[j],
-          hazard_type = fire_land_cover$hazard_type[j],
-          hazard_indicator = fire_land_cover$hazard_indicator[j],
-          indicator_key = fire_land_cover$indicator_key[j],  # CRITICAL: Set indicator_key for event matching
-          return_period = fire_land_cover$return_period[j],
-          scenario_name = fire_land_cover$scenario_name[j],
-          source = "tif",
-          land_cover = NA_real_,
+          hazard_name = non_precomputed_inventory$hazard_name[j],
+          hazard_type = non_precomputed_inventory$hazard_type[j],
+          hazard_indicator = non_precomputed_inventory$hazard_indicator[j],
+          indicator_key = non_precomputed_inventory$indicator_key[j],
+          return_period = non_precomputed_inventory$return_period[j],
+          scenario_name = non_precomputed_inventory$scenario_name[j],
+          source = non_precomputed_inventory$source[j],
           hazard_intensity = NA_real_
         )
+      row[[indicator_var]] <- NA_real_
+      row
     })
-    
-    land_cover_rows <- dplyr::bind_rows(land_cover_rows_list)
-    final_data <- dplyr::bind_rows(final_data, land_cover_rows)
-    
-    # Remove source column if it exists (it might have been added in land_cover_rows)
+
+    placeholder_rows <- dplyr::bind_rows(placeholder_rows_list)
+    final_data <- dplyr::bind_rows(final_data, placeholder_rows)
+
     if ("source" %in% names(final_data)) {
       final_data$source <- NULL
     }
-    
-    message("    Added fire/land_cover with default NA for ", nrow(asset_metadata), " assets")
+
+    message("    Added ", nrow(placeholder_rows), " non-precomputed indicator rows")
   }
 
   return(final_data)

@@ -298,6 +298,7 @@ Examples:
 - ASCII-normalizes state and municipality names
 - **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
 - Accepts either a folder containing asset_information.xlsx directly, or a base_dir with user_input subdirectory
+- Optional column `cost_factor` overrides mapping cost factors when provided (non-NA)
 
 **`assign_state_to_assets(assets_df, base_dir)`** → data.frame
 - Assigns states to assets without state data using spatial matching
@@ -838,6 +839,9 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - **Backward Compatibility**: Existing single-indicator hazards work exactly as before, just without visible indicator selection
 
 ## Recent Changes
+
+### Hazard Events Export (2026-01-29)
+- Trimmed the saved hazard events configuration to exclude `hazard_indicator` and `hazard_name`, relying on `load_config()` to reconstruct them from index columns; added coverage in `tests/testthat/test-mod_hazards_events.R`.
 
 ### Input Folder Selection (2025-11-25)
 - **Replaced file upload with folder selection**: Users now select a folder containing both `asset_information.xlsx` and `company_information.xlsx` files instead of uploading individual files

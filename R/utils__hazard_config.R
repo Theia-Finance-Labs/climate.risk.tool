@@ -180,6 +180,18 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
       indicator_categorical <- isTRUE(indicator$categorical)
     }
 
+    indicator_event_selection <- indicator$event_selection
+    if (is.null(indicator_event_selection) || !nzchar(as.character(indicator_event_selection))) {
+      indicator_event_selection <- "event_indexed"
+    }
+
+    indicator_precomputed <- indicator$precomputed
+    if (is.null(indicator_precomputed)) {
+      indicator_precomputed <- TRUE
+    } else {
+      indicator_precomputed <- isTRUE(indicator_precomputed)
+    }
+
     indicator_inference <- list()
     if (!is.null(indicator$inference)) {
       indicator_inference <- indicator$inference
@@ -193,6 +205,8 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
       fixed = indicator_fixed,
       agg = as.character(indicator_agg),
       categorical = indicator_categorical,
+      event_selection = as.character(indicator_event_selection),
+      precomputed = indicator_precomputed,
       inference = indicator_inference,
       source = indicator_source
     )
@@ -232,11 +246,17 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
         intensity_match <- "closest"
       }
 
+      assets_fallbacks <- mapping$assets_fallbacks
+      if (is.null(assets_fallbacks)) {
+        assets_fallbacks <- list()
+      }
+
       mappings[[mapping_key]] <- list(
         key = mapping_key,
         file = as.character(mapping$file),
         intensity_match = as.character(intensity_match),
         variables = variables,
+        assets_fallbacks = assets_fallbacks,
         join = list(
           on_indicator_intensity = on_indicator_intensity,
           on_indicator_index = on_indicator_index,

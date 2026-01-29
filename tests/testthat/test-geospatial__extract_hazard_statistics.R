@@ -262,3 +262,100 @@ testthat::test_that("extract_hazard_statistics surfaces missing precomputed keys
   )
 })
 
+testthat::test_that("extract_hazard_statistics allows non-precomputed indicators and applies inference", {
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
+  land_cover_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover") |>
+    dplyr::slice(1)
+
+  fwi_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "fire_weather_index") |>
+    dplyr::slice(1)
+
+  days_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "days_danger_total") |>
+    dplyr::slice(1)
+
+  hazards_inventory <- dplyr::bind_rows(fwi_row, days_row, land_cover_row)
+  hazard_configs <- hazards_data$configs
+
+  precomputed <- tibble::tibble(
+    region = "TestState",
+    adm_level = "ADM1",
+    hazard_name = fwi_row$hazard_name,
+    hazard_key = fwi_row$hazard_key,
+    scenario_name = fwi_row$scenario_name,
+    return_period = fwi_row$return_period,
+    gwl = fwi_row$gwl,
+    indicator_key = fwi_row$indicator_key,
+    hazard_type = fwi_row$hazard_type,
+    hazard_indicator = fwi_row$hazard_indicator,
+    indicator_file = fwi_row$indicator_file,
+    indicator_variable = fwi_row$indicator_variable,
+    variable = fwi_row$variable,
+    ensemble = fwi_row$ensemble,
+    season = fwi_row$season,
+    mean = 12.3
+  )
+
+  precomputed <- dplyr::bind_rows(
+    precomputed,
+    tibble::tibble(
+      region = "TestState",
+      adm_level = "ADM1",
+      hazard_name = days_row$hazard_name,
+      hazard_key = days_row$hazard_key,
+      scenario_name = days_row$scenario_name,
+      return_period = days_row$return_period,
+      gwl = days_row$gwl,
+      indicator_key = days_row$indicator_key,
+      hazard_type = days_row$hazard_type,
+      hazard_indicator = days_row$hazard_indicator,
+      indicator_file = days_row$indicator_file,
+      indicator_variable = days_row$indicator_variable,
+      variable = days_row$variable,
+      ensemble = days_row$ensemble,
+      season = days_row$season,
+      mean = 2.2
+    )
+  )
+
+  assets_df <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = "TestState",
+    asset_category = "agriculture",
+    asset_subtype = "soybean",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  results <- extract_hazard_statistics(
+    assets_df = assets_df,
+    hazards = list(),
+    hazards_inventory = hazards_inventory,
+    precomputed_hazards = precomputed,
+    hazard_configs = hazard_configs,
+    aggregation_method = "mean"
+  )
+
+  land_cover_row <- results |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover")
+
+  fwi_row_result <- results |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "fire_weather_index")
+
+  testthat::expect_equal(nrow(land_cover_row), 1)
+  testthat::expect_equal(land_cover_row$land_cover[1], 0.5)
+  testthat::expect_equal(nrow(fwi_row_result), 1)
+  testthat::expect_equal(fwi_row_result$fwi[1], 12.3, tolerance = 0.0001)
+})
+
