@@ -10,12 +10,13 @@ read_assets(folder_path)
 \item{folder_path}{Character string specifying the folder containing asset_information.xlsx}
 }
 \value{
-tibble with asset information
+tibble with asset information (includes state_code and municipality_code when available)
 }
 \description{
 Reads asset information from Excel file in the specified folder.
 The folder must directly contain asset_information.xlsx.
 Converts column names to snake_case and parses numeric columns correctly.
+Municipality and state columns accept either names or IBGE codes.
 }
 \details{
 Read asset data from Excel file
