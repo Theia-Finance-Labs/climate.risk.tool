@@ -293,55 +293,5 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     dplyr::select(-"indicator_column_name", -"hazard_value", -"effective_agg", -"agg_from_inv", -dplyr::any_of(available_agg_cols)) |>
     dplyr::select(dplyr::any_of(c(metadata_cols, "hazard_intensity", unique_variable_names)))
 
-  # Step 4: Add placeholder rows for indicators marked as precomputed = FALSE
-  non_precomputed_inventory <- hazards_inventory
-  if (!is.null(config_precomputed) && nrow(config_precomputed) > 0) {
-    non_precomputed_inventory <- non_precomputed_inventory |>
-      dplyr::left_join(config_precomputed, by = c("hazard_type", "hazard_indicator")) |>
-      dplyr::mutate(precomputed = dplyr::coalesce(.data$precomputed, TRUE)) |>
-      dplyr::filter(!.data$precomputed) |>
-      dplyr::select(-"precomputed")
-  } else {
-    non_precomputed_inventory <- non_precomputed_inventory[0, ]
-  }
-
-  if (nrow(non_precomputed_inventory) > 0) {
-    asset_metadata <- final_data |>
-      dplyr::distinct(.data$asset, .keep_all = TRUE) |>
-      dplyr::select(dplyr::any_of(metadata_cols))
-
-    placeholder_rows_list <- lapply(seq_len(nrow(non_precomputed_inventory)), function(j) {
-      indicator_var <- non_precomputed_inventory$variable[j]
-      indicator_var <- if (!is.null(indicator_var) && nzchar(as.character(indicator_var))) {
-        as.character(indicator_var)
-      } else {
-        as.character(non_precomputed_inventory$hazard_indicator[j])
-      }
-
-      row <- asset_metadata |>
-        dplyr::mutate(
-          hazard_name = non_precomputed_inventory$hazard_name[j],
-          hazard_type = non_precomputed_inventory$hazard_type[j],
-          hazard_indicator = non_precomputed_inventory$hazard_indicator[j],
-          indicator_key = non_precomputed_inventory$indicator_key[j],
-          return_period = non_precomputed_inventory$return_period[j],
-          scenario_name = non_precomputed_inventory$scenario_name[j],
-          source = non_precomputed_inventory$source[j],
-          hazard_intensity = NA_real_
-        )
-      row[[indicator_var]] <- NA_real_
-      row
-    })
-
-    placeholder_rows <- dplyr::bind_rows(placeholder_rows_list)
-    final_data <- dplyr::bind_rows(final_data, placeholder_rows)
-
-    if ("source" %in% names(final_data)) {
-      final_data$source <- NULL
-    }
-
-    message("    Added ", nrow(placeholder_rows), " non-precomputed indicator rows")
-  }
-
   return(final_data)
 }

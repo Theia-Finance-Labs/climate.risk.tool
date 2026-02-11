@@ -33,9 +33,15 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   if (nrow(assets_with_coords) > 0) {
     message("[extract_hazard_statistics] Processing coordinate-based assets...")
 
+    # Filter inventory to only include indicators that are in hazards (spatial)
+    # This prevents warnings about unfound hazards in extract_spatial_statistics
+    filtered_hazard_keys <- names(hazards)
+    filtered_inventory <- hazards_inventory |>
+      dplyr::filter(.data$indicator_key %in% filtered_hazard_keys)
+
     # Unified extraction workflow handles both NC and TIF sources
     all_results[[length(all_results) + 1]] <- extract_spatial_statistics(
-      assets_with_coords, hazards, hazards_inventory, aggregation_method
+      assets_with_coords, hazards, filtered_inventory, aggregation_method
     )
   }
 
@@ -100,6 +106,67 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   }
 
   final_result <- dplyr::bind_rows(all_results)
+  
+  # Validate no duplicates exist by (asset, indicator_key)
+  # Duplicates indicate a design flaw - assets should only appear in one path
+  dups <- final_result |>
+    dplyr::count(.data$asset, .data$indicator_key) |>
+    dplyr::filter(.data$n > 1)
+  
+  if (nrow(dups) > 0) {
+    # Get details about which assets/indicators are duplicated
+    dup_details <- final_result |>
+      dplyr::inner_join(dups |> dplyr::select("asset", "indicator_key"), by = c("asset", "indicator_key")) |>
+      dplyr::select("asset", "indicator_key", "matching_method", "hazard_type", "hazard_indicator") |>
+      dplyr::distinct()
+    
+    # Determine which path created each duplicate
+    spatial_dups <- dup_details |>
+      dplyr::filter(is.na(.data$matching_method) | !.data$matching_method %in% c("municipality lookup", "state lookup"))
+    precomputed_dups <- dup_details |>
+      dplyr::filter(.data$matching_method %in% c("municipality lookup", "state lookup"))
+    
+    error_msg <- paste0(
+      "[extract_hazard_statistics] Detected ", nrow(dups), " duplicate asset/indicator_key combinations. ",
+      "This indicates a design flaw - assets should only be processed in one path.\n",
+      "  Total duplicate combinations: ", nrow(dups), "\n",
+      "  First duplicate: Asset=", dups$asset[1], ", Indicator=", dups$indicator_key[1], "\n"
+    )
+    
+    if (nrow(spatial_dups) > 0) {
+      error_msg <- paste0(
+        error_msg,
+        "  Duplicates from spatial extraction path: ", nrow(spatial_dups), " combinations\n"
+      )
+    }
+    
+    if (nrow(precomputed_dups) > 0) {
+      error_msg <- paste0(
+        error_msg,
+        "  Duplicates from precomputed lookup path: ", nrow(precomputed_dups), " combinations\n"
+      )
+    }
+    
+    # Show first few duplicate details
+    if (nrow(dup_details) > 0) {
+      error_msg <- paste0(
+        error_msg,
+        "\n  Sample duplicates:\n",
+        paste0(
+          "    Asset=", head(dup_details$asset, 5), 
+          ", Indicator=", head(dup_details$indicator_key, 5),
+          ", Method=", head(dup_details$matching_method, 5),
+          collapse = "\n"
+        )
+      )
+      if (nrow(dup_details) > 5) {
+        error_msg <- paste0(error_msg, "\n    ... and ", nrow(dup_details) - 5, " more")
+      }
+    }
+    
+    stop(error_msg)
+  }
+  
   message("[extract_hazard_statistics] Completed processing for ", nrow(assets_df), " assets")
 
   return(final_result)
