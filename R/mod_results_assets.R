@@ -93,6 +93,34 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
             )
         }
       }
+      
+      # Format state and municipality columns to show both code and name when available
+      # This happens after name_mapping, so we use state_name/municipality_name which have original names
+      if ("state_code" %in% names(assets_df) || "state_name" %in% names(assets_df)) {
+        assets_df <- assets_df |>
+          dplyr::mutate(
+            state = dplyr::case_when(
+              !is.na(.data$state_code) & !is.na(.data$state_name) ~ 
+                paste0(.data$state_code, " - ", .data$state_name),
+              !is.na(.data$state_code) ~ .data$state_code,
+              !is.na(.data$state_name) ~ .data$state_name,
+              TRUE ~ .data$state
+            )
+          )
+      }
+      
+      if ("municipality_code" %in% names(assets_df) || "municipality_name" %in% names(assets_df)) {
+        assets_df <- assets_df |>
+          dplyr::mutate(
+            municipality = dplyr::case_when(
+              !is.na(.data$municipality_code) & !is.na(.data$municipality_name) ~ 
+                paste0(.data$municipality_code, " - ", .data$municipality_name),
+              !is.na(.data$municipality_code) ~ .data$municipality_code,
+              !is.na(.data$municipality_name) ~ .data$municipality_name,
+              TRUE ~ .data$municipality
+            )
+          )
+      }
 
       numeric_cols <- vapply(assets_df, is.numeric, logical(1))
       numeric_col_names <- names(assets_df)[numeric_cols]
@@ -155,10 +183,12 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         "sector_code",
         "state",
         "state_code",
+        "state_name",
         "province",
         "province_code",
         "municipality",
         "municipality_code",
+        "municipality_name",
         "share_of_economic_activity",
         "event_id",
         "hazard_name",

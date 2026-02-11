@@ -201,6 +201,20 @@ read_assets <- function(folder_path) {
     assets_raw$municipality_code <- NA_character_
   }
 
+  # Load ADM codes file - required for code matching
+  # The file is in the base_dir/areas/ folder (one level up from input folder)
+  # e.g., if folder_path is tests/tests_data/user_input, look in tests/tests_data/areas/
+  base_dir <- dirname(folder_path)
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  
+  if (!file.exists(adm_codes_path)) {
+    stop("brazil_adm_codes.csv not found. Expected at: ", adm_codes_path)
+  }
+  
+  message("[read_assets] Loading brazil_adm_codes.csv and matching codes to names...")
+  adm_codes <- load_adm_codes_from_path(adm_codes_path)
+  assets_raw <- match_adm_codes_to_names(assets_raw, adm_codes)
+
   message("[read_assets] Loaded ", nrow(assets_raw), " assets")
   assets_raw
 }
@@ -368,6 +382,160 @@ assign_state_to_assets <- function(assets_df, base_dir) {
 
   # Call the main function with loaded boundaries
   assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
+}
+
+#' Load ADM codes from brazil_adm_codes.csv file
+#'
+#' @title Load ADM codes mapping file
+#' @description Loads the brazil_adm_codes.csv file which maps ADM codes to names.
+#'   The file should have columns: code, name, adm (adm1 or adm2), shapeID
+#' @param base_dir Base directory containing areas/brazil_adm_codes.csv
+#' @return Data frame with columns: code, name, adm, shapeID
+#' @examples
+#' \dontrun{
+#' adm_codes <- load_adm_codes("tests/tests_data")
+#' }
+#' @export
+load_adm_codes <- function(base_dir) {
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  if (!file.exists(adm_codes_path)) {
+    stop("brazil_adm_codes.csv not found at: ", adm_codes_path)
+  }
+  load_adm_codes_from_path(adm_codes_path)
+}
+
+#' Load ADM codes from a specific file path
+#'
+#' @title Load ADM codes from file path
+#' @description Internal function to load ADM codes from a specific file path
+#' @param file_path Path to brazil_adm_codes.csv file
+#' @return Data frame with columns: code, name, adm, shapeID
+#' @noRd
+load_adm_codes_from_path <- function(file_path) {
+  readr::read_csv(
+    file_path,
+    col_types = readr::cols(
+      code = "c",
+      name = "c",
+      adm = "c",
+      shapeID = "c"
+    ),
+    show_col_types = FALSE,
+    locale = readr::locale(encoding = "UTF-8")
+  ) |>
+    tibble::as_tibble()
+}
+
+#' Match ADM codes to names in assets data frame
+#'
+#' @title Match ADM codes to names
+#' @description Matches ADM codes in State and Municipality columns to their names.
+#'   If State/Municipality columns contain numeric codes matching ADM codes, they are
+#'   matched to names and both code and name columns are populated.
+#' @param assets_df Data frame with asset information containing state and/or municipality columns
+#' @param adm_codes Data frame with ADM codes (from load_adm_codes())
+#' @return Data frame with state_code, state_name, municipality_code, municipality_name columns added
+#' @examples
+#' \dontrun{
+#' adm_codes <- load_adm_codes("tests/tests_data")
+#' assets <- match_adm_codes_to_names(assets, adm_codes)
+#' }
+#' @export
+match_adm_codes_to_names <- function(assets_df, adm_codes) {
+  # Ensure code columns exist
+  if (!"state_code" %in% names(assets_df)) {
+    assets_df$state_code <- NA_character_
+  }
+  if (!"municipality_code" %in% names(assets_df)) {
+    assets_df$municipality_code <- NA_character_
+  }
+  if (!"state_name" %in% names(assets_df)) {
+    assets_df$state_name <- NA_character_
+  }
+  if (!"municipality_name" %in% names(assets_df)) {
+    assets_df$municipality_name <- NA_character_
+  }
+  
+  # Create lookup tables for adm1 and adm2
+  adm1_lookup <- adm_codes |>
+    dplyr::filter(.data$adm == "adm1") |>
+    dplyr::select("code", "name") |>
+    dplyr::distinct()
+  
+  adm2_lookup <- adm_codes |>
+    dplyr::filter(.data$adm == "adm2") |>
+    dplyr::select("code", "name") |>
+    dplyr::distinct()
+  
+  # Match State codes (adm1)
+  if ("state" %in% names(assets_df)) {
+    # Check if state column contains codes (numeric strings matching adm1 codes)
+    state_values <- assets_df$state
+    is_code <- !is.na(state_values) & 
+               nzchar(trimws(as.character(state_values))) &
+               grepl("^\\d+$", trimws(as.character(state_values))) &
+               trimws(as.character(state_values)) %in% adm1_lookup$code
+    
+    # Match codes to names
+    assets_df <- assets_df |>
+      dplyr::mutate(
+        state_code = dplyr::if_else(
+          is_code,
+          trimws(as.character(.data$state)),
+          .data$state_code
+        ),
+        state_name = dplyr::if_else(
+          is_code,
+          adm1_lookup$name[match(trimws(as.character(.data$state)), adm1_lookup$code)],
+          .data$state_name
+        ),
+        # Update state column with normalized name if code was matched
+        state = dplyr::if_else(
+          is_code,
+          stringi::stri_trans_general(
+            adm1_lookup$name[match(trimws(as.character(.data$state)), adm1_lookup$code)],
+            "Latin-ASCII"
+          ),
+          .data$state
+        )
+      )
+  }
+  
+  # Match Municipality codes (adm2)
+  if ("municipality" %in% names(assets_df)) {
+    # Check if municipality column contains codes (numeric strings matching adm2 codes)
+    municipality_values <- assets_df$municipality
+    is_code <- !is.na(municipality_values) & 
+               nzchar(trimws(as.character(municipality_values))) &
+               grepl("^\\d+$", trimws(as.character(municipality_values))) &
+               trimws(as.character(municipality_values)) %in% adm2_lookup$code
+    
+    # Match codes to names
+    assets_df <- assets_df |>
+      dplyr::mutate(
+        municipality_code = dplyr::if_else(
+          is_code,
+          trimws(as.character(.data$municipality)),
+          .data$municipality_code
+        ),
+        municipality_name = dplyr::if_else(
+          is_code,
+          adm2_lookup$name[match(trimws(as.character(.data$municipality)), adm2_lookup$code)],
+          .data$municipality_name
+        ),
+        # Update municipality column with normalized name if code was matched
+        municipality = dplyr::if_else(
+          is_code,
+          stringi::stri_trans_general(
+            adm2_lookup$name[match(trimws(as.character(.data$municipality)), adm2_lookup$code)],
+            "Latin-ASCII"
+          ),
+          .data$municipality
+        )
+      )
+  }
+  
+  assets_df
 }
 
 #' Read company data from Excel or CSV file
