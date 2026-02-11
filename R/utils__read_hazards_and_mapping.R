@@ -415,6 +415,10 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
   join_cols <- intersect(names(combos), names(precomputed_df))
   precomputed_df <- precomputed_df |>
     dplyr::left_join(combos |> dplyr::select(dplyr::all_of(c(join_cols, "hazard_name", "indicator_key", "effective_ensemble"))), by = join_cols) |>
+    # CRITICAL: Filter out rows where ensemble doesn't match effective_ensemble
+    # This happens when config has fixed: { ensemble: mean } but precomputed data has multiple ensembles
+    # We only keep rows that match the effective ensemble to avoid duplicates
+    dplyr::filter(.data$ensemble == .data$effective_ensemble) |>
     # Update ensemble column to match the effective_ensemble used in indicator_key
     dplyr::mutate(
       ensemble = .data$effective_ensemble,

@@ -212,21 +212,17 @@ compute_risk <- function(assets,
   # PHASE 2: GEOSPATIAL - Extract hazard statistics (spatial or precomputed)
   # ============================================================================
 
-  # Filter inventory to match filtered hazards for spatial extraction (prevent warnings about unfound hazards)
-  # NOTE: We pass the FULL hazards_inventory to extract_hazard_statistics because extract_precomputed_statistics
-  # needs indicators that are in precomputed_hazards but may not be in hazards (spatial)
+  # Filter inventory to match filtered hazards (prevent warnings about unfound hazards)
   filtered_hazard_keys <- names(hazards)
   filtered_inventory <- hazards_inventory |>
     dplyr::filter(.data$indicator_key %in% filtered_hazard_keys)
 
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/state only
-  # Pass FULL hazards_inventory (not filtered_inventory) so extract_precomputed_statistics can access
-  # all indicators needed for precomputed lookup, not just those in spatial hazards
   assets_long <- extract_hazard_statistics(
     assets_df = assets,
     hazards = hazards,
-    hazards_inventory = hazards_inventory,
+    hazards_inventory = filtered_inventory,
     precomputed_hazards = precomputed_hazards,
     hazard_configs = hazard_configs,
     aggregation_method = aggregation_method
