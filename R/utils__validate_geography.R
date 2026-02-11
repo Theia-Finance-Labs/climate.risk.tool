@@ -98,11 +98,7 @@ validate_damage_factors_states <- function(damage_factors_df, adm1_names, valida
 #' @param validation_results List with errors and warnings vectors
 #' @return Updated validation_results list
 #' @noRd
-validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validation_results, geo_mapping = NULL) {
-  if (!is.null(geo_mapping) && nrow(geo_mapping) > 0) {
-    assets_df <- attach_geo_codes(assets_df, geo_mapping)
-  }
-
+validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validation_results) {
   # Flag rows with no geographic information at all
   if (all(c("latitude", "longitude", "municipality", "state") %in% names(assets_df))) {
     no_geo_idx <- which(
@@ -224,8 +220,7 @@ validate_precomputed_hazards_geography <- function(
   validation_results,
   assets_df = NULL,
   events_df = NULL,
-  hazard_configs = NULL,
-  geo_mapping = NULL
+  hazard_configs = NULL
 ) {
   # Validate provinces (if column exists)
   if ("region" %in% names(precomputed_hazards_df) && length(adm1_names) > 0) {
@@ -278,9 +273,6 @@ validate_precomputed_hazards_geography <- function(
 
   # Validate that state and municipality names in assets exist in reference lists
   if (!is.null(assets_df) && nrow(assets_df) > 0) {
-    if (!is.null(geo_mapping) && nrow(geo_mapping) > 0) {
-      assets_df <- attach_geo_codes(assets_df, geo_mapping)
-    }
     # Check states
     if ("state" %in% names(assets_df) && length(adm1_names) > 0) {
       asset_states <- assets_df |>

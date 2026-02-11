@@ -189,23 +189,29 @@ To add a new hazard type:
 └── areas/
     ├── state/
     └── municipality/
-    └── geo_code_mapping.csv
 
 {input_folder}/  (user-selected folder)
-├── asset_information.xlsx
-└── company_information.xlsx
+├── asset_information.xlsx (or asset_information.csv)
+└── company_information.xlsx (or company_information.csv)
 ```
 
 ### Required Input Files
 
-#### 1. `asset_information.xlsx`
+#### 1. `asset_information.xlsx` or `asset_information.csv`
 Location: User-selected input folder
+Format: Excel (.xlsx) or CSV (.csv) - only one format should be present
 Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
-Notes: municipality/state may be provided as IBGE codes when `{base_dir}/areas/geo_code_mapping.csv` is available.
+Notes: 
+- CSV files automatically detect separator (comma or semicolon) by analyzing the first line.
+- If both Excel and CSV formats exist, an error is raised requiring only one format.
 
-#### 2. `company_information.xlsx`
-Location: User-selected input folder (same folder as asset_information.xlsx)
+#### 2. `company_information.xlsx` or `company_information.csv`
+Location: User-selected input folder (same folder as asset_information file)
+Format: Excel (.xlsx) or CSV (.csv) - only one format should be present
 Columns: company_id, company_name, equity, debt, other financial data
+Notes:
+- CSV files automatically detect separator (comma or semicolon) by analyzing the first line.
+- If both Excel and CSV formats exist, an error is raised requiring only one format.
 
 #### 3. Hazard configuration + mapping tables
 Location:
@@ -229,10 +235,6 @@ Pre-aggregated hazard statistics for administrative regions. Eliminates need for
 
 #### 5. `metadata.csv`
 Location: `{base_dir}/hazards/indicators/<indicator_folder>/metadata.csv`
-#### 6. `geo_code_mapping.csv`
-Location: `{base_dir}/areas/geo_code_mapping.csv`
-Columns: adm_level (ADM1/ADM2), code, state_code, name
-Purpose: Maps IBGE codes to normalized names used internally; required when users provide IBGE codes in inputs.
 Columns: hazard_file, hazard_type, hazard_indicator, scenario_name, return_period
 
 Maps GeoTIFF indicators to metadata for UI display and filtering.
@@ -310,16 +312,13 @@ Examples:
 ### Data Loading
 
 **`read_assets(folder_path)`** → data.frame
-- Reads from `{folder_path}/asset_information.xlsx` (direct) or `{folder_path}/user_input/asset_information.xlsx` (legacy)
+- Reads from `{folder_path}/asset_information.xlsx` or `{folder_path}/asset_information.csv` (only one format should exist)
+- For CSV files, automatically detects separator (comma or semicolon) by analyzing the first line
+- Raises error if both Excel and CSV formats exist in the folder
 - ASCII-normalizes state and municipality names
-- Accepts IBGE state/municipality codes when `{base_dir}/areas/geo_code_mapping.csv` is present
 - **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
-- Accepts either a folder containing asset_information.xlsx directly, or a base_dir with user_input subdirectory
+- Accepts either a folder containing asset_information file directly, or a base_dir with user_input subdirectory
 - Optional column `cost_factor` overrides mapping cost factors when provided (non-NA)
-
-**`load_geo_code_mapping(base_dir)`** → data.frame
-- Loads `{base_dir}/areas/geo_code_mapping.csv` to map IBGE codes to normalized names
-- Adds normalized name and state-name metadata for both ADM1 and ADM2 levels
 
 **`assign_state_to_assets(assets_df, base_dir)`** → data.frame
 - Assigns states to assets without state data using spatial matching
@@ -329,9 +328,11 @@ Examples:
 - Can be called manually: `assets <- assign_state_to_assets(assets, base_dir)`
 
 **`read_companies(file_path)`** → data.frame
-- Reads company data from specified Excel file path or folder path
-- If given a folder path, looks for company_information.xlsx in that folder
-- If given a file path, reads that file directly
+- Reads company data from specified Excel (.xlsx) or CSV (.csv) file path or folder path
+- If given a folder path, looks for company_information.xlsx or company_information.csv in that folder (only one format should exist)
+- For CSV files, automatically detects separator (comma or semicolon) by analyzing the first line
+- Raises error if both Excel and CSV formats exist in the folder
+- If given a file path, reads that file directly (format determined by file extension)
 
 **`read_precomputed_hazards(base_dir)`** → data.frame
 - Reads from `{base_dir}/hazards/precomputed_adm_indicators.csv`

@@ -68,11 +68,6 @@ read_damage_cost_factors <- function(base_dir) {
       }
     )
 
-  geo_mapping <- load_geo_code_mapping(base_dir)
-  if (nrow(geo_mapping) > 0 && "state" %in% names(factors_df)) {
-    factors_df <- attach_geo_codes(factors_df, geo_mapping, state_col = "state", municipality_col = "municipality")
-  }
-
   if (!"state_code" %in% names(factors_df)) {
     factors_df$state_code <- NA_character_
   }
@@ -136,10 +131,6 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
   mapping_df <- mapping_df |>
     dplyr::rename_with(to_snake_case)
 
-  geo_mapping <- load_geo_code_mapping(base_dir)
-  if (nrow(geo_mapping) > 0 && any(c("state", "municipality") %in% names(mapping_df))) {
-    mapping_df <- attach_geo_codes(mapping_df, geo_mapping, state_col = "state", municipality_col = "municipality")
-  }
   if ("state" %in% names(mapping_df) && !"state_code" %in% names(mapping_df)) {
     mapping_df$state_code <- NA_character_
   }
@@ -211,26 +202,10 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
   precomputed_df <- precomputed_df |>
     dplyr::mutate(
       region = normalize_geo_name(.data$region),
-      adm_level = toupper(.data$adm_level)
+      adm_level = toupper(.data$adm_level),
+      region_code = NA_character_,
+      state_code = NA_character_
     )
-
-  geo_mapping <- load_geo_code_mapping(base_dir)
-  if (nrow(geo_mapping) > 0) {
-    mapping_lookup <- geo_mapping |>
-      dplyr::select(
-        "adm_level",
-        code = .data$code,
-        region = .data$name_normalized,
-        state_code = .data$state_code
-      )
-
-    precomputed_df <- precomputed_df |>
-      dplyr::left_join(mapping_lookup, by = c("adm_level", "region")) |>
-      dplyr::rename(region_code = .data$code)
-  } else {
-    precomputed_df$region_code <- NA_character_
-    precomputed_df$state_code <- NA_character_
-  }
 
   message("  File read complete (", nrow(precomputed_df), " rows). Mapping indicators from config...")
 

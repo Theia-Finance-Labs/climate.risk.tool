@@ -38,17 +38,6 @@ validate_input_coherence <- function(
 ) {
   message("[validate_input_coherence] Starting validation checks...")
 
-  base_dir <- if (!is.null(hazards_dir)) {
-    dirname(dirname(hazards_dir))
-  } else {
-    NULL
-  }
-  geo_mapping <- if (!is.null(base_dir)) {
-    load_geo_code_mapping(base_dir)
-  } else {
-    tibble::tibble()
-  }
-
   validation_results <- list(
     errors = character(),
     warnings = character()
@@ -71,8 +60,7 @@ validate_input_coherence <- function(
     assets_df,
     adm1_names,
     adm2_names,
-    validation_results,
-    geo_mapping = geo_mapping
+    validation_results
   )
 
   validation_results <- validate_companies_against_assets(
@@ -95,8 +83,7 @@ validate_input_coherence <- function(
       validation_results,
       assets_df = assets_df,
       events_df = events_df,
-      hazard_configs = hazard_configs,
-      geo_mapping = geo_mapping
+      hazard_configs = hazard_configs
     )
   }
 

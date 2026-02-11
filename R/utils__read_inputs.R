@@ -34,180 +34,95 @@ coerce_geo_code <- function(code, width = NULL) {
   code_chr
 }
 
-resolve_geo_mapping_base_dir <- function(folder_path) {
-  if (is.null(folder_path) || !nzchar(as.character(folder_path))) {
-    return(NULL)
-  }
-  candidates <- unique(c(folder_path, dirname(folder_path)))
-  for (candidate in candidates) {
-    mapping_path <- file.path(candidate, "areas", "geo_code_mapping.csv")
-    if (file.exists(mapping_path)) {
-      return(candidate)
-    }
-  }
-  return(NULL)
-}
-
-#' Load IBGE code mapping for states and municipalities
+#' Detect CSV separator (comma or semicolon)
 #'
-#' @title Load IBGE code mapping
-#' @description Loads a mapping table linking IBGE codes to normalized names for ADM1/ADM2.
-#'   The mapping file must be located at {base_dir}/areas/geo_code_mapping.csv.
-#' @param base_dir Base directory containing areas/geo_code_mapping.csv
-#' @return tibble with columns:
-#'   - adm_level: ADM1 or ADM2
-#'   - code: IBGE code as string (2 digits for ADM1, 7 digits for ADM2)
-#'   - state_code: ADM1 code (2 digits) for both ADM1 and ADM2 rows
-#'   - name: original name from mapping file
-#'   - name_normalized: ASCII-normalized name used internally
-#'   - state_name: ADM1 name resolved from state_code
-#'   - state_name_normalized: ASCII-normalized ADM1 name
-#' @examples
-#' \dontrun{
-#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' mapping <- load_geo_code_mapping(base_dir)
-#' }
-#' @export
-load_geo_code_mapping <- function(base_dir) {
-  mapping_path <- file.path(base_dir, "areas", "geo_code_mapping.csv")
-  if (!file.exists(mapping_path)) {
-    message("[load_geo_code_mapping] Mapping not found at: ", mapping_path)
-    return(tibble::tibble(
-      adm_level = character(),
-      code = character(),
-      state_code = character(),
-      name = character(),
-      name_normalized = character(),
-      state_name = character(),
-      state_name_normalized = character()
-    ))
+#' @title Detect CSV separator
+#' @description Detects whether a CSV file uses comma or semicolon as separator
+#'   by analyzing the first non-empty line of the file.
+#' @param file_path Path to CSV file
+#' @return Character string: "comma" or "semicolon" (defaults to "comma" if unclear)
+#' @noRd
+detect_csv_separator <- function(file_path) {
+  # Read first 100 lines
+  lines <- readLines(file_path, n = 100, warn = FALSE)
+  # Find first non-empty line
+  non_empty_lines <- lines[nzchar(trimws(lines))]
+  if (length(non_empty_lines) == 0) {
+    return("comma")  # default
   }
-
-  mapping <- readr::read_csv(
-    mapping_path,
-    col_types = readr::cols(.default = "c"),
-    show_col_types = FALSE
-  ) |>
-    tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case)
-
-  mapping <- mapping |>
-    dplyr::mutate(
-      adm_level = toupper(.data$adm_level),
-      code = dplyr::case_when(
-        .data$adm_level == "ADM1" ~ coerce_geo_code(.data$code, width = 2),
-        .data$adm_level == "ADM2" ~ coerce_geo_code(.data$code, width = 7),
-        TRUE ~ coerce_geo_code(.data$code)
-      ),
-      state_code = coerce_geo_code(.data$state_code, width = 2),
-      name = as.character(.data$name),
-      name_normalized = normalize_geo_name(.data$name)
-    )
-
-  adm1_lookup <- mapping |>
-    dplyr::filter(.data$adm_level == "ADM1") |>
-    dplyr::select(
-      state_code = .data$code,
-      state_name = .data$name,
-      state_name_normalized = .data$name_normalized
-    )
-
-  mapping <- mapping |>
-    dplyr::left_join(adm1_lookup, by = "state_code")
-
-  mapping
+  first_line <- non_empty_lines[1]
+  
+  comma_count <- stringr::str_count(first_line, ",")
+  semicolon_count <- stringr::str_count(first_line, ";")
+  
+  if (semicolon_count > comma_count) {
+    return("semicolon")
+  } else {
+    return("comma")
+  }
 }
 
-attach_geo_codes <- function(df, geo_mapping, state_col = "state", municipality_col = "municipality") {
-  if (is.null(geo_mapping) || nrow(geo_mapping) == 0) {
-    return(df)
-  }
-
-  adm1 <- geo_mapping |>
-    dplyr::filter(.data$adm_level == "ADM1")
-  adm2 <- geo_mapping |>
-    dplyr::filter(.data$adm_level == "ADM2")
-
-  state_code_lookup <- setNames(adm1$code, adm1$name_normalized)
-  state_name_lookup <- setNames(adm1$name_normalized, adm1$code)
-  municipality_code_lookup <- setNames(adm2$code, adm2$name_normalized)
-  municipality_name_lookup <- setNames(adm2$name_normalized, adm2$code)
-  municipality_state_lookup <- setNames(adm2$state_name_normalized, adm2$code)
-
-  if (state_col %in% names(df)) {
-    state_values <- as.character(df[[state_col]])
-    state_code_candidate <- coerce_geo_code(state_values, width = 2)
-    state_is_code <- !is.na(state_code_candidate) & state_code_candidate %in% names(state_name_lookup)
-
-    df[[state_col]] <- dplyr::if_else(
-      state_is_code,
-      state_name_lookup[state_code_candidate],
-      state_values
-    )
-
-    state_name_norm <- normalize_geo_name(df[[state_col]])
-    df$state_code <- dplyr::coalesce(
-      dplyr::if_else(state_is_code, state_code_candidate, NA_character_),
-      state_code_lookup[state_name_norm]
-    )
-  }
-
-  if (municipality_col %in% names(df)) {
-    municipality_values <- as.character(df[[municipality_col]])
-    municipality_code_candidate <- coerce_geo_code(municipality_values, width = 7)
-    municipality_is_code <- !is.na(municipality_code_candidate) & municipality_code_candidate %in% names(municipality_name_lookup)
-
-    df[[municipality_col]] <- dplyr::if_else(
-      municipality_is_code,
-      municipality_name_lookup[municipality_code_candidate],
-      municipality_values
-    )
-
-    municipality_name_norm <- normalize_geo_name(df[[municipality_col]])
-    df$municipality_code <- dplyr::coalesce(
-      dplyr::if_else(municipality_is_code, municipality_code_candidate, NA_character_),
-      municipality_code_lookup[municipality_name_norm]
-    )
-
-    if (state_col %in% names(df)) {
-      state_from_muni <- municipality_state_lookup[municipality_code_candidate]
-      df[[state_col]] <- dplyr::coalesce(df[[state_col]], state_from_muni)
-    }
-  }
-
-  df
-}
-
-#' Read asset data from Excel file
+#' Read asset data from Excel or CSV file
 #'
-#' @title Read asset information from Excel file
-#' @description Reads asset information from Excel file in the specified folder.
-#'   The folder must directly contain asset_information.xlsx.
+#' @title Read asset information from Excel or CSV file
+#' @description Reads asset information from Excel (.xlsx) or CSV (.csv) file in the specified folder.
+#'   The folder must directly contain asset_information.xlsx or asset_information.csv (but not both).
+#'   For CSV files, automatically detects separator (comma or semicolon).
 #'   Converts column names to snake_case and parses numeric columns correctly.
-#'   Municipality and state columns accept either names or IBGE codes.
-#' @param folder_path Character string specifying the folder containing asset_information.xlsx
+#'   Municipality and state columns accept names.
+#' @param folder_path Character string specifying the folder containing asset_information.xlsx or asset_information.csv
 #' @return tibble with asset information (includes state_code and municipality_code when available)
 #' @examples
 #' \dontrun{
-#' # Folder path containing asset_information.xlsx
+#' # Folder path containing asset_information.xlsx or asset_information.csv
 #' assets <- read_assets("path/to/folder")
 #' }
 #' @export
 read_assets <- function(folder_path) {
   message("[read_assets] Reading asset data from: ", folder_path)
 
-  # File must be directly in the specified folder
-  assets_path <- file.path(folder_path, "asset_information.xlsx")
+  # Check for both Excel and CSV files
+  assets_xlsx <- file.path(folder_path, "asset_information.xlsx")
+  assets_csv <- file.path(folder_path, "asset_information.csv")
+  has_xlsx <- file.exists(assets_xlsx)
+  has_csv <- file.exists(assets_csv)
 
-  # Check if file exists
-  if (!file.exists(assets_path)) {
-    stop("Asset information file not found at: ", assets_path)
+  # Validate that only one format exists
+  if (has_xlsx && has_csv) {
+    stop("Both asset_information.xlsx and asset_information.csv found. Please use only one format.")
+  }
+  if (!has_xlsx && !has_csv) {
+    stop("Neither asset_information.xlsx nor asset_information.csv found in: ", folder_path)
   }
 
-  # Read assets data
-  assets_raw <- readxl::read_excel(assets_path) |>
-    tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case)
+  # Read assets data based on file format
+  if (has_xlsx) {
+    assets_raw <- readxl::read_excel(assets_xlsx) |>
+      tibble::as_tibble() |>
+      dplyr::rename_with(to_snake_case)
+  } else {
+    # CSV file - detect separator
+    separator <- detect_csv_separator(assets_csv)
+    if (separator == "semicolon") {
+      assets_raw <- readr::read_csv2(
+        assets_csv,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    } else {
+      assets_raw <- readr::read_csv(
+        assets_csv,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    }
+  }
 
   # Convert numeric columns for assets
   numeric_asset_cols <- c(
@@ -278,13 +193,6 @@ read_assets <- function(folder_path) {
         NA_character_
       )
     )
-
-  # Map IBGE codes to names when provided in inputs
-  mapping_base_dir <- resolve_geo_mapping_base_dir(folder_path)
-  if (!is.null(mapping_base_dir)) {
-    geo_mapping <- load_geo_code_mapping(mapping_base_dir)
-    assets_raw <- attach_geo_codes(assets_raw, geo_mapping)
-  }
 
   if (!"state_code" %in% names(assets_raw)) {
     assets_raw$state_code <- NA_character_
@@ -462,29 +370,45 @@ assign_state_to_assets <- function(assets_df, base_dir) {
   assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
 }
 
-#' Read company data from Excel file
+#' Read company data from Excel or CSV file
 #'
-#' @title Read company information from Excel file
-#' @description Reads company information from an Excel file,
+#' @title Read company information from Excel or CSV file
+#' @description Reads company information from an Excel (.xlsx) or CSV (.csv) file,
 #'   converting column names to snake_case and parsing numeric columns correctly.
-#'   Can accept either a direct file path or a folder path containing company_information.xlsx.
-#' @param file_path Character string specifying either the path to the company Excel file directly,
-#'   or a folder path containing company_information.xlsx
+#'   Can accept either a direct file path or a folder path containing company_information.xlsx or company_information.csv.
+#'   For CSV files, automatically detects separator (comma or semicolon).
+#'   If both Excel and CSV files exist in the folder, an error is raised.
+#' @param file_path Character string specifying either the path to the company file directly,
+#'   or a folder path containing company_information.xlsx or company_information.csv
 #' @return tibble with company information
 #' @examples
 #' \dontrun{
 #' # Direct file path
 #' companies <- read_companies("path/to/company_information.xlsx")
-#' # Or folder path
+#' # Or folder path (will look for .xlsx or .csv)
 #' companies <- read_companies("path/to/folder")
 #' }
 #' @export
 read_companies <- function(file_path) {
   message("[read_companies] Reading company data from: ", file_path)
 
-  # If file_path is a directory, look for company_information.xlsx in it
+  # If file_path is a directory, look for company_information files
   if (dir.exists(file_path)) {
-    file_path <- file.path(file_path, "company_information.xlsx")
+    company_xlsx <- file.path(file_path, "company_information.xlsx")
+    company_csv <- file.path(file_path, "company_information.csv")
+    has_xlsx <- file.exists(company_xlsx)
+    has_csv <- file.exists(company_csv)
+
+    # Validate that only one format exists
+    if (has_xlsx && has_csv) {
+      stop("Both company_information.xlsx and company_information.csv found. Please use only one format.")
+    }
+    if (!has_xlsx && !has_csv) {
+      stop("Neither company_information.xlsx nor company_information.csv found in: ", file_path)
+    }
+
+    # Use the file that exists
+    file_path <- if (has_xlsx) company_xlsx else company_csv
   }
 
   # Check if file exists
@@ -492,10 +416,37 @@ read_companies <- function(file_path) {
     stop("Company file not found at: ", file_path)
   }
 
-  # Read companies data
-  companies_raw <- readxl::read_excel(file_path) |>
-    tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case)
+  # Determine file format and read accordingly
+  is_csv <- grepl("\\.csv$", file_path, ignore.case = TRUE)
+
+  if (is_csv) {
+    # CSV file - detect separator
+    separator <- detect_csv_separator(file_path)
+    if (separator == "semicolon") {
+      companies_raw <- readr::read_csv2(
+        file_path,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    } else {
+      companies_raw <- readr::read_csv(
+        file_path,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    }
+  } else {
+    # Excel file
+    companies_raw <- readxl::read_excel(file_path) |>
+      tibble::as_tibble() |>
+      dplyr::rename_with(to_snake_case)
+  }
 
   # Convert numeric columns for companies
   numeric_company_cols <- c("revenues", "debt", "volatility", "net_profit_margin", "loan_size", "lgd", "term")

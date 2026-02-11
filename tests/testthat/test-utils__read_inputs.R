@@ -86,6 +86,201 @@ testthat::test_that("read_companies handles missing file gracefully", {
 })
 
 
+# Tests for CSV support
+
+testthat::test_that("read_assets reads CSV file with comma separator", {
+  base_dir <- get_test_data_dir()
+  input_folder_csv <- file.path(base_dir, "user_input_csv")
+  input_folder_xlsx <- file.path(base_dir, "user_input")
+  
+  # Read Excel file first to get expected structure
+  assets_excel <- read_assets(input_folder_xlsx)
+  
+  # Read CSV file from user_input_csv folder
+  assets_csv <- read_assets(input_folder_csv)
+  
+  # Should have same structure
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_equal(nrow(assets_csv), nrow(assets_excel))
+  testthat::expect_true(all(names(assets_csv) %in% names(assets_excel)))
+  
+  # Verify key columns exist and have correct types
+  testthat::expect_true("company" %in% names(assets_csv))
+  testthat::expect_true("asset" %in% names(assets_csv))
+  testthat::expect_true(is.numeric(assets_csv$share_of_economic_activity))
+})
+
+
+testthat::test_that("read_assets reads CSV file with semicolon separator", {
+  base_dir <- get_test_data_dir()
+  input_folder_xlsx <- file.path(base_dir, "user_input")
+  
+  # Read Excel file first to get expected structure
+  assets_excel <- read_assets(input_folder_xlsx)
+  
+  # Create temporary CSV file with semicolon separator for testing separator detection
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
+  
+  csv_path <- file.path(temp_dir, "asset_information.csv")
+  readr::write_csv2(assets_excel, csv_path)
+  
+  # Read CSV file
+  assets_csv <- read_assets(temp_dir)
+  
+  # Should have same structure
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_equal(nrow(assets_csv), nrow(assets_excel))
+  testthat::expect_true(all(names(assets_csv) %in% names(assets_excel)))
+})
+
+
+testthat::test_that("read_companies reads CSV file with comma separator", {
+  base_dir <- get_test_data_dir()
+  companies_path_csv <- file.path(base_dir, "user_input_csv")
+  companies_path_xlsx <- file.path(base_dir, "user_input", "company_information.xlsx")
+  
+  # Read Excel file first to get expected structure
+  companies_excel <- read_companies(companies_path_xlsx)
+  
+  # Read CSV file from user_input_csv folder
+  companies_csv <- read_companies(companies_path_csv)
+  
+  # Should have same structure
+  testthat::expect_s3_class(companies_csv, "data.frame")
+  testthat::expect_equal(nrow(companies_csv), nrow(companies_excel))
+  testthat::expect_true(all(names(companies_csv) %in% names(companies_excel)))
+  
+  # Verify key columns exist and have correct types
+  testthat::expect_true("company" %in% names(companies_csv))
+  testthat::expect_true(is.numeric(companies_csv$revenues))
+  testthat::expect_true(is.numeric(companies_csv$debt))
+})
+
+
+testthat::test_that("read_companies reads CSV file with semicolon separator", {
+  base_dir <- get_test_data_dir()
+  companies_path_xlsx <- file.path(base_dir, "user_input", "company_information.xlsx")
+  
+  # Read Excel file first to get expected structure
+  companies_excel <- read_companies(companies_path_xlsx)
+  
+  # Create temporary CSV file with semicolon separator for testing separator detection
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
+  
+  csv_path <- file.path(temp_dir, "company_information.csv")
+  readr::write_csv2(companies_excel, csv_path)
+  
+  # Read CSV file
+  companies_csv <- read_companies(temp_dir)
+  
+  # Should have same structure
+  testthat::expect_s3_class(companies_csv, "data.frame")
+  testthat::expect_equal(nrow(companies_csv), nrow(companies_excel))
+  testthat::expect_true(all(names(companies_csv) %in% names(companies_excel)))
+})
+
+
+testthat::test_that("read_assets errors when both Excel and CSV exist", {
+  base_dir <- get_test_data_dir()
+  input_folder <- file.path(base_dir, "user_input")
+  
+  # Create temporary directory with both files
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
+  
+  # Copy Excel file
+  xlsx_src <- file.path(input_folder, "asset_information.xlsx")
+  xlsx_dest <- file.path(temp_dir, "asset_information.xlsx")
+  file.copy(xlsx_src, xlsx_dest)
+  
+  # Create CSV file
+  assets_excel <- read_assets(input_folder)
+  csv_path <- file.path(temp_dir, "asset_information.csv")
+  readr::write_csv(assets_excel, csv_path)
+  
+  # Should error
+  testthat::expect_error(
+    read_assets(temp_dir),
+    "Both asset_information.xlsx and asset_information.csv found"
+  )
+})
+
+
+testthat::test_that("read_companies errors when both Excel and CSV exist", {
+  base_dir <- get_test_data_dir()
+  companies_path <- file.path(base_dir, "user_input", "company_information.xlsx")
+  
+  # Create temporary directory with both files
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
+  
+  # Copy Excel file
+  xlsx_dest <- file.path(temp_dir, "company_information.xlsx")
+  file.copy(companies_path, xlsx_dest)
+  
+  # Create CSV file
+  companies_excel <- read_companies(companies_path)
+  csv_path <- file.path(temp_dir, "company_information.csv")
+  readr::write_csv(companies_excel, csv_path)
+  
+  # Should error
+  testthat::expect_error(
+    read_companies(temp_dir),
+    "Both company_information.xlsx and company_information.csv found"
+  )
+})
+
+
+testthat::test_that("CSV separator detection works for comma-separated files", {
+  # Test indirectly through read_assets - comma separator should be detected correctly
+  # Uses the user_input_csv folder which contains comma-separated CSV files
+  base_dir <- get_test_data_dir()
+  input_folder_csv <- file.path(base_dir, "user_input_csv")
+  
+  # Reading should work (separator detection happens internally)
+  assets_csv <- read_assets(input_folder_csv)
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_gt(nrow(assets_csv), 0)
+  
+  # Verify it was read correctly (not as semicolon-separated)
+  testthat::expect_true("company" %in% names(assets_csv))
+  testthat::expect_true("asset" %in% names(assets_csv))
+})
+
+
+testthat::test_that("CSV separator detection works for semicolon-separated files", {
+  # Test indirectly through read_assets - semicolon separator should be detected correctly
+  base_dir <- get_test_data_dir()
+  input_folder_xlsx <- file.path(base_dir, "user_input")
+  
+  # Read Excel file first to get expected structure
+  assets_excel <- read_assets(input_folder_xlsx)
+  
+  # Create temporary CSV file with semicolon separator
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
+  
+  csv_path <- file.path(temp_dir, "asset_information.csv")
+  readr::write_csv2(assets_excel, csv_path)
+  
+  # Reading should work (separator detection happens internally)
+  assets_csv <- read_assets(temp_dir)
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_gt(nrow(assets_csv), 0)
+  
+  # Verify it was read correctly (not as comma-separated)
+  testthat::expect_true("company" %in% names(assets_csv))
+  testthat::expect_true("asset" %in% names(assets_csv))
+})
+
+
 
 # Tests for function: read_precomputed_hazards
 

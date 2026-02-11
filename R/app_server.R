@@ -225,17 +225,35 @@ app_server <- function(input, output, session) {
       return()
     }
     if (is.null(input_folder) || input_folder == "") {
-      values$status <- "Error: Please select an input folder containing asset_information.xlsx and company_information.xlsx files."
+      values$status <- "Error: Please select an input folder containing asset_information.xlsx or asset_information.csv, and company_information.xlsx or company_information.csv files."
       return()
     }
     
-    # Check that both required files exist in the selected folder
-    asset_file <- file.path(input_folder, "asset_information.xlsx")
-    company_file <- file.path(input_folder, "company_information.xlsx")
-    if (!file.exists(asset_file) || !file.exists(company_file)) {
+    # Check that both required files exist in the selected folder (Excel or CSV)
+    asset_xlsx <- file.path(input_folder, "asset_information.xlsx")
+    asset_csv <- file.path(input_folder, "asset_information.csv")
+    company_xlsx <- file.path(input_folder, "company_information.xlsx")
+    company_csv <- file.path(input_folder, "company_information.csv")
+    
+    asset_has_xlsx <- file.exists(asset_xlsx)
+    asset_has_csv <- file.exists(asset_csv)
+    company_has_xlsx <- file.exists(company_xlsx)
+    company_has_csv <- file.exists(company_csv)
+    
+    # Check for conflicts (both formats exist)
+    if ((asset_has_xlsx && asset_has_csv) || (company_has_xlsx && company_has_csv)) {
+      conflicts <- c()
+      if (asset_has_xlsx && asset_has_csv) conflicts <- c(conflicts, "asset_information")
+      if (company_has_xlsx && company_has_csv) conflicts <- c(conflicts, "company_information")
+      values$status <- paste0("Error: Both Excel and CSV formats found for: ", paste(conflicts, collapse = ", "), ". Please use only one format per file type.")
+      return()
+    }
+    
+    # Check that at least one format exists for each file
+    if ((!asset_has_xlsx && !asset_has_csv) || (!company_has_xlsx && !company_has_csv)) {
       missing <- c()
-      if (!file.exists(asset_file)) missing <- c(missing, "asset_information.xlsx")
-      if (!file.exists(company_file)) missing <- c(missing, "company_information.xlsx")
+      if (!asset_has_xlsx && !asset_has_csv) missing <- c(missing, "asset_information.xlsx or asset_information.csv")
+      if (!company_has_xlsx && !company_has_csv) missing <- c(missing, "company_information.xlsx or company_information.csv")
       values$status <- paste0("Error: Missing required files in selected folder: ", paste(missing, collapse = ", "))
       return()
     }
