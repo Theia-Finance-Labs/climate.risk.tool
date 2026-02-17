@@ -65,6 +65,8 @@ Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64
 
 BASE_COLS = [
     "region",
+    "region_code",
+    "shape_id",
     "adm_level",
     "gwl",
     "return_period",
@@ -314,7 +316,17 @@ def discover_indicators(
     return indicators
 
 
-def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
+def load_adm_codes(base_dir: str) -> pd.DataFrame:
+    path = os.path.join(base_dir, "areas", "brazil_adm_codes.csv")
+    if not os.path.exists(path):
+        print(f"Warning: {path} not found. Codes/ShapeIDs will be missing.")
+        return pd.DataFrame(columns=["code", "name", "adm", "shapeID"])
+    return pd.read_csv(path, dtype=str)
+
+
+def load_adm_shapefile(
+    adm_path: str, adm_codes_df: Optional[pd.DataFrame] = None
+) -> gpd.GeoDataFrame:
     if not os.path.exists(adm_path):
         raise FileNotFoundError(adm_path)
     try:
@@ -340,6 +352,31 @@ def load_adm_shapefile(adm_path: str) -> gpd.GeoDataFrame:
 
     gdf = gdf.copy()
     gdf["region"] = gdf[name_col].apply(fix_text)
+
+    # Extract shapeID
+    shape_id_col = None
+    for col in ["shapeID", "shape_id", "GID_1", "GID_2"]:
+        if col in gdf.columns:
+            shape_id_col = col
+            break
+
+    gdf["shape_id"] = np.nan
+    if shape_id_col:
+        gdf["shape_id"] = gdf[shape_id_col].astype(str)
+
+    # Match to codes using shapeID
+    gdf["region_code"] = np.nan
+    if adm_codes_df is not None and not adm_codes_df.empty and shape_id_col:
+        # Create mapping: shapeID -> code
+        # adm_codes has columns: code, name, adm, shapeID
+        # We use shapeID to match
+        shape_map = dict(
+            zip(
+                adm_codes_df["shapeID"].astype(str), adm_codes_df["code"].astype(str)
+            )
+        )
+        gdf["region_code"] = gdf["shape_id"].map(shape_map)
+
     return gdf
 
 
@@ -663,6 +700,8 @@ def compute_region_stats_for_slice(
         empty_reason = "all_nodata_or_no_overlap"
         return {
             "region": region_name,
+            "region_code": region_code,
+            "shape_id": shape_id,
             "count": 0,
             "min": np.nan,
             "max": np.nan,
@@ -683,6 +722,8 @@ def compute_region_stats_for_slice(
 
     return {
         "region": region_name,
+        "region_code": region_code,
+        "shape_id": shape_id,
         "count": cnt,
         "min": float(mn),
         "max": float(mx),
@@ -1003,6 +1044,9 @@ def process_tif_file_region_by_region_to_part(
         leave=False,
     ):
         region_name = reg["region"]
+        region_code = reg.get("region_code", np.nan)
+        shape_id = reg.get("shape_id", np.nan)
+
         stats = compute_region_stats_for_slice(
             da_slice=da,
             lats=lats,
@@ -1010,6 +1054,8 @@ def process_tif_file_region_by_region_to_part(
             transform=transform,
             region_geom=reg.geometry,
             region_name=region_name,
+            region_code=region_code,
+            shape_id=shape_id,
             raster_bounds_poly=rb_poly,
             hazard_type=hazard_type,
             hazard_indicator=hazard_indicator,
@@ -1020,6 +1066,8 @@ def process_tif_file_region_by_region_to_part(
         qs = stats["qs"]
         row = {
             "region": region_name,
+            "region_code": stats.get("region_code", np.nan),
+            "shape_id": stats.get("shape_id", np.nan),
             "adm_level": adm_level,
             "gwl": np.nan,
             "return_period": return_period if return_period is not None else np.nan,
@@ -1098,8 +1146,9 @@ def main():
     hazard_configs = load_hazard_configs(hazards_config_dir)
     indicators = discover_indicators(hazard_configs, hazards_indicators_dir)
 
-    adm1 = load_adm_shapefile(adm1_path)
-    adm2 = load_adm_shapefile(adm2_path)
+    adm_codes = load_adm_codes(base_dir)
+    adm1 = load_adm_shapefile(adm1_path, adm_codes)
+    adm2 = load_adm_shapefile(adm2_path, adm_codes)
 
     for i, ind in enumerate(indicators, 1):
         ht = ind["hazard_type"]

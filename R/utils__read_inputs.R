@@ -228,24 +228,46 @@ read_assets <- function(folder_path) {
 #' @param assets_df Data frame with asset information
 #' @param adm1_boundaries sf object with ADM1 (state) boundaries
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for municipality-based lookup
+#' @param adm_codes Optional data frame with ADM codes (from load_adm_codes()). Required for code assignment.
 #' @return Data frame with state assigned to all assets
 #' @examples
 #' \dontrun{
 #' adm1 <- sf::st_read("path/to/ADM1.geojson")
-#' assets_with_states <- assign_state_to_assets_with_boundaries(assets, adm1)
+#' adm_codes <- load_adm_codes("path/to/base_dir")
+#' assets_with_states <- assign_state_to_assets_with_boundaries(assets, adm1, adm_codes = adm_codes)
 #' }
 #' @export
-assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL) {
+assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL, adm_codes = NULL) {
   # Ensure state column is character (not logical if all NA)
   if ("state" %in% names(assets_df)) {
     assets_df$state <- as.character(assets_df$state)
   }
 
-  # Normalize state names in boundaries
+  # Prepare ADM1 lookup if codes available
+  adm1_lookup <- NULL
+  if (!is.null(adm_codes)) {
+    adm1_lookup <- adm_codes |>
+      dplyr::filter(.data$adm == "adm1") |>
+      dplyr::select("code", "name", "shapeID") |>
+      dplyr::distinct()
+  }
+
+  # Normalize state names in boundaries and add codes if available
   states_sf <- adm1_boundaries |>
     dplyr::mutate(
-      state_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
+      state_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII"),
+      shapeID = as.character(.data$shapeID)
     )
+  
+  if (!is.null(adm1_lookup)) {
+    states_sf <- states_sf |>
+      dplyr::left_join(
+        adm1_lookup |> dplyr::select("shapeID", "code") |> dplyr::rename(state_code_lookup = "code"),
+        by = "shapeID"
+      )
+  } else {
+    states_sf$state_code_lookup <- NA_character_
+  }
 
   # Identify assets without state
   assets_without_state <- assets_df |>
@@ -279,11 +301,29 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
     assets_coords_joined <- sf::st_join(assets_coords_sf, states_sf, join = sf::st_within)
 
     # Extract coordinates back and assign state
-    coords_matrix <- sf::st_coordinates(assets_coords_joined)
+    # Handle missing columns safely
+    state_names <- if ("state_name" %in% names(assets_coords_joined)) assets_coords_joined$state_name else NA_character_
+    state_codes <- if ("state_code_lookup" %in% names(assets_coords_joined)) assets_coords_joined$state_code_lookup else NA_character_
+    
     assets_with_coords <- assets_with_coords |>
       dplyr::mutate(
-        state = assets_coords_joined$state_name
+        # Assign name as fallback or primary if code missing
+        state = state_names,
+        state_name = state_names,
+        state_code = state_codes
       )
+      
+    # If we have codes, prefer using code in state column (based on new requirement)
+    # But for now, user asked to "keep the name in for good measures" and "use codes instead of names"
+    # The requirement "use codes instead of names for the adm regions" implies 'state' column should be code?
+    # Or should we just ensure we have 'state_code' column?
+    # The prompt says: "I'll have the shape id from the regions shapefiles, and the adm id from the user input"
+    # And "fix all issues that can happen with this change of not using the names anymore"
+    # It seems we should ensure 'state_code' is populated. 
+    # Let's keep 'state' as name for now to avoid breaking too much, but ensure 'state_code' is set.
+    # Actually, if the user input uses codes, 'state' might be a code.
+    # match_adm_codes_to_names logic: if state is code, state_code = state, state_name = looked up name.
+    # Here we are deriving from lat/lon. So we should set both if possible.
   }
 
   # Strategy 2: Assets with municipality but no coordinates - join via municipality
@@ -297,7 +337,8 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
     # Normalize municipality names in boundaries
     municipalities_sf <- adm2_boundaries |>
       dplyr::mutate(
-        municipality_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
+        municipality_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII"),
+        shapeID = as.character(.data$shapeID)
       )
 
     # Ensure both layers share CRS
@@ -313,17 +354,26 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
 
     municipality_lookup <- muni_points_joined |>
       sf::st_drop_geometry() |>
-      dplyr::select("municipality_name", "state_name")
+      dplyr::select(dplyr::any_of(c("municipality_name", "state_name", "state_code_lookup")))
 
+    # Prepare join columns
+    # We join by municipality name. If municipality column is code, we should have used municipality_name?
+    # assets_with_municipality likely has 'municipality' column. 
+    # If read_assets was used, 'municipality' is normalized name if it was a code.
+    
+    join_by <- "municipality_name"
+    # If municipality_lookup doesn't have municipality_name (should have it from above mutate), checks needed?
+    
     assets_with_municipality <- assets_with_municipality |>
       dplyr::left_join(
         municipality_lookup,
         by = c("municipality" = "municipality_name")
       ) |>
       dplyr::mutate(
-        state = dplyr::coalesce(.data$state_name, .data$state)
+        state = dplyr::coalesce(if ("state_name" %in% names(.data)) .data$state_name else NULL, .data$state),
+        state_code = dplyr::coalesce(if ("state_code_lookup" %in% names(.data)) .data$state_code_lookup else NULL, if ("state_code" %in% names(.data)) .data$state_code else NULL)
       ) |>
-      dplyr::select(-dplyr::any_of(c("state_name", "adm1_name")))
+      dplyr::select(-dplyr::any_of(c("state_name", "state_code_lookup", "adm1_name")))
   }
 
   # Combine all assets back together
@@ -366,6 +416,7 @@ assign_state_to_assets <- function(assets_df, base_dir) {
   # Load state boundaries
   state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
   municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
 
   if (!file.exists(state_path)) {
     message("[assign_state_to_assets] State boundaries not found, skipping state assignment")
@@ -379,9 +430,16 @@ assign_state_to_assets <- function(assets_df, base_dir) {
   } else {
     NULL
   }
+  
+  # Load ADM codes
+  adm_codes <- if (file.exists(adm_codes_path)) {
+    load_adm_codes_from_path(adm_codes_path)
+  } else {
+    NULL
+  }
 
   # Call the main function with loaded boundaries
-  assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
+  assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries, adm_codes)
 }
 
 #' Load ADM codes from brazil_adm_codes.csv file

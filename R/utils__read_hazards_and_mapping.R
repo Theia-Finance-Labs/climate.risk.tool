@@ -199,11 +199,17 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
     tibble::as_tibble() |>
     dplyr::rename_with(to_snake_case)
 
+  # Ensure columns exist if not in CSV (for backward compatibility)
+  if (!"region_code" %in% names(precomputed_df)) precomputed_df$region_code <- NA_character_
+  if (!"shape_id" %in% names(precomputed_df)) precomputed_df$shape_id <- NA_character_
+
   precomputed_df <- precomputed_df |>
     dplyr::mutate(
       region = normalize_geo_name(.data$region),
       adm_level = toupper(.data$adm_level),
-      region_code = NA_character_,
+      # Keep existing codes if loaded, otherwise NA
+      region_code = as.character(.data$region_code),
+      shape_id = as.character(.data$shape_id),
       state_code = NA_character_
     )
 

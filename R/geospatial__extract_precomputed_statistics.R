@@ -63,26 +63,98 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     dplyr::filter(.data$indicator_key %in% required_indicator_keys)
 
   # Join with Municipality (ADM2) first
-  assets_with_adm2 <- assets_df |>
-    dplyr::filter(!is.na(.data$municipality), .data$municipality != "") |>
-    dplyr::inner_join(
-      precomp_filtered |> dplyr::filter(.data$adm_level == "ADM2"),
-      by = c("municipality" = "region"),
-      relationship = "many-to-many"
-    ) |>
-    dplyr::mutate(matching_method = "municipality lookup")
+  assets_adm2_candidates <- assets_df |>
+    dplyr::filter(!is.na(.data$municipality), .data$municipality != "")
+  
+  precomp_adm2 <- precomp_filtered |> dplyr::filter(.data$adm_level == "ADM2")
+  
+  assets_with_adm2 <- NULL
+  
+  # Try joining by code first if available
+  if ("municipality_code" %in% names(assets_adm2_candidates) && "region_code" %in% names(precomp_adm2)) {
+    # 1. Assets with codes that match
+    assets_with_adm2_code <- assets_adm2_candidates |>
+      dplyr::filter(!is.na(.data$municipality_code), .data$municipality_code != "") |>
+      dplyr::inner_join(
+        precomp_adm2,
+        by = c("municipality_code" = "region_code"),
+        relationship = "many-to-many"
+      ) |>
+      dplyr::mutate(matching_method = "municipality code lookup")
+      
+    # 2. Remaining assets (no code or code didn't match)
+    matched_assets_code <- unique(assets_with_adm2_code$asset)
+    assets_remaining_adm2 <- assets_adm2_candidates |>
+      dplyr::filter(!(.data$asset %in% matched_assets_code))
+      
+    # 3. Match remaining by name
+    assets_with_adm2_name <- assets_remaining_adm2 |>
+      dplyr::inner_join(
+        precomp_adm2,
+        by = c("municipality" = "region"),
+        relationship = "many-to-many"
+      ) |>
+      dplyr::mutate(matching_method = "municipality name lookup")
+      
+    assets_with_adm2 <- dplyr::bind_rows(assets_with_adm2_code, assets_with_adm2_name)
+  } else {
+    # Fallback to name only
+    assets_with_adm2 <- assets_adm2_candidates |>
+      dplyr::inner_join(
+        precomp_adm2,
+        by = c("municipality" = "region"),
+        relationship = "many-to-many"
+      ) |>
+      dplyr::mutate(matching_method = "municipality name lookup")
+  }
 
   # Join with State (ADM1) for assets that didn't match ADM2
   matched_assets_adm2 <- unique(assets_with_adm2$asset)
-  assets_with_adm1 <- assets_df |>
+  assets_adm1_candidates <- assets_df |>
     dplyr::filter(!(.data$asset %in% matched_assets_adm2)) |>
-    dplyr::filter(!is.na(.data$state), .data$state != "") |>
-    dplyr::inner_join(
-      precomp_filtered |> dplyr::filter(.data$adm_level == "ADM1"),
-      by = c("state" = "region"),
-      relationship = "many-to-many"
-    ) |>
-    dplyr::mutate(matching_method = "state lookup")
+    dplyr::filter(!is.na(.data$state), .data$state != "")
+    
+  precomp_adm1 <- precomp_filtered |> dplyr::filter(.data$adm_level == "ADM1")
+  
+  assets_with_adm1 <- NULL
+  
+  # Try joining by code first if available
+  if ("state_code" %in% names(assets_adm1_candidates) && "region_code" %in% names(precomp_adm1)) {
+    # 1. Assets with codes that match
+    assets_with_adm1_code <- assets_adm1_candidates |>
+      dplyr::filter(!is.na(.data$state_code), .data$state_code != "") |>
+      dplyr::inner_join(
+        precomp_adm1,
+        by = c("state_code" = "region_code"),
+        relationship = "many-to-many"
+      ) |>
+      dplyr::mutate(matching_method = "state code lookup")
+      
+    # 2. Remaining assets
+    matched_assets_code <- unique(assets_with_adm1_code$asset)
+    assets_remaining_adm1 <- assets_adm1_candidates |>
+      dplyr::filter(!(.data$asset %in% matched_assets_code))
+      
+    # 3. Match remaining by name
+    assets_with_adm1_name <- assets_remaining_adm1 |>
+      dplyr::inner_join(
+        precomp_adm1,
+        by = c("state" = "region"),
+        relationship = "many-to-many"
+      ) |>
+      dplyr::mutate(matching_method = "state name lookup")
+      
+    assets_with_adm1 <- dplyr::bind_rows(assets_with_adm1_code, assets_with_adm1_name)
+  } else {
+    # Fallback to name only
+    assets_with_adm1 <- assets_adm1_candidates |>
+      dplyr::inner_join(
+        precomp_adm1,
+        by = c("state" = "region"),
+        relationship = "many-to-many"
+      ) |>
+      dplyr::mutate(matching_method = "state name lookup")
+  }
 
   combined_matches <- dplyr::bind_rows(assets_with_adm2, assets_with_adm1)
 
