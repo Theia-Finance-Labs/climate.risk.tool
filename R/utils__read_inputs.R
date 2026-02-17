@@ -371,7 +371,19 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
       ) |>
       dplyr::mutate(
         state = dplyr::coalesce(if ("state_name" %in% names(.data)) .data$state_name else NULL, .data$state),
-        state_code = dplyr::coalesce(if ("state_code_lookup" %in% names(.data)) .data$state_code_lookup else NULL, if ("state_code" %in% names(.data)) .data$state_code else NULL)
+        state_code = {
+          has_lookup <- "state_code_lookup" %in% names(.data)
+          has_code <- "state_code" %in% names(.data)
+          if (has_lookup && has_code) {
+            dplyr::coalesce(.data$state_code_lookup, .data$state_code)
+          } else if (has_lookup) {
+            .data$state_code_lookup
+          } else if (has_code) {
+            .data$state_code
+          } else {
+            NA_character_
+          }
+        }
       ) |>
       dplyr::select(-dplyr::any_of(c("state_name", "state_code_lookup", "adm1_name")))
   }
