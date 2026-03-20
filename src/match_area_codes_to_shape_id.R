@@ -12,6 +12,7 @@ ADM_OUTPUT_FILE <- "workspace/brazil_area_codes/brazil_adm_codes.csv"
 MUNICIPALITY_SHAPEFILE <- "tests/tests_data/areas/municipality/geoBoundaries-BRA-ADM2_simplified.geojson"
 STATE_SHAPEFILE <- "tests/tests_data/areas/state/geoBoundaries-BRA-ADM1_simplified.geojson"
 PROJECTED_CRS <- 5880L
+BRAZIL_AREA_COL_TYPES <- rep("text", 25)
 
 normalize_name <- function(x) {
   tolower(stringi::stri_trans_general(as.character(x), "Latin-ASCII"))
@@ -94,7 +95,8 @@ read_brazil_area_data <- function(input_file) {
   readxl::read_excel(
     path = input_file,
     skip = 6,
-    col_names = TRUE
+    col_names = TRUE,
+    col_types = BRAZIL_AREA_COL_TYPES
   )
 }
 
@@ -204,7 +206,7 @@ resolve_state_assignment_shapefile <- function(state_shapefile) {
 match_adm1_shape_ids <- function(adm1_data, state_shapes) {
   state_lookup <- state_shapes %>%
     sf::st_drop_geometry() %>%
-    dplyr::select(.data$normalized_name, .data$shapeID)
+    dplyr::select("normalized_name", "shapeID")
 
   matched_adm1 <- adm1_data %>%
     dplyr::left_join(state_lookup, by = "normalized_name")
@@ -251,7 +253,7 @@ build_unique_municipality_lookup <- function(adm2_data, municipality_shapes) {
   source_unique_names <- adm2_data %>%
     dplyr::count(.data$normalized_name, name = "source_count") %>%
     dplyr::filter(.data$source_count == 1) %>%
-    dplyr::select(.data$normalized_name)
+    dplyr::select("normalized_name")
 
   municipality_unique_lookup <- municipality_shapes %>%
     sf::st_drop_geometry() %>%
@@ -394,7 +396,7 @@ build_duplicate_municipality_lookup <- function(adm2_data, municipality_shapes, 
   duplicate_source <- adm2_data %>%
     dplyr::count(.data$normalized_name, name = "source_count") %>%
     dplyr::filter(.data$source_count > 1) %>%
-    dplyr::select(.data$normalized_name) %>%
+    dplyr::select("normalized_name") %>%
     dplyr::inner_join(adm2_data, by = "normalized_name")
 
   if (nrow(duplicate_source) == 0) {
@@ -496,10 +498,10 @@ match_adm2_shape_ids <- function(adm2_data, municipality_shapefile, state_shapes
 
   unique_names <- name_counts %>%
     dplyr::filter(.data$source_count == 1) %>%
-    dplyr::select(.data$normalized_name)
+    dplyr::select("normalized_name")
   duplicate_names <- name_counts %>%
     dplyr::filter(.data$source_count > 1) %>%
-    dplyr::select(.data$normalized_name)
+    dplyr::select("normalized_name")
 
   unique_lookup <- build_unique_municipality_lookup(adm2_data, municipality_shapes)
   duplicate_lookup <- build_duplicate_municipality_lookup(adm2_data, municipality_shapes, state_shapes)
@@ -507,14 +509,14 @@ match_adm2_shape_ids <- function(adm2_data, municipality_shapefile, state_shapes
   matched_unique <- adm2_data %>%
     dplyr::semi_join(unique_names, by = "normalized_name") %>%
     dplyr::left_join(
-      unique_lookup %>% dplyr::select(.data$normalized_name, .data$shapeID),
+      unique_lookup %>% dplyr::select("normalized_name", "shapeID"),
       by = "normalized_name"
     )
 
   matched_duplicates <- adm2_data %>%
     dplyr::semi_join(duplicate_names, by = "normalized_name") %>%
     dplyr::left_join(
-      duplicate_lookup %>% dplyr::select(.data$uf_code, .data$normalized_name, .data$shapeID),
+      duplicate_lookup %>% dplyr::select("uf_code", "normalized_name", "shapeID"),
       by = c("uf_code", "normalized_name")
     )
 
@@ -570,8 +572,8 @@ build_adm_output <- function(raw_data, municipality_shapefile, state_shapefile) 
   matched_adm2 <- match_adm2_shape_ids(adm2_data, municipality_shapefile, state_assignment_shapes)
 
   dplyr::bind_rows(
-    matched_adm1 %>% dplyr::select(.data$code, .data$name, .data$adm, .data$shapeID),
-    matched_adm2 %>% dplyr::select(.data$code, .data$name, .data$adm, .data$shapeID)
+    matched_adm1 %>% dplyr::select("code", "name", "adm", "shapeID"),
+    matched_adm2 %>% dplyr::select("code", "name", "adm", "shapeID")
   ) %>%
     dplyr::arrange(.data$adm, .data$code)
 }
@@ -614,4 +616,3 @@ main <- function() {
 }
 
   main()
-
