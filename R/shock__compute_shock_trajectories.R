@@ -8,7 +8,8 @@
 #'   Returns a single dataframe with shock scenarios ready for downstream analysis.
 #' @param yearly_baseline_profits tibble with columns: asset, company, year, revenue, profit
 #' @param assets_with_factors tibble with hazard data and damage/cost factors
-#' @param events tibble with columns: event_id, hazard_type, hazard_name, scenario_name, hazard_return_period, event_year (or NA)
+#' @param events tibble with columns: event_id, hazard_type, hazard_name, scenario_name, return_period, event_year (or NA)
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #' @param companies tibble with columns: company, net_profit_margin
 #' @param start_year numeric. Starting year for projections (default: 2025)
 #' @return tibble with columns: asset, company, year, revenue, profit
@@ -31,13 +32,17 @@
 #'   event_year = 2030
 #' )
 #' companies <- data.frame(company = "C1", net_profit_margin = 0.1)
-#' result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, companies)
+#' hazard_configs <- list(
+#'   flood = list(shocks = list())
+#' )
+#' result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, hazard_configs, companies)
 #' }
 #' @export
 compute_shock_trajectories <- function(
   yearly_baseline_profits,
   assets_with_factors,
   events,
+  hazard_configs,
   companies,
   start_year = 2025
 ) {
@@ -67,7 +72,8 @@ compute_shock_trajectories <- function(
     current_trajectories <- apply_acute_revenue_shock(
       current_trajectories,
       filtered_assets,
-      events
+      events,
+      hazard_configs
     )
   } else {
     # No events, just keep the revenue columns
@@ -87,7 +93,8 @@ compute_shock_trajectories <- function(
     current_trajectories <- apply_acute_profit_shock(
       current_trajectories,
       filtered_assets,
-      events
+      events,
+      hazard_configs
     )
   }
 

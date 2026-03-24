@@ -1,10 +1,8 @@
-#' Load NetCDF hazards and build inventory
+#' Load NetCDF hazard indicator and build inventory
 #'
 #' @description
-#' Scans for .nc files in the hazards directory, extracts metadata from the folder
-#' structure (hazard_type, hazard_indicator) and from NetCDF dimensions (GWL,
-#' return_period, ensemble). For each combination of GWL, return_period, and
-#' ensemble value, creates a separate SpatRaster.
+#' Loads a single NetCDF indicator file and builds inventory for the
+#' hazard type and indicator defined in the hazard config YAML.
 #'
 #' **Multi-variable NetCDF files:** If a NetCDF file contains multiple variables
 #' (e.g., when not using ensemble dimension), the loader will automatically select
@@ -12,7 +10,7 @@
 #' are found, it uses the first variable.
 #'
 #' **Ensemble dimension:** If the NC file has an ensemble dimension with values
-#' like mean, median, p10, p90, only the 'median' ensemble is loaded by default.
+#' like mean, median, p10, p90, only the 'mean' ensemble is loaded by default.
 #' This avoids iteration over all ensemble values and provides a single representative
 #' raster per hazard scenario.
 #'
@@ -38,390 +36,501 @@
 #' This ensures that each raster cell properly represents the area around each
 #' coordinate point, not just the point itself.
 #'
-#' **For TIF files:** The existing loader (`load_tif_hazards()`) uses
-#' `terra::rast(file_path)` which automatically reads the georeferencing information
-#' (extent, resolution, CRS) embedded in the GeoTIFF file itself. No manual extent
-#' calculation is needed.
 #'
-#' @param hazards_dir Character. Root directory that contains `hazards/` subfolders
+#' @param indicator_path Character path to NetCDF indicator file
+#' @param hazard_type Character hazard type from hazard config YAML
+#' @param hazard_indicator Character indicator key from hazard config YAML
+#' @param indicator_config List configuration for the indicator (from hazard config YAML)
 #' @param aggregate_factor Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)
 #' @param cache_aggregated Logical. If TRUE and aggregate_factor > 1, save and reuse aggregated rasters (default: TRUE)
 #' @param force_reaggregate Logical. If TRUE, recompute aggregated rasters even if cached files exist (default: FALSE)
 #' @return List with two elements: `hazards` (named list of SpatRaster) and
 #'   `inventory` (tibble with hazard metadata)
 #' @noRd
-load_nc_hazards_with_metadata <- function(hazards_dir,
+load_nc_hazards_with_metadata <- function(indicator_path,
+                                          hazard_type,
+                                          hazard_indicator,
+                                          indicator_config,
                                           aggregate_factor = 1L,
                                           cache_aggregated = TRUE,
                                           force_reaggregate = FALSE) {
-  all_nc_files <- list.files(hazards_dir, pattern = "\\.nc$", full.names = TRUE, recursive = TRUE)
 
-  # Filter out aggregated files from the initial scan (they'll be loaded via aggregation logic)
-  nc_files <- all_nc_files[!grepl("__agg\\d+\\.nc$", all_nc_files)]
+  # Resolve aggregated fallback when requested
+  f <- indicator_path
+  if (!file.exists(f)) {
+    # If the exact file is missing, try to find an aggregated version
+    # 1. Try with the requested aggregate_factor if > 1
+    if (aggregate_factor > 1) {
+      base <- sub("__agg\\d+\\.nc$", ".nc", f)
+      agg_path <- sub("\\.nc$", paste0("__agg", aggregate_factor, ".nc"), base)
+      if (file.exists(agg_path)) {
+        f <- agg_path
+      }
+    }
 
-  if (length(nc_files) == 0) {
-    return(list(
-      hazards = list(),
-      inventory = tibble::tibble()
-    ))
+    # 2. If still not found, try to find ANY aggregated version (common in test data)
+    if (!file.exists(f)) {
+      base <- sub("__agg\\d+\\.nc$", ".nc", indicator_path)
+      pattern <- paste0(basename(sub("\\.nc$", "", base)), "__agg\\d+\\.nc$")
+      dir_path <- dirname(base)
+      if (dir.exists(dir_path)) {
+        agg_files <- list.files(dir_path, pattern = pattern, full.names = TRUE)
+        if (length(agg_files) > 0) {
+          # Use the first available aggregated file
+          f <- agg_files[1]
+          message("  Indicator '", basename(indicator_path), "' not found, using aggregated fallback: ", basename(f))
+        }
+      }
+    }
   }
+
+  if (!file.exists(f)) {
+    return(list(hazards = list(), inventory = tibble::tibble()))
+  }
+
+  message("  Loading NetCDF indicator: ", basename(f))
+
+  # Open NetCDF and discover structure
+  nc <- tryCatch({
+    ncdf4::nc_open(f)
+  }, error = function(e) {
+    warning(
+      "[load_nc_hazards_with_metadata] Failed to open NetCDF file: ", basename(f),
+      "\n  Full path: ", f,
+      "\n  Error: ", conditionMessage(e),
+      "\n  File may not be a valid NetCDF file or may be corrupted.",
+      "\n  Skipping this file."
+    )
+    return(NULL)
+  })
+
+  if (is.null(nc)) {
+    return(list(hazards = list(), inventory = tibble::tibble()))
+  }
+
+  var_names <- names(nc$var)
+  if (length(var_names) == 0) {
+    warning("[load_nc_hazards_with_metadata] No variables found in NetCDF file: ", f, ". Skipping.")
+    try(ncdf4::nc_close(nc), silent = TRUE)
+    return(list(hazards = list(), inventory = tibble::tibble()))
+  }
+
+  main_var <- indicator_config$variable
+  if (is.null(main_var) || !nzchar(main_var) || !(main_var %in% var_names)) {
+    preferred_vars <- c("mean", "median", "value", "data")
+    main_var <- NULL
+    for (pref in preferred_vars) {
+      if (pref %in% var_names) {
+        main_var <- pref
+        message("  Using preferred NetCDF variable '", main_var, "' from: ", paste(var_names, collapse = ", "))
+        break
+      }
+    }
+    if (is.null(main_var)) {
+      main_var <- var_names[[1]]
+      message("  Using first NetCDF variable '", main_var, "' from: ", paste(var_names, collapse = ", "))
+    }
+  }
+
+  # Coordinate variables and values
+  dim_names <- vapply(nc$var[[main_var]]$dim, function(d) d$name, character(1))
+
+  # Find lon/lat dim names by convention
+  lon_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("lon", "longitude", "x")), logical(1))]
+  lat_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("lat", "latitude", "y")), logical(1))]
+  if (length(lon_dim) == 0) lon_dim <- "lon"
+  if (length(lat_dim) == 0) lat_dim <- "lat"
+
+    # Get coordinate values from dimensions (not variables)
+    # Dimensions store their values in nc$dim[[name]]$vals
+  lon_vals <- if (lon_dim[1] %in% names(nc$dim)) {
+    nc$dim[[lon_dim[1]]]$vals
+  } else {
+    try(ncdf4::ncvar_get(nc, lon_dim[1]), silent = TRUE)
+  }
+
+  lat_vals <- if (lat_dim[1] %in% names(nc$dim)) {
+    nc$dim[[lat_dim[1]]]$vals
+  } else {
+    try(ncdf4::ncvar_get(nc, lat_dim[1]), silent = TRUE)
+  }
+
+    # Other dims - check for scenario, ensemble, GWL, return_period, season
+  ens_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("ensemble")), logical(1))]
+  gwl_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("gwl", "GWL", "scenario")), logical(1))]
+  season_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("season")), logical(1))]
+  # Heuristic: remaining non-spatial, non-ensemble, non-GWL, non-season dim is return period
+  remaining <- setdiff(dim_names, c(lon_dim[1], lat_dim[1], ens_dim, gwl_dim, season_dim))
+  rp_dim <- if (length(remaining) > 0) remaining[[1]] else "return_period"
+
+    # Get dimension values from nc$dim structure
+  ens_vals <- if (length(ens_dim) > 0 && ens_dim[1] %in% names(nc$dim)) {
+    nc$dim[[ens_dim[1]]]$vals
+  } else if (length(ens_dim) > 0) {
+    try(ncdf4::ncvar_get(nc, ens_dim[1]), silent = TRUE)
+  } else {
+    structure("no_ensemble_dim", class = "try-error")
+  }
+
+  gwl_vals <- if (length(gwl_dim) > 0 && gwl_dim[1] %in% names(nc$dim)) {
+    nc$dim[[gwl_dim[1]]]$vals
+  } else if (length(gwl_dim) > 0) {
+    try(ncdf4::ncvar_get(nc, gwl_dim[1]), silent = TRUE)
+  } else {
+    structure("no_gwl_dim", class = "try-error")
+  }
+
+  rp_vals <- if (rp_dim %in% names(nc$dim)) {
+    nc$dim[[rp_dim]]$vals
+  } else {
+    try(ncdf4::ncvar_get(nc, rp_dim), silent = TRUE)
+  }
+
+  season_vals <- if (length(season_dim) > 0 && season_dim[1] %in% names(nc$dim)) {
+    nc$dim[[season_dim[1]]]$vals
+  } else if (length(season_dim) > 0) {
+    try(ncdf4::ncvar_get(nc, season_dim[1]), silent = TRUE)
+  } else {
+    structure("no_season_dim", class = "try-error")
+  }
+
+    # Some aggregated NetCDFs store categorical dimensions (GWL/season/ensemble) as 1..N indices
+    # with no label variable. Map to the canonical labels used across the pipeline/tests.
+    # Canonical mappings (as used in precomputed hazards + tests)
+  gwl_vals <- nc_normalize_indexed_dim(gwl_vals, c("present", "1.5", "2", "3"))
+  season_vals <- nc_normalize_indexed_dim(season_vals, c("Summer", "Autumn", "Winter", "Spring"))
+  
+  # Support both short (4) and long (7) canonical ensemble mappings
+  if (!inherits(ens_vals, "try-error") && length(ens_vals) == 7) {
+    ens_vals <- nc_normalize_indexed_dim(ens_vals, c("mean", "median", "p10", "p90", "min", "max", "std"))
+  } else {
+    ens_vals <- nc_normalize_indexed_dim(ens_vals, c("mean", "min", "max", "std"))
+  }
+
+  # Ensemble values (default to mean)
+  ens_labels <- if (inherits(ens_vals, "try-error") || length(ens_vals) == 0) {
+    "mean"
+  } else {
+    as.character(ens_vals)
+  }
+
+  fixed_vals <- indicator_config$fixed
+  if (is.null(fixed_vals)) fixed_vals <- list()
+
+  index_dims <- indicator_config$index
+  if (is.null(index_dims)) index_dims <- character(0)
+  index_dims <- tolower(as.character(index_dims))
+
+  dim_values <- list(
+    gwl = gwl_vals,
+    return_period = rp_vals,
+    season = season_vals,
+    ensemble = ens_labels
+  )
+
+  dim_indices <- list()
+  for (dim_name in names(dim_values)) {
+    vals <- dim_values[[dim_name]]
+    if (inherits(vals, "try-error") || length(vals) == 0) {
+      dim_indices[[dim_name]] <- 1L
+      next
+    }
+
+    if (dim_name %in% index_dims) {
+      dim_indices[[dim_name]] <- seq_along(vals)
+      next
+    }
+
+    if (dim_name %in% names(fixed_vals)) {
+      target <- as.character(fixed_vals[[dim_name]])
+      idx <- which(as.character(vals) == target)
+      if (length(idx) == 0) {
+        stop("Fixed value '", target, "' not found for dimension ", dim_name)
+      }
+      dim_indices[[dim_name]] <- idx[1]
+      next
+    }
+
+    if (dim_name == "ensemble") {
+      mean_idx <- which(as.character(vals) == "mean")
+      if (length(mean_idx) == 0) mean_idx <- 1L
+      dim_indices[[dim_name]] <- mean_idx[1]
+      next
+    }
+
+    dim_indices[[dim_name]] <- 1L
+  }
+
+  # Keep ncdf4 handle open for manual extraction
+  # (We'll close it after extracting all slices)
+
+  # Build combinations
+  combo_grid <- expand.grid(
+    gwl = dim_indices$gwl,
+    return_period = dim_indices$return_period,
+    season = dim_indices$season,
+    ensemble = dim_indices$ensemble,
+    KEEP.OUT.ATTRS = FALSE,
+    stringsAsFactors = FALSE
+  )
 
   results <- list()
   inventory_rows <- list()
 
-  for (original_file in nc_files) {
-    f <- original_file
+  for (row_idx in seq_len(nrow(combo_grid))) {
+    ig <- combo_grid$gwl[row_idx]
+    ir <- combo_grid$return_period[row_idx]
+    is <- combo_grid$season[row_idx]
+    ie <- combo_grid$ensemble[row_idx]
 
-    # NC aggregation disabled - terra::aggregate breaks multi-dimensional structure
-    # (converts string dimension labels to numeric indices, loses metadata)
-    # For NC files, always use original file regardless of aggregate_factor
-    if (aggregate_factor > 1) {
-      message("  Loading NetCDF file: ", basename(f), " (aggregation not supported for NC files)")
-    } else {
-      message("  Loading NetCDF file: ", basename(f))
+    # Build start/count vectors for ncvar_get based on dimension order
+    # Dimensions are in the order they appear in dim_names
+    start_vec <- integer(length(dim_names))
+    count_vec <- integer(length(dim_names))
+    
+    for (i in seq_along(dim_names)) {
+      dim_name <- dim_names[i]
+      
+      if (dim_name == lon_dim[1]) {
+        start_vec[i] <- 1
+        count_vec[i] <- -1  # Get all
+      } else if (dim_name == lat_dim[1]) {
+        start_vec[i] <- 1
+        count_vec[i] <- -1  # Get all
+      } else if (length(ens_dim) > 0 && dim_name == ens_dim[1]) {
+        start_vec[i] <- ie
+        count_vec[i] <- 1
+      } else if (length(gwl_dim) > 0 && dim_name == gwl_dim[1]) {
+        start_vec[i] <- ig
+        count_vec[i] <- 1
+      } else if (dim_name == rp_dim) {
+        start_vec[i] <- ir
+        count_vec[i] <- 1
+      } else if (length(season_dim) > 0 && dim_name == season_dim[1]) {
+        start_vec[i] <- is
+        count_vec[i] <- 1
+      } else {
+        start_vec[i] <- 1
+        count_vec[i] <- 1
+      }
     }
-
-    # Path parsing: Support both:
-    # - 4-part: {hazards_dir}/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
-    # - 3-part: {hazards_dir}/{hazard_type}/{hazard_indicator}/{file}.nc (e.g., Fire)
-    # Use relative path from hazards_dir for more robust parsing
-    hazards_dir_norm <- normalizePath(hazards_dir, winslash = "/")
-    f_norm <- normalizePath(f, winslash = "/")
-    relative_path <- sub(paste0("^", hazards_dir_norm, "/"), "", f_norm)
-    parts <- strsplit(relative_path, "/", fixed = TRUE)[[1]]
-
-    if (length(parts) >= 4) {
-      # hazards/{hazard_type}/{hazard_indicator}/{model_type}/{file}.nc
-      file_name <- parts[length(parts)]
-      model_type <- parts[length(parts) - 1]
-      hazard_indicator <- parts[length(parts) - 2]
-      hazard_type <- parts[length(parts) - 3]
-    } else if (length(parts) == 3) {
-      # hazards/{hazard_type}/{hazard_indicator}/{file}.nc
-      file_name <- parts[length(parts)]
-      model_type <- "ensemble" # Infer ensemble as default model type
-      hazard_type <- parts[length(parts) - 2] # First folder = hazard_type
-      hazard_indicator <- parts[length(parts) - 1] # Second folder = hazard_indicator
-      message("  3-part path detected for ", hazard_type, "/", hazard_indicator, " - assuming model_type='ensemble'")
-    } else {
-      # Fallbacks (ideal-path assumption per user instruction)
-      file_name <- basename(f)
-      model_type <- "ensemble"
-      hazard_indicator <- "indicator"
-      hazard_type <- "unknown"
-      message("  Warning: Unexpected path structure, using fallback values for: ", f)
-    }
-
-    # Open NetCDF and discover structure
-    nc <- ncdf4::nc_open(f)
-
-    # Identify main data variable
-    var_names <- names(nc$var)
-
-    if (length(var_names) == 0) {
-      warning("[load_nc_hazards_with_metadata] No variables found in NetCDF file: ", f, ". Skipping.")
-      try(ncdf4::nc_close(nc), silent = TRUE)
+    
+    # Extract 2D slice using ncvar_get
+    slice_data <- tryCatch({
+      ncdf4::ncvar_get(nc, main_var, start = start_vec, count = count_vec)
+    }, error = function(e) {
+      warning(
+        "[load_nc_hazards_with_metadata] Failed to extract slice from NetCDF: ", basename(f),
+        "\n  Error: ", conditionMessage(e),
+        "\n  Skipping this slice."
+      )
+      return(NULL)
+    })
+    
+    if (is.null(slice_data)) {
       next
     }
-
-    # If multiple variables, select one based on preference order
-    if (length(var_names) > 1) {
-      # Preference order: mean, median, value, data, or first available
-      preferred_vars <- c("mean", "median", "value", "data")
-      main_var <- NULL
-
-      for (pref in preferred_vars) {
-        if (pref %in% var_names) {
-          main_var <- pref
-          message(
-            "  Multi-variable NetCDF detected, using '", main_var, "' from: ",
-            paste(var_names, collapse = ", ")
-          )
-          break
-        }
+    
+    # Convert to terra raster
+    # ncvar_get returns array with dimensions in the order of the variable (after removing count=1 dims)
+    # terra::rast() expects matrix with [nrow=lat, ncol=lon], with first row = northern edge
+    
+    # The slice_data will have dimensions corresponding to the dims with count=-1
+    # Identify which dimensions are spatial in the extracted slice
+    spatial_dims_in_slice <- c()
+    if (lon_dim[1] %in% dim_names && count_vec[which(dim_names == lon_dim[1])] == -1) {
+      spatial_dims_in_slice <- c(spatial_dims_in_slice, lon_dim[1])
+    }
+    if (lat_dim[1] %in% dim_names && count_vec[which(dim_names == lat_dim[1])] == -1) {
+      spatial_dims_in_slice <- c(spatial_dims_in_slice, lat_dim[1])
+    }
+    
+    # If we have a 2D spatial slice
+    if (length(dim(slice_data)) == 2 && length(spatial_dims_in_slice) == 2) {
+      # Determine the order: which spatial dim is first in the original dimension order?
+      lon_position <- which(dim_names == lon_dim[1])
+      lat_position <- which(dim_names == lat_dim[1])
+      
+      # ncvar_get returns data where the first varying dimension is rows
+      # If lon comes before lat in the NC file: slice_data is [lon, lat]
+      # If lat comes before lon in the NC file: slice_data is [lat, lon]
+      if (lon_position < lat_position) {
+        # slice_data is [lon, lat], need to transpose to [lat, lon]
+        slice_data <- t(slice_data)
       }
-
-      # If no preferred variable found, use first one
-      if (is.null(main_var)) {
-        main_var <- var_names[[1]]
-        message(
-          "  Multi-variable NetCDF detected, using first variable '", main_var, "' from: ",
-          paste(var_names, collapse = ", ")
-        )
-      }
-    } else {
-      main_var <- var_names[[1]]
-    }
-
-    # Coordinate variables and values
-    dim_names <- vapply(nc$var[[main_var]]$dim, function(d) d$name, character(1))
-
-    # Try to resolve standard names (lon/lat/GWL/ensemble/return_period)
-    name_eq <- function(x, opts) any(tolower(x) == tolower(opts))
-
-    # Find lon/lat dim names by convention
-    lon_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("lon", "longitude", "x")), logical(1))]
-    lat_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("lat", "latitude", "y")), logical(1))]
-    if (length(lon_dim) == 0) lon_dim <- "lon"
-    if (length(lat_dim) == 0) lat_dim <- "lat"
-
-    # Get coordinate values from dimensions (not variables)
-    # Dimensions store their values in nc$dim[[name]]$vals
-    lon_vals <- if (lon_dim[1] %in% names(nc$dim)) {
-      nc$dim[[lon_dim[1]]]$vals
-    } else {
-      try(ncdf4::ncvar_get(nc, lon_dim[1]), silent = TRUE)
-    }
-
-    lat_vals <- if (lat_dim[1] %in% names(nc$dim)) {
-      nc$dim[[lat_dim[1]]]$vals
-    } else {
-      try(ncdf4::ncvar_get(nc, lat_dim[1]), silent = TRUE)
-    }
-
-    # Other dims - check for scenario, ensemble, GWL, return_period, season
-    ens_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("ensemble")), logical(1))]
-    gwl_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("gwl", "GWL", "scenario")), logical(1))]
-    season_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("season")), logical(1))]
-    # Heuristic: remaining non-spatial, non-ensemble, non-GWL, non-season dim is return period
-    remaining <- setdiff(dim_names, c(lon_dim[1], lat_dim[1], ens_dim, gwl_dim, season_dim))
-    rp_dim <- if (length(remaining) > 0) remaining[[1]] else "return_period"
-
-    # Get dimension values from nc$dim structure
-    ens_vals <- if (length(ens_dim) > 0 && ens_dim[1] %in% names(nc$dim)) {
-      nc$dim[[ens_dim[1]]]$vals
-    } else if (length(ens_dim) > 0) {
-      try(ncdf4::ncvar_get(nc, ens_dim[1]), silent = TRUE)
-    } else {
-      # No ensemble dimension - return try-error to indicate missing dimension
-      structure("no_ensemble_dim", class = "try-error")
-    }
-
-    gwl_vals <- if (length(gwl_dim) > 0 && gwl_dim[1] %in% names(nc$dim)) {
-      nc$dim[[gwl_dim[1]]]$vals
-    } else if (length(gwl_dim) > 0) {
-      try(ncdf4::ncvar_get(nc, gwl_dim[1]), silent = TRUE)
-    } else {
-      # No GWL dimension - return try-error to indicate missing dimension
-      structure("no_gwl_dim", class = "try-error")
-    }
-
-    rp_vals <- if (rp_dim %in% names(nc$dim)) {
-      nc$dim[[rp_dim]]$vals
-    } else {
-      try(ncdf4::ncvar_get(nc, rp_dim), silent = TRUE)
-    }
-
-    season_vals <- if (length(season_dim) > 0 && season_dim[1] %in% names(nc$dim)) {
-      nc$dim[[season_dim[1]]]$vals
-    } else if (length(season_dim) > 0) {
-      try(ncdf4::ncvar_get(nc, season_dim[1]), silent = TRUE)
-    } else {
-      # No season dimension - return try-error to indicate missing dimension
-      structure("no_season_dim", class = "try-error")
-    }
-
-    # Determine ensemble values to iterate over
-    # Only load 'median' ensemble by default to avoid iteration over all ensemble values
-    ensemble_values <- list(list(idx = 1L, label = "median")) # Default: only median ensemble
-
-    if (!inherits(ens_vals, "try-error") && length(ens_vals) > 0) {
-      # Convert to character for consistent handling
-      if (is.factor(ens_vals)) {
-        ens_chars <- as.character(ens_vals)
-      } else if (is.character(ens_vals)) {
-        ens_chars <- ens_vals
-      } else {
-        ens_chars <- as.character(ens_vals)
-      }
-
-      # Find the 'median' ensemble index if it exists
-      median_idx <- which(ens_chars == "median")
-      if (length(median_idx) > 0) {
-        # Use only the median ensemble
-        ensemble_values <- list(list(idx = as.integer(median_idx[1]), label = "median"))
-      } else {
-        # If no 'median' ensemble found, use the first one but label it as 'median'
-        ensemble_values <- list(list(idx = 1L, label = "median"))
-      }
-    }
-
-    # Indices helpers for start/count
-    dim_index <- function(nm, idx_full = TRUE, pick = NULL) {
-      pos <- match(nm, dim_names)
-      if (is.na(pos)) {
-        return(list(start = 1L, count = -1L, pos = NA_integer_))
-      }
-      if (isTRUE(idx_full)) {
-        return(list(start = 1L, count = -1L, pos = pos))
-      }
-      list(start = as.integer(pick), count = 1L, pos = pos)
-    }
-
-    # Iterate over GWL, return_period, season, and ensemble values
-    n_gwl <- if (inherits(gwl_vals, "try-error")) 1L else length(gwl_vals)
-    n_rp <- if (inherits(rp_vals, "try-error")) 1L else length(rp_vals)
-    n_season <- if (inherits(season_vals, "try-error")) 1L else length(season_vals)
-
-    for (ig in seq_len(n_gwl)) {
-      for (ir in seq_len(n_rp)) {
-        for (is in seq_len(n_season)) {
-          # Iterate over ensemble values (only mean by default)
-          for (ie in seq_along(ensemble_values)) {
-            ens_info <- ensemble_values[[ie]]
-            ens_idx <- ens_info$idx
-            ens_label <- ens_info$label
-
-            # Build start/count vectors aligned to var dim order
-            sc_list <- vector("list", length(dim_names))
-            for (k in seq_along(dim_names)) {
-              nm <- dim_names[k]
-              if (nm == lon_dim[1] || nm == lat_dim[1]) {
-                sc_list[[k]] <- list(start = 1L, count = -1L)
-              } else if (length(ens_dim) > 0 && nm == ens_dim[1]) {
-                sc_list[[k]] <- list(start = ens_idx, count = 1L)
-              } else if (length(gwl_dim) > 0 && nm == gwl_dim[1]) {
-                sc_list[[k]] <- list(start = ig, count = 1L)
-              } else if (nm == rp_dim) {
-                sc_list[[k]] <- list(start = ir, count = 1L)
-              } else if (length(season_dim) > 0 && nm == season_dim[1]) {
-                sc_list[[k]] <- list(start = is, count = 1L)
-              } else {
-                sc_list[[k]] <- list(start = 1L, count = -1L)
-              }
-            }
-            start <- vapply(sc_list, function(z) z$start, integer(1))
-            count <- vapply(sc_list, function(z) z$count, integer(1))
-
-            # Read the 2D slice
-            slice <- ncdf4::ncvar_get(nc, main_var, start = start, count = count)
-
-            # Normalize lon/lat vectors
-            if (inherits(lon_vals, "try-error")) {
-              # Infer from slice ncol if needed (ideal path assumption)
-              lon_vals <- seq_len(dim(slice)[1])
-            }
-            if (inherits(lat_vals, "try-error")) {
-              lat_vals <- seq_len(dim(slice)[2])
-            }
-
-            # Calculate resolution and extent
-            # Coordinates in NC files are cell centers; we need to extend by half-pixel
-            n_lon <- length(lon_vals)
-            n_lat <- length(lat_vals)
-
-            # Resolution: spacing between coordinate centers
-            res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
-            res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
-
-            # Extent: expand by half-pixel on each side to convert centers to edges
-            xmin <- min(lon_vals) - res_lon / 2
-            xmax <- max(lon_vals) + res_lon / 2
-            ymin <- min(lat_vals) - res_lat / 2
-            ymax <- max(lat_vals) + res_lat / 2
-
-            # Ensure correct orientation: rows = lat (descending), cols = lon (ascending)
-            if (length(dim(slice)) == 2L) {
-              if (identical(dim(slice), c(length(lon_vals), length(lat_vals)))) {
-                mat <- t(slice)
-              } else if (identical(dim(slice), c(length(lat_vals), length(lon_vals)))) {
-                mat <- slice
-              } else {
-                mat <- t(slice)
-              }
-            } else {
-              mat <- as.matrix(slice)
-            }
-            # Flip rows so that first row is max(lat)
-            mat <- mat[rev(seq_len(nrow(mat))), , drop = FALSE]
-
-            r <- terra::rast(
-              ncols = n_lon,
-              nrows = n_lat,
-              xmin = xmin, xmax = xmax,
-              ymin = ymin, ymax = ymax,
-              crs = "EPSG:4326"
-            )
-            terra::values(r) <- as.vector(mat)
-
-            # Validate that raster is single-band
-            if (terra::nlyr(r) != 1) {
-              stop(
-                "Expected single-band raster from NetCDF file '", basename(f),
-                "', but got ", terra::nlyr(r), " bands. ",
-                "Each hazard scenario should be a single 2D layer."
-              )
-            }
-
-            # Compose hazard name including ensemble/statistic
-            gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])
-            rp_label <- if (inherits(rp_vals, "try-error")) paste0("idx", ir) else as.character(rp_vals[ir])
-            season_label <- if (inherits(season_vals, "try-error")) NA_character_ else as.character(season_vals[is])
-
-
-            # Unified hazard name WITH ensemble suffix for NC files
-            # NC files always use median ensemble during load
-            # Include season in hazard_name if present (e.g., for Drought SPI3)
-            hazard_name <- if (!is.na(season_label) && !inherits(season_vals, "try-error")) {
-              paste0(
-                hazard_type, "__", hazard_indicator,
-                "__GWL=", gwl_label,
-                "__RP=", rp_label,
-                "__season=", season_label,
-                "__ensemble=", ens_label
-              )
-            } else {
-              paste0(
-                hazard_type, "__", hazard_indicator,
-                "__GWL=", gwl_label,
-                "__RP=", rp_label,
-                "__ensemble=", ens_label
-              )
-            }
-
-            results[[hazard_name]] <- r
-
-            # Build inventory row
-            rp_numeric <- suppressWarnings(as.numeric(rp_label))
-            if (is.na(rp_numeric)) rp_numeric <- ir
-
-            inventory_rows[[length(inventory_rows) + 1]] <- tibble::tibble(
-              hazard_type = hazard_type,
-              hazard_indicator = hazard_indicator,
-              scenario_name = gwl_label,
-              hazard_return_period = rp_numeric,
-              hazard_name = hazard_name,
-              ensemble = ens_label,
-              season = season_label,
-              source = "nc"
-            )
-          }
+      # Now slice_data is [lat, lon]
+      
+      # terra::rast expects first row = northern edge (highest lat)
+      # NC files typically have lat in increasing order (south to north)
+      # So we need to flip vertically to put highest lat first
+      if (!inherits(lat_vals, "try-error") && length(lat_vals) > 1) {
+        if (lat_vals[1] < lat_vals[length(lat_vals)]) {
+          # Latitudes are increasing (south to north), flip to put north first
+          slice_data <- slice_data[nrow(slice_data):1, , drop = FALSE]
         }
       }
     }
+    
+    # Create raster from matrix
+    r <- terra::rast(slice_data, crs = "EPSG:4326")
 
-    # Close the NetCDF file after processing all slices
-    try(ncdf4::nc_close(nc), silent = TRUE)
+    if (is.na(terra::crs(r)) || terra::crs(r) == "") {
+      terra::crs(r) <- "EPSG:4326"
+    }
+    
+    # Set a proper name for the raster layer (will be used as column name in terra::extract)
+    names(r) <- main_var
+
+    if (!inherits(lon_vals, "try-error") && !inherits(lat_vals, "try-error")) {
+      n_lon <- length(lon_vals)
+      n_lat <- length(lat_vals)
+
+      res_lon <- if (n_lon > 1) (max(lon_vals) - min(lon_vals)) / (n_lon - 1) else 1.0
+      res_lat <- if (n_lat > 1) (max(lat_vals) - min(lat_vals)) / (n_lat - 1) else 1.0
+
+      xmin <- min(lon_vals) - res_lon / 2
+      xmax <- max(lon_vals) + res_lon / 2
+      ymin <- min(lat_vals) - res_lat / 2
+      ymax <- max(lat_vals) + res_lat / 2
+
+      terra::ext(r) <- terra::ext(xmin, xmax, ymin, ymax)
+    }
+
+    # Raster should be single-layer since we extracted a 2D slice
+    if (terra::nlyr(r) != 1) {
+      warning(
+        "Expected single-band raster from NetCDF slice '", basename(f),
+        "', but got ", terra::nlyr(r), " bands. Using first layer."
+      )
+      r <- r[[1]]
+    }
+
+    gwl_label <- if (inherits(gwl_vals, "try-error")) paste0("idx", ig) else as.character(gwl_vals[ig])
+    rp_label <- if (inherits(rp_vals, "try-error")) paste0("idx", ir) else as.character(rp_vals[ir])
+    season_label <- if (inherits(season_vals, "try-error")) NA_character_ else as.character(season_vals[is])
+    ens_label <- as.character(ens_labels[ie])
+
+    has_season <- !inherits(season_vals, "try-error") && length(season_dim) > 0 && !is.na(season_label)
+
+    rp_numeric <- suppressWarnings(as.numeric(rp_label))
+    if (is.na(rp_numeric)) rp_numeric <- ir
+
+    # Build structured hazard key
+    index_values <- list()
+    if (length(gwl_dim) > 0) index_values$gwl <- gwl_label
+    index_values$return_period <- rp_label
+    if (has_season) index_values$season <- season_label
+    
+    # Map internal labels to standard names for build_indicator_key
+    final_index_values <- list(
+      return_period = rp_numeric,
+      gwl = if (length(gwl_dim) > 0) gwl_label else NA_character_,
+      scenario_name = NA_character_, # NC loader uses gwl by default
+      season = if (has_season) season_label else NA_character_
+    )
+    
+    # Check if config uses scenario_name instead of gwl
+    config_index_dims <- indicator_config$index
+    if (!is.null(config_index_dims) && "scenario_name" %in% config_index_dims && !"gwl" %in% config_index_dims) {
+      final_index_values$scenario_name <- final_index_values$gwl
+      final_index_values$gwl <- NA_character_
+    }
+
+    indicator_key <- build_indicator_key(
+      indicator_file = basename(f),
+      indicator_variable = if (!is.null(indicator_config$variable) && nzchar(indicator_config$variable)) indicator_config$variable else hazard_indicator,
+      index_values = final_index_values,
+      ensemble = ens_label
+    )
+    
+    hazard_name <- build_hazard_name(
+      hazard_type = hazard_type,
+      hazard_indicator = hazard_indicator,
+      index_values = final_index_values,
+      ensemble = ens_label
+    )
+
+    results[[indicator_key]] <- r
+
+    # Build inventory row dynamically based on index columns
+    inventory_row <- tibble::tibble(
+      hazard_type = hazard_type,
+      hazard_indicator = hazard_indicator,
+      hazard_name = hazard_name,
+      indicator_key = indicator_key,
+      ensemble = ens_label,
+      source = "nc",
+      agg = indicator_config$agg,
+      categorical = indicator_config$categorical,
+      variable = indicator_config$variable
+    )
+    
+    # Map internal labels to the requested index names from config
+    # We always keep scenario_name, return_period, season as fallbacks if they are not in index
+    # but we ALSO add the specific index names
+    
+    # Internal to label mapping
+    internal_labels <- list(
+      gwl = gwl_label,
+      return_period = rp_numeric,
+      season = season_label
+    )
+    
+    # Add all index columns
+    for (idx_col in index_dims) {
+      if (idx_col %in% names(internal_labels)) {
+        val <- internal_labels[[idx_col]]
+        if (idx_col == "return_period") val <- suppressWarnings(as.numeric(val))
+        inventory_row[[idx_col]] <- val
+      } else {
+        # If it's a custom index name not in our standard mapping, we might have trouble
+        # but for now we only support standard ones
+        inventory_row[[idx_col]] <- NA_character_
+      }
+    }
+    
+    # Ensure backward compatibility columns exist in inventory
+    # Always add scenario_name for backward compatibility
+    if (!"scenario_name" %in% names(inventory_row)) {
+      inventory_row$scenario_name <- gwl_label
+    }
+    # Always add gwl if it was in the index dimensions
+    if ("gwl" %in% index_dims && !"gwl" %in% names(inventory_row)) {
+      inventory_row$gwl <- gwl_label
+    }
+    # Always add return_period
+    if (!"return_period" %in% names(inventory_row)) {
+      inventory_row$return_period <- rp_numeric
+    }
+    # Always add season if needed
+    if (!"season" %in% names(inventory_row)) {
+      inventory_row$season <- if (has_season) season_label else NA_character_
+    }
+
+    inventory_rows[[length(inventory_rows) + 1]] <- inventory_row
   }
 
-  # Combine inventory
+  # Close ncdf4 handle
+  try(ncdf4::nc_close(nc), silent = TRUE)
+  
   inventory <- if (length(inventory_rows) > 0) {
     dplyr::bind_rows(inventory_rows)
   } else {
+    # ... (rest of the function)
     tibble::tibble(
       hazard_type = character(),
       hazard_indicator = character(),
       scenario_name = character(),
-      hazard_return_period = numeric(),
+      return_period = numeric(),
       hazard_name = character(),
+      indicator_key = character(),
       ensemble = character(),
       season = character(),
-      source = character()
+      source = character(),
+      agg = character(),
+      categorical = logical()
     )
   }
 
-  return(list(
-    hazards = results,
-    inventory = inventory
-  ))
+  return(list(hazards = results, inventory = inventory))
 }

@@ -4,15 +4,17 @@
 \alias{mod_hazards_events_server}
 \title{hazards_events Server Functions}
 \usage{
-mod_hazards_events_server(id, hazards_inventory)
+mod_hazards_events_server(id, hazards_inventory, hazard_configs)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
 
-\item{hazards_inventory}{reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, hazard_return_period, hazard_name}
+\item{hazards_inventory}{reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, return_period, hazard_name}
+
+\item{hazard_configs}{reactive list from load_hazards_and_inventory()$configs}
 }
 \value{
-reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, hazard_return_period, event_year, season
+reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, return_period, event_year, season
 }
 \description{
 hazards_events Server Functions

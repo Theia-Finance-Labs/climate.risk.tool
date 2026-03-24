@@ -1,7 +1,7 @@
 # Process Flood Maps for Brazil
 # This script reads global flood maps from tests/tests_data/hazards_world/flood/
 # and extracts data for Brazil using administrative boundaries,
-# then saves the processed files to tests/tests_data/hazards/
+# then saves the processed files to tests/tests_data/hazards/config/
 
 # Set encoding to UTF-8
 Sys.setlocale("LC_ALL", "en_US.UTF-8")

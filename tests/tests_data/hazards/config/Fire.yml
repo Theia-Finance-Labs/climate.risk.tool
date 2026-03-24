@@ -1,0 +1,51 @@
+indicators:
+  land_cover:
+    file: land_cover/
+    variable: land_cover
+    agg: mode
+    categorical: true
+    event_selection: inventory_fixed
+    precomputed: false
+    inference:
+      default: 0.5    
+  fire_weather_index:
+    file: fire_weather_index.nc
+    variable: fwi
+    index: [gwl, return_period]
+    fixed: { ensemble: mean }
+    agg: closest
+  days_danger_total:
+    file: days_danger_total.nc
+    variable: days_danger_total
+    index: [gwl, return_period]
+    fixed: { ensemble: mean }
+    agg: closest
+    inference:
+      default: 0
+
+index_indicator: fire_weather_index
+
+mappings:
+  ignition_factors:
+    file: ignition_factors.csv
+    variables: [damage_factor, cost_factor]
+    join:
+      on_assets: [asset_category]
+      on_indicator_intensity: [fwi]
+  land_cover_legend:
+    file: land_cover_legend.csv
+    variables: [land_cover_risk]
+    join:
+      on_indicator_intensity: [land_cover]
+
+shocks:
+  revenue:
+    equations:
+      - name: fire_agriculture
+        when: "asset_category == 'agriculture'"
+        equation: "revenue ~ revenue * (1 - (land_cover_risk * damage_factor * (days_danger_total / 365)))"
+  profit:
+    equations:
+      - name: fire_buildings
+        when: "asset_category %in% c('commercial building', 'industrial building')"
+        equation: "profit ~ profit - (land_cover_risk * damage_factor * (days_danger_total / 365) * cost_factor)"

@@ -38,13 +38,18 @@ testthat::test_that("read_damage_cost_factors normalizes state names", {
   damage_factors <- read_damage_cost_factors(base_dir)
 
   testthat::expect_true("state" %in% names(damage_factors))
+  testthat::expect_true("state_code" %in% names(damage_factors))
 
-  # Check that Heat rows have normalized state names (no accents)
-  compound_rows <- damage_factors |> dplyr::filter(.data$hazard_type == "Heat")
+  # Check that state names are normalized (no accents)
+  if ("hazard_type" %in% names(damage_factors)) {
+    check_rows <- damage_factors |> dplyr::filter(.data$hazard_type == "Heat")
+  } else {
+    check_rows <- damage_factors
+  }
 
-  if (nrow(compound_rows) > 0) {
+  if (nrow(check_rows) > 0) {
     # Get non-dash states
-    states_to_check <- compound_rows$state[compound_rows$state != "-" & !is.na(compound_rows$state)]
+    states_to_check <- check_rows$state[check_rows$state != "-" & !is.na(check_rows$state)]
 
     if (length(states_to_check) > 0) {
       # All state characters should be ASCII
@@ -53,6 +58,10 @@ testthat::test_that("read_damage_cost_factors normalizes state names", {
         info = "Damage factor state names should be ASCII (no accents)"
       )
     }
+  }
+
+  if (any(!is.na(damage_factors$state) & damage_factors$state != "-")) {
+    testthat::expect_true(any(!is.na(damage_factors$state_code)))
   }
 })
 

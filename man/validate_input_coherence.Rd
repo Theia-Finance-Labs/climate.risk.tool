@@ -7,9 +7,9 @@
 validate_input_coherence(
   assets_df,
   companies_df,
-  damage_factors_df,
+  hazards_dir,
+  hazard_configs,
   precomputed_hazards_df = NULL,
-  cnae_exposure_df,
   adm1_names,
   adm2_names,
   events_df = NULL
@@ -20,17 +20,17 @@ validate_input_coherence(
 
 \item{companies_df}{Companies data frame}
 
-\item{damage_factors_df}{Damage factors data frame}
-
 \item{precomputed_hazards_df}{Optional precomputed hazards data frame}
-
-\item{cnae_exposure_df}{CNAE exposure data frame}
 
 \item{adm1_names}{Character vector of valid ADM1 (province) names (ASCII-normalized)}
 
 \item{adm2_names}{Character vector of valid ADM2 (municipality) names (ASCII-normalized)}
 
 \item{events_df}{Optional events data frame to validate hazard-specific coverage}
+
+\item{damage_factors_df}{Damage factors data frame}
+
+\item{cnae_exposure_df}{CNAE exposure data frame}
 }
 \value{
 List with validation results containing \code{errors} and \code{warnings} character vectors.

@@ -1,7 +1,8 @@
 # Tests for apply_acute_profit_shock
 
-testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
-  # Placeholder implementation: just passes through profit unchanged
+hazard_configs <- climate.risk.tool:::load_hazard_configs(get_hazards_dir())
+
+testthat::test_that("apply_acute_profit_shock applies Flood profit shocks correctly", {
   yearly_trajectories <- data.frame(
     asset = c("A1", "A1", "A2", "A2"),
     company = c("C1", "C1", "C1", "C1"),
@@ -13,25 +14,22 @@ testthat::test_that("apply_acute_profit_shock passes through as placeholder", {
   assets_factors <- data.frame(
     asset = c("A1", "A2"),
     hazard_type = c("Flood", "Flood"),
-    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=100", "Flood__depth(cm)__GWL=RCP8.5__RP=100"),
+    hazard_name = c("Flood__depth__GWL=rcp85__RP=100", "Flood__depth__GWL=rcp85__RP=100"),
     event_id = c("e1", "e1"),
     damage_factor = c(0.5, 0.4),
     cost_factor = c(200, 200),
     asset_category = c("industrial building", "commercial building")
   )
 
-  # Add acute_damage column as expected by the function
-  assets_factors$acute_damage <- assets_factors$damage_factor * assets_factors$cost_factor
-
   acute_events <- data.frame(
     event_id = "e1",
     hazard_type = "Flood",
-    hazard_name = "Flood__depth(cm)__GWL=RCP8.5__RP=100",
+    hazard_name = "Flood__depth__GWL=rcp85__RP=100",
     event_year = 2030L,
     stringsAsFactors = FALSE
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Should return profit column
   expected_cols <- c("asset", "company", "year", "revenue", "profit")
@@ -67,7 +65,7 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
   assets_factors <- data.frame(
     asset = c("A1", "A1"),
     hazard_type = c("Flood", "Flood"),
-    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=100", "Flood__depth(cm)__GWL=RCP8.5__RP=50"),
+    hazard_name = c("Flood__depth__GWL=rcp85__RP=100", "Flood__depth__GWL=rcp85__RP=50"),
     event_id = c("event_z", "event_a"),
     damage_factor = c(0.5, 0.3),
     cost_factor = c(200, 150),
@@ -78,12 +76,12 @@ testthat::test_that("apply_acute_profit_shock processes events in order by event
   acute_events <- data.frame(
     event_id = c("event_z", "event_a"),
     hazard_type = c("Flood", "Flood"),
-    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=100", "Flood__depth(cm)__GWL=RCP8.5__RP=50"),
+    hazard_name = c("Flood__depth__GWL=rcp85__RP=100", "Flood__depth__GWL=rcp85__RP=50"),
     event_year = c(2030L, 2030L),
     stringsAsFactors = FALSE
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Should process events in alphabetical order by event_id
   # event_a should be processed first, then event_z
@@ -119,7 +117,7 @@ testthat::test_that("apply_acute_profit_shock excludes agriculture assets", {
     event_year = 2030L
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Agriculture asset (AG1) should NOT have profit shock applied
   testthat::expect_equal(result$profit[result$asset == "AG1" & result$year == 2030], 120)
@@ -155,7 +153,7 @@ testthat::test_that("apply_acute_profit_shock applies to industrial buildings wi
     event_year = 2030L
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Industrial building: profit = 120 - (0.4 * 250) = 20
   expected_profit_2030 <- 120 - (0.4 * 250)
@@ -189,7 +187,7 @@ testthat::test_that("apply_acute_profit_shock handles commercial building separa
     event_year = 2030L
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Commercial: 120 - (0.3 * 150) = 75
   testthat::expect_equal(result$profit[result$asset == "COM1" & result$year == 2030], 75)
@@ -229,7 +227,7 @@ testthat::test_that("apply_acute_profit_shock applies Fire profit shock to comme
     event_year = 2030L
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # COM1: 120 - (0.5 * 0.15 * (30/365) * 200) = 118.77
   expected_profit_COM1 <- 120 - (0.5 * 0.15 * (30 / 365) * 200)
@@ -269,7 +267,7 @@ testthat::test_that("apply_acute_profit_shock excludes agriculture assets from F
     event_year = 2030L
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Agriculture asset (AG1) should NOT have profit shock applied
   testthat::expect_equal(result$profit[result$asset == "AG1" & result$year == 2030], 120)
@@ -306,7 +304,7 @@ testthat::test_that("apply_acute_profit_shock handles multiple Fire events in sa
     event_year = c(2030L, 2030L)
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Total damage should be sum of both events
   # event_1: 0.5 * 0.15 * (30/365) * 200 = 1.23
@@ -346,7 +344,7 @@ testthat::test_that("apply_acute_profit_shock allows Fire profit to go negative"
     event_year = 2030L
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   # Profit should be negative: 120 - 250 = -130
   expected_profit <- 120 - (1.0 * 0.5 * 1.0 * 500)
@@ -381,7 +379,7 @@ testthat::test_that("apply_acute_profit_shock handles Fire with default land_cov
     event_year = 2030L
   )
 
-  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+  result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 
   expected_profit <- 120 - (0.5 * 0.15 * (30 / 365) * 200)
   testthat::expect_equal(result$profit[result$year == 2030], expected_profit, tolerance = 0.1)

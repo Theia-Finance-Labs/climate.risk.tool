@@ -1,0 +1,88 @@
+cnae,description,lp_exposure
+1,"Crop and animal production, hunting and related service activities",high
+2,Forestry and logging,high
+3,Fishing and aquaculture,high
+5,Mining of coal and lignite,high
+6,Extraction of crude petroleum and natural gas,median
+7,Mining of coal and lignite,high
+8,Mining of coal and lignite,high
+9,Mining support service activities,high
+10,Manufacture of food products,median
+11,Manufacture of beverages,median
+12,Manufacture of tobacco products,median
+13,Manufacture of textiles,median
+14,Manufacture of wearing apparel,median
+15,Manufacture of leather and related products,median
+16,"Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials",median
+17,Manufacture of paper and paper products,median
+18,Printing and reproduction of recorded media,median
+19,Manufacture of coke and refined petroleum products,median
+20,Manufacture of chemicals and chemical products,median
+21,Manufacture of basic pharmaceutical products and pharmaceutical preparations,median
+22,Manufacture of rubber and plastic products,median
+23,Manufacture of other non,median
+24,Manufacture of basic metals,median
+25,"Manufacture of fabricated metal products, except machinery and equipment",median
+26,"Manufacture of computer, electronic and optical products",median
+27,Manufacture of electrical equipment,median
+28,Manufacture of machinery and equipment n.e.c.,median
+29,"Manufacture of motor vehicles, trailers and semi",median
+30,Manufacture of other transport equipment,median
+31,Manufacture of furniture,median
+32,Other manufacturing,median
+33,Repair and installation of machinery and equipment,median
+35,"Electricity, gas, steam and air conditioning supply",median
+36,"Water collection, treatment and supply",median
+37,Sewerage,median
+38,"Waste collection, treatment and disposal activities; materials recovery",high
+39,"Waste collection, treatment and disposal activities; materials recovery",high
+41,Construction of buildings,high
+42,Civil engineering,high
+43,Specialised construction activities,high
+45,Wholesale and retail trade and repair of motor vehicles and motorcycles,median
+46,"Wholesale trade, except of motor vehicles and motorcycles",median
+47,"Retail trade, except of motor vehicles and motorcycles",median
+49,Land transport and transport via pipelines,median
+50,Water transport,median
+51,Air transport,median
+52,Warehousing and support activities for transportation,median
+53,Postal and courier activities,median
+55,Accommodation,median
+56,Food and beverage service activities,median
+58,Publishing activities,low
+59,"Motion picture, video and television programme production, sound recording and music publishing activities",low
+60,Programming and broadcasting activities,low
+61,Telecommunications,low
+62,"Computer programming, consultancy and related activities",low
+63,Information service activities,median
+64,"Financial service activities, except insurance and pension funding",low
+65,"Insurance, reinsurance and pension funding, except compulsory social security",low
+66,Activities auxiliary to financial services and insurance activities,low
+68,Real estate activities,low
+69,Legal and accounting activities,low
+70,Activities of head offices; management consultancy activities,low
+71,Architectural and engineering activities; technical testing and analysis,median
+72,Scientific research and development,low
+73,Advertising and market research,low
+74,"Other professional, scientific and technical activities",median
+75,Veterinary activities,median
+77,Rental and leasing activities,median
+78,Employment activities,median
+79,"Travel agency, tour operator and other reservation service and related activities",median
+80,Security and investigation activities,median
+81,Services to buildings and landscape activities,median
+82,"Office administrative, office support and other business support activities",median
+84,Public administration and defence; compulsory social security,median
+85,Education,median
+86,Human health activities,median
+87,Residential care activities,median
+88,Social work activities without accommodation,median
+90,"Creative, arts and entertainment activities",median
+91,"Libraries, archives, museums and other cultural activities",median
+92,Other personal service activities,median
+93,Sports activities and amusement and recreation activities,median
+94,Activities of membership organisations,median
+95,Repair of computers and personal and household goods,median
+96,Other personal service activities,median
+97,Activities of households as employers of domestic personnel,median
+99,Other personal service activities,median

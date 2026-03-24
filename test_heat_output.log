@@ -1,0 +1,109 @@
+Loading hazards and inventory...
+[load_hazards_and_inventory] Starting hazard loading and inventory...
+  Loading NetCDF indicator: standardized_precipitation_index_3.nc
+  Found TIF metadata at: workspace/demo_inputs_refacto/hazards/indicators/land_cover//metadata.csv
+[load_tif_hazards] Loading hazards...
+  Found 1 hazard entries in mapping
+  Validating hazard files exist...
+  1 hazard files validated
+[load_tif_hazards] Loading 1 rasters...
+memfrac   : 0.5
+tolerance : 0.1
+verbose   : FALSE
+todisk    : FALSE
+tempdir   : /private/var/folders/df/zghzv05d7xb8t9xy7y5ld_h40000gn/T/Rtmpwgo0zJ
+datatype  : FLT4S
+memmin    : 1
+progress  : 3
+  Loading [1/1]: 2024_brazil_land_cover.tif
+    Original dimensions: 144835x167551x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: 2024_brazil_land_cover__agg16.tif
+[load_tif_hazards] Successfully loaded 1 hazard rasters
+  Loading NetCDF indicator: fire_weather_index.nc
+  Loading NetCDF indicator: days_danger_total.nc
+  Found TIF metadata at: workspace/demo_inputs_refacto/hazards/indicators/flood_depth//metadata.csv
+[load_tif_hazards] Loading hazards...
+  Found 15 hazard entries in mapping
+  Validating hazard files exist...
+  15 hazard files validated
+[load_tif_hazards] Loading 15 rasters...
+memfrac   : 0.3
+tolerance : 0.1
+verbose   : FALSE
+todisk    : TRUE
+tempdir   : /private/var/folders/df/zghzv05d7xb8t9xy7y5ld_h40000gn/T/Rtmpwgo0zJ
+datatype  : FLT4S
+memmin    : 1
+progress  : 0
+  Loading [1/15]: flood_pc_5_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_pc_5_glob__agg16.tif
+  Loading [2/15]: flood_pc_10_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_pc_10_glob__agg16.tif
+  Loading [3/15]: flood_pc_25_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_pc_25_glob__agg16.tif
+  Loading [4/15]: flood_pc_50_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_pc_50_glob__agg16.tif
+  Loading [5/15]: flood_pc_100_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_pc_100_glob__agg16.tif
+  Loading [6/15]: flood_rcp26_5_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp26_5_glob__agg16.tif
+  Loading [7/15]: flood_rcp26_10_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp26_10_glob__agg16.tif
+  Loading [8/15]: flood_rcp26_25_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp26_25_glob__agg16.tif
+  Loading [9/15]: flood_rcp26_50_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp26_50_glob__agg16.tif
+  Loading [10/15]: flood_rcp26_100_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp26_100_glob__agg16.tif
+  Loading [11/15]: flood_rcp85_5_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp85_5_glob__agg16.tif
+  Loading [12/15]: flood_rcp85_10_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp85_10_glob__agg16.tif
+  Loading [13/15]: flood_rcp85_25_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp85_25_glob__agg16.tif
+  Loading [14/15]: flood_rcp85_50_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp85_50_glob__agg16.tif
+  Loading [15/15]: flood_rcp85_100_glob.tif
+    Original dimensions: 47810x55248x1
+    Aggregating by factor 16...
+    Using cached aggregated raster: flood_rcp85_100_glob__agg16.tif
+[load_tif_hazards] Successfully loaded 15 hazard rasters
+  Loading NetCDF indicator: heat_index.nc
+[load_hazards_and_inventory] Complete: 156 hazard layers loaded
+Reading assets and companies...
+[read_assets] Reading asset data from: workspace/demo_inputs_refacto/user_input
+[read_assets] Loaded 22 assets
+[read_companies] Reading company data from: workspace/demo_inputs_refacto/user_input/company_information.xlsx
+[read_companies] Loaded 6 companies
+Erreur dans read_events(file.path(base_dir, "user_input/events.csv")) : 
+  impossible de trouver la fonction "read_events"
+Exécution arrêtée

@@ -1,5 +1,7 @@
 # Tests for compute_shock_trajectories
 
+hazard_configs <- climate.risk.tool:::load_hazard_configs(get_hazards_dir())
+
 testthat::test_that("compute_shock_trajectories returns only shocked trajectories", {
   yearly_baseline <- data.frame(
     asset = c("A1", "A1"),
@@ -11,18 +13,18 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
 
   assets_factors <- data.frame(
     asset = "A1",
-    hazard_type = "flood",
+    hazard_type = "Flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_id = "e1",
     business_disruption = 10,
     damage_factor = 0.5,
     cost_factor = 100,
-    asset_category = "Industrial"
+    asset_category = "industrial building"
   )
 
   events <- data.frame(
     event_id = "e1",
-    hazard_type = "flood",
+    hazard_type = "Flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = 2030L,
     stringsAsFactors = FALSE
@@ -33,7 +35,7 @@ testthat::test_that("compute_shock_trajectories returns only shocked trajectorie
     net_profit_margin = 0.1
   )
 
-  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, companies)
+  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, hazard_configs, companies)
 
   # Should return shocked trajectories (no baseline, no scenario column)
   expected_cols <- c("asset", "company", "year", "revenue", "profit")
@@ -62,17 +64,18 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
 
   assets_factors <- data.frame(
     asset = "A1",
-    hazard_type = "flood",
+    hazard_type = "Flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_id = "e1",
     business_disruption = 10,
     damage_factor = 0.5,
-    cost_factor = 100
+    cost_factor = 100,
+    asset_category = "industrial building"
   )
 
   events <- data.frame(
     event_id = "e1",
-    hazard_type = "flood",
+    hazard_type = "Flood",
     hazard_name = "flood__global_rcp85_h100glob_brazil",
     event_year = 2030L
   )
@@ -82,7 +85,7 @@ testthat::test_that("compute_shock_trajectories applies full shock sequence", {
     net_profit_margin = 0.1
   )
 
-  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, companies)
+  result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, hazard_configs, companies)
 
   # Should return shocked trajectories only (no baseline)
   testthat::expect_equal(nrow(result), nrow(yearly_baseline))

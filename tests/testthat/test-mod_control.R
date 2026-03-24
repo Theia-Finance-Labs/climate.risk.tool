@@ -15,7 +15,8 @@ testthat::test_that("mod_control_server uses default aggregation factor 1 for ha
 
   shiny::testServer(mod_control_server, args = list(
     id = "ctrl",
-    base_dir_reactive = shiny::reactive(base_dir)
+    base_dir_reactive = shiny::reactive(base_dir),
+    overrides_reload = shiny::reactive(0L)
   ), {
     # Get hazards - they should be loaded with default aggregation factor 1
     haz <- suppressWarnings(get_hazards_at_factor())
@@ -36,7 +37,8 @@ testthat::test_that("mod_control_server hazards inventory loads with default agg
 
   shiny::testServer(mod_control_server, args = list(
     id = "ctrl",
-    base_dir_reactive = shiny::reactive(base_dir)
+    base_dir_reactive = shiny::reactive(base_dir),
+    overrides_reload = shiny::reactive(0L)
   ), {
     # Get inventory with default aggregation factor (1)
     inv <- suppressWarnings(hazards_inventory())

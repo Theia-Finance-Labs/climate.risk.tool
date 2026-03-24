@@ -21,32 +21,25 @@
 #'
 #' @param events Tibble. User-configured events from mod_hazards_events_server.
 #'   Expected columns: event_id, hazard_type, hazard_indicator (primary),
-#'   hazard_name (primary), scenario_name, hazard_return_period,
+#'   hazard_name (primary), scenario_name, return_period,
 #'   event_year, season
 #'
 #' @param hazards_inventory Tibble. Full inventory with all indicators from
 #'   load_hazards_and_inventory()$inventory.
 #'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, hazard_name, ensemble, source
+#'   return_period, hazard_name, ensemble, source
+#'
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #'
 #' @return Tibble. Expanded events with same structure as input. Multi-indicator
 #'   events will have multiple rows per event_id (one per indicator).
 #'
 #' @noRd
-expand_multi_indicator_events <- function(events, hazards_inventory) {
-  if (is.null(events) || nrow(events) == 0) {
-    return(events)
-  }
+expand_multi_indicator_events <- function(events, hazards_inventory, hazard_configs) {
 
-  if (!"hazard_type" %in% names(events)) {
-    warning("[expand_multi_indicator_events] events missing 'hazard_type' column, returning as-is")
-    return(events)
-  }
-
-  config <- get_hazard_type_config()
-
-  # Identify which hazard types are multi-indicator
-  multi_indicator_types <- names(config)[sapply(names(config), is_multi_indicator_hazard)]
+  multi_indicator_types <- names(hazard_configs)[
+    vapply(names(hazard_configs), function(htype) is_multi_indicator_hazard(hazard_configs, htype), logical(1))
+  ]
 
   message("[expand_multi_indicator_events] Multi-indicator hazard types: ", paste(multi_indicator_types, collapse = ", "))
 
@@ -67,7 +60,7 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
   # Expand each multi-indicator event
   expanded <- purrr::map_dfr(seq_len(nrow(multi_events)), function(i) {
     event <- multi_events |> dplyr::slice(i)
-    required_indicators <- config[[event$hazard_type]]$indicators
+    required_indicators <- get_required_indicators(hazard_configs, event$hazard_type)
 
     message(
       "  Expanding event ", event$event_id, " (", event$hazard_type, ") into ",
@@ -95,25 +88,30 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
         return(NULL)
       }
 
-      # Special handling for static indicators (e.g., land_cover)
-      # Static indicators have their own fixed scenario/RP that differs from user selection
-      if (indicator == "land_cover") {
+      indicator_cfg <- hazard_configs[[event$hazard_type]]$indicators[[indicator]]
+      indicator_event_selection <- "event_indexed"
+      if (!is.null(indicator_cfg) && !is.null(indicator_cfg$event_selection)) {
+        indicator_event_selection <- indicator_cfg$event_selection
+      }
+
+      # Static indicators use inventory-defined scenario/RP (not user selection)
+      if (indicator_event_selection == "inventory_fixed") {
         # Use the scenario/RP from inventory for this static indicator
         new_event$scenario_name <- matched$scenario_name[1]
-        new_event$hazard_return_period <- as.numeric(matched$hazard_return_period[1])
+        new_event$return_period <- as.numeric(matched$return_period[1])
         new_event$hazard_name <- matched$hazard_name[1]
 
         message(
           "    ", indicator, ": using static values (scenario=",
-          new_event$scenario_name, ", RP=", new_event$hazard_return_period, ")"
+          new_event$scenario_name, ", RP=", new_event$return_period, ")"
         )
       } else {
-        # For dynamic indicators (FWI, days_danger_total), use user-selected scenario/RP
+        # For event-indexed indicators, use user-selected scenario/RP
         # Convert return period to numeric for comparison and assignment
-        event_rp_numeric <- as.numeric(event$hazard_return_period)
+        event_rp_numeric <- as.numeric(event$return_period)
         # Find exact match in inventory (convert inventory RP to numeric for comparison)
         exact_match <- matched |>
-          dplyr::mutate(rp_numeric = as.numeric(.data$hazard_return_period)) |>
+          dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
           dplyr::filter(
             .data$scenario_name == event$scenario_name,
             .data$rp_numeric == event_rp_numeric
@@ -121,7 +119,7 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
 
         if (nrow(exact_match) > 0) {
           new_event$hazard_name <- exact_match$hazard_name[1]
-          new_event$hazard_return_period <- event_rp_numeric
+          new_event$return_period <- event_rp_numeric
           message(
             "    ", indicator, ": using user-selected values (scenario=",
             event$scenario_name, ", RP=", event_rp_numeric, ")"
@@ -130,12 +128,12 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
           warning(
             "  No exact match in inventory for ",
             event$hazard_type, "/", indicator,
-            " with scenario=", event$scenario_name,
+            " with scenario_name=", event$scenario_name,
             ", RP=", event_rp_numeric
           )
           # Fall back to first available for this indicator
           new_event$hazard_name <- matched$hazard_name[1]
-          new_event$hazard_return_period <- as.numeric(matched$hazard_return_period[1])
+          new_event$return_period <- as.numeric(matched$return_period[1])
           message("    ", indicator, ": using fallback hazard_name")
         }
       }
@@ -144,13 +142,13 @@ expand_multi_indicator_events <- function(events, hazards_inventory) {
     })
   })
 
-  # Ensure hazard_return_period is numeric in both single and expanded events before binding
+  # Ensure return_period is numeric in both single and expanded events before binding
   if (nrow(single_events) > 0) {
     single_events <- single_events |>
-      dplyr::mutate(hazard_return_period = as.numeric(.data$hazard_return_period))
+      dplyr::mutate(return_period = as.numeric(.data$return_period))
   }
 
-  # Expanded events already have numeric hazard_return_period from above
+  # Expanded events already have numeric return_period from above
 
   # Combine single-indicator events with expanded multi-indicator events
   result <- dplyr::bind_rows(single_events, expanded)

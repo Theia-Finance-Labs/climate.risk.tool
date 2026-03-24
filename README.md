@@ -27,9 +27,11 @@ library(climate.risk.tool)
 
 # Path to your base data directory. It must contain:
 # - damage_and_cost_factors.csv
-# - precomputed_adm_hazards.csv (precomputed hazard statistics for regions)
-# - hazards_name_mapping.csv (metadata for TIF hazards, optional for NC/CSV)
-# - hazards/[hazard_type]/ directory with .tif, .nc, or .csv files
+# - hazards/precomputed_adm_indicators.csv (precomputed hazard statistics for regions)
+# - hazards/indicators/<indicator_folder>/metadata.csv (metadata for TIF hazards)
+# - hazards/indicators/ directory with .tif, .nc, or .csv indicator files
+# - hazards/config/ directory with <HazardName>.yml files
+# - hazards/mappings/ directory with mapping tables (CSV/XLSX)
 base_dir <- "/path/to/your/data"
 
 # Path to your input folder containing:
@@ -42,7 +44,11 @@ assets <- read_assets(input_folder)
 companies <- read_companies(input_folder)
 
 # Load hazards with unified loader (supports TIF, NetCDF, and CSV formats)
-hazard_data <- load_hazards_and_inventory(file.path(base_dir, "hazards"), aggregate_factor = 16L)
+hazard_data <- load_hazards_and_inventory(
+  hazards_dir = file.path(base_dir, "hazards", "config"),
+  hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
+  aggregate_factor = 16L
+)
 # Include all hazard sources (TIF, NC, CSV). Heat hazards are typically provided via CSV.
 hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
 hazards_inventory <- hazard_data$inventory
@@ -50,19 +56,21 @@ hazards_inventory <- hazard_data$inventory
 precomputed_hazards <- read_precomputed_hazards(base_dir)
 damage_factors <- read_damage_cost_factors(base_dir)
 
-# Optional: Load additional data for specific hazard types
-cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)  # For Heat hazards
-land_cover_legend <- read_land_cover_legend(base_dir)  # For Fire hazards
+# Optional: Load mapping tables from hazard configs (if needed for visualization/validation)
+hazards_dir <- file.path(base_dir, "hazards", "config")
+hazard_configs <- load_hazard_configs(hazards_dir)
+cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cnae_exposure")  # For Heat hazards
+land_cover_legend <- load_mapping_from_config(base_dir, hazard_configs, "Fire", "land_cover_legend")  # For Fire hazards
 
 # Create events data frame with required columns
-# Hazard names use the format: {HazardType}__{indicator}__GWL={scenario}__RP={return_period}__ensemble={variant}__season={season}
+# Hazard names use the format: {HazardType}__{indicator}__scenario_name={scenario}__RP={return_period}__ensemble={variant}__season={season}
 events <- data.frame(
   hazard_type = c("Flood", "Heat", "Drought", "Fire"),
   hazard_name = c(
-    "Flood__depth(cm)__GWL=present__RP=100",
-    "Heat__HI__GWL=2__RP=10__ensemble=median",
-    "Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=median",
-    "Fire__FWI__GWL=3__RP=50__ensemble=median"
+    "Flood__depth(cm)__scenario_name=present__RP=100",
+    "Heat__HI__scenario_name=2__RP=10__ensemble=median",
+    "Drought__SPI3__scenario_name=1.5__RP=10__season=Summer__ensemble=median",
+    "Fire__FWI__scenario_name=3__RP=50__ensemble=median"
   ),
   scenario_name = c("present", "2", "1.5", "3"),
   scenario_code = c("present", "2", "1.5", "3"),
@@ -135,7 +143,7 @@ install.packages(c("devtools", "testthat", "shinytest2", "knitr", "rmarkdown"))
 
 Load all functions without reinstalling:
 ``` r
-devtools::load_all()
+devtools::load_all(compile = FALSE)  # compile = FALSE since src/ contains Python code, not C/C++
 ```
 
 Run the development app with hot reloading:
@@ -180,13 +188,86 @@ For setting up hazard data and running the Brazil extraction pipeline, see:
 **[HAZARD_DATA_SETUP.md](HAZARD_DATA_SETUP.md)** - Complete guide for developers
 
 Quick reference:
-- Create `hazards/{hazard_type}/` directory structure
-- Place hazard files in appropriate format:
-  - TIF files: `{hazard_type}/*.tif` (requires `hazards_name_mapping.csv`)
-  - NetCDF files: `{hazard_type}/*.nc` (auto-discovered)
-  - CSV files: `{hazard_type}/*.csv` (auto-discovered)
+- Add hazard configs to `hazards/config/<HazardName>.yml`
+- Place mapping tables in `hazards/mappings/`
+- Place hazard indicators in appropriate format:
+  - TIF files: `hazards/indicators/<indicator_folder>/*.tif` with `metadata.csv` in the same folder
+  - NetCDF files: `hazards/indicators/*.nc` (auto-discovered)
+  - CSV files: `hazards/indicators/*.csv` (auto-discovered)
 - Run `Rscript data-raw/process_flood_maps_brazil.R` to generate Brazil subsets (if applicable)
 - Processed files are saved to `tests/tests_data/hazards/`
+
+### 5bis. Building NetCDF hazard indicators from `workspace/hazards/indicators/` (Python)
+
+This repo includes a small Python utility that converts a local “indicator folder” layout
+(`workspace/hazards/indicators/`) into a NetCDF-only layout that is **fast to lazy-load**
+and **optimized for runtime polygon extraction** in the app.
+
+#### Input folder layout
+
+The input root is expected to look like:
+
+- `workspace/hazards/indicators/`
+  - `<indicator_name_1>/` (contains either `*.tif`/`*.tiff` + `metadata.csv`, OR a `*.nc`)
+  - `<indicator_name_2>/` (contains either `*.tif`/`*.tiff` + `metadata.csv`, OR a `*.nc`)
+  - ...
+
+Notes:
+- If a folder contains GeoTIFFs, the script will convert them to a single NetCDF using the `metadata.csv` in that folder.
+- If a folder contains a NetCDF, the script will copy it (and rewrite only if it needs to rename the variable / enforce chunking+compression).
+- CSV-backed indicators are intentionally ignored by this script.
+
+#### `metadata.csv`
+
+If you have GeoTIFF indicators, provide `metadata.csv` in each indicator folder.
+
+Required columns:
+- `hazard_file`
+- `hazard_type`
+- `hazard_indicator`
+- `scenario_name`
+- `return_period`
+
+The script matches `hazard_file` to the TIFF filenames found in each indicator folder and uses:
+- unique `scenario_name` values → NetCDF dimension `GWL`
+- unique `return_period` values → NetCDF dimension `return_period`
+
+#### Output folder layout
+
+The output root will contain one NetCDF per indicator:
+
+- `workspace/demo_inputs_refacto/hazards/indicators/`
+  - `flood_depth.nc`
+  - `land_cover.nc`
+  - `fire_weather_index.nc`
+  - ...
+
+Each file is written so the app can lazy-load quickly at startup and then read efficiently at runtime.
+
+#### How to run (full workflow)
+
+```bash
+python3 src/climate_risk_tool_python/netcdf_mgmt/build_hazard_indicators_refacto.py \
+  --input-root workspace/hazards/indicators \
+  --output-root workspace/demo_inputs_refacto/hazard_indicators \
+  --overwrite
+```
+
+#### Performance-oriented NetCDF writing (automatic)
+
+No tuning flags are needed: the writer is fully automated with the goal of making runtime extraction
+as close as possible to the original GeoTIFF performance.
+
+- **Chunking** (most important for runtime `crop()`/`mask()`):
+  - Derived from the source GeoTIFF internal block size (COG tiling), which matches the access pattern of polygon extraction.
+  - Categorical `uint8` (e.g. `land_cover`) uses 1× the TIFF block size.
+  - Multi-byte numeric rasters (e.g. flood `uint32`) use 2× the TIFF block size.
+- **Compression level**:
+  - Chosen automatically (typically `4` for categorical `uint8`, `6` for multi-byte numeric), balancing size vs decompression cost.
+- **Shuffle filter**:
+  - Enabled only for multi-byte numeric types (it does not help `uint8`).
+- **Progress display**:
+  - TIFF → NetCDF writing shows a `tqdm` progress bar instead of printing thousands of “tile N” lines.
 
 ### 6. Package Structure
 
@@ -230,52 +311,37 @@ The codebase is organized into logical modules using a clear naming convention:
 
 #### Data Format Support
 
-The package supports three hazard data formats that can be used together in the same analysis:
+The package supports NetCDF (.nc) hazard data format:
 
-**GeoTIFF (.tif) Files** - Traditional raster format
-- Requires `hazards_name_mapping.csv` for metadata
-- Spatial extraction computes statistics from pixel values using `exactextractr`
-- Naming format: `{HazardType}__{indicator}__GWL={scenario}__RP={return_period}`
-- Example: `Flood__depth(cm)__GWL=present__RP=100`
-
-**NetCDF (.nc) Files** - Modern scientific format with pre-computed statistics
+**NetCDF (.nc) Files** - Scientific format with multi-dimensional data
 - Auto-discovers from directory structure and file dimensions
-- Direct extraction of pre-computed ensemble statistics (mean, median, p10, p90)
-- Naming format: `{HazardType}__{indicator}__GWL={level}__RP={period}__ensemble={variant}__season={season}`
-- Example: `Drought__SPI3__GWL=1.5__RP=10__season=Summer__ensemble=median`
-- **No spatial computation needed** - statistics pre-computed in the NC file
+- Uses terra-based lazy loading for efficient memory usage
+- Loads 'mean' ensemble by default for each hazard scenario
+- Naming format: `{HazardType}__{indicator}__scenario_name={level}__RP={period}__ensemble={variant}__season={season}`
+- Example: `Drought__SPI3__scenario_name=1.5__RP=10__season=Summer__ensemble=mean`
+- Supports multiple dimensions: GWL, return_period, ensemble, season
+- Spatial extraction computes statistics from raster values using polygon-based extraction
 
-**CSV Files** - Tabular format for point-based or aggregated data
-- Typically used for Heat hazards and other non-spatial hazard data
-- Auto-discovered from directory structure
-- Direct data lookup without spatial computation
-- Naming format: `{HazardType}__{indicator}__GWL={level}__RP={period}__ensemble={variant}`
-- Example: `Heat__HI__GWL=2__RP=10__ensemble=median`
+#### NetCDF Pipeline Handling
 
-#### Mixed Format Pipeline Handling
-
-The pipeline seamlessly handles mixed TIF, NetCDF, and CSV formats through several mechanisms:
+The pipeline handles NetCDF files through several mechanisms:
 
 **1. Unified Loading (`load_hazards_and_inventory()`)**
-- Loads all three formats in a single call
-- Returns combined list: `list(hazards = list(tif = ..., nc = ..., csv = ...), inventory = ...)`
-- Creates unified inventory with `source` column indicating data format
-- TIF files are optional (if no mapping file exists, only NC/CSV files are loaded)
+- Scans directory tree for NetCDF files
+- Extracts metadata from file structure and NetCDF dimensions
+- Returns list: `list(hazards = ..., inventory = ...)`
+- Creates unified inventory with `source` column ("nc")
 
 **2. Smart Event Filtering (`filter_hazards_by_events()`)**
-- Filters hazards by event requirements across all formats
-- **TIF hazards**: Exact name matching
-- **NC hazards**: Automatic ensemble expansion (1 event → 4 ensemble variants)
-- **CSV hazards**: Direct lookup by hazard name
-- Returns single filtered list combining all formats
+- Filters hazards by event requirements
+- **NC hazards**: Base name matching (mean ensemble loaded by default)
+- Returns filtered list of SpatRaster objects
 
-**3. Multi-Format Extraction Workflow (`extract_hazard_statistics()`)**
-- **Detects format mix** and chooses appropriate extraction method per hazard
-- **TIF sources**: Spatial computation using `exactextractr` for pixel statistics
-- **NC sources**: Direct extraction of pre-computed ensemble statistics
-- **CSV sources**: Direct data lookup from tabular format
+**3. Spatial Extraction Workflow (`extract_hazard_statistics()`)**
+- **Polygon-based extraction**: Crop and mask rasters to asset geometries
+- **Aggregation methods**: mean, median, max, min, p2_5, p5, p95, p97_5
 - **Priority cascade**: Coordinates → Municipality (ADM2) → Province (ADM1) → Error
-- **Unified output**: Same column structure regardless of source format
+- **Unified output**: Consistent column structure for all hazards
 
 **4. Combined Results Processing**
 - All downstream functions work identically with mixed format results
@@ -302,7 +368,7 @@ To generate the file of pre-computed results, use the pre-computation notebook:
 This Python notebook:
 - Processes hazard data (TIF, NetCDF, and CSV) against administrative boundaries (ADM1/ADM2)
 - Pre-computes hazard statistics for each region
-- Generates `precomputed_adm_hazards.csv` with regional aggregates
+- Generates `precomputed_adm_indicators.csv` with regional aggregates
 - Supports both current climate and future scenarios (present, GWL levels)
 - Handles ensemble statistics (mean, median, percentiles) for NetCDF data
 - Significantly speeds up analysis by avoiding repeated spatial computations

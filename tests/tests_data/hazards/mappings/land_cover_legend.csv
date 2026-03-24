@@ -1,0 +1,39 @@
+land_cover,Class,Category,land_cover_risk
+1,Forest,2,0.5
+3,Forest Formation,2,0.5
+4,Savanna Formation,4,1.0
+5,Mangrove,1,0.25
+6,Floodable Forest,1,0.25
+49,Wooded Sandbank Vegetation,1,0.25
+10,Herbaceous and Shrubby Vegetation,4,1.0
+11,Wetland,4,1.0
+12,Grassland,4,1.0
+32,Hypersaline Tidal Flat (Apicum),2,0.5
+29,Rocky Outcrop,4,1.0
+50,Herbaceous Sandbank Vegetation,2,0.5
+14,Farming,3,0.75
+15,Pasture,3,0.75
+18,Agriculture,3,0.75
+19,Temporary Crops,3,0.75
+39,Soybean,2,0.5
+20,Sugar Cane,2,0.5
+40,Rice,2,0.5
+62,Cotton,2,0.5
+41,Other Temporary Crops,2,0.5
+36,Perennial Crops,2,0.5
+46,Coffee,1,0.25
+47,Citrus,1,0.25
+35,Palm Oil,2,0.5
+48,Other Perennial Crops,1,0.25
+9,Forest Plantation,2,0.5
+21,Mosaic of Uses,3,0.75
+22,Non-Vegetated Area,1,0.25
+23,"Beach, Dune and Sand Spot",1,0.25
+24,Urban Area,1,0.25
+30,Mining,1,0.25
+75,Photovoltaic Power Plant (beta),1,0.25
+25,Other Non-Vegetated Areas,1,0.25
+26,Water,1,0.25
+33,"River, Lake and Ocean",1,0.25
+31,Aquaculture,1,0.25
+27,No Data / Not Observed,2,0.5

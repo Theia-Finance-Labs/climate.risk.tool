@@ -1,36 +1,23 @@
-#' Filter hazards by events with NC ensemble handling
+#' Filter hazards by events using indicator keys
 #'
 #' @title Filter hazard rasters to match event requirements
 #' @description Filters a list of hazard rasters to only those referenced by events.
-#'   For NC hazards, only the 'median' ensemble is loaded by default, so filtering
-#'   matches the base hazard name without ensemble suffix.
+#'   Uses hazards_inventory to map event-driven hazard selection to indicator_key,
+#'   which is the internal key used to index raster hazards.
 #'   For multi-indicator hazards (Fire), internally expands to load all required indicators.
 #'
 #' @param hazards Named list of SpatRaster objects (from load_hazards_and_inventory())
-#' @param events Data frame with event specifications including hazard_name column
-#' @param hazards_inventory Optional. Hazard inventory for multi-indicator expansion. If NULL, assumes single-indicator only.
+#' @param events Data frame with event specifications including hazard_type/scenario/return_period
+#' @param hazards_inventory Hazard inventory from load_hazards_and_inventory()
+#' @param hazard_configs Hazard config registry from load_hazards_and_inventory()$configs
 #'
 #' @return Named list of filtered SpatRaster objects
 #'
-#' @details
-#' The function handles two types of hazard filtering:
-#'
-#' **TIF hazards**: Exact name matching
-#' - If event specifies "flood__rcp85_h10glob", returns exactly that raster
-#'
-#' **NC hazards**: Base name matching
-#' - If event specifies "Drought__CDD__GWL=present__RP=5" (base event), returns the median ensemble:
-#'   - Drought__CDD__GWL=present__RP=5 (loaded as median ensemble by default)
-#' - If event already specifies "__ensemble=median", strips the ensemble suffix and matches base name
-#'
-#' This simplified approach avoids loading multiple ensemble variants and focuses on
-#' the median ensemble as the representative value for each hazard scenario.
-#'
 #' @examples
 #' \dontrun{
-#' # Load hazards (gets NC hazards with median ensemble only)
+#' # Load hazards (gets NC hazards with mean ensemble only)
 #' result <- load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
-#' hazards <- c(result$hazards$tif, result$hazards$nc)
+#' hazards <- result$hazards
 #'
 #' # Define events (base event names without ensemble suffix)
 #' events <- data.frame(
@@ -41,114 +28,87 @@
 #'   event_year = c(2030, 2040)
 #' )
 #'
-#' # Filter: matches 2 events -> 2 hazard rasters (median ensemble only)
+#' # Filter: matches 2 events -> 2 hazard rasters (mean ensemble only)
 #' filtered_hazards <- filter_hazards_by_events(hazards, events)
 #' }
 #' @export
-filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL) {
-  if (!tibble::is_tibble(events) && !is.data.frame(events)) {
-    return(hazards)
-  }
+filter_hazards_by_events <- function(hazards, events, hazards_inventory = NULL, hazard_configs = NULL) {
 
   available_names <- names(hazards)
 
-  # For multi-indicator hazards, expand internally to get all required hazard_names
-  # This doesn't modify the events dataframe - just gets the list of hazard_names to load
-  if (!is.null(hazards_inventory) && "hazard_type" %in% names(events)) {
-    config <- get_hazard_type_config()
-    multi_indicator_types <- names(config)[sapply(names(config), is_multi_indicator_hazard)]
+  if (is.null(hazards_inventory) || nrow(hazards_inventory) == 0) {
+    stop("hazards_inventory is required to filter hazards by events.")
+  }
+  if (is.null(hazard_configs)) {
+    stop("hazard_configs is required to filter hazards by events.")
+  }
 
-    # Get hazard_names for single-indicator events (use as-is)
-    single_indicator_names <- events |>
-      dplyr::filter(!(.data$hazard_type %in% multi_indicator_types)) |>
-      dplyr::pull(.data$hazard_name) |>
-      as.character() |>
-      unique()
+  desired_keys <- character()
 
-    # Get hazard_names for multi-indicator events (expand to all required indicators)
-    multi_indicator_events <- events |>
-      dplyr::filter(.data$hazard_type %in% multi_indicator_types)
+  if (!is.null(events) && nrow(events) > 0 && "hazard_type" %in% names(events)) {
+    for (i in seq_len(nrow(events))) {
+      event <- events[i, ]
+      required_indicators <- get_required_indicators(hazard_configs, event$hazard_type)
+      if (is.null(required_indicators) || length(required_indicators) == 0) next
 
-    multi_indicator_names <- character()
-    if (nrow(multi_indicator_events) > 0) {
-      for (i in seq_len(nrow(multi_indicator_events))) {
-        event <- multi_indicator_events[i, ]
-        required_indicators <- config[[event$hazard_type]]$indicators
+      for (indicator in required_indicators) {
+        matched <- hazards_inventory |>
+          dplyr::filter(
+            .data$hazard_type == event$hazard_type,
+            .data$hazard_indicator == indicator
+          )
 
-        for (indicator in required_indicators) {
-          matched <- hazards_inventory |>
-            dplyr::filter(
-              .data$hazard_type == event$hazard_type,
-              .data$hazard_indicator == indicator
-            )
+        if (nrow(matched) == 0) next
 
-          if (nrow(matched) == 0) next
+        index_cols <- hazard_configs[[event$hazard_type]]$indicators[[indicator]]$index
+        if (length(index_cols) == 0) {
+          desired_keys <- c(desired_keys, matched$indicator_key[1])
+          next
+        }
 
-          # Handle static vs dynamic indicators
-          if (indicator == "land_cover") {
-            hazard_name <- matched$hazard_name[1]
-          } else {
-            event_rp_numeric <- as.numeric(event$hazard_return_period)
-            exact_match <- matched |>
-              dplyr::mutate(rp_numeric = as.numeric(.data$hazard_return_period)) |>
-              dplyr::filter(
-                .data$scenario_name == event$scenario_name,
-                .data$rp_numeric == event_rp_numeric
-              )
-
-            hazard_name <- if (nrow(exact_match) > 0) {
-              exact_match$hazard_name[1]
-            } else {
-              matched$hazard_name[1]
+        filtered <- matched
+        for (idx_col in index_cols) {
+          # Handle gwl/scenario_name aliases
+          if (!idx_col %in% names(event)) {
+            if (idx_col == "gwl" && "scenario_name" %in% names(event)) {
+              filtered <- filtered |>
+                dplyr::filter(.data$scenario_name == event$scenario_name)
+              next
             }
+            if (idx_col == "scenario_name" && "gwl" %in% names(event)) {
+              filtered <- filtered |>
+                dplyr::filter(.data$scenario_name == event$gwl)
+              next
+            }
+            filtered <- filtered[0, ]
+            next
           }
 
-          multi_indicator_names <- c(multi_indicator_names, hazard_name)
+          if (idx_col == "return_period") {
+            event_rp_numeric <- as.numeric(event$return_period)
+            filtered <- filtered |>
+              dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
+              dplyr::filter(.data$rp_numeric == event_rp_numeric)
+          } else {
+            filtered <- filtered |>
+              dplyr::filter(.data[[idx_col]] == event[[idx_col]])
+          }
+        }
+
+        if (nrow(filtered) > 0) {
+          desired_keys <- c(desired_keys, filtered$indicator_key)
         }
       }
     }
-
-    desired_names <- unique(c(single_indicator_names, multi_indicator_names))
-  } else {
-    # Fallback: no inventory provided, use hazard_name as-is
-    desired_names <- events |>
-      dplyr::distinct(.data$hazard_name) |>
-      dplyr::pull(.data$hazard_name) |>
-      as.character() |>
-      unique()
   }
 
-  # Exact matches (for TIF hazards and NC hazards with median ensemble)
-  exact_matches <- available_names[available_names %in% desired_names]
-
-  # Pattern matches for NC hazards (base event name matches)
-  # Since we only load median ensemble, we match base names directly
-  pattern_matches <- character()
-  for (desired in desired_names) {
-    # If desired name contains __ensemble=, strip it to get base event
-    if (grepl("__ensemble=", desired)) {
-      # Remove ensemble suffix to get base event
-      base_event <- sub("__ensemble=.*$", "", desired)
-      # Match the base event name (which represents median ensemble)
-      if (base_event %in% available_names) {
-        pattern_matches <- c(pattern_matches, base_event)
-      }
-    } else {
-      # Match the base event name directly (represents median ensemble)
-      if (desired %in% available_names) {
-        pattern_matches <- c(pattern_matches, desired)
-      }
-    }
-  }
-
-  # Combine exact and pattern matches
-  selected_names <- unique(c(exact_matches, pattern_matches))
-  filtered_hazards <- hazards[selected_names]
+  desired_keys <- unique(desired_keys)
+  filtered_hazards <- hazards[available_names %in% desired_keys]
 
   message(
-    "[filter_hazards_by_events] Filtered hazards: ", length(selected_names),
+    "[filter_hazards_by_events] Filtered hazards: ", length(names(filtered_hazards)),
     " hazard layers selected from ", length(available_names),
-    " available (", length(desired_names), " events requested)"
+    " available (", nrow(events), " events requested)"
   )
 
   return(filtered_hazards)
