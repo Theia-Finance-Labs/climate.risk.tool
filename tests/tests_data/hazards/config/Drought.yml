@@ -1,0 +1,30 @@
+indicators:
+  standardized_precipitation_index_3:
+    file: standardized_precipitation_index_3.nc
+    variable: spi3
+    index: [gwl, return_period, season]
+    fixed: { ensemble: mean }
+    agg: closest
+
+index_indicator: standardized_precipitation_index_3
+
+mappings:
+  drought_sensitivity:
+    file: drought_factors.csv
+    variables: [damage_factor]
+    join:
+      on_indicator_index: [season]
+      on_assets: [asset_subtype, state]
+      on_indicator_intensity: [spi3]
+    assets_fallbacks:
+      asset_subtype:
+        on_missing_or_unknown: Soybean
+      state:
+        on_missing_or_unknown: Other
+
+shocks:
+  revenue:
+    equations:
+      - name: drought_agriculture
+        when: "asset_category == 'agriculture'"
+        equation: "revenue ~ revenue * (1 - damage_factor)"

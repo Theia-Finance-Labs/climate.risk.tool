@@ -1,7 +1,7 @@
 ^.env$
 ^.env.example$
-^tests/tests_data/hazards/.gitkeep$
-^tests/tests_data/hazards/flood/.gitkeep$
+^tests/tests_data/hazards/config/.gitkeep$
+^tests/tests_data/hazards/config/flood/.gitkeep$
 ^.cursor*
 ^.git*
 ^.DS_Store$

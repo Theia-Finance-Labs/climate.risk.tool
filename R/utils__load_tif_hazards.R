@@ -2,11 +2,11 @@
 #'
 #' @description Internal function used by load_hazards_and_inventory().
 #'   Loads hazard rasters based on a mapping dataframe that defines
-#'   hazard_file, hazard_type, scenario_name, and hazard_return_period.
+#'   hazard_file, hazard_type, scenario_name, and return_period.
 #'   Validates that all files exist and that there are no duplicates on the filtering
-#'   columns (hazard_type, scenario_name, hazard_return_period).
+#'   columns (hazard_type, scenario_name, return_period).
 #' @param mapping_df Data frame with columns: hazard_file, hazard_type,
-#'   scenario_name, hazard_return_period
+#'   scenario_name, return_period
 #' @param hazards_dir Character path to the directory containing hazard files (will search subdirectories)
 #' @param aggregate_factor Integer >= 1. If >1, aggregate rasters by this factor during loading for speed (default: 1)
 #' @param cache_aggregated Logical. If TRUE and aggregate_factor > 1, save and reuse aggregated rasters (default: TRUE)
@@ -28,7 +28,7 @@ load_tif_hazards <- function(mapping_df,
   message("  Found ", nrow(mapping), " hazard entries in mapping")
 
   # Check for duplicates on filter columns
-  filter_cols <- c("hazard_type", "scenario_name", "hazard_return_period")
+  filter_cols <- c("hazard_type", "scenario_name", "return_period")
   duplicates <- mapping |>
     dplyr::group_by(dplyr::across(dplyr::all_of(filter_cols))) |>
     dplyr::filter(dplyr::n() > 1) |>
@@ -40,7 +40,7 @@ load_tif_hazards <- function(mapping_df,
       dplyr::distinct()
 
     stop(
-      "Found duplicate entries for filter columns (hazard_type, scenario_name, hazard_return_period):\n",
+      "Found duplicate entries for filter columns (hazard_type, scenario_name, return_period):\n",
       paste(utils::capture.output(print(dup_info)), collapse = "\n")
     )
   }
@@ -141,17 +141,34 @@ load_tif_hazards <- function(mapping_df,
 
   # Create named list for rasters
   # Use unified naming format (WITH ensemble=mean for consistency)
-  raster_names <- paste0(
-    mapping$hazard_type, "__", mapping$hazard_indicator,
-    "__GWL=", mapping$scenario_name,
-    "__RP=", mapping$hazard_return_period,
-    "__ensemble=mean"
-  )
-
-  rasters <- stats::setNames(vector("list", nrow(mapping)), nm = raster_names)
-
+  # Structured naming based on indicator file and variable
+  rasters <- list()
   for (i in seq_len(nrow(mapping))) {
-    tif_file <- mapping$full_path[i]
+    row <- mapping[i, ]
+    
+    # Build index values list for this row
+    index_values <- list(
+      return_period = if ("return_period" %in% names(row)) row$return_period else NA_real_,
+      gwl = if ("gwl" %in% names(row)) row$gwl else NA_character_,
+      scenario_name = if ("scenario_name" %in% names(row)) row$scenario_name else NA_character_,
+      season = if ("season" %in% names(row)) row$season else NA_character_
+    )
+    
+    # Construct structured name
+    raster_name <- build_indicator_key(
+      indicator_file = basename(dirname(row$full_path)), # Use folder name for TIF indicators
+      # IMPORTANT: use the indicator *variable* (e.g. flood_depth_cm), not the indicator *key*
+      # (e.g. flood_depth) to match precomputed hazards + config variable naming.
+      indicator_variable = if ("variable" %in% names(row) && !is.na(row$variable) && nzchar(as.character(row$variable))) {
+        as.character(row$variable)
+      } else {
+        as.character(row$hazard_indicator)
+      },
+      index_values = index_values,
+      ensemble = "mean"
+    )
+    
+    tif_file <- row$full_path
     message("  Loading [", i, "/", nrow(mapping), "]: ", basename(tif_file))
 
     # Load raster
@@ -227,7 +244,7 @@ load_tif_hazards <- function(mapping_df,
       }
     }
 
-    rasters[[i]] <- r
+    rasters[[raster_name]] <- r
   }
 
   message("[load_tif_hazards] Successfully loaded ", length(rasters), " hazard rasters")

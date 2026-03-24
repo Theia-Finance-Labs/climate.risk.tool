@@ -4,46 +4,57 @@
 \alias{load_hazards_and_inventory}
 \title{Load all hazard data and generate inventory}
 \usage{
-load_hazards_and_inventory(hazards_dir, aggregate_factor = 1L)
+load_hazards_and_inventory(
+  hazards_dir,
+  hazard_indicators_dir,
+  hazards_override_path = NULL,
+  aggregate_factor = NULL
+)
 }
 \arguments{
-\item{hazards_dir}{Character path to hazards directory containing subdirectories with hazard files}
+\item{hazards_dir}{Character path to hazards/config directory containing hazard YAML files}
 
-\item{aggregate_factor}{Integer >= 1. Aggregation factor for TIF and NC rasters (default: 1)}
+\item{hazard_indicators_dir}{Character path to hazards/indicators directory}
+
+\item{hazards_override_path}{Optional path to a config_overrides.yml file.
+When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignored.}
+
+\item{aggregate_factor}{Integer >= 1. Aggregation factor for TIF and NetCDF rasters (default: \code{NULL}).
+When \code{NULL}, reads the \code{climate_risk_tool_nc_aggregate_factor} option (default: 1).
+Values > 1 spatially aggregate each raster on load so that tests can run with lower resolution.}
 }
 \value{
-A list with three elements:
+A list with two elements:
 \itemize{
-\item \code{hazards}: Nested list with \code{tif}, \code{nc}, and \code{csv} keys
+\item \code{hazards}: Named list of SpatRaster objects (combined from all sources)
 \item \code{inventory}: Tibble with columns: hazard_type, hazard_indicator, scenario_name,
-hazard_return_period, hazard_name (unified format),
-ensemble (ensemble variant or NA for TIF), source ("tif", "nc", or "csv")
+return_period, hazard_name (unified format),
+ensemble (ensemble variant), source ("tif", "nc", or "csv")
 }
 }
 \description{
 Self-contained loader that:
 \enumerate{
-\item Auto-discovers \code{hazards_metadata.csv} for TIF files (if present)
-\item Loads TIF rasters from mapping
-\item Scans directory tree for NetCDF files and loads them
-\item Scans directory tree for CSV files and loads them
-\item Validates no mixed file types (tif/nc/csv) in same leaf folder
-\item Generates a unified inventory combining TIF, NC, and CSV metadata
+\item Reads hazard configs from \verb{hazards/config/} (one YAML per hazard)
+\item Loads NetCDF indicators from \verb{hazards/indicators/} root
+\item Loads TIF indicators from \verb{hazards/indicators/<indicator_folder>/} using metadata.csv
+\item Generates a unified inventory with hazard metadata
 \item Returns both hazards and inventory
 }
 }
 \details{
-Load hazards (TIF + NC + CSV) and build complete inventory
+Load hazards (TIF + NC) and build complete inventory
 }
 \examples{
 \dontrun{
 result <- load_hazards_and_inventory(
-  hazards_dir = file.path(base_dir, "hazards"),
+  hazards_dir = file.path(base_dir, "hazards", "config"),
+  hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
   aggregate_factor = 1L
 )
 
-# Access hazards (flattened for compute)
-all_hazards <- c(result$hazards$tif, result$hazards$nc, result$hazards$csv)
+# Access hazards (for compute pipeline)
+all_hazards <- result$hazards
 
 # Access inventory (for UI dropdowns)
 inventory <- result$inventory

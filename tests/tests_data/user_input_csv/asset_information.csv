@@ -1,0 +1,23 @@
+Company,Asset,Share of Economic Activity,cnae,Sector,Latitude,Longitude,State,Municipality,Size in m2,size in hectare,Asset Category,Asset Subtype
+Company 3,Company 3_Asset1,0.1,6,Oil and Gas Extraction,NA,NA,13,NA,NA,NA,commercial building,NA
+Company 3,Company 3_Asset2,0.1,6,Oil and Gas Extraction,NA,NA,13,NA,NA,NA,commercial building,NA
+Company 3,Company 3_Asset3,0.1,6,Oil and Gas Extraction,-2.5627,-60.3791,NA,NA,NA,NA,commercial building,NA
+Company 3,Company 3_Asset4,0.1,47,Retail,-4.553,-63.4096,NA,1301100,NA,NA,commercial building,NA
+Company 3,Company 3_Asset5,0.1,10,Food Manufacturing,-4.4632,-62.5057,NA,NA,NA,NA,commercial building,NA
+Company 3,Company 3_Asset6,0.1,10,Food Manufacturing,NA,NA,NA,1301407,NA,NA,commercial building,NA
+Company 3,Company 3_Asset7,0.1,1,Agriculture,-3.3281,-60.6205,13,1302504,NA,NA,agriculture,Coffee
+Company 3,Company 3_Asset8,0.1,24,Steel Industry,NA,NA,NA,1302702,NA,NA,commercial building,NA
+Company 4,Company 4_Asset1,0.2,NA,NA,-4.7076,-60.1292,13,NA,NA,NA,commercial building,NA
+Company 4,Company 4_Asset2,0.2,NA,NA,NA,NA,NA,1301100,NA,NA,commercial building,NA
+Company 4,Company 4_Asset3,0.2,24,Steel Industry,-3.5599,-64.9647,13,1300409,NA,NA,commercial building,NA
+Eneva SA,L100000408544,0.75,47,Retail,-19.533784,-39.802281,NA,NA,NA,NA,commercial building,NA
+Eneva SA,L100000408551,0.25,47,Retail,-19.533784,-39.802281,NA,NA,NA,NA,commercial building,NA
+Alupar,L600247,1,47,Retail,0.8557,-51.1968,NA,NA,NA,NA,commercial building,NA
+Company 3,Company 3_Asset9,0.05,1,Agriculture,-3.1436,-59.9851,13,1302603,NA,NA,agriculture,Coffee
+Company 3,Company 3_Asset10,0.05,NA,NA,-12.566,-56.36,51,5101704,NA,NA,agriculture,Sugarcane
+Company 4,Company 4_Asset4,0.2,1,Agriculture,-16.521,-57.822,51,5102504,NA,NA,agriculture,Corn
+Company 4,Company 4_Asset5,0.2,24,Steel Industry,-4.8,-61.5,13,1302405,NA,NA,industrial building,NA
+AGRItest2,AGRI2,1,1,Agriculture,-8.4046,-34.9692,NA,NA,NA,NA,agriculture,Sugarcane
+AGRItest,AGRI1,0.5,1,Agriculture,0.8557,-51.1968,NA,NA,NA,NA,agriculture,Soybean
+AGRItest,AGRI11,0.5,1,Agriculture,NA,NA,13,NA,NA,NA,agriculture,Soybean
+Company 3,Company 3_Asset11,0.1,24,Steel Industry,-3.7,-65.1,13,1300409,NA,NA,industrial building,NA

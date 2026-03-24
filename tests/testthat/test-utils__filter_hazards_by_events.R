@@ -1,149 +1,67 @@
-testthat::test_that("filter_hazards_by_events returns all hazards when events is not a dataframe", {
-  # Create mock hazards
+testthat::test_that("filter_hazards_by_events selects indicator keys via inventory", {
   hazards <- list(
-    "hazard1" = terra::rast(ncols = 10, nrows = 10),
-    "hazard2" = terra::rast(ncols = 10, nrows = 10),
-    "hazard3" = terra::rast(ncols = 10, nrows = 10)
+    "heat_index__hi__return_period=10__scenario_name=present__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
+    "spi3__spi3__return_period=5__scenario_name=present__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
   )
 
-  # Call with non-dataframe events
-  result <- filter_hazards_by_events(hazards, events = NULL)
+  hazards_inventory <- tibble::tibble(
+    hazard_type = c("Heat", "Drought"),
+    hazard_indicator = c("hi", "spi3"),
+    scenario_name = c("present", "present"),
+    return_period = c(10, 5),
+    hazard_name = c("Heat__hi__present__10__mean", "Drought__spi3__present__5__mean"),
+    indicator_key = names(hazards)
+  )
 
-  # Should return all hazards unchanged
-  expect_equal(length(result), 3)
-  expect_equal(names(result), names(hazards))
+  hazard_configs <- list(
+    Heat = list(indicators = list(hi = list(index = c("scenario_name", "return_period")))),
+    Drought = list(indicators = list(spi3 = list(index = c("scenario_name", "return_period"))))
+  )
+
+  events <- data.frame(
+    hazard_type = c("Heat"),
+    scenario_name = c("present"),
+    return_period = c(10),
+    event_year = c(2030)
+  )
+
+  result <- filter_hazards_by_events(hazards, events, hazards_inventory, hazard_configs)
+
+  expect_equal(length(result), 1)
+  expect_true("heat_index__hi__return_period=10__scenario_name=present__ensemble=mean" %in% names(result))
 })
 
-testthat::test_that("filter_hazards_by_events handles NetCDF hazards with exact matching", {
-  # Create mock NetCDF hazards
+testthat::test_that("filter_hazards_by_events expands multi-indicator hazards", {
   hazards <- list(
-    "Drought__SPI3__GWL=present__RP=5__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
-    "Heat__HI__GWL=2__RP=10__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
-    "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
+    "fwi__fwi__return_period=10__scenario_name=present__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
+    "days_danger_total__days_danger_total__return_period=10__scenario_name=present__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
   )
 
-  # Define events (only request 2 out of 3)
+  hazards_inventory <- tibble::tibble(
+    hazard_type = c("Fire", "Fire"),
+    hazard_indicator = c("fwi", "days_danger_total"),
+    scenario_name = c("present", "present"),
+    return_period = c(10, 10),
+    hazard_name = c("Fire__fwi__present__10__mean", "Fire__days_danger_total__present__10__mean"),
+    indicator_key = names(hazards)
+  )
+
+  hazard_configs <- list(
+    Fire = list(indicators = list(
+      fwi = list(index = c("scenario_name", "return_period")),
+      days_danger_total = list(index = c("scenario_name", "return_period"))
+    ))
+  )
+
   events <- data.frame(
-    hazard_name = c("Drought__SPI3__GWL=present__RP=5__ensemble=mean", "Heat__HI__GWL=2__RP=10__ensemble=mean"),
-    event_year = c(2030, 2040)
+    hazard_type = c("Fire"),
+    scenario_name = c("present"),
+    return_period = c(10),
+    event_year = c(2030)
   )
 
-  # Filter
-  result <- filter_hazards_by_events(hazards, events)
+  result <- filter_hazards_by_events(hazards, events, hazards_inventory, hazard_configs)
 
-  # Should return only the 2 requested hazards
   expect_equal(length(result), 2)
-  expect_true("Drought__SPI3__GWL=present__RP=5__ensemble=mean" %in% names(result))
-  expect_true("Heat__HI__GWL=2__RP=10__ensemble=mean" %in% names(result))
-  expect_false("Flood__depth(cm)__GWL=present__RP=100__ensemble=mean" %in% names(result))
-})
-
-testthat::test_that("filter_hazards_by_events matches NC hazards with ensemble suffix", {
-  # Create mock NC hazards with ensemble suffix (as they are actually loaded)
-  hazards <- list(
-    "Drought__SPI3__GWL=present__RP=5__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
-    "Heat__Frost__GWL=2__RP=10__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
-  )
-
-  # Define events (use the full hazard name with ensemble suffix)
-  events <- data.frame(
-    hazard_name = c("Drought__SPI3__GWL=present__RP=5__ensemble=mean"),
-    event_year = c(2030)
-  )
-
-  # Filter
-  result <- filter_hazards_by_events(hazards, events)
-
-  # Should match the exact hazard name
-  expect_equal(length(result), 1)
-  expect_true("Drought__SPI3__GWL=present__RP=5__ensemble=mean" %in% names(result))
-
-  # Heat hazards should not be included
-  expect_false(any(grepl("Heat__Frost", names(result))))
-})
-
-testthat::test_that("filter_hazards_by_events matches exact ensemble when specified", {
-  # Create mock NC hazards with mean ensemble only (current implementation behavior)
-  hazards <- list(
-    "Compound__FWI__GWL=3__RP=10__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
-  )
-
-  # Define events (includes ensemble suffix - should match exactly)
-  events <- data.frame(
-    hazard_name = c("Compound__FWI__GWL=3__RP=10__ensemble=mean"),
-    event_year = c(2050)
-  )
-
-  # Filter
-  result <- filter_hazards_by_events(hazards, events)
-
-  # Should match exactly the specified ensemble (no expansion)
-  expect_equal(length(result), 1)
-  expect_true("Compound__FWI__GWL=3__RP=10__ensemble=mean" %in% names(result))
-})
-
-testthat::test_that("filter_hazards_by_events handles multiple NC events correctly", {
-  # Create mock NC hazards for multiple events (only mean ensemble loaded)
-  hazards <- list(
-    "Drought__SPI3__GWL=present__RP=5__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
-    "Heat__Frost__GWL=2__RP=10__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
-    "Compound__FWI__GWL=3__RP=5__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
-  )
-
-  # Define events (use full hazard names with ensemble suffix)
-  events <- data.frame(
-    hazard_name = c("Drought__SPI3__GWL=present__RP=5__ensemble=mean", "Heat__Frost__GWL=2__RP=10__ensemble=mean"),
-    event_year = c(2030, 2040)
-  )
-
-  # Filter
-  result <- filter_hazards_by_events(hazards, events)
-
-  # Should match only mean ensemble variants (current implementation behavior)
-  expect_equal(length(result), 2)
-
-  # Check Drought mean variant
-  expect_true("Drought__SPI3__GWL=present__RP=5__ensemble=mean" %in% names(result))
-
-  # Check Heat mean variant
-  expect_true("Heat__Frost__GWL=2__RP=10__ensemble=mean" %in% names(result))
-
-  # Compound should not be included
-  expect_false(any(grepl("Compound__FWI", names(result))))
-})
-
-testthat::test_that("filter_hazards_by_events maps requested ensemble=median to loaded ensemble=mean", {
-  hazards <- list(
-    "Heat__HI__GWL=2__RP=10__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
-    "Drought__SPI3__GWL=present__RP=5__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
-  )
-
-  # Event requests median, but only mean is loaded in hazards
-  events <- data.frame(
-    hazard_name = c("Heat__HI__GWL=2__RP=10__ensemble=median"),
-    event_year = c(2030)
-  )
-
-  result <- filter_hazards_by_events(hazards, events)
-
-  expect_equal(length(result), 1)
-  expect_true("Heat__HI__GWL=2__RP=10__ensemble=mean" %in% names(result))
-})
-
-testthat::test_that("filter_hazards_by_events maps missing ensemble suffix to loaded ensemble=mean", {
-  hazards <- list(
-    "Flood__depth(cm)__GWL=present__RP=100__ensemble=mean" = terra::rast(ncols = 10, nrows = 10),
-    "Heat__HI__GWL=present__RP=10__ensemble=mean" = terra::rast(ncols = 10, nrows = 10)
-  )
-
-  # Events omit ensemble; hazards are loaded with __ensemble=mean
-  events <- data.frame(
-    hazard_name = c("Flood__depth(cm)__GWL=present__RP=100"),
-    event_year = c(2030)
-  )
-
-  result <- filter_hazards_by_events(hazards, events)
-
-  expect_equal(length(result), 1)
-  expect_true("Flood__depth(cm)__GWL=present__RP=100__ensemble=mean" %in% names(result))
+  expect_true(all(names(hazards) %in% names(result)))
 })

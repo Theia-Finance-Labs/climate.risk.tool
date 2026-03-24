@@ -28,7 +28,8 @@ Imports:
     tidyr,
     tools,
     writexl,
-    plotly
+    plotly,
+    yaml
 Encoding: UTF-8
 LazyData: true
 RoxygenNote: 7.3.3

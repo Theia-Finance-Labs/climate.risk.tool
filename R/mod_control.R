@@ -14,7 +14,7 @@ mod_control_ui <- function(id) {
         shinyFiles::shinyDirButton(
           id = ns("select_folder"),
           label = "Select Input Folder",
-          title = "Select folder containing asset_information.xlsx and company_information.xlsx",
+          title = "Select folder containing asset_information.xlsx or .csv, and company_information.xlsx or .csv",
           icon = shiny::icon("folder-open"),
           class = "btn-primary btn-block"
         ),
@@ -77,9 +77,10 @@ mod_control_ui <- function(id) {
 #'
 #' @param id Internal parameter for shiny
 #' @param base_dir_reactive reactive containing base directory path
+#' @param overrides_reload reactive trigger for hazard override reload
 #' @return list with reactive values for input_folder, events, run_trigger, growth_rate, discount_rate, risk_free_rate, results_ready, and get_hazards_at_factor
 #' @export
-mod_control_server <- function(id, base_dir_reactive) {
+mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -137,32 +138,65 @@ mod_control_server <- function(id, base_dir_reactive) {
       }
       
       folder <- values$selected_folder
-      asset_file <- file.path(folder, "asset_information.xlsx")
-      company_file <- file.path(folder, "company_information.xlsx")
+      asset_xlsx <- file.path(folder, "asset_information.xlsx")
+      asset_csv <- file.path(folder, "asset_information.csv")
+      company_xlsx <- file.path(folder, "company_information.xlsx")
+      company_csv <- file.path(folder, "company_information.csv")
       
-      asset_exists <- file.exists(asset_file)
-      company_exists <- file.exists(company_file)
+      asset_has_xlsx <- file.exists(asset_xlsx)
+      asset_has_csv <- file.exists(asset_csv)
+      company_has_xlsx <- file.exists(company_xlsx)
+      company_has_csv <- file.exists(company_csv)
       
-      if (asset_exists && company_exists) {
-        paste0("[OK] Folder: ", folder, "\n[OK] Found: asset_information.xlsx, company_information.xlsx")
+      # Check for conflicts (both formats exist)
+      asset_conflict <- asset_has_xlsx && asset_has_csv
+      company_conflict <- company_has_xlsx && company_has_csv
+      
+      # Determine which files are found
+      asset_found <- if (asset_has_xlsx) "asset_information.xlsx" else if (asset_has_csv) "asset_information.csv" else NULL
+      company_found <- if (company_has_xlsx) "company_information.xlsx" else if (company_has_csv) "company_information.csv" else NULL
+      
+      # Build status message
+      status_parts <- c()
+      status_parts <- c(status_parts, paste0("Folder: ", folder))
+      
+      if (asset_conflict) {
+        status_parts <- c(status_parts, "[WARNING] Both asset_information.xlsx and asset_information.csv found - please use only one")
+      }
+      if (company_conflict) {
+        status_parts <- c(status_parts, "[WARNING] Both company_information.xlsx and company_information.csv found - please use only one")
+      }
+      
+      if (!is.null(asset_found) && !is.null(company_found) && !asset_conflict && !company_conflict) {
+        status_parts <- c(status_parts, paste0("[OK] Found: ", asset_found, ", ", company_found))
       } else {
         missing <- c()
-        if (!asset_exists) missing <- c(missing, "asset_information.xlsx")
-        if (!company_exists) missing <- c(missing, "company_information.xlsx")
-        paste0("[X] Folder: ", folder, "\n[X] Missing: ", paste(missing, collapse = ", "))
+        if (is.null(asset_found)) missing <- c(missing, "asset_information.xlsx or asset_information.csv")
+        if (is.null(company_found)) missing <- c(missing, "company_information.xlsx or company_information.csv")
+        if (length(missing) > 0) {
+          status_parts <- c(status_parts, paste0("[X] Missing: ", paste(missing, collapse = ", ")))
+        }
       }
+      
+      paste(status_parts, collapse = "\n")
     })
 
     # Load hazards and inventory (unified loader)
     hazards_and_inventory <- shiny::reactive({
+      overrides_reload()
       base_dir <- base_dir_reactive()
       if (is.null(base_dir) || base_dir == "") {
         return(NULL)
       }
 
-      dir_hz <- file.path(base_dir, "hazards")
-      if (!dir.exists(dir_hz)) {
-        message("Hazards directory not found at: ", dir_hz)
+      hazards_dir <- file.path(base_dir, "hazards", "config")
+      indicators_dir <- file.path(base_dir, "hazards", "indicators")
+      if (!dir.exists(hazards_dir)) {
+        message("Hazards directory not found at: ", hazards_dir)
+        return(NULL)
+      }
+      if (!dir.exists(indicators_dir)) {
+        message("Hazard indicators directory not found at: ", indicators_dir)
         return(NULL)
       }
 
@@ -171,7 +205,9 @@ mod_control_server <- function(id, base_dir_reactive) {
 
       result <- try(
         load_hazards_and_inventory(
-          hazards_dir = dir_hz,
+          hazards_dir = hazards_dir,
+          hazard_indicators_dir = indicators_dir,
+          hazards_override_path = file.path(hazards_dir, "config_overrides.yml"),
           aggregate_factor = as.integer(agg_factor)
         ),
         silent = TRUE
@@ -212,9 +248,22 @@ mod_control_server <- function(id, base_dir_reactive) {
       return(result$inventory)
     })
 
+    hazard_configs <- shiny::reactive({
+      result <- hazards_and_inventory()
+      if (is.null(result)) {
+        return(NULL)
+      }
+
+      return(result$configs)
+    })
+
 
     # Hazards events module
-    hz_mod <- mod_hazards_events_server("hazards", hazards_inventory = hazards_inventory)
+    hz_mod <- mod_hazards_events_server(
+      "hazards",
+      hazards_inventory = hazards_inventory,
+      hazard_configs = hazard_configs
+    )
 
     # Results ready output for conditional panel
     output$results_ready <- shiny::reactive({

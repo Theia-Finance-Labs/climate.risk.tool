@@ -16,7 +16,8 @@ log_error_to_console <- function(error, context = NULL) {
     # Find the first non-error-handling function call
     for (i in length(traceback_info):1) {
       call_text <- deparse(traceback_info[[i]], width.cutoff = 100)
-      if (!grepl("(log_error_to_console|tryCatch|error|handler)", call_text)) {
+      if (length(call_text) > 0 &&
+        !any(grepl("(log_error_to_console|tryCatch|error|handler)", call_text))) {
         cat("Location:", call_text, "\n")
         break
       }

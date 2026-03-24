@@ -19,6 +19,15 @@ app_ui <- function(request) {
           class = "app-header-text",
           h1("Physical Risk Analysis Tool", class = "app-title"),
           p("Physical risk assessment for financial portfolios in Brazil", class = "app-subtitle")
+        ),
+        div(
+          class = "app-header-actions",
+          actionButton(
+            inputId = "open_settings",
+            label = "Settings",
+            icon = icon("gear"),
+            class = "btn btn-secondary app-settings-btn"
+          )
         )
       ),
       div(

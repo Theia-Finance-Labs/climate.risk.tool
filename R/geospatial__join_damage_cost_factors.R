@@ -1,653 +1,445 @@
-#' Join damage and cost factors based on hazard type, indicator, intensity and asset category (internal function)
+#' Join mapping tables for hazards (internal)
 #'
 #' @param assets_with_hazards Data frame in long format with asset and hazard information
-#'   including hazard_type, hazard_indicator, hazard_intensity, scenario_name columns
-#'   (from extract_hazard_statistics joined with events)
-#' @param damage_factors_df Data frame with damage and cost factors lookup table
-#' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (columns: cnae, lp_exposure)
-#' @param land_cover_legend Optional tibble with land cover legend data for Fire hazard (columns: land_cover_code, land_cover_risk)
-#' @return Data frame with original columns plus damage_factor, cost_factor, and business_disruption columns
+#'   including hazard_type, hazard_indicator, indicator-specific values, scenario_name, return_period, event_id
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
+#' @param hazards_dir Character path to hazards/config directory
+#' @return Data frame with mapping columns joined
 #' @noRd
-join_damage_cost_factors <- function(assets_with_hazards, damage_factors_df, cnae_exposure = NULL, land_cover_legend = NULL) {
-  # Separate assets by hazard type
-  flood_assets <- assets_with_hazards |>
-    dplyr::filter(.data$hazard_type == "Flood")
-  compound_assets <- assets_with_hazards |>
-    dplyr::filter(.data$hazard_type == "Heat")
-  drought_assets <- assets_with_hazards |>
-    dplyr::filter(.data$hazard_type == "Drought")
-  fire_assets <- assets_with_hazards |>
-    dplyr::filter(.data$hazard_type == "Fire")
-
-  # Process each hazard type with its specific logic
-  flood_merged <- if (nrow(flood_assets) > 0) {
-    join_flood_damage_factors(flood_assets, damage_factors_df)
-  } else {
-    NULL
+join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazards_dir) {
+  if (is.null(assets_with_hazards) || nrow(assets_with_hazards) == 0) {
+    stop("No hazard assets provided for mapping joins")
+  }
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    stop("hazard_configs is required for mapping joins")
+  }
+  if (is.null(hazards_dir) || !dir.exists(hazards_dir)) {
+    stop("hazards_dir does not exist: ", hazards_dir)
   }
 
-  compound_merged <- if (nrow(compound_assets) > 0) {
-    join_compound_damage_factors(compound_assets, damage_factors_df, cnae_exposure)
-  } else {
-    NULL
+  mappings_dir <- file.path(dirname(hazards_dir), "mappings")
+  if (!dir.exists(mappings_dir)) {
+    stop("hazards mappings directory does not exist: ", mappings_dir)
   }
 
-  drought_merged <- if (nrow(drought_assets) > 0) {
-    join_drought_damage_factors(drought_assets, damage_factors_df)
-  } else {
-    NULL
-  }
-
-  fire_merged <- if (nrow(fire_assets) > 0) {
-    join_fire_damage_factors(fire_assets, damage_factors_df, land_cover_legend)
-  } else {
-    NULL
-  }
-
-  # Combine results (filter out NULLs and empty data frames)
-  all_results <- list(flood_merged, compound_merged, drought_merged, fire_merged)
-  non_empty_results <- all_results[sapply(all_results, function(x) !is.null(x) && nrow(x) > 0)]
-
-  if (length(non_empty_results) == 0) {
-    stop("No hazard merged with damage and cost factors")
-  }
-
-  merged <- dplyr::bind_rows(non_empty_results)
-
-  return(merged)
-}
-
-#' Join Flood damage factors using closest intensity matching (internal function)
-#'
-#' @param flood_assets Data frame with Flood hazard assets
-#' @param damage_factors_df Data frame with damage and cost factors lookup table
-#' @return Data frame with damage_factor, cost_factor, and business_disruption columns
-#' @noRd
-join_flood_damage_factors <- function(flood_assets, damage_factors_df) {
-  # Filter flood damage factors
-  flood_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "Flood") |>
-    dplyr::mutate(
-      hazard_intensity_num = as.numeric(.data$hazard_intensity)
-    ) |>
-    dplyr::select(
-      "hazard_type", "hazard_indicator", "asset_category", "hazard_intensity_num",
-      "damage_factor", "cost_factor", "business_disruption"
+  # CRITICAL: Check for duplicates in input data by (asset, event_id, hazard_type, hazard_indicator)
+  # Duplicates should NOT exist here. If they do, we stop to find the real bug.
+  dups <- assets_with_hazards |>
+    dplyr::count(.data$asset, .data$event_id, .data$hazard_type, .data$hazard_indicator) |>
+    dplyr::filter(.data$n > 1)
+  
+  if (nrow(dups) > 0) {
+    stop(
+      "[join_damage_cost_factors] Detected ", nrow(dups), " duplicate asset/event/indicator combinations. ",
+      "This indicates a bug earlier in the pipeline. ",
+      "First duplicate: Asset=", dups$asset[1], ", Event=", dups$event_id[1], ", Indicator=", dups$hazard_indicator[1]
     )
+  }
 
-  # Prepare assets with numeric intensity
-  flood_assets_prepared <- flood_assets |>
-    dplyr::mutate(
-      hazard_intensity_num = as.numeric(.data$hazard_intensity)
-    )
+  results <- list()
 
-  # Find closest intensity match for each asset
-  result_list <- vector("list", nrow(flood_assets_prepared))
+  for (hazard_type in names(hazard_configs)) {
+    hazard_assets <- assets_with_hazards |>
+      dplyr::filter(.data$hazard_type == !!hazard_type)
 
-  for (i in seq_len(nrow(flood_assets_prepared))) {
-    asset_row <- flood_assets_prepared[i, ]
-    asset_intensity <- asset_row$hazard_intensity_num
+    if (nrow(hazard_assets) == 0) {
+      next
+    }
 
-    # Find matching factors for this hazard type, indicator, and category
-    factors_subset <- flood_factors |>
-      dplyr::filter(
-        .data$hazard_type == asset_row$hazard_type,
-        .data$hazard_indicator == asset_row$hazard_indicator,
-        .data$asset_category == asset_row$asset_category
-      )
+    hazard_config <- hazard_configs[[hazard_type]]
+    if (is.null(hazard_config$mappings) || length(hazard_config$mappings) == 0) {
+      results[[length(results) + 1]] <- hazard_assets
+      next
+    }
 
-    if (nrow(factors_subset) > 0) {
-      # Find closest intensity match and cap at maximum available
-      factors_subset <- factors_subset |>
-        dplyr::mutate(
-          intensity_diff = abs(.data$hazard_intensity_num - asset_intensity)
-        ) |>
-        dplyr::arrange(.data$intensity_diff)
+    base_table <- build_indicator_wide(hazard_assets, hazard_config)
 
-      # If asset intensity exceeds max available, use max
-      max_intensity <- max(factors_subset$hazard_intensity_num, na.rm = TRUE)
-      if (asset_intensity > max_intensity) {
-        factors_subset <- factors_subset |>
-          dplyr::filter(.data$hazard_intensity_num == max_intensity) |>
-          dplyr::slice(1)
-      } else {
-        factors_subset <- factors_subset |>
-          dplyr::slice(1)
+    for (mapping_key in names(hazard_config$mappings)) {
+      mapping <- hazard_config$mappings[[mapping_key]]
+      mapping_df <- read_hazard_mapping_table(mappings_dir, mapping$file)
+
+      intensity_cols <- mapping$join$on_indicator_intensity
+      hazard_cols <- mapping$join$on_indicator_index
+      asset_cols <- mapping$join$on_assets
+
+      join_cols <- c(intensity_cols, hazard_cols, asset_cols)
+      # Remove duplicates but preserve names if possible
+      if (length(join_cols) > 0) {
+        # Keep first occurrence of each key-value pair
+        join_cols <- join_cols[!duplicated(paste0(names(join_cols), "=", join_cols))]
       }
 
-      result_list[[i]] <- asset_row |>
-        dplyr::bind_cols(
-          factors_subset |>
-            dplyr::select("damage_factor", "cost_factor", "business_disruption")
-        )
-    } else {
-      # No match found - set to NA
-      result_list[[i]] <- asset_row |>
-        dplyr::mutate(
-          damage_factor = NA_real_,
-          cost_factor = NA_real_,
-          business_disruption = NA_real_
-        )
-    }
-  }
+      # Join keys: names are columns in assets (base_table), values are columns in mapping_df
+      # If unnamed, the same name is used for both.
+      get_left_cols <- function(x) {
+        nms <- names(x)
+        if (is.null(nms)) return(as.character(x))
+        ifelse(nms == "", as.character(x), nms)
+      }
 
-  flood_merged <- dplyr::bind_rows(result_list) |>
-    dplyr::mutate(
-      damage_factor = dplyr::coalesce(as.numeric(.data$damage_factor), NA_real_),
-      cost_factor = dplyr::coalesce(as.numeric(.data$cost_factor), NA_real_),
-      business_disruption = dplyr::coalesce(as.numeric(.data$business_disruption), NA_real_)
-    ) |>
-    dplyr::select(-"hazard_intensity_num")
+      mapping_cols <- unname(join_cols)
+      asset_cols_to_check <- get_left_cols(join_cols)
 
-  return(flood_merged)
-}
+      if (length(join_cols) == 0) {
+        stop("Mapping '", mapping_key, "' has no join columns")
+      }
 
-#' Join Heat (heat) damage factors using province, GWL, and sector-based metric matching (internal function)
-#'
-#' @param compound_assets Data frame with Heat hazard assets
-#' @param damage_factors_df Data frame with damage and cost factors lookup table
-#' @param cnae_exposure Optional tibble with CNAE exposure data (columns: cnae, lp_exposure). If NULL, uses median metric.
-#' @return Data frame with damage_factor column (cost_factor and business_disruption are NA)
-#' @noRd
-join_compound_damage_factors <- function(compound_assets, damage_factors_df, cnae_exposure = NULL) {
-  # Determine metric for each asset based on CNAE exposure code
-  # If cnae_exposure is provided, use CNAE-based lookup
-  # Otherwise, default to median/high fallback
-  if (!is.null(cnae_exposure) && nrow(cnae_exposure) > 0) {
-    compound_assets_with_metric <- compound_assets |>
-      dplyr::left_join(
-        cnae_exposure |>
-          dplyr::select("cnae", "lp_exposure"),
-        by = "cnae"
-      ) |>
-      dplyr::mutate(
-        # Determine metric based on lookup or defaults; only cnae is used
-        metric = dplyr::case_when(
-          !is.na(.data$lp_exposure) ~ .data$lp_exposure,
-          is.na(.data$cnae) & .data$asset_category == "agriculture" ~ "high",
-          TRUE ~ "median"
-        )
-      ) |>
-      dplyr::select(-"lp_exposure")
-  } else {
-    # If no CNAE exposure data provided, use fallback logic based on asset_category
-    compound_assets_with_metric <- compound_assets |>
-      dplyr::mutate(
-        metric = dplyr::if_else(
-          is.na(.data$cnae) & .data$asset_category == "agriculture",
-          "high",
-          "median"
-        )
+      variables <- mapping$variables
+      if (!is.null(variables) && length(variables) > 0) {
+        keep_cols <- unique(c(mapping_cols, variables))
+        missing_in_mapping <- setdiff(keep_cols, names(mapping_df))
+        if (length(missing_in_mapping) > 0) {
+          stop(
+            "Missing selected columns in mapping '", mapping_key, "': ",
+            paste(missing_in_mapping, collapse = ", ")
+          )
+        }
+        mapping_df <- mapping_df |>
+          dplyr::select(dplyr::all_of(keep_cols))
+      }
+
+      missing_in_assets <- setdiff(asset_cols_to_check, names(base_table))
+      missing_in_mapping <- setdiff(mapping_cols, names(mapping_df))
+      if (length(missing_in_assets) > 0) {
+        stop("Missing join columns in assets for mapping '", mapping_key, "': ", paste(missing_in_assets, collapse = ", "))
+      }
+      if (length(missing_in_mapping) > 0) {
+        stop("Missing join columns in mapping '", mapping_key, "': ", paste(missing_in_mapping, collapse = ", "))
+      }
+
+      if ("return_period" %in% join_cols) {
+        base_table <- base_table |>
+          dplyr::mutate(return_period = as.numeric(.data$return_period))
+        mapping_df <- mapping_df |>
+          dplyr::mutate(return_period = as.numeric(.data$return_period))
+      }
+      if ("scenario_name" %in% join_cols) {
+        base_table <- base_table |>
+          dplyr::mutate(scenario_name = as.character(.data$scenario_name))
+        mapping_df <- mapping_df |>
+          dplyr::mutate(scenario_name = as.character(.data$scenario_name))
+      }
+
+      # Save raw intensity values before matching/capping
+      # This preserves the original extracted values in [indicator]_raw columns
+      if (length(intensity_cols) > 0) {
+        for (intensity_col in intensity_cols) {
+          if (intensity_col %in% names(base_table)) {
+            raw_col_name <- paste0(intensity_col, "_raw")
+            base_table[[raw_col_name]] <- base_table[[intensity_col]]
+          }
+        }
+      }
+      
+      base_table <- apply_intensity_matching(base_table, mapping_df, intensity_cols, mapping$intensity_match)
+
+      # ========================================================================
+      # CONFIG-DRIVEN TRANSFORMATIONS
+      # Apply mapping asset fallbacks before joining
+      # ========================================================================
+      fallback_original_cols <- character()
+      if (!is.null(mapping$assets_fallbacks) && length(mapping$assets_fallbacks) > 0) {
+        left_by_right <- setNames(asset_cols_to_check, mapping_cols)
+        mapping_value_sets <- lapply(mapping_cols, function(col) unique(mapping_df[[col]]))
+        names(mapping_value_sets) <- mapping_cols
+
+        for (fb_col in names(mapping$assets_fallbacks)) {
+          if (!fb_col %in% mapping_cols) {
+            next
+          }
+          left_col <- left_by_right[[fb_col]]
+          if (!left_col %in% names(base_table)) {
+            next
+          }
+          fb_def <- mapping$assets_fallbacks[[fb_col]]
+
+          if (!is.null(fb_def$on_missing_or_unknown)) {
+            fallback_val <- fb_def$on_missing_or_unknown
+            in_mapping <- base_table[[left_col]] %in% mapping_value_sets[[fb_col]]
+            missing_or_unknown <- is.na(base_table[[left_col]]) | !in_mapping
+            if (any(missing_or_unknown)) {
+              original_col <- paste0(left_col, "_original")
+              if (!original_col %in% names(base_table)) {
+                base_table[[original_col]] <- base_table[[left_col]]
+                fallback_original_cols <- unique(c(fallback_original_cols, original_col))
+              }
+              base_table[[left_col]][missing_or_unknown] <- fallback_val
+            }
+          }
+
+          # on_unmatched_combination intentionally unsupported
+        }
+      }
+
+      # Perform the join.
+      base_table <- dplyr::left_join(
+        base_table,
+        mapping_df,
+        by = join_cols
       )
+
+      if (all(c("cost_factor.x", "cost_factor.y") %in% names(base_table))) {
+        base_table$cost_factor <- dplyr::coalesce(base_table$cost_factor.x, base_table$cost_factor.y)
+        base_table$cost_factor.x <- NULL
+        base_table$cost_factor.y <- NULL
+      }
+      
+      # Apply defaults for variables that are NA after join
+      if (!is.null(mapping$defaults) && length(mapping$defaults) > 0) {
+        for (var_name in names(mapping$defaults)) {
+          default_value <- mapping$defaults[[var_name]]
+          if (var_name %in% names(base_table)) {
+            # Fill NA values with the default
+            na_mask <- is.na(base_table[[var_name]])
+            if (any(na_mask)) {
+              base_table[[var_name]][na_mask] <- default_value
+              message("  [join_damage_cost_factors] Applied default value '", default_value, 
+                      "' to ", sum(na_mask), " NA values in column '", var_name, "' for ", hazard_type)
+            }
+          }
+        }
+      }
+      
+      # Restore original values after join for any fallback columns
+      if (length(fallback_original_cols) > 0) {
+        for (original_col in fallback_original_cols) {
+          restored_col <- sub("_original$", "", original_col)
+          if (original_col %in% names(base_table) && restored_col %in% names(base_table)) {
+            base_table[[restored_col]] <- base_table[[original_col]]
+            base_table[[original_col]] <- NULL
+          }
+        }
+      }
+    }
+
+    results[[length(results) + 1]] <- base_table
   }
 
-  # Join with damage factors matching on hazard_type, state, gwl, AND metric
-  compound_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "Heat") |>
-    dplyr::select("hazard_type", "state", "gwl", "metric", "damage_factor")
+  if (length(results) == 0) {
+    stop("No hazards joined with mapping tables")
+  }
 
-  compound_merged <- dplyr::left_join(
-    compound_assets_with_metric,
-    compound_factors,
-    by = c("hazard_type", "state", "scenario_name" = "gwl", "metric")
-  ) |>
-    dplyr::mutate(
-      cost_factor = NA_real_,
-      business_disruption = NA_real_
-    )
+  # When combining results from different hazards, we might have different columns
+  # from different mapping tables. We use bind_rows which handles this.
+  # Each hazard type has been processed separately, so we just combine them.
+  combined <- dplyr::bind_rows(results)
 
-  return(compound_merged)
+  return(combined)
 }
 
-
-#' Join Drought damage factors for agriculture assets with crop/province/season matching using closest intensity (internal function)
+#' Build wide indicator table for mapping joins (internal)
 #'
-#' Matching strategy (in order of priority):
-#' 1. Province + Subtype: First attempts to match the asset's province and crop subtype
-#' 2. Fallback Province: If province not found, uses the first available province with data for that crop
-#' 3. No match: If crop not found at all, sets damage_factor = 0 with NA for growing_season and off_window
-#'
-#' After finding the correct province and crop:
-#' - Finds the closest intensity match (caps at -3 for values below -3)
-#' - For multi-season crops (e.g., Sugarcane with Winter and Autumn):
-#'   * If user-selected season matches a growing season: use that season's damage factor
-#'   * If user-selected season doesn't match: average all growing seasons' damage factors and off_windows,
-#'     then apply: avg_damage_factor * avg_off_window
-#'
-#' @param drought_assets Data frame with Drought hazard assets including season column from events
-#' @param damage_factors_df Data frame with damage and cost factors lookup table
-#' @return Data frame with damage_factor, growing_season, off_window, and season columns (cost_factor and business_disruption are NA)
+#' @param hazard_assets Long-format hazard assets for a single hazard type
+#' @param hazard_config Hazard config list for the hazard type
+#' @return Data frame with one row per asset/event and indicator columns
 #' @noRd
-join_drought_damage_factors <- function(drought_assets, damage_factors_df) {
-  # Filter damage factors for drought (hazard_type = "Drought", hazard_indicator = "SPI3")
-  drought_factors <- damage_factors_df |>
-    dplyr::filter(
-      .data$hazard_type == "Drought",
-      .data$hazard_indicator == "SPI3"
-    ) |>
-    dplyr::mutate(
-      hazard_intensity_num = as.numeric(.data$hazard_intensity),
-      damage_factor_value = as.numeric(.data$damage_factor),
-      off_window_value = as.numeric(.data$off_window)
-    ) |>
-    dplyr::select("state", "subtype", "season", "damage_factor_value", "off_window_value", "hazard_intensity_num") |>
-    dplyr::rename(growing_season = "season") # Rename to avoid conflict with event season
+build_indicator_wide <- function(hazard_assets, hazard_config) {
+  
+  primary_indicator <- hazard_config$primary_indicator
+  primary_rows <- hazard_assets |>
+    dplyr::filter(.data$hazard_indicator == primary_indicator)
 
-  # Create "Other" crop type by duplicating Soybean data (for missing crop types)
-  # "Other" state already exists in the input data
-  drought_factors_other_crop <- drought_factors |>
-    dplyr::filter(.data$subtype == "Soybean") |>
-    dplyr::mutate(subtype = "Other")
+  if (nrow(primary_rows) == 0) {
+    message(
+      "[build_indicator_wide] Primary indicator '", primary_indicator,
+      "' not found in hazard_assets; falling back to all indicators."
+    )
+    primary_rows <- hazard_assets
+  }
 
-  # Combine original data with "Other" crop type
-  drought_factors <- dplyr::bind_rows(
-    drought_factors,
-    drought_factors_other_crop
+  # Use variable names from config if available, otherwise fallback to indicator keys
+  indicator_cols <- vapply(names(hazard_config$indicators), function(k) {
+    var <- hazard_config$indicators[[k]]$variable
+    if (!is.null(var) && nzchar(var)) var else k
+  }, character(1))
+  
+  # Also include indicator keys as fallback in case they are already in hazard_assets
+  # but NOT in config variable names
+  all_indicator_cols <- unique(c(names(hazard_config$indicators), indicator_cols))
+  
+  # Build wide indicator table explicitly per indicator to avoid losing values
+  indicator_wide <- hazard_assets |>
+    dplyr::select("asset", "event_id") |>
+    dplyr::distinct()
+
+  for (indicator_key in names(hazard_config$indicators)) {
+    indicator_cfg <- hazard_config$indicators[[indicator_key]]
+    indicator_var <- indicator_cfg$variable
+    if (is.null(indicator_var) || !nzchar(indicator_var)) {
+      indicator_var <- indicator_key
+    }
+
+    candidate_cols <- intersect(c(indicator_var, indicator_key), names(hazard_assets))
+    if (length(candidate_cols) == 0) {
+      next
+    }
+
+    # FIX: Use !! to force evaluation of loop variable in dplyr context
+    # The issue was that .data$hazard_indicator == indicator_key wasn't capturing indicator_key correctly
+    indicator_key_val <- indicator_key  # Capture loop variable
+    indicator_rows <- hazard_assets |>
+      dplyr::filter(.data$hazard_indicator == !!indicator_key_val)
+
+    # Fallbacks: sometimes hazard_indicator uses variable name or indicator_key is stored in indicator_key column
+    if (nrow(indicator_rows) == 0 && "hazard_indicator" %in% names(hazard_assets)) {
+      indicator_var_val <- indicator_var  # Capture variable
+      indicator_rows <- hazard_assets |>
+        dplyr::filter(.data$hazard_indicator == !!indicator_var_val)
+    }
+    if (nrow(indicator_rows) == 0 && "indicator_key" %in% names(hazard_assets)) {
+      pattern_val <- paste0("^", indicator_var, "__")  # Capture pattern
+      indicator_rows <- hazard_assets |>
+        dplyr::filter(grepl(!!pattern_val, .data$indicator_key))
+    }
+    
+    if (nrow(indicator_rows) == 0) {
+      next
+    }
+    
+    indicator_vals <- indicator_rows |>
+      dplyr::select("asset", "event_id", dplyr::any_of(c(candidate_cols, "hazard_intensity"))) |>
+      dplyr::group_by(.data$asset, .data$event_id) |>
+      dplyr::summarize(
+        dplyr::across(dplyr::any_of(c(candidate_cols, "hazard_intensity")), function(x) {
+          non_na <- x[!is.na(x)]
+          unique_vals <- unique(non_na)
+          if (length(unique_vals) > 1) {
+            stop(
+              "[build_indicator_wide] Multiple values for indicator '", indicator_key,
+              "' and asset '", dplyr::first(.data$asset), "' in event '", dplyr::first(.data$event_id),
+              "'. This indicates a bug earlier in the pipeline."
+            )
+          }
+          if (length(unique_vals) == 0) NA else unique_vals[[1]]
+        }),
+        .groups = "drop"
+      )
+
+    # Normalize to the variable name used downstream (fallback to hazard_intensity)
+    if (indicator_var %in% names(indicator_vals)) {
+      indicator_vals <- indicator_vals |>
+        dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
+    } else if (indicator_key %in% names(indicator_vals)) {
+      indicator_vals <- indicator_vals |>
+        dplyr::rename(!!indicator_var := .data[[indicator_key]]) |>
+        dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
+    } else if ("hazard_intensity" %in% names(indicator_vals)) {
+      indicator_vals <- indicator_vals |>
+        dplyr::rename(!!indicator_var := .data$hazard_intensity) |>
+        dplyr::select("asset", "event_id", dplyr::all_of(indicator_var))
+    }
+
+    indicator_wide <- dplyr::left_join(
+      indicator_wide,
+      indicator_vals,
+      by = c("asset", "event_id")
+    )
+  }
+
+  # Get all indicator index dimensions dynamically
+  index_indicator <- hazard_config$index_indicator
+  if (is.null(index_indicator) || !nzchar(as.character(index_indicator))) {
+    index_indicator <- primary_indicator
+  }
+  
+  # Prepare base table from primary rows, keeping all non-indicator columns
+  # CRITICAL: Ensure primary_rows has exactly one entry per asset/event
+  primary_dups <- primary_rows |>
+    dplyr::count(.data$asset, .data$event_id) |>
+    dplyr::filter(.data$n > 1)
+  
+  if (nrow(primary_dups) > 0) {
+    stop(
+      "[build_indicator_wide] Detected duplicate rows in primary indicator '", primary_indicator,
+      "' for asset '", primary_dups$asset[1], "' in event '", primary_dups$event_id[1], "'. ",
+      "This indicates a bug earlier in the pipeline."
+    )
+  }
+
+  base_table <- primary_rows |>
+    dplyr::select(-dplyr::any_of(all_indicator_cols))
+  
+  base_table <- dplyr::left_join(
+    base_table,
+    indicator_wide,
+    by = c("asset", "event_id"),
+    relationship = "one-to-one"
   )
 
-  # Get list of state+crop combinations that exist (for matching logic)
-  state_crop_combinations <- drought_factors |>
-    dplyr::filter(.data$state != "Other", .data$subtype != "Other") |>
-    dplyr::distinct(.data$state, .data$subtype)
-
-  # Prepare assets: determine matching keys based on what exists in damage factors
-  drought_assets_prepared <- drought_assets |>
-    dplyr::mutate(
-      # Normalize missing/empty values
-      asset_subtype_clean = dplyr::if_else(
-        is.na(.data$asset_subtype) | .data$asset_subtype == "",
-        "Other",
-        .data$asset_subtype
-      ),
-      state_clean = dplyr::if_else(
-        is.na(.data$state) | .data$state == "",
-        "Other",
-        .data$state
-      ),
-      # Asset identifier for tracking
-      asset_id = dplyr::row_number()
-    ) |>
-    # Check if state+crop combination exists
-    dplyr::left_join(
-      state_crop_combinations |> dplyr::mutate(combo_exists = TRUE),
-      by = c("state_clean" = "state", "asset_subtype_clean" = "subtype")
-    ) |>
-    dplyr::mutate(
-      combo_exists = !is.na(.data$combo_exists),
-      # Matching logic based on what exists:
-      # - If combo exists: use actual state + actual crop
-      # - If crop exists but not in this state: use "Other" state + actual crop
-      # - If crop doesn't exist at all: use actual state + "Other" crop (will then fallback to "Other" state in join)
-      subtype_for_match = .data$asset_subtype_clean, # Always use actual crop (or "Other" if missing)
-      state_for_match = dplyr::if_else(
-        .data$combo_exists,
-        .data$state_clean, # Combo exists, use actual state
-        "Other" # Combo doesn't exist, use "Other" state
-      )
-    ) |>
-    dplyr::select(-"combo_exists", -"asset_subtype_clean", -"state_clean")
-
-  # Handle assets with intensity > -1 (no damage) early
-  assets_no_damage <- drought_assets_prepared |>
-    dplyr::filter(.data$hazard_intensity > -1) |>
-    dplyr::mutate(
-      damage_factor = 0,
-      off_window = NA_real_,
-      growing_season = NA_character_,
-      cost_factor = NA_real_,
-      business_disruption = NA_real_
-    ) |>
-    dplyr::select(-dplyr::any_of(c("subtype_for_match", "state_for_match", "asset_id")))
-
-  # Continue with assets that need damage factor lookup (intensity <= -1)
-  drought_assets_prepared <- drought_assets_prepared |>
-    dplyr::filter(.data$hazard_intensity <= -1)
-
-  # Step 1: EXACT MATCH - Try state + subtype + season combinations
-  # Priority: actual state + actual crop, then fallbacks
-  merged_exact <- drought_assets_prepared |>
-    dplyr::inner_join(
-      drought_factors,
-      by = c("state_for_match" = "state", "subtype_for_match" = "subtype", "season" = "growing_season"),
-      relationship = "many-to-many"
-    )
-
-  # Only process intensity matching if we have matches
-  if (nrow(merged_exact) > 0) {
-    merged_exact <- merged_exact |>
-      dplyr::mutate(
-        intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
-      ) |>
-      dplyr::group_by(.data$asset_id) |>
-      dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
-      dplyr::ungroup() |>
-      dplyr::mutate(
-        match_type = "exact_season",
-        growing_season = .data$season # After join, season contains the matched growing season
-      )
-  } else {
-    # No matches found, create empty data frame with expected structure
-    merged_exact <- merged_exact |>
-      dplyr::mutate(
-        match_type = "exact_season",
-        growing_season = .data$season
-      )
-  }
-
-  # Step 2: OFF-SEASON MATCH - state + subtype (all seasons, will average)
-  # Join handles all combinations: actual prov + actual crop, actual prov + Other crop, Other prov + actual crop, Other prov + Other crop
-  assets_no_exact_match <- drought_assets_prepared |>
-    dplyr::anti_join(
-      merged_exact |> dplyr::select("asset_id") |> dplyr::distinct(),
-      by = "asset_id"
-    )
-
-  merged_off_season <- NULL
-  if (nrow(assets_no_exact_match) > 0) {
-    merged_off_season <- assets_no_exact_match |>
-      dplyr::inner_join(
-        drought_factors,
-        by = c("state_for_match" = "state", "subtype_for_match" = "subtype"),
-        relationship = "many-to-many"
-      )
-
-    # Only process intensity matching if we have matches
-    if (nrow(merged_off_season) > 0) {
-      merged_off_season <- merged_off_season |>
-        dplyr::mutate(
-          intensity_diff = abs(.data$hazard_intensity_num - as.numeric(.data$hazard_intensity))
-        ) |>
-        dplyr::group_by(.data$asset_id) |>
-        dplyr::filter(.data$intensity_diff == min(.data$intensity_diff)) |>
-        dplyr::ungroup() |>
-        dplyr::mutate(match_type = "off_season")
-    } else {
-      # No matches found, create empty data frame
-      merged_off_season <- merged_off_season
-    }
-  }
-
-  # Combine all matches (no Step 3 needed - "Other" crop is already in damage factors)
-  all_matched <- dplyr::bind_rows(merged_exact, merged_off_season)
-
-  # Step 4: Process results - intensity matching already done in earlier steps
-  if (nrow(all_matched) > 0) {
-    # For exact_season: use damage factor directly
-    # These already have closest intensity from Step 1
-    result_exact_matches <- all_matched |>
-      dplyr::filter(.data$match_type == "exact_season") |>
-      dplyr::group_by(.data$asset_id) |>
-      dplyr::slice(1) |>
-      dplyr::ungroup() |>
-      dplyr::mutate(
-        damage_factor = .data$damage_factor_value,
-        off_window = .data$off_window_value
-        # growing_season is already in the data from the join
-      )
-
-    # For off_season: average and apply off_window
-    # These already have closest intensity from Step 2
-    off_season_data <- all_matched |>
-      dplyr::filter(.data$match_type == "off_season")
-
-    if (nrow(off_season_data) > 0) {
-      result_off_season_matches <- off_season_data |>
-        dplyr::group_by(.data$asset_id) |>
-        dplyr::summarize(
-          # Keep all asset columns from first row
-          dplyr::across(dplyr::any_of(names(drought_assets_prepared)), dplyr::first),
-          # Average the damage factors and off_windows across all growing seasons
-          avg_damage_factor = mean(.data$damage_factor_value, na.rm = TRUE),
-          avg_off_window = mean(.data$off_window_value, na.rm = TRUE),
-          # Collect all growing seasons for this crop/state
-          seasons_list = paste(sort(unique(dplyr::pick("growing_season")$growing_season)), collapse = ", "),
-          .groups = "drop"
-        ) |>
-        dplyr::mutate(
-          damage_factor = .data$avg_damage_factor * .data$avg_off_window,
-          off_window = .data$avg_off_window,
-          growing_season = paste0("Averaged (", .data$seasons_list, ")")
-        ) |>
-        dplyr::select(-"avg_damage_factor", -"avg_off_window", -"seasons_list")
-    } else {
-      result_off_season_matches <- data.frame()
-    }
-
-    # Only keep off-season assets that weren't already exact matched
-    if (nrow(result_off_season_matches) > 0 && nrow(result_exact_matches) > 0) {
-      assets_with_exact_match <- result_exact_matches |> dplyr::pull(.data$asset_id)
-      result_off_season_matches <- result_off_season_matches |>
-        dplyr::filter(!(.data$asset_id %in% assets_with_exact_match))
-    }
-
-    # Combine both cases
-    result_with_factors <- dplyr::bind_rows(
-      result_exact_matches |> dplyr::select(dplyr::any_of(c(names(drought_assets_prepared), "damage_factor", "off_window", "growing_season"))),
-      result_off_season_matches
-    )
-  } else {
-    result_with_factors <- data.frame()
-  }
-
-  # Step 5: Handle unmatched assets (those that didn't match any crop/state)
-  all_asset_ids <- if (nrow(result_with_factors) > 0) {
-    result_with_factors |> dplyr::pull(.data$asset_id)
-  } else {
-    integer(0)
-  }
-
-  result_no_factors <- drought_assets_prepared |>
-    dplyr::filter(!(.data$asset_id %in% all_asset_ids)) |>
-    dplyr::mutate(
-      damage_factor = 0, # No match means no damage
-      off_window = NA_real_,
-      growing_season = NA_character_
-    )
-
-  # Combine all results (matched, unmatched, and no-damage assets)
-  drought_merged <- dplyr::bind_rows(result_with_factors, result_no_factors, assets_no_damage) |>
-    dplyr::mutate(
-      cost_factor = NA_real_,
-      business_disruption = NA_real_
-    ) |>
-    dplyr::select(
-      -dplyr::any_of(c(
-        "subtype_for_match",
-        "state_for_match",
-        "asset_id",
-        "intensity_diff",
-        "match_type",
-        "damage_factor_value",
-        "off_window_value",
-        "hazard_intensity_num"
-      ))
-    )
-
-  # Filter to agriculture assets only (drought only affects agriculture)
-  drought_merged <- drought_merged |>
-    dplyr::filter(.data$asset_category == "agriculture")
-
-  return(drought_merged)
+  return(base_table)
 }
 
-#' Join Fire damage factors using multi-indicator approach (internal function)
+#' Read hazard mapping table (internal)
 #'
-#' @description
-#' Fire hazard uses three indicators simultaneously:
-#' - land_cover: categorical raster (extracted with mode)
-#' - FWI: Fire Weather Index max value (capped at 50)
-#' - days_danger_total: number of days with significant fire weather
-#'
-#' The damage formula combines all three:
-#' - Commercial/Industrial (profit): land_cover_risk × damage_factor(FWI) × (days/365) × cost_factor
-#' - Agriculture (revenue): land_cover_risk × damage_factor(FWI) × (days/365)
-#'
-#' @param fire_assets Data frame with Fire hazard assets in long format (one row per asset per indicator)
-#' @param damage_factors_df Data frame with damage and cost factors lookup table
-#' @param land_cover_legend Optional tibble with land cover legend (columns: land_cover_code, land_cover_risk).
-#'   If NULL, all assets get default 0.50 risk.
-#' @return Data frame with columns: damage_factor, cost_factor, business_disruption, land_cover_risk,
-#'   hazard_intensity (FWI value), days_danger_total (for traceability)
+#' @param mappings_dir Character directory containing mapping tables
+#' @param mapping_file Character filename for mapping table
+#' @return Tibble with mapping data
 #' @noRd
-join_fire_damage_factors <- function(fire_assets, damage_factors_df, land_cover_legend = NULL) {
-  message("[join_fire_damage_factors] Processing Fire hazard with multi-indicator approach...")
-
-  # Save the FWI metadata before pivoting (we'll use FWI as the primary indicator)
-  # FWI is the primary indicator, so we use its scenario/RP/hazard_name for the consolidated row
-  fwi_metadata <- fire_assets |>
-    dplyr::filter(.data$hazard_indicator == "FWI") |>
-    dplyr::select(
-      "asset", "event_id",
-      fwi_hazard_name = "hazard_name",
-      fwi_hazard_return_period = "hazard_return_period",
-      fwi_scenario_name = "scenario_name",
-      fwi_season = "season",
-      fwi_ensemble = "ensemble",
-      fwi_source = "source"
-    )
-
-  # Pivot from long to wide format to get all three indicators per asset
-  # Each asset should have 3 rows: land_cover, FWI, days_danger_total
-  # IMPORTANT: Don't include scenario/RP columns before pivoting, as they vary by indicator
-  fire_wide <- fire_assets |>
-    dplyr::select(
-      "asset", "company", "latitude", "longitude", "municipality", "state",
-      "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
-      "cnae", "hazard_type", "hazard_indicator", "hazard_intensity",
-      "matching_method", "event_id", "event_year"
-    ) |>
-    # Pivot wider to get columns: land_cover, FWI, days_danger_total
-    tidyr::pivot_wider(
-      names_from = "hazard_indicator",
-      values_from = "hazard_intensity",
-      values_fn = mean # In case of duplicates, take mean
-    ) |>
-    # Join back the FWI metadata (hazard_name, scenario, RP, source)
-    dplyr::left_join(fwi_metadata, by = c("asset", "event_id")) |>
-    dplyr::rename(
-      hazard_name = "fwi_hazard_name",
-      hazard_return_period = "fwi_hazard_return_period",
-      scenario_name = "fwi_scenario_name",
-      season = "fwi_season",
-      ensemble = "fwi_ensemble",
-      source = "fwi_source"
-    )
-
-  message("  Pivoted ", nrow(fire_assets), " long-format rows to ", nrow(fire_wide), " wide-format assets")
-
-  # Check that we have the expected columns
-  if (!all(c("land_cover", "FWI", "days_danger_total") %in% names(fire_wide))) {
-    missing_indicators <- setdiff(c("land_cover", "FWI", "days_danger_total"), names(fire_wide))
-    warning("Fire hazard missing expected indicators: ", paste(missing_indicators, collapse = ", "))
-    # Add missing columns with NA
-    for (ind in missing_indicators) {
-      fire_wide[[ind]] <- NA_real_
-    }
+read_hazard_mapping_table <- function(mappings_dir, mapping_file) {
+  table_path <- file.path(mappings_dir, mapping_file)
+  if (!file.exists(table_path)) {
+    stop("Mapping table not found: ", table_path)
   }
 
-  # Step 1: Join land_cover_code with legend to get land_cover_risk
-  if (!is.null(land_cover_legend) && nrow(land_cover_legend) > 0) {
-    fire_wide <- fire_wide |>
-      dplyr::left_join(
-        land_cover_legend |>
-          dplyr::select("land_cover_code", "land_cover_risk"),
-        by = c("land_cover" = "land_cover_code")
-      )
-  } else {
-    # No legend provided - all assets get NA which will be replaced with default
-    fire_wide <- fire_wide |>
-      dplyr::mutate(land_cover_risk = NA_real_)
+  ext <- tolower(tools::file_ext(table_path))
+  if (ext == "csv") {
+    return(readr::read_csv(table_path, show_col_types = FALSE) |> tibble::as_tibble())
+  }
+  if (ext %in% c("xlsx", "xls")) {
+    return(readxl::read_excel(table_path) |> tibble::as_tibble())
   }
 
-  # Step 2: Apply default land_cover_risk = 0.50 for assets without coordinates
-  # (they don't have land cover extraction)
-  fire_wide <- fire_wide |>
-    dplyr::mutate(
-      land_cover_risk = dplyr::if_else(
-        is.na(.data$latitude) | is.na(.data$land_cover_risk),
-        0.5,
-        .data$land_cover_risk
-      )
-    )
+  stop("Unsupported mapping table extension: ", ext)
+}
 
-  message("  Applied land cover risk (default 0.50 for assets without coordinates)")
+#' Apply intensity matching strategy (internal)
+#'
+#' @param asset_df Data frame with indicator columns
+#' @param mapping_df Mapping table data frame
+#' @param intensity_cols Character vector of intensity column names
+#' @param match_type Character match type ("exact" or "closest")
+#' @return Updated asset_df with intensity columns adjusted
+#' @noRd
+apply_intensity_matching <- function(asset_df, mapping_df, intensity_cols, match_type) {
+  # If no intensity columns, nothing to do
+  if (length(intensity_cols) == 0) {
+    return(asset_df)
+  }
+  
+  # Default to "closest" matching for continuous intensity values
+  if (is.null(match_type)) {
+    match_type <- "closest"
+  }
+  
+  # If explicitly set to "exact", skip intensity matching
+  if (match_type == "exact") {
+    return(asset_df)
+  }
 
-  # Step 3: Cap FWI at maximum 50
-  fire_wide <- fire_wide |>
-    dplyr::mutate(
-      FWI_capped = pmin(.data$FWI, 50, na.rm = TRUE),
-      FWI_capped = dplyr::coalesce(.data$FWI_capped, 0) # Replace NA with 0
-    )
+  if (match_type != "closest") {
+    stop("Unsupported intensity_match: ", match_type)
+  }
+  if (length(intensity_cols) != 1) {
+    stop("closest intensity_match supports exactly one intensity column")
+  }
 
-  # Step 4: Round FWI for damage factor lookup
-  fire_wide <- fire_wide |>
-    dplyr::mutate(
-      FWI_rounded = round(.data$FWI_capped)
-    )
+  intensity_col <- intensity_cols[[1]]
+  if (!intensity_col %in% names(asset_df) || !intensity_col %in% names(mapping_df)) {
+    return(asset_df)
+  }
 
-  # Step 5: Join with damage_factors to get FWI-based damage_factor and cost_factor
-  fire_factors <- damage_factors_df |>
-    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "FWI") |>
-    dplyr::select(
-      "asset_category",
-      FWI_rounded = "hazard_intensity",
-      "damage_factor",
-      "cost_factor"
-    ) |>
-    dplyr::mutate(
-      FWI_rounded = as.numeric(.data$FWI_rounded),
-      damage_factor = as.numeric(.data$damage_factor),
-      cost_factor = as.numeric(.data$cost_factor)
-    )
+  mapping_vals <- suppressWarnings(as.numeric(mapping_df[[intensity_col]]))
+  mapping_vals <- sort(unique(mapping_vals[!is.na(mapping_vals)]))
+  if (length(mapping_vals) == 0) {
+    return(asset_df)
+  }
 
-  # Join damage factors
-  fire_wide <- fire_wide |>
-    dplyr::left_join(
-      fire_factors,
-      by = c("asset_category", "FWI_rounded")
-    )
+  asset_vals <- suppressWarnings(as.numeric(asset_df[[intensity_col]]))
+  closest_vals <- vapply(asset_vals, function(x) {
+    if (is.na(x)) return(NA_real_)
+    mapping_vals[which.min(abs(mapping_vals - x))]
+  }, numeric(1))
 
-  # Handle missing damage factors (set to 0)
-  fire_wide <- fire_wide |>
-    dplyr::mutate(
-      damage_factor = dplyr::coalesce(.data$damage_factor, 0),
-      cost_factor = dplyr::coalesce(.data$cost_factor, NA_real_)
-    )
-
-  message("  Joined FWI-based damage factors")
-
-  # Step 6: Ensure days_danger_total is coalesced (for use in shock functions)
-  # Note: Full fire damage calculation happens in shock functions, not here
-  # The damage_factor column should contain the base value from CSV (e.g., 0.15)
-  fire_wide <- fire_wide |>
-    dplyr::mutate(
-      days_danger_total = dplyr::coalesce(.data$days_danger_total, 0)
-    )
-
-  message("  Keeping base damage_factor from CSV (full calculation in shock functions)")
-
-  # Step 7: Prepare output with traceability columns
-  fire_result <- fire_wide |>
-    dplyr::mutate(
-      # Keep the original damage_factor from CSV lookup (base value like 0.15)
-      # Set business_disruption to NA (not used for Fire)
-      business_disruption = NA_real_,
-      # Keep traceability columns
-      hazard_intensity = .data$FWI, # Use standard hazard_intensity column (contains FWI value)
-      # hazard_name is already the FWI hazard_name (from the join above)
-      # Set hazard_indicator to FWI (primary indicator for Fire)
-      hazard_indicator = "FWI"
-    ) |>
-    dplyr::select(
-      "asset", "company", "latitude", "longitude", "municipality", "state",
-      "asset_category", "asset_subtype", "size_in_m2", "share_of_economic_activity",
-      "cnae", "hazard_name", "hazard_type", "hazard_indicator", "hazard_return_period",
-      "scenario_name", "season", "ensemble", "source", "matching_method", "event_id", "event_year",
-      "damage_factor", "cost_factor", "business_disruption",
-      "land_cover_risk", "hazard_intensity", "days_danger_total"
-    )
-
-  message("  Fire damage factors joined for ", nrow(fire_result), " assets")
-
-  return(fire_result)
+  asset_df[[intensity_col]] <- closest_vals
+  return(asset_df)
 }

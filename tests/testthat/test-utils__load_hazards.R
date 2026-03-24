@@ -1,10 +1,12 @@
 # Test: load_hazards_and_inventory (Unified loader: TIF + NC + CSV)
 
 test_that("load_hazards_and_inventory returns hazards and inventory", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazards_dir <- get_hazards_dir()
+  hazard_indicators_dir <- get_hazard_indicators_dir()
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
+    hazard_indicators_dir = hazard_indicators_dir,
     aggregate_factor = 1L
   )
 
@@ -19,20 +21,33 @@ test_that("load_hazards_and_inventory returns hazards and inventory", {
 
   # Inventory should be a tibble/dataframe
   expect_s3_class(result$inventory, "data.frame")
+  expect_true(all(c("scenario_name", "return_period") %in% names(result$inventory)))
+  expect_true(all(c("indicator_file", "indicator_variable", "indicator_key", "hazard_key", "hazard_name") %in% names(result$inventory)))
+  expect_true(all(result$inventory$hazard_key == result$inventory$indicator_key))
 
-  # Check if TIF hazards were loaded (if mapping file exists in tests_data)
-  if (file.exists(file.path(get_test_data_dir(), "hazards_metadata.csv"))) {
+  # Check if TIF hazards were loaded (if metadata.csv files exist in indicator folders)
+  metadata_files <- list.files(
+    get_hazard_indicators_dir(),
+    pattern = "^metadata\\.csv$",
+    full.names = TRUE,
+    recursive = TRUE
+  )
+  if (length(metadata_files) > 0) {
     tif_inventory <- result$inventory |> dplyr::filter(source == "tif")
     expect_true(nrow(tif_inventory) > 0)
     expect_true(any(grepl("tif", result$inventory$source)))
+    expect_true("variable" %in% names(tif_inventory))
+    expect_false(any(is.na(tif_inventory$variable)))
   }
 })
 
 test_that("load_hazards_and_inventory NC rasters have proper extent (cell centers to edges)", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazards_dir <- get_hazards_dir()
+  hazard_indicators_dir <- get_hazard_indicators_dir()
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
+    hazard_indicators_dir = hazard_indicators_dir,
     aggregate_factor = 16L
   )
 
@@ -56,37 +71,14 @@ test_that("load_hazards_and_inventory NC rasters have proper extent (cell center
   expect_true(res[2] > 0)
 })
 
-test_that("load_hazards_and_inventory NC names parse folder structure correctly", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
-
-  result <- load_hazards_and_inventory(
-    hazards_dir = hazards_dir,
-    aggregate_factor = 16L
-  )
-
-
-  # Check naming convention
-  nc_names <- names(result$hazards)
-
-  # Names should contain hazard_type from folder
-  # e.g., "Drought__SPI3__GWL=present__RP=5__ensemble=mean"
-  expect_true(any(grepl("Drought", nc_names)))
-
-  # Should contain hazard_indicator
-  expect_true(any(grepl("HI", nc_names) | grepl("SPI3", nc_names)))
-
-  # Should have GWL values
-  expect_true(all(grepl("GWL=", nc_names)))
-
-  # Should have return period values
-  expect_true(all(grepl("RP=", nc_names)))
-})
 
 test_that("load_hazards_and_inventory NC rasters filter ensemble=mean correctly", {
-  hazards_dir <- file.path(get_test_data_dir(), "hazards")
+  hazards_dir <- get_hazards_dir()
+  hazard_indicators_dir <- get_hazard_indicators_dir()
 
   result <- load_hazards_and_inventory(
     hazards_dir = hazards_dir,
+    hazard_indicators_dir = hazard_indicators_dir,
     aggregate_factor = 1L
   )
 

@@ -1,7 +1,7 @@
 # Tests for expand_multi_indicator_events
 
 # Contract:
-# - expand_multi_indicator_events(events, hazards_inventory)
+# - expand_multi_indicator_events(events, hazards_inventory, hazard_configs)
 # - Expands multi-indicator hazards (Fire) into multiple events (one per indicator)
 # - Single-indicator hazards pass through unchanged
 # - All expanded events share same event_id and event_year
@@ -10,23 +10,27 @@
 
 testthat::test_that("expand_multi_indicator_events expands single Fire event into 3 indicator events", {
   base_dir <- get_test_data_dir()
-  hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
   hazards_inventory <- hazards_data$inventory
+  hazard_configs <- hazards_data$configs
 
   # Create a single Fire event (user-selected)
   events <- tibble::tibble(
     event_id = "event_fire_1",
     hazard_type = "Fire",
-    hazard_indicator = "FWI", # Primary indicator
-    hazard_name = "Fire__FWI__GWL=present__RP=10__ensemble=mean",
+    hazard_indicator = "fire_weather_index", # Primary indicator
+    hazard_name = "Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean",
     scenario_name = "present",
-    scenario_code = "present",
-    hazard_return_period = 10,
+    return_period = 10,
     event_year = 2030,
     season = NA_character_
   )
 
-  expanded <- expand_multi_indicator_events(events, hazards_inventory)
+  expanded <- expand_multi_indicator_events(events, hazards_inventory, hazard_configs)
 
   # Should expand to 3 events (one per indicator)
   testthat::expect_equal(nrow(expanded), 3)
@@ -40,29 +44,33 @@ testthat::test_that("expand_multi_indicator_events expands single Fire event int
   # Should have all three indicators
   indicators <- unique(expanded$hazard_indicator)
   testthat::expect_true("land_cover" %in% indicators)
-  testthat::expect_true("FWI" %in% indicators)
+  testthat::expect_true("fire_weather_index" %in% indicators)
   testthat::expect_true("days_danger_total" %in% indicators)
 })
 
 testthat::test_that("expand_multi_indicator_events sets correct scenario/RP for each Fire indicator", {
   base_dir <- get_test_data_dir()
-  hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
   hazards_inventory <- hazards_data$inventory
+  hazard_configs <- hazards_data$configs
 
   # Create Fire event with user-selected scenario/RP
   events <- tibble::tibble(
     event_id = "event_fire_1",
     hazard_type = "Fire",
-    hazard_indicator = "FWI",
-    hazard_name = "Fire__FWI__GWL=present__RP=10__ensemble=mean",
+    hazard_indicator = "fire_weather_index",
+    hazard_name = "Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean",
     scenario_name = "present",
-    scenario_code = "present",
-    hazard_return_period = 10,
+    return_period = 10,
     event_year = 2030,
     season = NA_character_
   )
 
-  expanded <- expand_multi_indicator_events(events, hazards_inventory)
+  expanded <- expand_multi_indicator_events(events, hazards_inventory, hazard_configs)
 
   # land_cover should use static scenario/RP from inventory
   land_cover_event <- expanded |> dplyr::filter(.data$hazard_indicator == "land_cover")
@@ -71,36 +79,40 @@ testthat::test_that("expand_multi_indicator_events sets correct scenario/RP for 
   testthat::expect_true(grepl("land_cover", land_cover_event$hazard_name[1], fixed = TRUE))
 
   # FWI and days_danger_total should use user-selected scenario/RP
-  fwi_event <- expanded |> dplyr::filter(.data$hazard_indicator == "FWI")
+  fwi_event <- expanded |> dplyr::filter(.data$hazard_indicator == "fire_weather_index")
   testthat::expect_equal(nrow(fwi_event), 1)
   testthat::expect_equal(fwi_event$scenario_name[1], "present")
-  testthat::expect_equal(fwi_event$hazard_return_period[1], 10)
+  testthat::expect_equal(fwi_event$return_period[1], 10)
 
   days_event <- expanded |> dplyr::filter(.data$hazard_indicator == "days_danger_total")
   testthat::expect_equal(nrow(days_event), 1)
   testthat::expect_equal(days_event$scenario_name[1], "present")
-  testthat::expect_equal(days_event$hazard_return_period[1], 10)
+  testthat::expect_equal(days_event$return_period[1], 10)
 })
 
 testthat::test_that("expand_multi_indicator_events passes through single-indicator hazards unchanged", {
   base_dir <- get_test_data_dir()
-  hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
   hazards_inventory <- hazards_data$inventory
+  hazard_configs <- hazards_data$configs
 
   # Create single-indicator hazards (Flood, Heat, Drought)
   events <- tibble::tibble(
     event_id = c("event_flood_1", "event_compound_1", "event_drought_1"),
     hazard_type = c("Flood", "Heat", "Drought"),
-    hazard_indicator = c("depth(cm)", "HI", "SPI3"),
-    hazard_name = c("Flood__depth(cm)__GWL=RCP8.5__RP=10__ensemble=mean", "Compound__HI__GWL=present__RP=10__ensemble=mean", "Drought__SPI3__GWL=present__RP=10__ensemble=mean"),
-    scenario_name = c("RCP8.5", "present", "present"),
-    scenario_code = c("rcp85", "present", "present"),
-    hazard_return_period = c(10, 10, 10),
+    hazard_indicator = c("flood_depth", "heat_index", "standardized_precipitation_index_3"),
+    hazard_name = c("Flood__flood_depth__GWL=rcp85__RP=10__ensemble=mean", "Heat__heat_index__GWL=present__RP=10__ensemble=mean", "Drought__standardized_precipitation_index_3__GWL=present__RP=10__ensemble=mean"),
+    scenario_name = c("rcp85", "present", "present"),
+    return_period = c(10, 10, 10),
     event_year = c(2030, 2030, 2030),
     season = c(NA_character_, NA_character_, "Summer")
   )
 
-  expanded <- expand_multi_indicator_events(events, hazards_inventory)
+  expanded <- expand_multi_indicator_events(events, hazards_inventory, hazard_configs)
 
   # Should have same number of events (no expansion)
   testthat::expect_equal(nrow(expanded), 3)
@@ -116,23 +128,27 @@ testthat::test_that("expand_multi_indicator_events passes through single-indicat
 
 testthat::test_that("expand_multi_indicator_events preserves event metadata", {
   base_dir <- get_test_data_dir()
-  hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
   hazards_inventory <- hazards_data$inventory
+  hazard_configs <- hazards_data$configs
 
   # Create Fire event with metadata
   events <- tibble::tibble(
     event_id = "event_fire_1",
     hazard_type = "Fire",
-    hazard_indicator = "FWI",
-    hazard_name = "Fire__FWI__GWL=present__RP=10__ensemble=mean",
+    hazard_indicator = "fire_weather_index",
+    hazard_name = "Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean",
     scenario_name = "present",
-    scenario_code = "present",
-    hazard_return_period = 10,
+    return_period = 10,
     event_year = 2030,
     season = "Summer" # Preserve this
   )
 
-  expanded <- expand_multi_indicator_events(events, hazards_inventory)
+  expanded <- expand_multi_indicator_events(events, hazards_inventory, hazard_configs)
 
   # All expanded events should have same event_year and season
   testthat::expect_true(all(expanded$event_year == 2030))
@@ -142,23 +158,27 @@ testthat::test_that("expand_multi_indicator_events preserves event metadata", {
 
 testthat::test_that("expand_multi_indicator_events handles mixed multi and single-indicator events", {
   base_dir <- get_test_data_dir()
-  hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
   hazards_inventory <- hazards_data$inventory
+  hazard_configs <- hazards_data$configs
 
   # Mix of Fire (multi) and Flood (single)
   events <- tibble::tibble(
     event_id = c("event_fire_1", "event_flood_1"),
     hazard_type = c("Fire", "Flood"),
-    hazard_indicator = c("FWI", "depth(cm)"),
-    hazard_name = c("Fire__FWI__GWL=present__RP=10__ensemble=mean", "Flood__depth(cm)__GWL=RCP8.5__RP=10__ensemble=mean"),
-    scenario_name = c("present", "RCP8.5"),
-    scenario_code = c("present", "rcp85"),
-    hazard_return_period = c(10, 10),
+    hazard_indicator = c("fire_weather_index", "flood_depth"),
+    hazard_name = c("Fire__fire_weather_index__GWL=present__RP=10__ensemble=mean", "Flood__flood_depth__GWL=rcp85__RP=10__ensemble=mean"),
+    scenario_name = c("present", "rcp85"),
+    return_period = c(10, 10),
     event_year = c(2030, 2030),
     season = c(NA_character_, NA_character_)
   )
 
-  expanded <- expand_multi_indicator_events(events, hazards_inventory)
+  expanded <- expand_multi_indicator_events(events, hazards_inventory, hazard_configs)
 
   # Should have 3 Fire events + 1 Flood = 4 total
   testthat::expect_equal(nrow(expanded), 4)
@@ -174,8 +194,13 @@ testthat::test_that("expand_multi_indicator_events handles mixed multi and singl
 
 testthat::test_that("expand_multi_indicator_events handles empty events", {
   base_dir <- get_test_data_dir()
-  hazards_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
   hazards_inventory <- hazards_data$inventory
+  hazard_configs <- hazards_data$configs
 
   # Empty events
   events <- tibble::tibble(
@@ -184,13 +209,12 @@ testthat::test_that("expand_multi_indicator_events handles empty events", {
     hazard_indicator = character(0),
     hazard_name = character(0),
     scenario_name = character(0),
-    scenario_code = character(0),
-    hazard_return_period = numeric(0),
+    return_period = numeric(0),
     event_year = integer(0),
     season = character(0)
   )
 
-  expanded <- expand_multi_indicator_events(events, hazards_inventory)
+  expanded <- expand_multi_indicator_events(events, hazards_inventory, hazard_configs)
 
   # Should return empty
   testthat::expect_equal(nrow(expanded), 0)

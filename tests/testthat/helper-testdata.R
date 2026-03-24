@@ -25,7 +25,11 @@ options(climate_risk_tool_nc_aggregate_factor = 16L)
 
 
 get_hazards_dir <- function() {
-  get_test_data_dir("hazards")
+  get_test_data_dir("hazards", "config")
+}
+
+get_hazard_indicators_dir <- function() {
+  get_test_data_dir("hazards", "indicators")
 }
 
 trySuppressWarnings <- function(expr) {

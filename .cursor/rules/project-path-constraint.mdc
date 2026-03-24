@@ -1,0 +1,4 @@
+# Use specific project path for build/check
+
+All build and check operations MUST use the following project path to avoid issues with the `workspace` folder:
+`/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool_checks/climate.risk.tool.Rproj`

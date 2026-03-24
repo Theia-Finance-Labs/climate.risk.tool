@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Convert hazard GeoTIFFs to NetCDF, stacking (GWL × return_period) using `hazards_metadata.csv`.
+Convert hazard GeoTIFFs to NetCDF, stacking (GWL × return_period) using `metadata.csv`.
 
 Notes:
 - NetCDF4 is NOT automatically compressed; compression must be enabled per-variable.
@@ -89,11 +89,26 @@ class TifHazardSpec:
 def _read_metadata(metadata_csv: str) -> pd.DataFrame:
     df = pd.read_csv(metadata_csv)
     df.columns = df.columns.str.strip()
+    required_cols = [
+        "hazard_file",
+        "hazard_type",
+        "hazard_indicator",
+        "scenario_name",
+        "return_period",
+    ]
+    missing = [c for c in required_cols if c not in df.columns]
+    if missing:
+        # Check for legacy 'gwl' column
+        if "gwl" in df.columns:
+            df = df.rename(columns={"gwl": "scenario_name"})
+        else:
+            raise ValueError(
+                "Metadata CSV missing required columns: " + ", ".join(missing)
+            )
     for c in [
         "hazard_file",
         "hazard_type",
         "hazard_indicator",
-        "scenario_code",
         "scenario_name",
     ]:
         if c in df.columns:
@@ -166,9 +181,9 @@ def convert_tifs_to_ensemble_return_period_nc(
         )
 
     # Dimension values
-    gwl_vals = [str(x) for x in sorted(md["scenario_name"].unique(), key=str)]
-    rp_vals = sorted({int(float(x)) for x in md["hazard_return_period"].unique()})
-    gwl_to_idx = {v: i for i, v in enumerate(gwl_vals)}
+    scenario_vals = [str(x) for x in sorted(md["scenario_name"].unique(), key=str)]
+    rp_vals = sorted({int(float(x)) for x in md["return_period"].unique()})
+    scenario_to_idx = {v: i for i, v in enumerate(scenario_vals)}
     rp_to_idx = {v: i for i, v in enumerate(rp_vals)}
 
     # Open all sources once; validate grid consistency
@@ -178,9 +193,9 @@ def convert_tifs_to_ensemble_return_period_nc(
         for _, row in md.iterrows():
             tif_path = tif_index[row["hazard_file_norm"]]
             src = rasterio.open(tif_path)
-            rp = int(float(row["hazard_return_period"]))
-            gwl = str(row["scenario_name"])
-            sources.append((src, gwl_to_idx[gwl], rp_to_idx[rp], tif_path))
+            rp = int(float(row["return_period"]))
+            scenario = str(row["scenario_name"])
+            sources.append((src, scenario_to_idx[scenario], rp_to_idx[rp], tif_path))
             if ref is None:
                 ref = src
             else:
@@ -332,11 +347,11 @@ def convert_tifs_to_ensemble_return_period_nc(
             nc.Conventions = "CF-1.6"
 
             # Write each source into its slice, streaming by spatial tiles
-            for src, gwl_idx, rp_idx, tif_path in sources:
+            for src, scenario_idx, rp_idx, tif_path in sources:
                 if log_progress:
                     print(
                         f"[tif->nc] {spec.hazard_type}/{spec.hazard_indicator}: "
-                        f"GWL={gwl_vals[gwl_idx]} RP={rp_vals[rp_idx]} from {os.path.basename(tif_path)}"
+                        f"scenario_name={scenario_vals[scenario_idx]} RP={rp_vals[rp_idx]} from {os.path.basename(tif_path)}"
                     , flush=True)
                 nodata = src.nodata
                 
@@ -374,9 +389,9 @@ def convert_tifs_to_ensemble_return_period_nc(
                             ys = slice(y0, y0 + h)
                             xs = slice(x0, x0 + w)
                             if spec.include_ensemble_dim:
-                                data_var[0, gwl_idx, rp_idx, ys, xs] = arr
+                                data_var[0, scenario_idx, rp_idx, ys, xs] = arr
                             if not spec.include_ensemble_dim:
-                                data_var[gwl_idx, rp_idx, ys, xs] = arr
+                                data_var[scenario_idx, rp_idx, ys, xs] = arr
 
                             tile_i += 1
                             if pbar is not None:
@@ -409,7 +424,7 @@ def _parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
         required=True,
         help="Input hazards directory (contains GeoTIFFs)",
     )
-    p.add_argument("--metadata-csv", required=True, help="Path to hazards_metadata.csv")
+    p.add_argument("--metadata-csv", required=True, help="Path to metadata.csv")
     p.add_argument(
         "--hazard-type", required=True, help="Hazard type (e.g. Flood, Fire)"
     )
