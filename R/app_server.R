@@ -21,6 +21,7 @@ app_server <- function(input, output, session) {
     adm2_boundaries = NULL,
     region_name_mapping = NULL
   )
+  settings_modal_open <- shiny::reactiveVal(FALSE)
 
   # Create the reactive variables expected by tests
   data_loaded <- reactive({
@@ -80,6 +81,27 @@ app_server <- function(input, output, session) {
   shiny::observeEvent(settings$reload_trigger(), {
     overrides_reload(settings$reload_trigger())
   })
+
+  shiny::observeEvent(input$open_settings, {
+    shiny::showModal(
+      shiny::modalDialog(
+        title = "Hazards Settings",
+        mod_settings_ui("settings"),
+        size = "l",
+        easyClose = TRUE,
+        footer = NULL,
+        class = "settings-modal"
+      )
+    )
+    settings_modal_open(TRUE)
+  })
+
+  shiny::observeEvent(input$main_tabs, {
+    if (isTRUE(settings_modal_open())) {
+      shiny::removeModal()
+      settings_modal_open(FALSE)
+    }
+  }, ignoreInit = TRUE)
 
   # Initialize control module
   control <- mod_control_server(

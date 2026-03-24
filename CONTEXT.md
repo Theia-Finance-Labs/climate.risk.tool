@@ -81,7 +81,7 @@ Overrides:
 **R/CLI usage (without the app):** When calling `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir)` without `hazards_override_path`, the override path defaults to `{hazards_dir}/config_overrides.yml`. If that file exists, it is applied automatically; if it is missing, it is ignored (no overrides). The "input folder" in the app is only for asset/company Excel files; the override file always lives under `{base_dir}/hazards/config/` (i.e. `hazards_dir`). For programmatic runs, pass `hazards_dir` (typically `file.path(base_dir, "hazards", "config")`); any `config_overrides.yml` there is used automatically.
 
 Settings UI:
-- The app includes a **Settings** tab for editing override parameters
+- Settings open from a header **gear button** in a modal (no dedicated main tab)
 - Editable fields: indicator `agg`/`categorical`/`fixed`
 - Saving writes `{base_dir}/hazards/config/config_overrides.yml` and triggers hazard reload
 - Reset wipes the override file (writes empty) to restore defaults
@@ -862,6 +862,11 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - **Backward Compatibility**: Existing single-indicator hazards work exactly as before, just without visible indicator selection
 
 ## Recent Changes
+
+### Settings Navigation UX (2026-03-24)
+- Moved hazard settings access from the main tabset to a header gear button in `app_ui()`, opening `mod_settings_ui("settings")` in a modal.
+- Added app-level modal behavior in `app_server()`: click gear to open settings; selecting any main analysis tab closes the modal.
+- Added dedicated CSS for the header settings action and settings modal sizing/scrolling in `inst/app/www/custom.css`.
 
 ### Hazard Events Export (2026-01-29)
 - Trimmed the saved hazard events configuration to exclude `hazard_indicator` and `hazard_name`, relying on `load_config()` to reconstruct them from index columns; added coverage in `tests/testthat/test-mod_hazards_events.R`.
