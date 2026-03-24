@@ -135,12 +135,9 @@ load_nc_hazards_with_metadata <- function(indicator_path,
   # Coordinate variables and values
   dim_names <- vapply(nc$var[[main_var]]$dim, function(d) d$name, character(1))
 
-  # Try to resolve standard names (lon/lat/GWL/ensemble/return_period)
-  name_eq <- function(x, opts) any(tolower(x) == tolower(opts))
-
   # Find lon/lat dim names by convention
-  lon_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("lon", "longitude", "x")), logical(1))]
-  lat_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("lat", "latitude", "y")), logical(1))]
+  lon_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("lon", "longitude", "x")), logical(1))]
+  lat_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("lat", "latitude", "y")), logical(1))]
   if (length(lon_dim) == 0) lon_dim <- "lon"
   if (length(lat_dim) == 0) lat_dim <- "lat"
 
@@ -159,9 +156,9 @@ load_nc_hazards_with_metadata <- function(indicator_path,
   }
 
     # Other dims - check for scenario, ensemble, GWL, return_period, season
-  ens_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("ensemble")), logical(1))]
-  gwl_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("gwl", "GWL", "scenario")), logical(1))]
-  season_dim <- dim_names[vapply(dim_names, function(nm) name_eq(nm, c("season")), logical(1))]
+  ens_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("ensemble")), logical(1))]
+  gwl_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("gwl", "GWL", "scenario")), logical(1))]
+  season_dim <- dim_names[vapply(dim_names, function(nm) nc_name_eq(nm, c("season")), logical(1))]
   # Heuristic: remaining non-spatial, non-ensemble, non-GWL, non-season dim is return period
   remaining <- setdiff(dim_names, c(lon_dim[1], lat_dim[1], ens_dim, gwl_dim, season_dim))
   rp_dim <- if (length(remaining) > 0) remaining[[1]] else "return_period"
@@ -199,26 +196,15 @@ load_nc_hazards_with_metadata <- function(indicator_path,
 
     # Some aggregated NetCDFs store categorical dimensions (GWL/season/ensemble) as 1..N indices
     # with no label variable. Map to the canonical labels used across the pipeline/tests.
-    normalize_indexed_dim <- function(vals, mapping) {
-      if (inherits(vals, "try-error")) return(vals)
-      if (is.null(vals) || length(vals) == 0) return(vals)
-      if ((is.integer(vals) || is.numeric(vals)) &&
-        length(vals) == length(mapping) &&
-        all(as.integer(vals) == seq_along(mapping))) {
-        return(mapping)
-      }
-      vals
-    }
-
     # Canonical mappings (as used in precomputed hazards + tests)
-  gwl_vals <- normalize_indexed_dim(gwl_vals, c("present", "1.5", "2", "3"))
-  season_vals <- normalize_indexed_dim(season_vals, c("Summer", "Autumn", "Winter", "Spring"))
+  gwl_vals <- nc_normalize_indexed_dim(gwl_vals, c("present", "1.5", "2", "3"))
+  season_vals <- nc_normalize_indexed_dim(season_vals, c("Summer", "Autumn", "Winter", "Spring"))
   
   # Support both short (4) and long (7) canonical ensemble mappings
   if (!inherits(ens_vals, "try-error") && length(ens_vals) == 7) {
-    ens_vals <- normalize_indexed_dim(ens_vals, c("mean", "median", "p10", "p90", "min", "max", "std"))
+    ens_vals <- nc_normalize_indexed_dim(ens_vals, c("mean", "median", "p10", "p90", "min", "max", "std"))
   } else {
-    ens_vals <- normalize_indexed_dim(ens_vals, c("mean", "min", "max", "std"))
+    ens_vals <- nc_normalize_indexed_dim(ens_vals, c("mean", "min", "max", "std"))
   }
 
   # Ensemble values (default to mean)

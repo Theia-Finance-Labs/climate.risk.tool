@@ -88,9 +88,14 @@ expand_multi_indicator_events <- function(events, hazards_inventory, hazard_conf
         return(NULL)
       }
 
-      # Special handling for static indicators (e.g., land_cover)
-      # Static indicators have their own fixed scenario/RP that differs from user selection
-      if (indicator == "land_cover") {
+      indicator_cfg <- hazard_configs[[event$hazard_type]]$indicators[[indicator]]
+      indicator_event_selection <- "event_indexed"
+      if (!is.null(indicator_cfg) && !is.null(indicator_cfg$event_selection)) {
+        indicator_event_selection <- indicator_cfg$event_selection
+      }
+
+      # Static indicators use inventory-defined scenario/RP (not user selection)
+      if (indicator_event_selection == "inventory_fixed") {
         # Use the scenario/RP from inventory for this static indicator
         new_event$scenario_name <- matched$scenario_name[1]
         new_event$return_period <- as.numeric(matched$return_period[1])
@@ -101,7 +106,7 @@ expand_multi_indicator_events <- function(events, hazards_inventory, hazard_conf
           new_event$scenario_name, ", RP=", new_event$return_period, ")"
         )
       } else {
-        # For dynamic indicators (FWI, days_danger_total), use user-selected scenario/RP
+        # For event-indexed indicators, use user-selected scenario/RP
         # Convert return period to numeric for comparison and assignment
         event_rp_numeric <- as.numeric(event$return_period)
         # Find exact match in inventory (convert inventory RP to numeric for comparison)

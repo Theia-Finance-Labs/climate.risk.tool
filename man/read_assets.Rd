@@ -2,27 +2,29 @@
 % Please edit documentation in R/utils__read_inputs.R
 \name{read_assets}
 \alias{read_assets}
-\title{Read asset information from Excel file}
+\title{Read asset information from Excel or CSV file}
 \usage{
 read_assets(folder_path)
 }
 \arguments{
-\item{folder_path}{Character string specifying the folder containing asset_information.xlsx}
+\item{folder_path}{Character string specifying the folder containing asset_information.xlsx or asset_information.csv}
 }
 \value{
-tibble with asset information
+tibble with asset information (includes state_code and municipality_code when available)
 }
 \description{
-Reads asset information from Excel file in the specified folder.
-The folder must directly contain asset_information.xlsx.
+Reads asset information from Excel (.xlsx) or CSV (.csv) file in the specified folder.
+The folder must directly contain asset_information.xlsx or asset_information.csv (but not both).
+For CSV files, automatically detects separator (comma or semicolon).
 Converts column names to snake_case and parses numeric columns correctly.
+Municipality and state columns accept names.
 }
 \details{
-Read asset data from Excel file
+Read asset data from Excel or CSV file
 }
 \examples{
 \dontrun{
-# Folder path containing asset_information.xlsx
+# Folder path containing asset_information.xlsx or asset_information.csv
 assets <- read_assets("path/to/folder")
 }
 }

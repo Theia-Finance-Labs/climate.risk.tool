@@ -219,7 +219,6 @@ compute_risk <- function(assets,
 
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/state only
-
   assets_long <- extract_hazard_statistics(
     assets_df = assets,
     hazards = hazards,

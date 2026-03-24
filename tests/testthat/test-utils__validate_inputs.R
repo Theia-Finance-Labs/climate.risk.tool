@@ -171,4 +171,42 @@ testthat::test_that("validate_input_coherence ERRORS when asset WITHOUT coords i
   )
 })
 
+testthat::test_that("validate_input_coherence accepts IBGE codes for state and municipality", {
+  assets <- data.frame(
+    asset = "A1",
+    company = "C1",
+    share_of_economic_activity = 1.0,
+    latitude = NA_real_,
+    longitude = NA_real_,
+    state = "11",
+    municipality = "1100023",
+    stringsAsFactors = FALSE
+  )
+  companies <- data.frame(
+    company = "C1",
+    revenues = 1000,
+    debt = 500,
+    volatility = 0.2,
+    net_profit_margin = 0.1,
+    loan_size = 100,
+    lgd = 0.4,
+    term = 5,
+    stringsAsFactors = FALSE
+  )
+
+  testthat::expect_message(
+    validate_input_coherence(
+      assets_df = assets,
+      companies_df = companies,
+      hazards_dir = get_hazards_dir(),
+      hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list(file = "f.tif")))),
+      precomputed_hazards_df = NULL,
+      adm1_names = c("Rondonia"),
+      adm2_names = c("Ariquemes"),
+      events_df = NULL
+    ),
+    "\\[validate_input_coherence\\] All validation checks passed"
+  )
+})
+
 

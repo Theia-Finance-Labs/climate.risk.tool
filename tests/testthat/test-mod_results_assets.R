@@ -21,6 +21,12 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     event_year = c(2030, 2040),
     hazard_type = c("Fire", "Flood"),  # A1 is fire, A2 is flood
     hazard_name = c("Fire__RP50", "Flood__RP10"),  # A1 is Fire, A2 is Flood
+    state = c("Rondonia", "Sao Paulo"),
+    state_code = c("11", "35"),
+    state_name = c("Rondonia", "Sao Paulo"),
+    municipality = c("Ariquemes", NA_character_),
+    municipality_code = c("1100023", NA_character_),
+    municipality_name = c("Ariquemes", NA_character_),
     fwi = c(1.5, NA_real_),
     depth = c(NA_real_, 2.5),
     damage_factor = c(0.1, 0.2),
@@ -69,6 +75,9 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     testthat::expect_true(all(table_one$sector_code == "06"))
     testthat::expect_true("share_of_economic_activity" %in% colnames(table_one))
     testthat::expect_true(all(table_one$share_of_economic_activity == "60.0%"))
+    testthat::expect_true(all(c("state", "state_code", "municipality", "municipality_code") %in% colnames(table_one)))
+    testthat::expect_equal(table_one$state_code[1], "11")
+    testthat::expect_equal(table_one$municipality_code[1], "1100023")
 
     download_data <- assets_download_data()
     testthat::expect_s3_class(download_data, "data.frame")

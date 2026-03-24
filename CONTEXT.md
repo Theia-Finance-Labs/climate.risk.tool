@@ -59,7 +59,7 @@ The tool uses a **unified hazard configuration architecture** that supports both
 
 #### Configuration Registry
 
-Defined via `{base_dir}/hazards/config/<HazardName>.yml` files and loaded by `load_hazard_configs()` in `R/utils__hazard_config.R`.
+Defined via `{base_dir}/hazards/config/<HazardName>.yml` files and loaded by `load_hazard_configs()` in `R/utils__hazard_config_io.R`.
 
 Each hazard config YAML declares:
 - optional `primary_indicator` (indicator used for hazard-specific logic)
@@ -81,7 +81,7 @@ Overrides:
 **R/CLI usage (without the app):** When calling `load_hazards_and_inventory(hazards_dir, hazard_indicators_dir)` without `hazards_override_path`, the override path defaults to `{hazards_dir}/config_overrides.yml`. If that file exists, it is applied automatically; if it is missing, it is ignored (no overrides). The "input folder" in the app is only for asset/company Excel files; the override file always lives under `{base_dir}/hazards/config/` (i.e. `hazards_dir`). For programmatic runs, pass `hazards_dir` (typically `file.path(base_dir, "hazards", "config")`); any `config_overrides.yml` there is used automatically.
 
 Settings UI:
-- The app includes a **Settings** tab for editing override parameters
+- Settings open from a header **gear button** in a modal (no dedicated main tab)
 - Editable fields: indicator `agg`/`categorical`/`fixed`
 - Saving writes `{base_dir}/hazards/config/config_overrides.yml` and triggers hazard reload
 - Reset wipes the override file (writes empty) to restore defaults
@@ -91,6 +91,16 @@ Helper functions (config-driven):
 - `get_primary_indicator(hazard_configs, hazard_type)` → indicator key
 - `get_index_indicator(hazard_configs, hazard_type)` → indicator key
 - `get_required_indicators(hazard_configs, hazard_type)` → vector of indicators
+
+### Refactor Notes (File Splits)
+
+- **Input validation**: `validate_input_coherence()` remains in `R/utils__validate_inputs.R`; helper validators moved to `R/utils__validate_geography.R`, `R/utils__validate_config_and_events.R`, and `R/utils__validate_companies_cnae.R`.
+- **Input reading**: asset/company readers remain in `R/utils__read_inputs.R`; hazard/mapping readers moved to `R/utils__read_hazards_and_mapping.R`.
+- **Hazard extraction**: `extract_hazard_statistics()` in `R/geospatial__extract_hazard_statistics.R`, with extraction implementations split to `R/geospatial__extract_spatial_statistics.R` and `R/geospatial__extract_precomputed_statistics.R`.
+- **Hazard config IO**: config loading/normalization now in `R/utils__hazard_config_io.R`; query helpers stay in `R/utils__hazard_config.R`.
+- **Settings module**: server helpers extracted to `R/mod_settings_helpers.R`.
+- **Hazards events module**: helper logic extracted to `R/mod_hazards_events_helpers.R`.
+- **NetCDF dimension helpers**: shared dimension normalization in `R/utils__nc_index_utils.R`.
 
 #### UI Inventory Filtering
 
@@ -181,19 +191,27 @@ To add a new hazard type:
     └── municipality/
 
 {input_folder}/  (user-selected folder)
-├── asset_information.xlsx
-└── company_information.xlsx
+├── asset_information.xlsx (or asset_information.csv)
+└── company_information.xlsx (or company_information.csv)
 ```
 
 ### Required Input Files
 
-#### 1. `asset_information.xlsx`
+#### 1. `asset_information.xlsx` or `asset_information.csv`
 Location: User-selected input folder
+Format: Excel (.xlsx) or CSV (.csv) - only one format should be present
 Columns: asset_id, company_id, asset_category, size_in_m2, location info (lat/lon OR municipality OR state)
+Notes: 
+- CSV files automatically detect separator (comma or semicolon) by analyzing the first line.
+- If both Excel and CSV formats exist, an error is raised requiring only one format.
 
-#### 2. `company_information.xlsx`
-Location: User-selected input folder (same folder as asset_information.xlsx)
+#### 2. `company_information.xlsx` or `company_information.csv`
+Location: User-selected input folder (same folder as asset_information file)
+Format: Excel (.xlsx) or CSV (.csv) - only one format should be present
 Columns: company_id, company_name, equity, debt, other financial data
+Notes:
+- CSV files automatically detect separator (comma or semicolon) by analyzing the first line.
+- If both Excel and CSV formats exist, an error is raised requiring only one format.
 
 #### 3. Hazard configuration + mapping tables
 Location:
@@ -288,16 +306,19 @@ Examples:
 - `load_adm1_state_names(base_dir)` → Character vector of normalized ADM1 state names
 - `load_adm2_municipality_names(base_dir)` → Character vector of normalized ADM2 municipality names
 
-**Implementation**: `R/utils__validate_inputs.R`
-**Tests**: `tests/testthat/test-utils__validate_inputs.R`
+**Implementation**: `R/utils__validate_inputs.R` (orchestrator), helpers in `R/utils__validate_geography.R`, `R/utils__validate_config_and_events.R`, `R/utils__validate_companies_cnae.R`
+**Tests**: `tests/testthat/test-utils__validate_inputs.R`, `tests/testthat/test-utils__validate_required_input_columns.R`
 
 ### Data Loading
 
 **`read_assets(folder_path)`** → data.frame
-- Reads from `{folder_path}/asset_information.xlsx` (direct) or `{folder_path}/user_input/asset_information.xlsx` (legacy)
+- Reads from `{folder_path}/asset_information.xlsx` or `{folder_path}/asset_information.csv` (only one format should exist)
+- For CSV files, automatically detects separator (comma or semicolon) by analyzing the first line
+- Raises error if both Excel and CSV formats exist in the folder
 - ASCII-normalizes state and municipality names
 - **Does NOT assign states to assets** - this is now done in `compute_risk()` or can be called separately
-- Accepts either a folder containing asset_information.xlsx directly, or a base_dir with user_input subdirectory
+- Accepts either a folder containing asset_information file directly, or a base_dir with user_input subdirectory
+- Optional column `cost_factor` overrides mapping cost factors when provided (non-NA)
 
 **`assign_state_to_assets(assets_df, base_dir)`** → data.frame
 - Assigns states to assets without state data using spatial matching
@@ -307,9 +328,11 @@ Examples:
 - Can be called manually: `assets <- assign_state_to_assets(assets, base_dir)`
 
 **`read_companies(file_path)`** → data.frame
-- Reads company data from specified Excel file path or folder path
-- If given a folder path, looks for company_information.xlsx in that folder
-- If given a file path, reads that file directly
+- Reads company data from specified Excel (.xlsx) or CSV (.csv) file path or folder path
+- If given a folder path, looks for company_information.xlsx or company_information.csv in that folder (only one format should exist)
+- For CSV files, automatically detects separator (comma or semicolon) by analyzing the first line
+- Raises error if both Excel and CSV formats exist in the folder
+- If given a file path, reads that file directly (format determined by file extension)
 
 **`read_precomputed_hazards(base_dir)`** → data.frame
 - Reads from `{base_dir}/hazards/precomputed_adm_indicators.csv`
@@ -475,6 +498,7 @@ run_app(base_dir = "path/to/data")
 - Use `devtools::test_file("tests/testthat/test-function_name.R")` for specific tests
 
 ### Recent Updates
+- Added `test-utils__validate_required_input_columns.R` to cover helper validation of required asset/company columns.
 - Added `test-mod_profit_pathways.R` to cover log-scale clipping logic for non-positive asset profits so charts remain informative.
 - Added drought zero-flooring regression test in `test-shock__apply_acute_revenue_shock.R` to lock revenue at or above zero for extreme damage factors across hazards.
 - Added regression coverage in `test-geospatial__extract_hazard_statistics.R` ensuring `extract_precomputed_statistics()` fails fast with explicit hazard names when precomputed data is missing.
@@ -838,6 +862,14 @@ The system supports both single-indicator and multi-indicator hazards through a 
 - **Backward Compatibility**: Existing single-indicator hazards work exactly as before, just without visible indicator selection
 
 ## Recent Changes
+
+### Settings Navigation UX (2026-03-24)
+- Moved hazard settings access from the main tabset to a header gear button in `app_ui()`, opening `mod_settings_ui("settings")` in a modal.
+- Added app-level modal behavior in `app_server()`: click gear to open settings; selecting any main analysis tab closes the modal.
+- Added dedicated CSS for the header settings action and settings modal sizing/scrolling in `inst/app/www/custom.css`.
+
+### Hazard Events Export (2026-01-29)
+- Trimmed the saved hazard events configuration to exclude `hazard_indicator` and `hazard_name`, relying on `load_config()` to reconstruct them from index columns; added coverage in `tests/testthat/test-mod_hazards_events.R`.
 
 ### Input Folder Selection (2025-11-25)
 - **Replaced file upload with folder selection**: Users now select a folder containing both `asset_information.xlsx` and `company_information.xlsx` files instead of uploading individual files

@@ -53,10 +53,31 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 1rem;
+  position: relative;
 }
 
 .app-header-text {
   text-align: center;
+}
+
+.app-header-actions {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.app-settings-btn {
+  background-color: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  color: var(--card-background);
+}
+
+.app-settings-btn:hover {
+  background-color: rgba(255, 255, 255, 0.24);
+  color: var(--card-background);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .partner-logo {
@@ -509,6 +530,13 @@ body {
     padding: 1.5rem 0;
     gap: 1rem;
   }
+
+  .app-header-actions {
+    position: static;
+    width: 100%;
+    padding: 0 1rem;
+    justify-content: center;
+  }
   
   .app-title {
     font-size: 2rem;
@@ -534,6 +562,11 @@ body {
   .partner-logo {
     height: 40px;
     max-width: 180px;
+  }
+
+  .app-settings-btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 
@@ -1119,6 +1152,15 @@ table.dataTable tbody tr.selected:hover > * {
   background-color: var(--secondary-color);
   color: var(--card-background);
   border-bottom: 3px solid var(--primary-color);
+}
+
+.settings-modal .modal-dialog {
+  width: min(1200px, 95vw);
+}
+
+.settings-modal .modal-body {
+  max-height: 75vh;
+  overflow-y: auto;
 }
 
 .modal-footer .btn-primary {

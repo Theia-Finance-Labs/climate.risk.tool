@@ -4,6 +4,8 @@ indicators:
     variable: land_cover
     agg: mode
     categorical: true
+    event_selection: inventory_fixed
+    precomputed: false
     inference:
       default: 0.5    
   fire_weather_index:

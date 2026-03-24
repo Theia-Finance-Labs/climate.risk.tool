@@ -46,10 +46,11 @@ hazard_data <- load_hazards_and_inventory(
 )
 hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv) # Flatten for compute_risk
 hazards_inventory <- hazard_data$inventory
+hazard_configs <- hazard_data$configs
+hazards_dir <- file.path(base_dir, "hazards", "config")
 
 # Load precomputed hazard statistics for administrative regions
 precomputed_hazards <- read_precomputed_hazards(base_dir)
-damage_factors <- read_damage_cost_factors(base_dir)
 ```
 
 ## Explore hazard inventory
@@ -114,7 +115,8 @@ results <- compute_risk(
   hazards = hazards,
   hazards_inventory = hazards_inventory,
   precomputed_hazards = precomputed_hazards,
-  damage_factors = damage_factors,
+  hazard_configs = hazard_configs,
+  hazards_dir = hazards_dir,
   growth_rate = 0.02,
   discount_rate = 0.05,
   risk_free_rate = 0.02

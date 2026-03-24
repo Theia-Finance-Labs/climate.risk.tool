@@ -9,7 +9,7 @@ get_input_columns_catalog <- function() {
     ),
     assets_optional = c(
       "asset_category", "asset_subtype", "latitude", "longitude",
-      "municipality", "state", "size_in_m2", "size_in_hectare", "cnae"
+      "municipality", "state", "size_in_m2", "size_in_hectare", "cnae", "cost_factor"
     ),
     companies_required = c(
       "company", "revenues", "debt", "volatility",

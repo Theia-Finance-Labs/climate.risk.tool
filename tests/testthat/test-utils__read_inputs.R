@@ -37,6 +37,8 @@ testthat::test_that("read_assets parses key columns with correct types and snake
   testthat::expect_true(is.numeric(assets$longitude))
   testthat::expect_type(assets$state, "character")
   testthat::expect_type(assets$municipality, "character")
+  testthat::expect_type(assets$state_code, "character")
+  testthat::expect_type(assets$municipality_code, "character")
   testthat::expect_type(assets$asset_category, "character")
 })
 
@@ -84,6 +86,223 @@ testthat::test_that("read_companies handles missing file gracefully", {
 })
 
 
+# Tests for CSV support
+
+testthat::test_that("read_assets reads CSV file with comma separator", {
+  base_dir <- get_test_data_dir()
+  input_folder_csv <- file.path(base_dir, "user_input_csv")
+  input_folder_xlsx <- file.path(base_dir, "user_input")
+  
+  # Read Excel file first to get expected structure
+  assets_excel <- read_assets(input_folder_xlsx)
+  
+  # Read CSV file from user_input_csv folder
+  assets_csv <- read_assets(input_folder_csv)
+  
+  # Should have same structure
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_equal(nrow(assets_csv), nrow(assets_excel))
+  testthat::expect_true(all(names(assets_csv) %in% names(assets_excel)))
+  
+  # Verify key columns exist and have correct types
+  testthat::expect_true("company" %in% names(assets_csv))
+  testthat::expect_true("asset" %in% names(assets_csv))
+  testthat::expect_true(is.numeric(assets_csv$share_of_economic_activity))
+})
+
+
+testthat::test_that("read_assets reads CSV file with semicolon separator", {
+  base_dir <- get_test_data_dir()
+  input_folder_xlsx <- file.path(base_dir, "user_input")
+  
+  # Read Excel file first to get expected structure
+  assets_excel <- read_assets(input_folder_xlsx)
+  
+  # Create temporary directory structure
+  temp_root <- tempfile()
+  dir.create(temp_root)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+  
+  # Create areas directory and copy codes
+  areas_dir <- file.path(temp_root, "areas")
+  dir.create(areas_dir)
+  adm_codes_src <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  file.copy(adm_codes_src, file.path(areas_dir, "brazil_adm_codes.csv"))
+  
+  # Create input directory
+  input_dir <- file.path(temp_root, "user_input")
+  dir.create(input_dir)
+  
+  csv_path <- file.path(input_dir, "asset_information.csv")
+  readr::write_csv2(assets_excel, csv_path)
+  
+  # Read CSV file
+  assets_csv <- read_assets(input_dir)
+  
+  # Should have same structure
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_equal(nrow(assets_csv), nrow(assets_excel))
+  testthat::expect_true(all(names(assets_csv) %in% names(assets_excel)))
+})
+
+
+testthat::test_that("read_companies reads CSV file with comma separator", {
+  base_dir <- get_test_data_dir()
+  companies_path_csv <- file.path(base_dir, "user_input_csv")
+  companies_path_xlsx <- file.path(base_dir, "user_input", "company_information.xlsx")
+  
+  # Read Excel file first to get expected structure
+  companies_excel <- read_companies(companies_path_xlsx)
+  
+  # Read CSV file from user_input_csv folder
+  companies_csv <- read_companies(companies_path_csv)
+  
+  # Should have same structure
+  testthat::expect_s3_class(companies_csv, "data.frame")
+  testthat::expect_equal(nrow(companies_csv), nrow(companies_excel))
+  testthat::expect_true(all(names(companies_csv) %in% names(companies_excel)))
+  
+  # Verify key columns exist and have correct types
+  testthat::expect_true("company" %in% names(companies_csv))
+  testthat::expect_true(is.numeric(companies_csv$revenues))
+  testthat::expect_true(is.numeric(companies_csv$debt))
+})
+
+
+testthat::test_that("read_companies reads CSV file with semicolon separator", {
+  base_dir <- get_test_data_dir()
+  companies_path_xlsx <- file.path(base_dir, "user_input", "company_information.xlsx")
+  
+  # Read Excel file first to get expected structure
+  companies_excel <- read_companies(companies_path_xlsx)
+  
+  # Create temporary CSV file with semicolon separator for testing separator detection
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
+  
+  csv_path <- file.path(temp_dir, "company_information.csv")
+  readr::write_csv2(companies_excel, csv_path)
+  
+  # Read CSV file
+  companies_csv <- read_companies(temp_dir)
+  
+  # Should have same structure
+  testthat::expect_s3_class(companies_csv, "data.frame")
+  testthat::expect_equal(nrow(companies_csv), nrow(companies_excel))
+  testthat::expect_true(all(names(companies_csv) %in% names(companies_excel)))
+})
+
+
+testthat::test_that("read_assets errors when both Excel and CSV exist", {
+  base_dir <- get_test_data_dir()
+  input_folder <- file.path(base_dir, "user_input")
+  
+  # Create temporary directory structure
+  temp_root <- tempfile()
+  dir.create(temp_root)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+  
+  # Copy Excel file
+  input_dir <- file.path(temp_root, "user_input")
+  dir.create(input_dir)
+  xlsx_src <- file.path(input_folder, "asset_information.xlsx")
+  xlsx_dest <- file.path(input_dir, "asset_information.xlsx")
+  file.copy(xlsx_src, xlsx_dest)
+  
+  # Create CSV file
+  assets_excel <- read_assets(input_folder)
+  csv_path <- file.path(input_dir, "asset_information.csv")
+  readr::write_csv(assets_excel, csv_path)
+  
+  # Should error (checking file existence before checking ADM codes so structure ok)
+  testthat::expect_error(
+    read_assets(input_dir),
+    "Both asset_information.xlsx and asset_information.csv found"
+  )
+})
+
+
+testthat::test_that("read_companies errors when both Excel and CSV exist", {
+  base_dir <- get_test_data_dir()
+  companies_path <- file.path(base_dir, "user_input", "company_information.xlsx")
+  
+  # Create temporary directory with both files
+  temp_dir <- tempfile()
+  dir.create(temp_dir)
+  on.exit(unlink(temp_dir, recursive = TRUE), add = TRUE)
+  
+  # Copy Excel file
+  xlsx_dest <- file.path(temp_dir, "company_information.xlsx")
+  file.copy(companies_path, xlsx_dest)
+  
+  # Create CSV file
+  companies_excel <- read_companies(companies_path)
+  csv_path <- file.path(temp_dir, "company_information.csv")
+  readr::write_csv(companies_excel, csv_path)
+  
+  # Should error
+  testthat::expect_error(
+    read_companies(temp_dir),
+    "Both company_information.xlsx and company_information.csv found"
+  )
+})
+
+
+testthat::test_that("CSV separator detection works for comma-separated files", {
+  # Test indirectly through read_assets - comma separator should be detected correctly
+  # Uses the user_input_csv folder which contains comma-separated CSV files
+  base_dir <- get_test_data_dir()
+  input_folder_csv <- file.path(base_dir, "user_input_csv")
+  
+  # Reading should work (separator detection happens internally)
+  assets_csv <- read_assets(input_folder_csv)
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_gt(nrow(assets_csv), 0)
+  
+  # Verify it was read correctly (not as semicolon-separated)
+  testthat::expect_true("company" %in% names(assets_csv))
+  testthat::expect_true("asset" %in% names(assets_csv))
+})
+
+
+testthat::test_that("CSV separator detection works for semicolon-separated files", {
+  # Test indirectly through read_assets - semicolon separator should be detected correctly
+  base_dir <- get_test_data_dir()
+  input_folder_xlsx <- file.path(base_dir, "user_input")
+  
+  # Read Excel file first to get expected structure
+  assets_excel <- read_assets(input_folder_xlsx)
+  
+  # Create temporary directory structure
+  temp_root <- tempfile()
+  dir.create(temp_root)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+  
+  # Create areas directory and copy codes
+  areas_dir <- file.path(temp_root, "areas")
+  dir.create(areas_dir)
+  adm_codes_src <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  file.copy(adm_codes_src, file.path(areas_dir, "brazil_adm_codes.csv"))
+  
+  # Create input directory
+  input_dir <- file.path(temp_root, "user_input")
+  dir.create(input_dir)
+  
+  csv_path <- file.path(input_dir, "asset_information.csv")
+  readr::write_csv2(assets_excel, csv_path)
+  
+  # Reading should work (separator detection happens internally)
+  assets_csv <- read_assets(input_dir)
+  testthat::expect_s3_class(assets_csv, "data.frame")
+  testthat::expect_gt(nrow(assets_csv), 0)
+  
+  # Verify it was read correctly (not as comma-separated)
+  testthat::expect_true("company" %in% names(assets_csv))
+  testthat::expect_true("asset" %in% names(assets_csv))
+})
+
+
 
 # Tests for function: read_precomputed_hazards
 
@@ -107,6 +326,22 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   adm_levels <- unique(precomputed$adm_level)
   testthat::expect_true("ADM1" %in% adm_levels)
   testthat::expect_true("ADM2" %in% adm_levels)
+  testthat::expect_true("region_code" %in% names(precomputed))
+
+  amazonas_row <- precomputed |>
+    dplyr::filter(.data$adm_level == "ADM1", .data$region == "Amazonas") |>
+    dplyr::slice_head(n = 1)
+  # Check only if region_code is present (not NA)
+  if (!is.na(amazonas_row$region_code)) {
+    testthat::expect_equal(amazonas_row$region_code, "13")
+  }
+
+  manaus_row <- precomputed |>
+    dplyr::filter(.data$adm_level == "ADM2", .data$region == "Manaus") |>
+    dplyr::slice_head(n = 1)
+  if (!is.na(manaus_row$region_code)) {
+    testthat::expect_equal(manaus_row$region_code, "1302603")
+  }
 })
 
 testthat::test_that("read_precomputed_hazards builds indicator_key with config index dims", {
@@ -189,4 +424,170 @@ testthat::test_that("load_mapping_from_config errors on missing mapping key", {
     load_mapping_from_config(base_dir, hazard_configs, "Heat", "nonexistent_mapping"),
     "Mapping 'nonexistent_mapping' not found"
   )
+})
+
+
+# Tests for ADM code matching functionality
+
+testthat::test_that("load_adm_codes loads brazil_adm_codes.csv correctly", {
+  base_dir <- get_test_data_dir()
+  adm_codes <- load_adm_codes(base_dir)
+  
+  testthat::expect_s3_class(adm_codes, "data.frame")
+  testthat::expect_gt(nrow(adm_codes), 0)
+  testthat::expect_true(all(c("code", "name", "adm") %in% names(adm_codes)))
+  
+  # Check that we have both adm1 and adm2 codes
+  adm_levels <- unique(adm_codes$adm)
+  testthat::expect_true("adm1" %in% adm_levels)
+  testthat::expect_true("adm2" %in% adm_levels)
+  
+  # Check specific examples
+  rondonia <- adm_codes |> dplyr::filter(.data$code == "11", .data$adm == "adm1")
+  testthat::expect_equal(nrow(rondonia), 1)
+  testthat::expect_equal(rondonia$name, "Rondônia")
+  
+  porto_velho <- adm_codes |> dplyr::filter(.data$code == "1100205", .data$adm == "adm2")
+  testthat::expect_equal(nrow(porto_velho), 1)
+  testthat::expect_equal(porto_velho$name, "Porto Velho")
+})
+
+
+testthat::test_that("match_adm_codes_to_names matches adm1 codes correctly", {
+  base_dir <- get_test_data_dir()
+  adm_codes <- load_adm_codes(base_dir)
+  
+  # Test with adm1 codes
+  assets_with_codes <- tibble::tibble(
+    asset = c("A1", "A2", "A3"),
+    state = c("11", "13", "35"),  # Codes for Rondônia, Amazonas, São Paulo
+    municipality = c(NA_character_, NA_character_, NA_character_)
+  )
+  
+  result <- match_adm_codes_to_names(assets_with_codes, adm_codes)
+  
+  testthat::expect_true("state_code" %in% names(result))
+  testthat::expect_true("state_name" %in% names(result))
+  testthat::expect_equal(result$state_code, c("11", "13", "35"))
+  testthat::expect_equal(result$state_name, c("Rondônia", "Amazonas", "São Paulo"))
+  # Original state column should now contain normalized names
+  testthat::expect_equal(result$state, c("Rondonia", "Amazonas", "Sao Paulo"))
+})
+
+
+testthat::test_that("match_adm_codes_to_names matches adm2 codes correctly", {
+  base_dir <- get_test_data_dir()
+  adm_codes <- load_adm_codes(base_dir)
+  
+  # Test with adm2 codes
+  assets_with_codes <- tibble::tibble(
+    asset = c("A1", "A2"),
+    state = c(NA_character_, NA_character_),
+    municipality = c("1100205", "1100015")  # Codes for Porto Velho, Alta Floresta D'Oeste
+  )
+  
+  result <- match_adm_codes_to_names(assets_with_codes, adm_codes)
+  
+  testthat::expect_true("municipality_code" %in% names(result))
+  testthat::expect_true("municipality_name" %in% names(result))
+  testthat::expect_equal(result$municipality_code, c("1100205", "1100015"))
+  testthat::expect_equal(result$municipality_name, c("Porto Velho", "Alta Floresta D'Oeste"))
+  # Original municipality column should now contain normalized names
+  testthat::expect_equal(result$municipality, c("Porto Velho", "Alta Floresta D'Oeste"))
+})
+
+
+testthat::test_that("match_adm_codes_to_names handles mixed codes and names", {
+  base_dir <- get_test_data_dir()
+  adm_codes <- load_adm_codes(base_dir)
+  
+  # Mix of codes and names
+  assets_mixed <- tibble::tibble(
+    asset = c("A1", "A2", "A3"),
+    state = c("11", "Amazonas", "35"),  # Code, name, code
+    municipality = c("1100205", NA_character_, "São Paulo")  # Code, NA, name (invalid for municipality)
+  )
+  
+  result <- match_adm_codes_to_names(assets_mixed, adm_codes)
+  
+  # First asset: code -> should be matched
+  testthat::expect_equal(result$state_code[1], "11")
+  testthat::expect_equal(result$state_name[1], "Rondônia")
+  testthat::expect_equal(result$municipality_code[1], "1100205")
+  testthat::expect_equal(result$municipality_name[1], "Porto Velho")
+  
+  # Second asset: name -> should remain as-is
+  testthat::expect_true(is.na(result$state_code[2]))
+  testthat::expect_equal(result$state[2], "Amazonas")  # Normalized name
+  
+  # Third asset: code -> should be matched
+  testthat::expect_equal(result$state_code[3], "35")
+  testthat::expect_equal(result$state_name[3], "São Paulo")
+})
+
+
+testthat::test_that("match_adm_codes_to_names handles invalid codes gracefully", {
+  base_dir <- get_test_data_dir()
+  adm_codes <- load_adm_codes(base_dir)
+  
+  # Invalid codes
+  assets_invalid <- tibble::tibble(
+    asset = c("A1", "A2"),
+    state = c("99", "InvalidState"),  # Invalid code, invalid name
+    municipality = c("9999999", "InvalidMunicipality")
+  )
+  
+  result <- match_adm_codes_to_names(assets_invalid, adm_codes)
+  
+  # Invalid codes should result in NA for code and name columns
+  testthat::expect_true(is.na(result$state_code[1]) || result$state_code[1] == "99")
+  testthat::expect_true(is.na(result$state_name[1]) || nchar(result$state_name[1]) == 0)
+  
+  # Invalid names should be normalized but not matched
+  testthat::expect_equal(result$state[2], "InvalidState")  # Normalized
+})
+
+
+testthat::test_that("read_assets matches codes when brazil_adm_codes.csv exists", {
+  base_dir <- get_test_data_dir()
+  
+  # Create temporary directory structure
+  temp_root <- tempfile()
+  dir.create(temp_root)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+  
+  # Create areas directory and copy codes
+  areas_dir <- file.path(temp_root, "areas")
+  dir.create(areas_dir)
+  adm_codes_src <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  file.copy(adm_codes_src, file.path(areas_dir, "brazil_adm_codes.csv"))
+  
+  # Create asset file with codes in user_input
+  input_dir <- file.path(temp_root, "user_input")
+  dir.create(input_dir)
+  
+  assets_with_codes <- tibble::tibble(
+    asset = c("A1", "A2"),
+    company = c("C1", "C1"),
+    share_of_economic_activity = c(0.5, 0.5),
+    state = c("11", "13"),  # Codes
+    municipality = c("1100205", NA_character_)  # Code and NA
+  )
+  
+  asset_file <- file.path(input_dir, "asset_information.csv")
+  readr::write_csv(assets_with_codes, asset_file)
+  
+  # Read assets - should match codes
+  assets <- read_assets(input_dir)
+  
+  testthat::expect_true("state_code" %in% names(assets))
+  testthat::expect_true("state_name" %in% names(assets))
+  testthat::expect_true("municipality_code" %in% names(assets))
+  testthat::expect_true("municipality_name" %in% names(assets))
+  
+  # Check that codes were matched
+  testthat::expect_equal(assets$state_code[1], "11")
+  testthat::expect_equal(assets$state_name[1], "Rondônia")
+  testthat::expect_equal(assets$municipality_code[1], "1100205")
+  testthat::expect_equal(assets$municipality_name[1], "Porto Velho")
 })

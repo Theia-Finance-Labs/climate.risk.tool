@@ -51,6 +51,8 @@ testthat::test_that("mod_hazards_events_server loads events via load_config func
     testthat::expect_equal(ev$return_period[1], 50)
     testthat::expect_equal(ev$event_year[1], 2040L)
     testthat::expect_true(is.na(ev$season[1]))
+    testthat::expect_equal(ev$hazard_indicator[1], "hi")
+    testthat::expect_equal(ev$hazard_name[1], "Heat__hi__GWL=2.0__RP=50__ensemble=mean")
   })
 })
 

@@ -55,7 +55,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         return(assets_df)
       }
 
-      # Convert normalized province/municipality names back to original names for display
+      # Convert normalized province/state/municipality names back to original names for display
       if (!is.null(name_mapping)) {
         if ("province" %in% names(assets_df) && !is.null(name_mapping$province) && length(name_mapping$province) > 0) {
           province_lookup <- name_mapping$province
@@ -65,6 +65,18 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
                 !is.na(.data$province) & .data$province %in% names(province_lookup),
                 province_lookup[.data$province],
                 .data$province
+              )
+            )
+        }
+
+        if ("state" %in% names(assets_df) && !is.null(name_mapping$province) && length(name_mapping$province) > 0) {
+          state_lookup <- name_mapping$province
+          assets_df <- assets_df |>
+            dplyr::mutate(
+              state = dplyr::if_else(
+                !is.na(.data$state) & .data$state %in% names(state_lookup),
+                state_lookup[.data$state],
+                .data$state
               )
             )
         }
@@ -80,6 +92,34 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
               )
             )
         }
+      }
+      
+      # Format state and municipality columns to show both code and name when available
+      # This happens after name_mapping, so we use state_name/municipality_name which have original names
+      if ("state_code" %in% names(assets_df) || "state_name" %in% names(assets_df)) {
+        assets_df <- assets_df |>
+          dplyr::mutate(
+            state = dplyr::case_when(
+              !is.na(.data$state_code) & !is.na(.data$state_name) ~ 
+                paste0(.data$state_code, " - ", .data$state_name),
+              !is.na(.data$state_code) ~ .data$state_code,
+              !is.na(.data$state_name) ~ .data$state_name,
+              TRUE ~ .data$state
+            )
+          )
+      }
+      
+      if ("municipality_code" %in% names(assets_df) || "municipality_name" %in% names(assets_df)) {
+        assets_df <- assets_df |>
+          dplyr::mutate(
+            municipality = dplyr::case_when(
+              !is.na(.data$municipality_code) & !is.na(.data$municipality_name) ~ 
+                paste0(.data$municipality_code, " - ", .data$municipality_name),
+              !is.na(.data$municipality_code) ~ .data$municipality_code,
+              !is.na(.data$municipality_name) ~ .data$municipality_name,
+              TRUE ~ .data$municipality
+            )
+          )
       }
 
       numeric_cols <- vapply(assets_df, is.numeric, logical(1))
@@ -135,7 +175,28 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
           dplyr::select(-dplyr::any_of("sector_name"))
       }
 
-      priority_cols <- c("asset", "company", "sector", "sector_name", "sector_code", "share_of_economic_activity", "event_id", "hazard_name", "hazard_type", "matching_method", "hazard_return_period", "event_year")
+      priority_cols <- c(
+        "asset",
+        "company",
+        "sector",
+        "sector_name",
+        "sector_code",
+        "state",
+        "state_code",
+        "state_name",
+        "province",
+        "province_code",
+        "municipality",
+        "municipality_code",
+        "municipality_name",
+        "share_of_economic_activity",
+        "event_id",
+        "hazard_name",
+        "hazard_type",
+        "matching_method",
+        "hazard_return_period",
+        "event_year"
+      )
       existing_priority <- intersect(priority_cols, names(assets_df))
       other_cols <- setdiff(names(assets_df), existing_priority)
 
