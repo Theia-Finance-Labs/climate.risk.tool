@@ -242,6 +242,9 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
   if ("state" %in% names(assets_df)) {
     assets_df$state <- as.character(assets_df$state)
   }
+  if (!"state_code" %in% names(assets_df)) {
+    assets_df$state_code <- NA_character_
+  }
 
   # Prepare ADM1 lookup if codes available
   adm1_lookup <- NULL
@@ -334,6 +337,43 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
   if (nrow(assets_with_municipality) > 0 && !is.null(adm2_boundaries)) {
     message("  Assigning state via municipality for ", nrow(assets_with_municipality), " assets")
 
+    # Prefer deterministic lookup via ADM codes when available.
+    if (!is.null(adm_codes)) {
+      adm2_lookup <- adm_codes |>
+        dplyr::filter(.data$adm == "adm2") |>
+        dplyr::transmute(
+          municipality_lookup = tolower(trimws(stringi::stri_trans_general(as.character(.data$name), "Latin-ASCII"))),
+          municipality_code_lookup = as.character(.data$code)
+        ) |>
+        dplyr::distinct()
+
+      adm1_lookup_codes <- adm_codes |>
+        dplyr::filter(.data$adm == "adm1") |>
+        dplyr::transmute(
+          state_code_lookup = as.character(.data$code),
+          state_name_lookup = stringi::stri_trans_general(as.character(.data$name), "Latin-ASCII")
+        ) |>
+        dplyr::distinct()
+
+      muni_to_state_lookup <- adm2_lookup |>
+        dplyr::mutate(state_code_lookup = substr(.data$municipality_code_lookup, 1, 2)) |>
+        dplyr::left_join(adm1_lookup_codes, by = "state_code_lookup") |>
+        dplyr::select("municipality_lookup", "state_code_lookup", "state_name_lookup") |>
+        dplyr::distinct()
+
+      assets_with_municipality <- assets_with_municipality |>
+        dplyr::mutate(municipality_lookup = tolower(trimws(as.character(.data$municipality)))) |>
+        dplyr::left_join(muni_to_state_lookup, by = "municipality_lookup") |>
+        dplyr::mutate(
+          state = dplyr::coalesce(.data$state_name_lookup, .data$state),
+          state_code = dplyr::coalesce(.data$state_code_lookup, .data$state_code)
+        ) |>
+        dplyr::select(-dplyr::any_of(c("municipality_lookup", "state_name_lookup", "state_code_lookup")))
+    }
+
+    remaining_for_spatial <- assets_with_municipality |>
+      dplyr::filter(is.na(.data$state))
+
     # Normalize municipality names in boundaries
     municipalities_sf <- adm2_boundaries |>
       dplyr::mutate(
@@ -349,12 +389,13 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
       states_sf <- sf::st_transform(states_sf, 4326)
     }
 
-    muni_points <- sf::st_point_on_surface(municipalities_sf)
-    muni_points_joined <- sf::st_join(muni_points, states_sf, join = sf::st_within)
+    muni_state_join <- sf::st_join(municipalities_sf, states_sf, join = sf::st_intersects)
 
-    municipality_lookup <- muni_points_joined |>
+    municipality_lookup <- muni_state_join |>
       sf::st_drop_geometry() |>
-      dplyr::select(dplyr::any_of(c("municipality_name", "state_name", "state_code_lookup")))
+      dplyr::select(dplyr::any_of(c("municipality_name", "state_name", "state_code_lookup"))) |>
+      dplyr::arrange(!is.na(.data$state_name), !is.na(.data$state_code_lookup)) |>
+      dplyr::distinct(.data$municipality_name, .keep_all = TRUE)
 
     # Prepare join columns
     # We join by municipality name. If municipality column is code, we should have used municipality_name?
@@ -364,10 +405,12 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
     join_by <- "municipality_name"
     # If municipality_lookup doesn't have municipality_name (should have it from above mutate), checks needed?
     
-    assets_with_municipality <- assets_with_municipality |>
+    spatial_completed <- remaining_for_spatial |>
+      dplyr::mutate(municipality_join = tolower(trimws(as.character(.data$municipality)))) |>
       dplyr::left_join(
-        municipality_lookup,
-        by = c("municipality" = "municipality_name")
+        municipality_lookup |>
+          dplyr::mutate(municipality_name_join = tolower(trimws(as.character(.data$municipality_name)))),
+        by = c("municipality_join" = "municipality_name_join")
       ) |>
       dplyr::mutate(
         state = dplyr::coalesce(if ("state_name" %in% names(.data)) .data$state_name else NULL, .data$state),
@@ -385,7 +428,13 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
           }
         }
       ) |>
-      dplyr::select(-dplyr::any_of(c("state_name", "state_code_lookup", "adm1_name")))
+      dplyr::select(-dplyr::any_of(c("state_name", "state_code_lookup", "adm1_name", "municipality_join", "municipality_name_join")))
+    
+    assets_with_municipality <- dplyr::bind_rows(
+      assets_with_municipality |>
+        dplyr::filter(!is.na(.data$state)),
+      spatial_completed
+    )
   }
 
   # Combine all assets back together

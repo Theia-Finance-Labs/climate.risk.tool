@@ -23,8 +23,10 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     hazard_name = c("Fire__RP50", "Flood__RP10"),  # A1 is Fire, A2 is Flood
     state = c("Rondonia", "Sao Paulo"),
     state_code = c("11", "35"),
+    state_name = c("Rondonia", "Sao Paulo"),
     municipality = c("Ariquemes", NA_character_),
     municipality_code = c("1100023", NA_character_),
+    municipality_name = c("Ariquemes", NA_character_),
     fwi = c(1.5, NA_real_),
     depth = c(NA_real_, 2.5),
     damage_factor = c(0.1, 0.2),

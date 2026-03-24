@@ -154,6 +154,8 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
       dplyr::filter(!is.na(.data$state)) |>
       dplyr::pull(.data$state) |>
       unique()
+    # Accept IBGE-like numeric codes in `state`; only validate textual names against ADM names.
+    asset_states <- asset_states[!grepl("^\\d+$", as.character(asset_states))]
 
     invalid_states <- asset_states[!asset_states %in% adm1_names]
 
@@ -179,6 +181,8 @@ validate_assets_geography <- function(assets_df, adm1_names, adm2_names, validat
       dplyr::filter(!is.na(.data$municipality)) |>
       dplyr::pull(.data$municipality) |>
       unique()
+    # Accept IBGE-like numeric codes in `municipality`; only validate textual names against ADM names.
+    asset_municipalities <- asset_municipalities[!grepl("^\\d+$", as.character(asset_municipalities))]
 
     invalid_municipalities <- asset_municipalities[!asset_municipalities %in% adm2_names]
 

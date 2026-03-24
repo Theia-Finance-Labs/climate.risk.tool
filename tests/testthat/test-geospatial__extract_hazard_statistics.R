@@ -404,8 +404,6 @@ testthat::test_that("extract_hazard_statistics raises error when non-precomputed
     cnae = NA_character_
   )
 
-  # Should raise error because land_cover is not precomputed and assets don't have coordinates
-  # for spatial extraction, and no hazards are provided
   testthat::expect_error(
     extract_hazard_statistics(
       assets_df = assets_df,

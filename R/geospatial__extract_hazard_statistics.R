@@ -48,6 +48,38 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   # ========= Process assets WITHOUT coordinates (precomputed lookup) =========
   if (nrow(assets_without_coords) > 0) {
     message("[extract_hazard_statistics] Processing administrative-based assets...")
+    if (!is.null(hazard_configs) && length(hazard_configs) > 0) {
+      precomputed_flags <- purrr::map_dfr(names(hazard_configs), function(hazard_type) {
+        cfg <- hazard_configs[[hazard_type]]
+        purrr::map_dfr(names(cfg$indicators), function(ind_key) {
+          ind_cfg <- cfg$indicators[[ind_key]]
+          tibble::tibble(
+            hazard_type = hazard_type,
+            hazard_indicator = ind_key,
+            precomputed = if (is.null(ind_cfg$precomputed)) TRUE else isTRUE(ind_cfg$precomputed)
+          )
+        })
+      })
+
+      non_precomputed_required <- hazards_inventory |>
+        dplyr::left_join(precomputed_flags, by = c("hazard_type", "hazard_indicator")) |>
+        dplyr::mutate(precomputed = dplyr::coalesce(.data$precomputed, TRUE)) |>
+        dplyr::filter(!.data$precomputed)
+
+      if (nrow(non_precomputed_required) > 0) {
+        available_hazard_keys <- names(hazards)
+        required_non_precomputed_keys <- unique(non_precomputed_required$indicator_key)
+        missing_non_precomputed_keys <- setdiff(required_non_precomputed_keys, available_hazard_keys)
+        if (length(missing_non_precomputed_keys) > 0) {
+          stop(
+            "No hazards available for precomputed lookup.\n",
+            "  Total hazards in inventory: ", nrow(hazards_inventory), "\n",
+            "  This usually means filter_hazards_by_events selected 0 hazards.\n",
+            "  Check your event configuration and ensure events match available hazards."
+          )
+        }
+      }
+    }
 
     precomputed_results <- extract_precomputed_statistics(
       assets_without_coords,

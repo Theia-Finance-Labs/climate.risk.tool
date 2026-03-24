@@ -33,8 +33,8 @@ testthat::test_that("join_damage_cost_factors handles Drought agriculture fallba
   # Looking at workspace/demo_inputs_refacto/hazards/mappings/drought_factors.csv:
   # 24:-1.68,agriculture,0.3016,Other,Soybean,Summer,0.15
   
-  # For now, let's just check if it's NA to confirm the bug
-  testthat::expect_true(is.na(joined$damage_factor[1]))
+  # Current behavior applies fallback crop/state and returns a matched factor
+  testthat::expect_false(is.na(joined$damage_factor[1]))
 })
 
 testthat::test_that("join_damage_cost_factors handles Drought agriculture fallback for empty crop", {
@@ -63,8 +63,6 @@ testthat::test_that("join_damage_cost_factors handles Drought agriculture fallba
     hazards_dir = get_hazards_dir()
   )
 
-  # For now, let's just check if it's NA to confirm the bug
-  # If the fix works, it should match Soybean/Rio Grande do Sul/Summer/-1.68
-  # 14:-1.68,agriculture,0.52,Rio Grande do Sul,Soybean,Summer,0.15
-  testthat::expect_true(is.na(joined$damage_factor[1]))
+  # Current behavior applies fallback crop and returns a matched factor
+  testthat::expect_false(is.na(joined$damage_factor[1]))
 })
