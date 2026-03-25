@@ -19,6 +19,7 @@ app_server <- function(input, output, session) {
     cnae_exposure = NULL,
     adm1_boundaries = NULL,
     adm2_boundaries = NULL,
+    adm_codes = NULL,
     region_name_mapping = NULL
   )
   settings_modal_open <- shiny::reactiveVal(FALSE)
@@ -185,6 +186,7 @@ app_server <- function(input, output, session) {
         municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
         values$adm1_boundaries <- sf::st_read(state_path, quiet = TRUE)
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
+        values$adm_codes <- load_adm_codes(base_dir)
 
         # Load region name mapping for displaying original names in frontend
         # Pass already loaded boundaries to avoid redundant file reads
@@ -313,6 +315,12 @@ app_server <- function(input, output, session) {
           ev_df <- ev_df[keep, , drop = FALSE]
         }
 
+        spatial_cfg <- control$spatial_separation()
+        if (isTRUE(spatial_cfg$enabled) && length(spatial_cfg$selected_codes) == 0) {
+          values$status <- "Error: Please select at least one state or municipality in Spatial Separation."
+          return()
+        }
+
         # Run the complete climate risk analysis using pre-loaded data
         results <- compute_risk(
           assets = values$assets,
@@ -325,10 +333,12 @@ app_server <- function(input, output, session) {
           hazards_dir = file.path(base_dir, "hazards", "config"),
           adm1_boundaries = values$adm1_boundaries,
           adm2_boundaries = values$adm2_boundaries,
+          adm_codes = values$adm_codes,
           validate_inputs = TRUE,
           growth_rate = control$growth_rate(),
           discount_rate = control$discount_rate(),
           risk_free_rate = control$risk_free_rate(),
+          spatial_separation = spatial_cfg,
           aggregation_method = "mean" # Default aggregation method
         )
 

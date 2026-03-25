@@ -15,10 +15,15 @@
 #' @param hazards_dir Character path to hazards/config directory containing hazard YAML files
 #' @param adm1_boundaries Optional sf object with ADM1 (state) boundaries for state assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup
+#' @param adm_codes Optional data frame with ADM code mapping from `load_adm_codes()`.
+#'   Required when `spatial_separation` is enabled for state/municipality selection.
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
 #' @param risk_free_rate Numeric. Risk-free rate for Merton model (default: 0.02)
+#' @param spatial_separation Optional list controlling spatial separation filtering.
+#'   Expected keys: `enabled` (logical), `level` ("brazil"|"state"|"municipality"),
+#'   `selected_codes` (character vector), `hazard_types` (character vector, default Heat/Drought/Fire).
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
 #'   Valid options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest".
 #'   For NetCDF files: uses terra::extract with the specified function.
@@ -100,10 +105,12 @@ compute_risk <- function(assets,
                          hazards_dir,
                          adm1_boundaries = NULL,
                          adm2_boundaries = NULL,
+                         adm_codes = NULL,
                          validate_inputs = TRUE,
                          growth_rate = 0.02,
                          discount_rate = 0.05,
                          risk_free_rate = 0.02,
+                         spatial_separation = NULL,
                          aggregation_method = "mean") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
@@ -236,7 +243,7 @@ compute_risk <- function(assets,
     # Join with explicit suffixes to handle overlapping columns between extraction and events
     # We prioritize event-level metadata (like scenario_name, return_period) over
     # metadata extracted from raster filenames.
-    assets_with_events <- assets_long |>
+  assets_with_events <- assets_long |>
       dplyr::inner_join(
         events_expanded_for_join,
         by = "indicator_key",
@@ -352,8 +359,25 @@ compute_risk <- function(assets,
       }
     }
 
-  # Step 2.4: Join mapping tables for hazard-specific factors
-  assets_factors <- join_damage_cost_factors(assets_with_events, hazard_configs, hazards_dir)
+  # Step 2.4: Optional spatial separation (Heat/Drought/Fire by default)
+  # - Exposed rows continue in the pipeline
+  # - Non-exposed / insufficient-location rows are returned separately for reporting
+  spatial_split <- apply_spatial_separation(
+    assets_with_events = assets_with_events,
+    spatial_separation = spatial_separation,
+    adm1_boundaries = adm1_boundaries,
+    adm2_boundaries = adm2_boundaries,
+    adm_codes = adm_codes
+  )
+  assets_with_events <- spatial_split$exposed
+  assets_spatial_status <- spatial_split$status
+
+  # Step 2.5: Join mapping tables for hazard-specific factors
+  assets_factors <- if (nrow(assets_with_events) > 0) {
+    join_damage_cost_factors(assets_with_events, hazard_configs, hazards_dir)
+  } else {
+    assets_with_events
+  }
 
   # Standardize output columns: keep hazard_return_period and remove long-format metadata
   if ("return_period" %in% names(assets_factors)) {
@@ -432,6 +456,7 @@ compute_risk <- function(assets,
   # Final results include both aggregated and yearly trajectory data
   final_results <- list(
     assets_factors = assets_factors,
+    assets_spatial_status = assets_spatial_status,
     companies = companies_result,
     assets_yearly = assets_discounted_yearly,
     companies_yearly = company_yearly_trajectories

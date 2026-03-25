@@ -5,6 +5,7 @@ testthat::test_that("mod_control_ui includes folder selection and hazard events 
   testthat::expect_true(grepl("ctrl-folder_path_display", html))
   testthat::expect_true(grepl("ctrl-hazards-upload_hazard_config", html))
   testthat::expect_true(grepl("ctrl-hazards-download_config", html))
+  testthat::expect_true(grepl("ctrl-spatial_separation_ui", html))
 })
 
 testthat::test_that("mod_control_server uses default aggregation factor 1 for hazard loading", {

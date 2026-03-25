@@ -55,10 +55,6 @@ compute_shock_trajectories <- function(
   filtered_assets <- assets_with_factors |>
     dplyr::filter(.data$event_id %in% relevant_event_ids)
 
-  if (nrow(filtered_assets) == 0) {
-    stop("No matching event_id entries found in assets_with_factors for provided events")
-  }
-
   # ============================================================================
   # SHOCK SEQUENCE: Apply shocks in the correct order
   # ============================================================================

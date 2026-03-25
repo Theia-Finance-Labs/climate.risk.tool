@@ -41,7 +41,7 @@ testthat::test_that("compute_risk runs with config-driven hazards", {
   )
 
   testthat::expect_true(is.list(results))
-  testthat::expect_true(all(c("assets_factors", "companies", "assets_yearly", "companies_yearly") %in% names(results)))
+  testthat::expect_true(all(c("assets_factors", "assets_spatial_status", "companies", "assets_yearly", "companies_yearly") %in% names(results)))
 })
 
 testthat::test_that("compute_risk produces stable snapshot output", {

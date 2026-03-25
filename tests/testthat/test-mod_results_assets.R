@@ -44,7 +44,23 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
   )
 
   test_results <- list(
-    assets_factors = test_assets_factors
+    assets_factors = test_assets_factors,
+    assets_spatial_status = data.frame(
+      asset = "A3",
+      company = "TestCo",
+      event_id = "ev1",
+      hazard_type = "Fire",
+      hazard_name = "Fire__RP50",
+      state = "Sao Paulo",
+      state_code = "35",
+      state_name = "Sao Paulo",
+      municipality = NA_character_,
+      municipality_code = NA_character_,
+      municipality_name = NA_character_,
+      share_of_economic_activity = 0.2,
+      spatial_status = "Not exposed to selected hazard event",
+      stringsAsFactors = FALSE
+    )
   )
 
   shiny::testServer(mod_results_assets_server, args = list(
@@ -69,12 +85,14 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     testthat::expect_true(all(unique(table_one$hazard_name) == "Fire__RP50"))
     testthat::expect_true(all(unique(table_two$hazard_name) == "Flood__RP10"))
     testthat::expect_true("sector" %in% colnames(table_one))
-    testthat::expect_true(all(table_one$sector == "06"))
+    testthat::expect_true("spatial_status" %in% colnames(table_one))
+    testthat::expect_true("Not exposed to selected hazard event" %in% table_one$spatial_status)
+    testthat::expect_true("06" %in% table_one$sector)
     testthat::expect_false("sector_name" %in% colnames(table_one))
     testthat::expect_true("sector_code" %in% colnames(table_one))
-    testthat::expect_true(all(table_one$sector_code == "06"))
+    testthat::expect_true(all(table_one$sector_code[!is.na(table_one$sector_code)] == "06"))
     testthat::expect_true("share_of_economic_activity" %in% colnames(table_one))
-    testthat::expect_true(all(table_one$share_of_economic_activity == "60.0%"))
+    testthat::expect_true("60.0%" %in% table_one$share_of_economic_activity)
     testthat::expect_true(all(c("state", "state_code", "municipality", "municipality_code") %in% colnames(table_one)))
     testthat::expect_equal(table_one$state_code[1], "11")
     testthat::expect_equal(table_one$municipality_code[1], "1100023")
@@ -83,7 +101,7 @@ testthat::test_that("mod_results_assets_server renders hazard-specific tables wi
     testthat::expect_s3_class(download_data, "data.frame")
     testthat::expect_true("sector_name" %in% colnames(download_data))
     testthat::expect_setequal(
-      unique(download_data$sector_name),
+      unique(stats::na.omit(download_data$sector_name)),
       c("Oil and Gas Extraction", "Hydropower Generation")
     )
   })

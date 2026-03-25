@@ -50,6 +50,16 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       cnae_exposure_reactive()
     }
 
+    combine_assets_and_spatial_status <- function(results) {
+      assets_factors <- results$assets_factors
+      status_rows <- results$assets_spatial_status
+
+      if (is.null(assets_factors)) assets_factors <- tibble::tibble()
+      if (is.null(status_rows)) status_rows <- tibble::tibble()
+
+      dplyr::bind_rows(assets_factors, status_rows)
+    }
+
     format_assets_table <- function(assets_df, name_mapping, cnae_exposure, include_sector_name = TRUE) {
       if (is.null(assets_df) || nrow(assets_df) == 0) {
         return(assets_df)
@@ -193,6 +203,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         "event_id",
         "hazard_name",
         "hazard_type",
+        "spatial_status",
         "matching_method",
         "hazard_return_period",
         "event_year"
@@ -256,11 +267,14 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
     output$hazard_tables <- shiny::renderUI({
       results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors) || nrow(results$assets_factors) == 0) {
+      if (is.null(results)) {
         return(shiny::wellPanel(shiny::p("Asset results will appear here once the analysis completes.")))
       }
 
-      assets <- results$assets_factors
+      assets <- combine_assets_and_spatial_status(results)
+      if (is.null(assets) || nrow(assets) == 0) {
+        return(shiny::wellPanel(shiny::p("Asset results will appear here once the analysis completes.")))
+      }
       unique_hazards <- extract_unique_hazards(assets)
 
       if (nrow(unique_hazards) == 0) {
@@ -291,12 +305,16 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
     shiny::observe({
       results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors) || nrow(results$assets_factors) == 0) {
+      if (is.null(results)) {
         session$userData$hazard_tables_data <- NULL
         return(NULL)
       }
 
-      assets <- results$assets_factors
+      assets <- combine_assets_and_spatial_status(results)
+      if (is.null(assets) || nrow(assets) == 0) {
+        session$userData$hazard_tables_data <- NULL
+        return(NULL)
+      }
       unique_hazards <- extract_unique_hazards(assets)
 
       if (nrow(unique_hazards) == 0) {
@@ -351,12 +369,17 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
     assets_download_data <- shiny::reactive({
       results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors) || nrow(results$assets_factors) == 0) {
+      if (is.null(results)) {
+        return(NULL)
+      }
+
+      combined_assets <- combine_assets_and_spatial_status(results)
+      if (is.null(combined_assets) || nrow(combined_assets) == 0) {
         return(NULL)
       }
 
       name_mapping <- if (!is.null(name_mapping_reactive)) name_mapping_reactive() else NULL
-      format_assets_table(results$assets_factors, name_mapping, resolve_cnae_exposure())
+      format_assets_table(combined_assets, name_mapping, resolve_cnae_exposure())
     })
 
     output$download_assets_csv <- shiny::downloadHandler(

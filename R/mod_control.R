@@ -31,6 +31,16 @@ mod_control_ui <- function(id) {
     ),
     shiny::div(
       class = "control-section",
+      shiny::h4("Spatial Separation", class = "section-header"),
+      shiny::p(
+        "Apply hazard events to Brazil, selected states, or selected municipalities.",
+        class = "text-muted",
+        style = "font-size: 0.9em; margin-bottom: 10px;"
+      ),
+      shiny::uiOutput(ns("spatial_separation_ui"))
+    ),
+    shiny::div(
+      class = "control-section",
       shiny::h4("Financial Parameters", class = "section-header"),
       shiny::p("Adjust these rates to reflect your financial assumptions:", class = "text-muted", style = "font-size: 0.9em; margin-bottom: 10px;"),
       shiny::sliderInput(
@@ -257,6 +267,91 @@ mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
       return(result$configs)
     })
 
+    adm_codes_reactive <- shiny::reactive({
+      base_dir <- base_dir_reactive()
+      if (is.null(base_dir) || base_dir == "") {
+        return(tibble::tibble())
+      }
+      out <- try(load_adm_codes(base_dir), silent = TRUE)
+      if (inherits(out, "try-error") || is.null(out)) {
+        return(tibble::tibble())
+      }
+      out
+    })
+
+    output$spatial_separation_ui <- shiny::renderUI({
+      adm_codes <- adm_codes_reactive()
+
+      mode <- input$spatial_mode
+      if (is.null(mode) || !nzchar(mode)) mode <- "brazil"
+      label <- if (identical(mode, "state")) "Selected states" else "Selected municipalities"
+
+      shiny::tagList(
+        shiny::radioButtons(
+          ns("spatial_mode"),
+          "Scope",
+          choices = c("Brazil" = "brazil", "State" = "state", "Municipality" = "municipality"),
+          selected = mode,
+          inline = TRUE
+        ),
+        if (!identical(mode, "brazil")) {
+          shiny::selectizeInput(
+            ns("spatial_codes"),
+            label = label,
+            choices = NULL,
+            selected = NULL,
+            multiple = TRUE,
+            options = list(placeholder = "Select one or more regions")
+          )
+        }
+      )
+    })
+
+    shiny::observe({
+      mode <- input$spatial_mode
+      if (is.null(mode) || !nzchar(mode)) mode <- "brazil"
+
+      adm_codes <- adm_codes_reactive()
+      choices <- character(0)
+
+      if (is.data.frame(adm_codes) && nrow(adm_codes) > 0) {
+        if (identical(mode, "state")) {
+          state_codes_df <- adm_codes |>
+            dplyr::filter(.data$adm == "adm1") |>
+            dplyr::mutate(
+              code_fmt = coerce_geo_code(.data$code, width = 2),
+              label = paste0(.data$code_fmt, " - ", .data$name)
+            ) |>
+            dplyr::arrange(.data$label)
+          choices <- stats::setNames(state_codes_df$code_fmt, state_codes_df$label)
+        } else if (identical(mode, "municipality")) {
+          municipality_codes_df <- adm_codes |>
+            dplyr::filter(.data$adm == "adm2") |>
+            dplyr::mutate(
+              code_fmt = coerce_geo_code(.data$code, width = 7),
+              label = paste0(.data$code_fmt, " - ", .data$name)
+            ) |>
+            dplyr::arrange(.data$label)
+          choices <- stats::setNames(municipality_codes_df$code_fmt, municipality_codes_df$label)
+        }
+      }
+
+      # Important: read current selection without creating a reactive dependency
+      # on spatial_codes itself, otherwise updateSelectizeInput can trigger a
+      # self-refresh loop that makes the control flicker/reset.
+      selected_raw <- shiny::isolate(input$spatial_codes)
+      if (is.null(selected_raw)) selected_raw <- character(0)
+      selected <- intersect(as.character(selected_raw), unname(choices))
+
+      shiny::updateSelectizeInput(
+        session = session,
+        inputId = "spatial_codes",
+        choices = choices,
+        selected = selected,
+        server = TRUE
+      )
+    })
+
 
     # Hazards events module
     hz_mod <- mod_hazards_events_server(
@@ -302,6 +397,21 @@ mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
       hazards_inventory = hazards_inventory,
       get_hazards_at_factor = get_hazards_at_factor,
       hazards_and_inventory = hazards_and_inventory,
+      spatial_separation = shiny::reactive({
+        mode <- input$spatial_mode
+        if (is.null(mode) || !nzchar(mode)) mode <- "brazil"
+        selected_raw <- input$spatial_codes
+        if (is.null(selected_raw)) selected_raw <- character(0)
+        selected_codes <- unique(as.character(selected_raw))
+        selected_codes <- selected_codes[!is.na(selected_codes) & nzchar(selected_codes)]
+
+        list(
+          enabled = !identical(mode, "brazil"),
+          level = mode,
+          selected_codes = selected_codes,
+          hazard_types = c("Heat", "Drought", "Fire")
+        )
+      }),
       set_results = function(results) {
         values$results <- results
         values$results_ready <- !is.null(results)
