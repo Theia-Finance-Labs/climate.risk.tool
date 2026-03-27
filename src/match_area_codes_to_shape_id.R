@@ -572,10 +572,10 @@ build_adm_output <- function(raw_data, municipality_shapefile, state_shapefile) 
   matched_adm2 <- match_adm2_shape_ids(adm2_data, municipality_shapefile, state_assignment_shapes)
 
   dplyr::bind_rows(
-    matched_adm1 %>% dplyr::select("code", "name", "adm", "shapeID"),
-    matched_adm2 %>% dplyr::select("code", "name", "adm", "shapeID")
+    matched_adm1 %>% dplyr::select(adm_code = "code", adm_name = "name", "adm", shape_id = "shapeID"),
+    matched_adm2 %>% dplyr::select(adm_code = "code", adm_name = "name", "adm", shape_id = "shapeID")
   ) %>%
-    dplyr::arrange(.data$adm, .data$code)
+    dplyr::arrange(.data$adm, .data$adm_code)
 }
 
 main <- function() {
@@ -607,7 +607,7 @@ main <- function() {
     "ADM2 shapeIDs are unique: %s\n",
     ifelse(
       nrow(dplyr::filter(adm_output, .data$adm == "adm2")) ==
-        dplyr::n_distinct(dplyr::filter(adm_output, .data$adm == "adm2")$shapeID),
+        dplyr::n_distinct(dplyr::filter(adm_output, .data$adm == "adm2")$shape_id),
       "yes",
       "no"
     )

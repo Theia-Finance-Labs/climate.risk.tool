@@ -71,13 +71,13 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   assets_with_adm2 <- NULL
   
   # Try joining by code first if available
-  if ("municipality_code" %in% names(assets_adm2_candidates) && "region_code" %in% names(precomp_adm2)) {
+  if ("municipality_code" %in% names(assets_adm2_candidates) && "adm_code" %in% names(precomp_adm2)) {
     # 1. Assets with codes that match
     assets_with_adm2_code <- assets_adm2_candidates |>
       dplyr::filter(!is.na(.data$municipality_code), .data$municipality_code != "") |>
       dplyr::inner_join(
         precomp_adm2,
-        by = c("municipality_code" = "region_code"),
+        by = c("municipality_code" = "adm_code"),
         relationship = "many-to-many"
       ) |>
       dplyr::mutate(matching_method = "municipality code lookup")
@@ -91,7 +91,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     assets_with_adm2_name <- assets_remaining_adm2 |>
       dplyr::inner_join(
         precomp_adm2,
-        by = c("municipality" = "region"),
+        by = c("municipality" = "adm_name"),
         relationship = "many-to-many"
       ) |>
       dplyr::mutate(matching_method = "municipality name lookup")
@@ -102,7 +102,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     assets_with_adm2 <- assets_adm2_candidates |>
       dplyr::inner_join(
         precomp_adm2,
-        by = c("municipality" = "region"),
+        by = c("municipality" = "adm_name"),
         relationship = "many-to-many"
       ) |>
       dplyr::mutate(matching_method = "municipality name lookup")
@@ -119,13 +119,13 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   assets_with_adm1 <- NULL
   
   # Try joining by code first if available
-  if ("state_code" %in% names(assets_adm1_candidates) && "region_code" %in% names(precomp_adm1)) {
+  if ("state_code" %in% names(assets_adm1_candidates) && "adm_code" %in% names(precomp_adm1)) {
     # 1. Assets with codes that match
     assets_with_adm1_code <- assets_adm1_candidates |>
       dplyr::filter(!is.na(.data$state_code), .data$state_code != "") |>
       dplyr::inner_join(
         precomp_adm1,
-        by = c("state_code" = "region_code"),
+        by = c("state_code" = "adm_code"),
         relationship = "many-to-many"
       ) |>
       dplyr::mutate(matching_method = "state code lookup")
@@ -139,7 +139,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     assets_with_adm1_name <- assets_remaining_adm1 |>
       dplyr::inner_join(
         precomp_adm1,
-        by = c("state" = "region"),
+        by = c("state" = "adm_name"),
         relationship = "many-to-many"
       ) |>
       dplyr::mutate(matching_method = "state name lookup")
@@ -150,7 +150,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     assets_with_adm1 <- assets_adm1_candidates |>
       dplyr::inner_join(
         precomp_adm1,
-        by = c("state" = "region"),
+        by = c("state" = "adm_name"),
         relationship = "many-to-many"
       ) |>
       dplyr::mutate(matching_method = "state name lookup")
@@ -177,8 +177,8 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
       unique()
 
     # Check which regions are actually missing from precomputed data
-    present_municipalities <- unique(precomputed_hazards$region[precomputed_hazards$adm_level == "ADM2"])
-    present_states <- unique(precomputed_hazards$region[precomputed_hazards$adm_level == "ADM1"])
+    present_municipalities <- unique(precomputed_hazards$adm_name[precomputed_hazards$adm_level == "ADM2"])
+    present_states <- unique(precomputed_hazards$adm_name[precomputed_hazards$adm_level == "ADM1"])
 
     truly_missing_municipalities <- setdiff(missing_municipalities, present_municipalities)
     truly_missing_states <- setdiff(missing_states, present_states)
@@ -209,7 +209,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
 
         # Get available hazards for this region
         available_for_region <- precomputed_hazards |>
-          dplyr::filter(.data$region == !!region, .data$adm_level == !!adm_level_filter)
+          dplyr::filter(.data$adm_name == !!region, .data$adm_level == !!adm_level_filter)
 
         available_keys <- unique(available_for_region$indicator_key)
         missing_keys_for_region <- setdiff(required_indicator_keys, available_keys)

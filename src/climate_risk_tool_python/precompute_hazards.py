@@ -64,8 +64,8 @@ warnings.filterwarnings(
 Q_LIST = np.array([0.025, 0.05, 0.10, 0.50, 0.90, 0.95, 0.975], dtype=np.float64)
 
 BASE_COLS = [
-    "region",
-    "region_code",
+    "adm_name",
+    "adm_code",
     "shape_id",
     "adm_level",
     "gwl",
@@ -320,7 +320,7 @@ def load_adm_codes(base_dir: str) -> pd.DataFrame:
     path = os.path.join(base_dir, "areas", "brazil_adm_codes.csv")
     if not os.path.exists(path):
         print(f"Warning: {path} not found. Codes/ShapeIDs will be missing.")
-        return pd.DataFrame(columns=["code", "name", "adm", "shapeID"])
+        return pd.DataFrame(columns=["adm_code", "adm_name", "adm", "shape_id"])
     return pd.read_csv(path, dtype=str)
 
 
@@ -351,7 +351,7 @@ def load_adm_shapefile(
         raise ValueError(f"No region name column found in: {adm_path}")
 
     gdf = gdf.copy()
-    gdf["region"] = gdf[name_col].apply(fix_text)
+    gdf["adm_name"] = gdf[name_col].apply(fix_text)
 
     # Extract shapeID
     shape_id_col = None
@@ -365,17 +365,15 @@ def load_adm_shapefile(
         gdf["shape_id"] = gdf[shape_id_col].astype(str)
 
     # Match to codes using shapeID
-    gdf["region_code"] = np.nan
+    gdf["adm_code"] = np.nan
     if adm_codes_df is not None and not adm_codes_df.empty and shape_id_col:
-        # Create mapping: shapeID -> code
-        # adm_codes has columns: code, name, adm, shapeID
-        # We use shapeID to match
+        # Create mapping: shape_id -> adm_code (codes CSV is the source of truth)
         shape_map = dict(
             zip(
-                adm_codes_df["shapeID"].astype(str), adm_codes_df["code"].astype(str)
+                adm_codes_df["shape_id"].astype(str), adm_codes_df["adm_code"].astype(str)
             )
         )
-        gdf["region_code"] = gdf["shape_id"].map(shape_map)
+        gdf["adm_code"] = gdf["shape_id"].map(shape_map)
 
     return gdf
 
@@ -520,7 +518,9 @@ def compute_region_stats_for_slice(
     lons: np.ndarray,
     transform: Affine,
     region_geom,
-    region_name: str,
+    adm_name: str,
+    adm_code: Any,
+    shape_id: Any,
     raster_bounds_poly,
     hazard_type: str,
     hazard_indicator: str,
@@ -530,7 +530,9 @@ def compute_region_stats_for_slice(
     # Always use coords from the slice to avoid any misalignment
     if da_slice.sizes.get("lat", 0) == 0 or da_slice.sizes.get("lon", 0) == 0:
         return {
-            "region": region_name,
+            "adm_name": adm_name,
+            "adm_code": adm_code,
+            "shape_id": shape_id,
             "count": 0,
             "min": np.nan,
             "max": np.nan,
@@ -548,7 +550,9 @@ def compute_region_stats_for_slice(
     intersects_bounds = bool(region_geom.intersects(raster_bounds_poly))
     if not intersects_bounds:
         return {
-            "region": region_name,
+            "adm_name": adm_name,
+            "adm_code": adm_code,
+            "shape_id": shape_id,
             "count": 0,
             "min": np.nan,
             "max": np.nan,
@@ -567,7 +571,9 @@ def compute_region_stats_for_slice(
 
     if lat_idx.size == 0 or lon_idx.size == 0:
         return {
-            "region": region_name,
+            "adm_name": adm_name,
+            "adm_code": adm_code,
+            "shape_id": shape_id,
             "count": 0,
             "min": np.nan,
             "max": np.nan,
@@ -596,7 +602,9 @@ def compute_region_stats_for_slice(
 
     if not mask.any():
         return {
-            "region": region_name,
+            "adm_name": adm_name,
+            "adm_code": adm_code,
+            "shape_id": shape_id,
             "count": 0,
             "min": np.nan,
             "max": np.nan,
@@ -620,7 +628,7 @@ def compute_region_stats_for_slice(
     spill_dir = None
     if use_spill:
         # per region spill dir
-        rid_key = hashlib.md5(region_name.encode("utf-8")).hexdigest()[:12]
+        rid_key = hashlib.md5(adm_name.encode("utf-8")).hexdigest()[:12]
         spill_dir = os.path.join(spill_root, f"region_{rid_key}")
         cleanup_dir(spill_dir)
         os.makedirs(spill_dir, exist_ok=True)
@@ -699,8 +707,8 @@ def compute_region_stats_for_slice(
         qs = np.full(len(Q_LIST), np.nan, dtype=np.float64)
         empty_reason = "all_nodata_or_no_overlap"
         return {
-            "region": region_name,
-            "region_code": region_code,
+            "adm_name": adm_name,
+            "adm_code": adm_code,
             "shape_id": shape_id,
             "count": 0,
             "min": np.nan,
@@ -721,8 +729,8 @@ def compute_region_stats_for_slice(
         qs = np.quantile(vals, Q_LIST, method="linear").astype(np.float64, copy=False)
 
     return {
-        "region": region_name,
-        "region_code": region_code,
+        "adm_name": adm_name,
+        "adm_code": adm_code,
         "shape_id": shape_id,
         "count": cnt,
         "min": float(mn),
@@ -840,14 +848,18 @@ def process_nc_file_region_by_region_to_part(
                 unit="region",
                 leave=False,
             ):
-                region_name = reg["region"]
+                adm_name = reg["adm_name"]
+                adm_code = reg.get("adm_code", np.nan)
+                shape_id = reg.get("shape_id", np.nan)
                 stats = compute_region_stats_for_slice(
                     da_slice=da_slice,
                     lats=lats,
                     lons=lons,
                     transform=transform,
                     region_geom=reg.geometry,
-                    region_name=region_name,
+                    adm_name=adm_name,
+                    adm_code=adm_code,
+                    shape_id=shape_id,
                     raster_bounds_poly=rb_poly,
                     hazard_type=hazard_type,
                     hazard_indicator=hazard_indicator,
@@ -857,7 +869,9 @@ def process_nc_file_region_by_region_to_part(
 
                 qs = stats["qs"]
                 row = {
-                    "region": region_name,
+                    "adm_name": adm_name,
+                    "adm_code": stats.get("adm_code", np.nan),
+                    "shape_id": stats.get("shape_id", np.nan),
                     "adm_level": adm_level,
                     "gwl": np.nan,
                     "return_period": np.nan,
@@ -1043,8 +1057,8 @@ def process_tif_file_region_by_region_to_part(
         unit="region",
         leave=False,
     ):
-        region_name = reg["region"]
-        region_code = reg.get("region_code", np.nan)
+        adm_name = reg["adm_name"]
+        adm_code = reg.get("adm_code", np.nan)
         shape_id = reg.get("shape_id", np.nan)
 
         stats = compute_region_stats_for_slice(
@@ -1053,8 +1067,8 @@ def process_tif_file_region_by_region_to_part(
             lons=lons,
             transform=transform,
             region_geom=reg.geometry,
-            region_name=region_name,
-            region_code=region_code,
+            adm_name=adm_name,
+            adm_code=adm_code,
             shape_id=shape_id,
             raster_bounds_poly=rb_poly,
             hazard_type=hazard_type,
@@ -1065,8 +1079,8 @@ def process_tif_file_region_by_region_to_part(
 
         qs = stats["qs"]
         row = {
-            "region": region_name,
-            "region_code": stats.get("region_code", np.nan),
+            "adm_name": adm_name,
+            "adm_code": stats.get("adm_code", np.nan),
             "shape_id": stats.get("shape_id", np.nan),
             "adm_level": adm_level,
             "gwl": np.nan,

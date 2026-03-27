@@ -227,14 +227,14 @@ validate_precomputed_hazards_geography <- function(
   hazard_configs = NULL
 ) {
   # Validate provinces (if column exists)
-  if ("region" %in% names(precomputed_hazards_df) && length(adm1_names) > 0) {
+  if ("adm_name" %in% names(precomputed_hazards_df) && length(adm1_names) > 0) {
     # Check adm_level to see if these are provinces
     province_rows <- precomputed_hazards_df |>
-      dplyr::filter(.data$adm_level == "ADM1", !is.na(.data$region))
+      dplyr::filter(.data$adm_level == "ADM1", !is.na(.data$adm_name))
 
     if (nrow(province_rows) > 0) {
       hazard_provinces <- province_rows |>
-        dplyr::pull(.data$region) |>
+        dplyr::pull(.data$adm_name) |>
         unique()
 
       invalid_provinces <- hazard_provinces[!hazard_provinces %in% adm1_names]
@@ -252,13 +252,13 @@ validate_precomputed_hazards_geography <- function(
   }
 
   # Validate municipalities (if column exists)
-  if ("region" %in% names(precomputed_hazards_df) && length(adm2_names) > 0) {
+  if ("adm_name" %in% names(precomputed_hazards_df) && length(adm2_names) > 0) {
     municipality_rows <- precomputed_hazards_df |>
-      dplyr::filter(.data$adm_level == "ADM2", !is.na(.data$region))
+      dplyr::filter(.data$adm_level == "ADM2", !is.na(.data$adm_name))
 
     if (nrow(municipality_rows) > 0) {
       hazard_municipalities <- municipality_rows |>
-        dplyr::pull(.data$region) |>
+        dplyr::pull(.data$adm_name) |>
         unique()
 
       invalid_municipalities <- hazard_municipalities[!hazard_municipalities %in% adm2_names]
@@ -343,7 +343,7 @@ validate_precomputed_hazards_geography <- function(
     for (municipality in asset_municipalities) {
       municipality_hazards <- precomputed_hazards_df |>
         dplyr::filter(
-          .data$region == !!municipality,
+          .data$adm_name == !!municipality,
           .data$adm_level == "ADM2"
         ) |>
         dplyr::select("hazard_type", "hazard_indicator") |>
@@ -384,7 +384,7 @@ validate_precomputed_hazards_geography <- function(
           if (length(state_for_municipality) > 0 && !is.na(state_for_municipality)) {
             state_has_hazard <- precomputed_hazards_df |>
               dplyr::filter(
-                .data$region == !!state_for_municipality,
+                .data$adm_name == !!state_for_municipality,
                 .data$adm_level == "ADM1",
                 .data$hazard_type == !!hazard_type,
                 # Try matching by indicator key OR variable name
@@ -419,7 +419,7 @@ validate_precomputed_hazards_geography <- function(
     for (state in asset_states) {
       state_hazards <- precomputed_hazards_df |>
         dplyr::filter(
-          .data$region == !!state,
+          .data$adm_name == !!state,
           .data$adm_level == "ADM1"
         ) |>
         dplyr::select("hazard_type", "hazard_indicator") |>

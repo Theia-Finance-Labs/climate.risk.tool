@@ -152,7 +152,7 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
 #'   to `hazard_type` and `hazard_indicator` using the hazard config YAML files.
 #' @param base_dir Character string specifying the base directory. The function looks for precomputed_adm_indicators.csv in base_dir/hazards/
 #' @param hazard_configs Optional named list of hazard configs. If NULL, they are loaded from base_dir/hazards/config.
-#' @return tibble with precomputed hazard statistics including columns: region, region_code,
+#' @return tibble with precomputed hazard statistics including columns: adm_name, adm_code, shape_id,
 #'   state_code, adm_level, scenario_name, return_period, hazard_type, hazard_indicator,
 #'   hazard_name, aggregation_method, hazard_value. adm_level is "ADM1" for provinces
 #'   or "ADM2" for municipalities.
@@ -162,7 +162,7 @@ load_mapping_from_config <- function(base_dir, hazard_configs, hazard_type, mapp
 #' precomputed <- read_precomputed_hazards(base_dir)
 #' # Look up Amazonas province flood hazard
 #' amazonas_flood <- precomputed |>
-#'   dplyr::filter(region == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
+#'   dplyr::filter(adm_name == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
 #' }
 #' @export
 read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
@@ -181,7 +181,9 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
   precomputed_df <- readr::read_csv(
     precomputed_path,
     col_types = readr::cols(
-      region = "c",
+      adm_name = "c",
+      adm_code = "c",
+      shape_id = "c",
       adm_level = "c",
       gwl = "c",
       return_period = "d",
@@ -199,16 +201,11 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
     tibble::as_tibble() |>
     dplyr::rename_with(to_snake_case)
 
-  # Ensure columns exist if not in CSV (for backward compatibility)
-  if (!"region_code" %in% names(precomputed_df)) precomputed_df$region_code <- NA_character_
-  if (!"shape_id" %in% names(precomputed_df)) precomputed_df$shape_id <- NA_character_
-
   precomputed_df <- precomputed_df |>
     dplyr::mutate(
-      region = normalize_geo_name(.data$region),
+      adm_name = normalize_geo_name(.data$adm_name),
       adm_level = toupper(.data$adm_level),
-      # Keep existing codes if loaded, otherwise NA
-      region_code = as.character(.data$region_code),
+      adm_code = as.character(.data$adm_code),
       shape_id = as.character(.data$shape_id),
       state_code = NA_character_
     )
