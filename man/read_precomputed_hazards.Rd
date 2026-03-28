@@ -12,7 +12,7 @@ read_precomputed_hazards(base_dir, hazard_configs = NULL)
 \item{hazard_configs}{Optional named list of hazard configs. If NULL, they are loaded from base_dir/hazards/config.}
 }
 \value{
-tibble with precomputed hazard statistics including columns: region, region_code,
+tibble with precomputed hazard statistics including columns: adm_name, adm_code, shape_id,
 state_code, adm_level, scenario_name, return_period, hazard_type, hazard_indicator,
 hazard_name, aggregation_method, hazard_value. adm_level is "ADM1" for provinces
 or "ADM2" for municipalities.
@@ -33,6 +33,6 @@ base_dir <- system.file("tests_data", package = "climate.risk.tool")
 precomputed <- read_precomputed_hazards(base_dir)
 # Look up Amazonas province flood hazard
 amazonas_flood <- precomputed |>
-  dplyr::filter(region == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
+  dplyr::filter(adm_name == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
 }
 }

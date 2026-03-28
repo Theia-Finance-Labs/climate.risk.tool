@@ -435,19 +435,19 @@ testthat::test_that("load_adm_codes loads brazil_adm_codes.csv correctly", {
   
   testthat::expect_s3_class(adm_codes, "data.frame")
   testthat::expect_gt(nrow(adm_codes), 0)
-  testthat::expect_true(all(c("code", "name", "adm") %in% names(adm_codes)))
+  testthat::expect_true(all(c("code", "name", "adm_level") %in% names(adm_codes)))
   
   # Check that we have both adm1 and adm2 codes
-  adm_levels <- unique(adm_codes$adm)
+  adm_levels <- unique(adm_codes$adm_level)
   testthat::expect_true("adm1" %in% adm_levels)
   testthat::expect_true("adm2" %in% adm_levels)
   
   # Check specific examples
-  rondonia <- adm_codes |> dplyr::filter(.data$code == "11", .data$adm == "adm1")
+  rondonia <- adm_codes |> dplyr::filter(.data$code == "11", .data$adm_level == "adm1")
   testthat::expect_equal(nrow(rondonia), 1)
   testthat::expect_equal(rondonia$name, "Rondônia")
   
-  porto_velho <- adm_codes |> dplyr::filter(.data$code == "1100205", .data$adm == "adm2")
+  porto_velho <- adm_codes |> dplyr::filter(.data$code == "1100205", .data$adm_level == "adm2")
   testthat::expect_equal(nrow(porto_velho), 1)
   testthat::expect_equal(porto_velho$name, "Porto Velho")
 })

@@ -250,7 +250,7 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
   adm1_lookup <- NULL
   if (!is.null(adm_codes)) {
     adm1_lookup <- adm_codes |>
-      dplyr::filter(.data$adm == "adm1") |>
+      dplyr::filter(.data$adm_level == "adm1") |>
       dplyr::select("code", "name", "shapeID") |>
       dplyr::distinct()
   }
@@ -340,7 +340,7 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
     # Prefer deterministic lookup via ADM codes when available.
     if (!is.null(adm_codes)) {
       adm2_lookup <- adm_codes |>
-        dplyr::filter(.data$adm == "adm2") |>
+        dplyr::filter(.data$adm_level == "adm2") |>
         dplyr::transmute(
           municipality_lookup = tolower(trimws(stringi::stri_trans_general(as.character(.data$name), "Latin-ASCII"))),
           municipality_code_lookup = as.character(.data$code)
@@ -348,7 +348,7 @@ assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, a
         dplyr::distinct()
 
       adm1_lookup_codes <- adm_codes |>
-        dplyr::filter(.data$adm == "adm1") |>
+        dplyr::filter(.data$adm_level == "adm1") |>
         dplyr::transmute(
           state_code_lookup = as.character(.data$code),
           state_name_lookup = stringi::stri_trans_general(as.character(.data$name), "Latin-ASCII")
@@ -507,9 +507,9 @@ assign_state_to_assets <- function(assets_df, base_dir) {
 #'
 #' @title Load ADM codes mapping file
 #' @description Loads the brazil_adm_codes.csv file which maps ADM codes to names.
-#'   The file should have columns: code, name, adm (adm1 or adm2), shapeID
+#'   The file should have columns: adm_code, adm_name, adm_level (adm1 or adm2), shape_id
 #' @param base_dir Base directory containing areas/brazil_adm_codes.csv
-#' @return Data frame with columns: code, name, adm, shapeID
+#' @return Data frame with columns: code, name, adm_level, shapeID (normalized from file columns)
 #' @examples
 #' \dontrun{
 #' adm_codes <- load_adm_codes("tests/tests_data")
@@ -528,20 +528,25 @@ load_adm_codes <- function(base_dir) {
 #' @title Load ADM codes from file path
 #' @description Internal function to load ADM codes from a specific file path
 #' @param file_path Path to brazil_adm_codes.csv file
-#' @return Data frame with columns: code, name, adm, shapeID
+#' @return Data frame with columns: code, name, adm_level, shapeID
 #' @noRd
 load_adm_codes_from_path <- function(file_path) {
   readr::read_csv(
     file_path,
     col_types = readr::cols(
-      code = "c",
-      name = "c",
-      adm = "c",
-      shapeID = "c"
+      adm_code = "c",
+      adm_name = "c",
+      adm_level = "c",
+      shape_id = "c"
     ),
     show_col_types = FALSE,
     locale = readr::locale(encoding = "UTF-8")
   ) |>
+    dplyr::rename(
+      code = "adm_code",
+      name = "adm_name",
+      shapeID = "shape_id"
+    ) |>
     tibble::as_tibble()
 }
 
@@ -577,12 +582,12 @@ match_adm_codes_to_names <- function(assets_df, adm_codes) {
   
   # Create lookup tables for adm1 and adm2
   adm1_lookup <- adm_codes |>
-    dplyr::filter(.data$adm == "adm1") |>
+    dplyr::filter(.data$adm_level == "adm1") |>
     dplyr::select("code", "name") |>
     dplyr::distinct()
   
   adm2_lookup <- adm_codes |>
-    dplyr::filter(.data$adm == "adm2") |>
+    dplyr::filter(.data$adm_level == "adm2") |>
     dplyr::select("code", "name") |>
     dplyr::distinct()
   

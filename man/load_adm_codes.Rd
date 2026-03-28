@@ -10,11 +10,11 @@ load_adm_codes(base_dir)
 \item{base_dir}{Base directory containing areas/brazil_adm_codes.csv}
 }
 \value{
-Data frame with columns: code, name, adm, shapeID
+Data frame with columns: code, name, adm_level, shapeID (normalized from file columns)
 }
 \description{
 Loads the brazil_adm_codes.csv file which maps ADM codes to names.
-The file should have columns: code, name, adm (adm1 or adm2), shapeID
+The file should have columns: adm_code, adm_name, adm_level (adm1 or adm2), shape_id
 }
 \details{
 Load ADM codes from brazil_adm_codes.csv file

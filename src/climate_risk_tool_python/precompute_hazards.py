@@ -87,6 +87,9 @@ BASE_COLS = [
     "scenario_name",
 ]
 
+# Administrative polygon area in m² (from projected geometry); appended as the last output column.
+SHAPE_AREA_COL = "shape_area_m2"
+
 # Window block size when reading a region window in chunks (within bbox window)
 # (keeps per-region processing bounded even for large regions)
 WIN_BLOCK = 2048
@@ -320,7 +323,7 @@ def load_adm_codes(base_dir: str) -> pd.DataFrame:
     path = os.path.join(base_dir, "areas", "brazil_adm_codes.csv")
     if not os.path.exists(path):
         print(f"Warning: {path} not found. Codes/ShapeIDs will be missing.")
-        return pd.DataFrame(columns=["adm_code", "adm_name", "adm", "shape_id"])
+        return pd.DataFrame(columns=["adm_code", "adm_name", "adm_level", "shape_id"])
     return pd.read_csv(path, dtype=str)
 
 
@@ -375,7 +378,17 @@ def load_adm_shapefile(
         )
         gdf["adm_code"] = gdf["shape_id"].map(shape_map)
 
+    # Metric area per row (same order as shape_id); EPSG:3857 gives m² for downstream use.
+    gdf[SHAPE_AREA_COL] = gdf.to_crs("EPSG:3857").geometry.area.astype(np.float64)
+
     return gdf
+
+
+def reorder_with_shape_area_last(df: pd.DataFrame) -> pd.DataFrame:
+    if SHAPE_AREA_COL not in df.columns:
+        return df
+    front = [c for c in df.columns if c != SHAPE_AREA_COL]
+    return df[front + [SHAPE_AREA_COL]]
 
 
 # -----------------------
@@ -384,7 +397,7 @@ def load_adm_shapefile(
 def ensure_lat_descending(da: xr.DataArray) -> xr.DataArray:
     lat = da["lat"].values
     if lat[0] < lat[-1]:
-        return da.isel(lat=slice(None, None, -1))
+        return da.sortby("lat", ascending=False)
     return da
 
 
@@ -562,12 +575,18 @@ def compute_region_stats_for_slice(
             "empty_reason": "outside_raster_bounds",
         }
 
-    # Find index window that overlaps region bbox (fast)
+    # Find index window that overlaps region bbox (fast).
+    # Expand by half a pixel so that pixels whose centre lies just outside the
+    # bbox but that still physically touch the polygon are included.  This is
+    # consistent with rasterio.features.rasterize(..., all_touched=True) which
+    # marks any pixel the polygon touches, not only those whose centre is inside.
     minx, miny, maxx, maxy = region_geom.bounds
+    half_lat = abs(lats[1] - lats[0]) / 2 if len(lats) > 1 else 0.125
+    half_lon = abs(lons[1] - lons[0]) / 2 if len(lons) > 1 else 0.125
 
     # lat is descending
-    lat_idx = np.where((lats <= maxy) & (lats >= miny))[0]
-    lon_idx = np.where((lons >= minx) & (lons <= maxx))[0]
+    lat_idx = np.where((lats <= maxy + half_lat) & (lats >= miny - half_lat))[0]
+    lon_idx = np.where((lons >= minx - half_lon) & (lons <= maxx + half_lon))[0]
 
     if lat_idx.size == 0 or lon_idx.size == 0:
         return {
@@ -664,9 +683,6 @@ def compute_region_stats_for_slice(
                 mblock = mblock[:min0, :min1]
 
             v = block[mblock]
-            # special rule in your prior code
-            if hazard_type == "Heat":
-                v = np.where(v > 300, v, np.nan)
 
             if (
                 hazard_type in HAZARDS_THAT_DONT_FILL_ZERO
@@ -762,8 +778,12 @@ def process_nc_file_region_by_region_to_part(
 ):
     ds = xr.open_dataset(nc_path, engine="netcdf4")  # no dask
     try:
-        var_name = list(ds.data_vars.keys())[0]
-        da = ds[var_name]
+        if indicator_variable not in ds.data_vars:
+            raise ValueError(
+                f"NetCDF variable {indicator_variable!r} not found in {nc_path}. "
+                f"Available data variables: {list(ds.data_vars.keys())}"
+            )
+        da = ds[indicator_variable]
         da = normalize_latlon_names(da)
 
         if "lat" not in da.dims or "lon" not in da.dims:
@@ -872,7 +892,7 @@ def process_nc_file_region_by_region_to_part(
                     "adm_name": adm_name,
                     "adm_code": stats.get("adm_code", np.nan),
                     "shape_id": stats.get("shape_id", np.nan),
-                    "adm_level": adm_level,
+                    "adm_level": adm_level.lower(),
                     "gwl": np.nan,
                     "return_period": np.nan,
                     "indicator_file": indicator_file,
@@ -890,6 +910,7 @@ def process_nc_file_region_by_region_to_part(
                     "ensemble": ensemble_used,
                     "season": np.nan,
                     "scenario_name": np.nan,
+                    SHAPE_AREA_COL: reg.get(SHAPE_AREA_COL, np.nan),
                 }
 
                 for dim_name, dim_val in dim_combo.items():
@@ -916,7 +937,7 @@ def process_nc_file_region_by_region_to_part(
                 if c not in df.columns:
                     df[c] = np.nan
             extra_cols = [c for c in df.columns if c not in BASE_COLS]
-            df = df[BASE_COLS + extra_cols]
+            df = reorder_with_shape_area_last(df[BASE_COLS + extra_cols])
 
             df.to_csv(
                 part_csv,
@@ -989,6 +1010,8 @@ def concat_parts_to_final(parts: List[str], out_csv: str) -> None:
     # Filter BASE_COLS to only those that actually exist in final_df
     existing_base = [c for c in BASE_COLS if c in final_df.columns]
     extra_cols = [c for c in final_df.columns if c not in existing_base]
+    if SHAPE_AREA_COL in extra_cols:
+        extra_cols = [c for c in extra_cols if c != SHAPE_AREA_COL] + [SHAPE_AREA_COL]
     final_df = final_df[existing_base + extra_cols]
 
     final_df.to_csv(out_csv, index=False, encoding="utf-8-sig")
@@ -1082,7 +1105,7 @@ def process_tif_file_region_by_region_to_part(
             "adm_name": adm_name,
             "adm_code": stats.get("adm_code", np.nan),
             "shape_id": stats.get("shape_id", np.nan),
-            "adm_level": adm_level,
+            "adm_level": adm_level.lower(),
             "gwl": np.nan,
             "return_period": return_period if return_period is not None else np.nan,
             "indicator_file": indicator_file,
@@ -1100,6 +1123,7 @@ def process_tif_file_region_by_region_to_part(
             "ensemble": fixed_ensemble,
             "season": np.nan,
             "scenario_name": scenario_name if scenario_name is not None else np.nan,
+            SHAPE_AREA_COL: reg.get(SHAPE_AREA_COL, np.nan),
         }
 
         rows.append(row)
@@ -1109,7 +1133,7 @@ def process_tif_file_region_by_region_to_part(
         if c not in df.columns:
             df[c] = np.nan
     extra_cols = [c for c in df.columns if c not in BASE_COLS]
-    df = df[BASE_COLS + extra_cols]
+    df = reorder_with_shape_area_last(df[BASE_COLS + extra_cols])
 
     df.to_csv(
         part_csv,

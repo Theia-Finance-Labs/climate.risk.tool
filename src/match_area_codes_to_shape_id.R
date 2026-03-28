@@ -107,7 +107,7 @@ extract_adm1_data <- function(data) {
   ) %>%
     dplyr::distinct(.data$code, .data$name) %>%
     dplyr::mutate(
-      adm = "adm1",
+      adm_level = "adm1",
       normalized_name = normalize_name(.data$name)
     ) %>%
     dplyr::arrange(.data$code)
@@ -122,7 +122,7 @@ extract_adm2_data <- function(data) {
   ) %>%
     dplyr::distinct(.data$uf_code, .data$uf_name, .data$code, .data$name) %>%
     dplyr::mutate(
-      adm = "adm2",
+      adm_level = "adm2",
       normalized_name = canonicalize_municipality_normalized_name(.data$name)
     ) %>%
     dplyr::arrange(.data$code)
@@ -572,10 +572,10 @@ build_adm_output <- function(raw_data, municipality_shapefile, state_shapefile) 
   matched_adm2 <- match_adm2_shape_ids(adm2_data, municipality_shapefile, state_assignment_shapes)
 
   dplyr::bind_rows(
-    matched_adm1 %>% dplyr::select(adm_code = "code", adm_name = "name", "adm", shape_id = "shapeID"),
-    matched_adm2 %>% dplyr::select(adm_code = "code", adm_name = "name", "adm", shape_id = "shapeID")
+    matched_adm1 %>% dplyr::select(adm_code = "code", adm_name = "name", "adm_level", shape_id = "shapeID"),
+    matched_adm2 %>% dplyr::select(adm_code = "code", adm_name = "name", "adm_level", shape_id = "shapeID")
   ) %>%
-    dplyr::arrange(.data$adm, .data$adm_code)
+    dplyr::arrange(.data$adm_level, .data$adm_code)
 }
 
 main <- function() {
@@ -600,14 +600,14 @@ main <- function() {
   cat(sprintf(
     "Total rows: %d (adm1: %d, adm2: %d)\n",
     nrow(adm_output),
-    sum(adm_output$adm == "adm1"),
-    sum(adm_output$adm == "adm2")
+    sum(adm_output$adm_level == "adm1"),
+    sum(adm_output$adm_level == "adm2")
   ))
   cat(sprintf(
     "ADM2 shapeIDs are unique: %s\n",
     ifelse(
-      nrow(dplyr::filter(adm_output, .data$adm == "adm2")) ==
-        dplyr::n_distinct(dplyr::filter(adm_output, .data$adm == "adm2")$shape_id),
+      nrow(dplyr::filter(adm_output, .data$adm_level == "adm2")) ==
+        dplyr::n_distinct(dplyr::filter(adm_output, .data$adm_level == "adm2")$shape_id),
       "yes",
       "no"
     )
