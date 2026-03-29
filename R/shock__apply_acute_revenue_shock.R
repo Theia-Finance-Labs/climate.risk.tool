@@ -86,6 +86,35 @@ apply_acute_revenue_shock <- function(
       next
     }
 
+    if (!"spatial_multiplier" %in% names(event_assets)) {
+      event_assets$spatial_multiplier <- 1
+    }
+
+    # Scale the shock delta using spatial_multiplier:
+    # adjusted = baseline + multiplier * (shock - baseline)
+    asset_modifiers <- event_assets |>
+      dplyr::group_by(.data$asset) |>
+      dplyr::summarise(
+        baseline_revenue = first_non_missing(.data$revenue),
+        spatial_multiplier = first_non_missing(.data$spatial_multiplier),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(
+        spatial_multiplier = dplyr::coalesce(as.numeric(.data$spatial_multiplier), 1)
+      )
+
+    shock_values <- shock_values |>
+      dplyr::left_join(asset_modifiers, by = "asset") |>
+      dplyr::mutate(
+        shock_value = dplyr::if_else(
+          !is.na(.data$baseline_revenue),
+          as.numeric(.data$baseline_revenue) +
+            as.numeric(.data$spatial_multiplier) * (as.numeric(.data$shock_value) - as.numeric(.data$baseline_revenue)),
+          as.numeric(.data$shock_value)
+        )
+      ) |>
+      dplyr::select("asset", "shock_value")
+
     shock_values <- shock_values |>
       dplyr::mutate(year = as.numeric(event$event_year))
 

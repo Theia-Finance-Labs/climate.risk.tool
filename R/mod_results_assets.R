@@ -194,6 +194,8 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         "hazard_name",
         "hazard_type",
         "matching_method",
+        "spatial_exposure_status",
+        "spatial_multiplier",
         "hazard_return_period",
         "event_year"
       )

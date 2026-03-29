@@ -325,6 +325,7 @@ app_server <- function(input, output, session) {
           hazards_dir = file.path(base_dir, "hazards", "config"),
           adm1_boundaries = values$adm1_boundaries,
           adm2_boundaries = values$adm2_boundaries,
+          base_dir = base_dir,
           validate_inputs = TRUE,
           growth_rate = control$growth_rate(),
           discount_rate = control$discount_rate(),

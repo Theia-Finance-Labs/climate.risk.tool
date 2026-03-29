@@ -48,6 +48,10 @@ compute_shock_trajectories <- function(
 ) {
   # Filter assets_with_factors to only the events referenced
   # Use event_id for matching (more reliable than hazard_name, especially for multi-indicator hazards like Fire)
+  if (is.null(assets_with_factors) || nrow(assets_with_factors) == 0 || !"event_id" %in% names(assets_with_factors)) {
+    return(yearly_baseline_profits)
+  }
+
   relevant_event_ids <- events |>
     dplyr::distinct(.data$event_id) |>
     dplyr::pull(.data$event_id)
@@ -56,7 +60,9 @@ compute_shock_trajectories <- function(
     dplyr::filter(.data$event_id %in% relevant_event_ids)
 
   if (nrow(filtered_assets) == 0) {
-    stop("No matching event_id entries found in assets_with_factors for provided events")
+    # Spatial separation may intentionally exclude all assets for selected events.
+    # In this case, return unchanged trajectories for the shock path.
+    return(yearly_baseline_profits)
   }
 
   # ============================================================================

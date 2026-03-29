@@ -232,3 +232,22 @@ testthat::test_that("load_hazard_configs ignores missing override file", {
 
   testthat::expect_equal(configs$Flood$indicators$depth$agg, "median")
 })
+
+testthat::test_that("load_hazard_configs sets spatial separation scheme defaults", {
+  temp_dir <- tempfile("hazard_config_spatial_")
+  hazards_dir <- file.path(temp_dir, "hazards")
+  dir.create(hazards_dir, recursive = TRUE)
+
+  yaml::write_yaml(
+    list(indicators = list(depth = list(file = "flood_depth.nc", index = c("scenario_name", "return_period")))),
+    file.path(hazards_dir, "Flood.yml")
+  )
+  yaml::write_yaml(
+    list(indicators = list(hi = list(file = "heat_index.nc", index = c("gwl", "return_period")))),
+    file.path(hazards_dir, "Heat.yml")
+  )
+
+  configs <- load_hazard_configs(hazards_dir)
+  testthat::expect_equal(configs$Flood$spatial_separation_scheme, "hydro_regions")
+  testthat::expect_equal(configs$Heat$spatial_separation_scheme, "adm_regions")
+})

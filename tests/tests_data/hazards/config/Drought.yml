@@ -7,6 +7,7 @@ indicators:
     agg: closest
 
 index_indicator: standardized_precipitation_index_3
+spatial_separation_scheme: adm_regions
 
 mappings:
   drought_sensitivity:

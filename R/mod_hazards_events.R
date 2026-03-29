@@ -44,9 +44,10 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 #' @param id Internal parameter for shiny
 #' @param hazards_inventory reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, return_period, hazard_name
 #' @param hazard_configs reactive list from load_hazards_and_inventory()$configs
+#' @param base_dir_reactive optional reactive returning base_dir for loading spatial separation options
 #' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, return_period, event_year, season
 #' @export
-mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
+mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs, base_dir_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
       events_rv <- shiny::reactiveVal(tibble::tibble(
@@ -57,11 +58,30 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
       scenario_name = character(),
       return_period = numeric(),
       event_year = integer(),
-      season = character()
+      season = character(),
+      spatial_level = character(),
+      spatial_region_codes = character(),
+      spatial_region_labels = character(),
+      spatial_scheme = character()
     ))
 
     # Counter for dynamic UIs
     counter <- shiny::reactiveVal(1L)
+
+    spatial_data <- shiny::reactive({
+      if (is.null(base_dir_reactive)) {
+        return(NULL)
+      }
+      base_dir <- base_dir_reactive()
+      if (is.null(base_dir) || !nzchar(base_dir) || !dir.exists(base_dir)) {
+        return(NULL)
+      }
+      loaded <- try(load_spatial_separation_data(base_dir), silent = TRUE)
+      if (inherits(loaded, "try-error")) {
+        return(NULL)
+      }
+      loaded
+    })
 
     # Create UI-friendly inventory (only primary indicators)
     ui_inventory <- shiny::reactive({
@@ -173,6 +193,35 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
       # 3. Ensure season exists
       if (!"season" %in% names(new_row)) new_row$season <- NA_character_
 
+      spatial_scheme_val <- get_hazard_spatial_scheme(cfg, haz_type)
+      spatial_level_val <- input[[paste0("spatial_level_", k)]]
+      if (is.null(spatial_level_val) || !nzchar(as.character(spatial_level_val))) {
+        spatial_level_val <- "brazil"
+      }
+      spatial_level_val <- tolower(as.character(spatial_level_val))
+
+      selected_region_codes <- input[[paste0("spatial_regions_", k)]]
+      if (is.null(selected_region_codes)) selected_region_codes <- character(0)
+      selected_region_codes <- as.character(selected_region_codes)
+      selected_region_codes <- selected_region_codes[nzchar(selected_region_codes)]
+      if (spatial_level_val == "brazil") {
+        selected_region_codes <- character(0)
+      }
+
+      selected_region_labels <- character(0)
+      if (length(selected_region_codes) > 0) {
+        choices_df <- get_spatial_region_choices(spatial_data(), spatial_scheme_val, spatial_level_val)
+        if (nrow(choices_df) > 0) {
+          selected_region_labels <- choices_df$region_label[match(selected_region_codes, choices_df$region_code)]
+          selected_region_labels <- selected_region_labels[!is.na(selected_region_labels) & nzchar(selected_region_labels)]
+        }
+      }
+
+      new_row$spatial_level <- spatial_level_val
+      new_row$spatial_region_codes <- if (length(selected_region_codes) > 0) paste(unique(selected_region_codes), collapse = "|") else NA_character_
+      new_row$spatial_region_labels <- if (length(selected_region_labels) > 0) paste(unique(selected_region_labels), collapse = "|") else NA_character_
+      new_row$spatial_scheme <- spatial_scheme_val
+
       # bind_rows handles different column sets gracefully
       events_rv(dplyr::bind_rows(cur_events, new_row))
       counter(k + 1L)
@@ -213,6 +262,7 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
           selected = if (length(hazard_type_choices) > 0) hazard_type_choices[[1]] else NULL
         ),
         shiny::uiOutput(ns(paste0("dynamic_filters_ui_", k))),
+        shiny::uiOutput(ns(paste0("spatial_ui_", k))),
         shiny::sliderInput(
           ns(paste0("year_", k)),
           label = "Shock Year:",
@@ -297,6 +347,61 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
         
         shiny::tagList(filter_uis)
       })
+
+      output[[paste0("spatial_ui_", k)]] <- shiny::renderUI({
+        hazard_type_val <- input[[paste0("hazard_type_", k)]]
+        if (is.null(hazard_type_val) || !nzchar(as.character(hazard_type_val))) {
+          return(shiny::span(""))
+        }
+
+        cfg <- try(hazard_configs(), silent = TRUE)
+        if (inherits(cfg, "try-error") || is.null(cfg) || !hazard_type_val %in% names(cfg)) {
+          return(shiny::span(""))
+        }
+
+        scheme <- get_hazard_spatial_scheme(cfg, hazard_type_val)
+        level_choices <- get_spatial_level_choices(scheme)
+        selected_level <- input[[paste0("spatial_level_", k)]]
+        if (is.null(selected_level) || !selected_level %in% unname(level_choices)) {
+          selected_level <- "brazil"
+        }
+
+        region_input <- NULL
+        if (selected_level != "brazil") {
+          choices_df <- get_spatial_region_choices(spatial_data(), scheme, selected_level)
+          if (nrow(choices_df) > 0) {
+            region_choices <- as.character(choices_df$region_code)
+            names(region_choices) <- as.character(choices_df$region_label)
+
+            current_sel <- input[[paste0("spatial_regions_", k)]]
+            if (is.null(current_sel)) current_sel <- character(0)
+            current_sel <- intersect(as.character(current_sel), unname(region_choices))
+
+            region_input <- shiny::selectizeInput(
+              ns(paste0("spatial_regions_", k)),
+              label = "Selected Regions",
+              choices = region_choices,
+              selected = current_sel,
+              multiple = TRUE,
+              options = list(placeholder = "Choose one or more regions")
+            )
+          } else {
+            region_input <- shiny::helpText("No spatial regions available for this level.")
+          }
+        }
+
+        shiny::wellPanel(
+          style = "margin-top: 8px; margin-bottom: 8px; padding: 10px;",
+          shiny::h5("Spatial Separation", style = "margin-top: 0;"),
+          shiny::selectInput(
+            ns(paste0("spatial_level_", k)),
+            label = "Separation Level",
+            choices = level_choices,
+            selected = selected_level
+          ),
+          region_input
+        )
+      })
     })
 
 
@@ -322,7 +427,11 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs) {
           "scenario_name",
           "return_period",
           "event_year",
-          "season"
+          "season",
+          "spatial_level",
+          "spatial_region_codes",
+          "spatial_region_labels",
+          "spatial_scheme"
         )
 
         export_df <- current_events |>

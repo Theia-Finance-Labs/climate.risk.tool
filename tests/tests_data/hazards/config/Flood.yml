@@ -6,6 +6,7 @@ indicators:
     agg: median
 
 index_indicator: flood_depth
+spatial_separation_scheme: hydro_regions
 
 mappings:
   damage_and_cost_factors:

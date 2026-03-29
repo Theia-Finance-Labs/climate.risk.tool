@@ -100,6 +100,8 @@ compute_risk <- function(assets,
                          hazards_dir,
                          adm1_boundaries = NULL,
                          adm2_boundaries = NULL,
+                         spatial_separation_data = NULL,
+                         base_dir = NULL,
                          validate_inputs = TRUE,
                          growth_rate = 0.02,
                          discount_rate = 0.05,
@@ -352,8 +354,53 @@ compute_risk <- function(assets,
       }
     }
 
-  # Step 2.4: Join mapping tables for hazard-specific factors
-  assets_factors <- join_damage_cost_factors(assets_with_events, hazard_configs, hazards_dir)
+  # Step 2.4: Apply spatial separation (per event) before mapping/shock joins
+  spatial_eval <- evaluate_spatial_separation(
+    assets_with_events = assets_with_events,
+    events = events,
+    hazard_configs = hazard_configs,
+    spatial_separation_data = spatial_separation_data,
+    base_dir = base_dir,
+    adm1_boundaries = adm1_boundaries,
+    adm2_boundaries = adm2_boundaries
+  )
+
+  assets_with_events <- assets_with_events |>
+    dplyr::left_join(spatial_eval, by = c("asset", "event_id")) |>
+    dplyr::mutate(
+      spatial_included = dplyr::coalesce(.data$spatial_included, TRUE),
+      spatial_multiplier = dplyr::coalesce(as.numeric(.data$spatial_multiplier), 1)
+    )
+
+  included_events <- assets_with_events |>
+    dplyr::filter(.data$spatial_included)
+
+  excluded_events <- assets_with_events |>
+    dplyr::filter(!.data$spatial_included)
+
+  excluded_rows <- build_spatial_exclusion_rows(excluded_events)
+
+  # Step 2.5: Join mapping tables for hazard-specific factors (included rows only)
+  assets_factors_included <- if (nrow(included_events) > 0) {
+    join_damage_cost_factors(included_events, hazard_configs, hazards_dir)
+  } else {
+    tibble::tibble()
+  }
+
+  # Rows used for shocks are the included rows only.
+  assets_factors_for_shocks <- assets_factors_included
+
+  # Assets factors output includes both included rows (with factors) and excluded rows (with status).
+  # Avoid binding with empty tables to prevent class-coercion issues on complex columns.
+  assets_factors <- if (nrow(assets_factors_included) == 0 && nrow(excluded_rows) == 0) {
+    tibble::tibble()
+  } else if (nrow(excluded_rows) == 0) {
+    assets_factors_included
+  } else if (nrow(assets_factors_included) == 0) {
+    excluded_rows
+  } else {
+    dplyr::bind_rows(assets_factors_included, excluded_rows)
+  }
 
   # Standardize output columns: keep hazard_return_period and remove long-format metadata
   if ("return_period" %in% names(assets_factors)) {
@@ -398,7 +445,7 @@ compute_risk <- function(assets,
   # This now returns both baseline and shock scenarios in one dataframe
   yearly_shock <- compute_shock_trajectories(
     yearly_baseline_profits = yearly_baseline,
-    assets_with_factors = assets_factors,
+    assets_with_factors = assets_factors_for_shocks,
     events = events,
     hazard_configs = hazard_configs,
     companies = companies

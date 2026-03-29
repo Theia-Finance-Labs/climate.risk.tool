@@ -338,12 +338,31 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
     stop("index_indicator '", index_indicator, "' has no index defined")
   }
 
+  spatial_separation_scheme <- config$spatial_separation_scheme
+  if (is.null(spatial_separation_scheme) || !nzchar(as.character(spatial_separation_scheme))) {
+    # Backward-compatible default:
+    # Flood -> hydro regions, all others -> ADM regions.
+    if (tolower(as.character(hazard_name)) == "flood") {
+      spatial_separation_scheme <- "hydro_regions"
+    } else {
+      spatial_separation_scheme <- "adm_regions"
+    }
+  }
+  spatial_separation_scheme <- tolower(as.character(spatial_separation_scheme))
+  if (!spatial_separation_scheme %in% c("adm_regions", "hydro_regions")) {
+    stop(
+      "spatial_separation_scheme for hazard '", hazard_name,
+      "' must be one of: adm_regions, hydro_regions"
+    )
+  }
+
   normalized <- list(
     name = as.character(hazard_name),
     indicators = indicators,
     mappings = mappings,
     primary_indicator = as.character(primary_indicator),
     index_indicator = as.character(index_indicator),
+    spatial_separation_scheme = spatial_separation_scheme,
     shocks = shocks,
     path = file_path
   )

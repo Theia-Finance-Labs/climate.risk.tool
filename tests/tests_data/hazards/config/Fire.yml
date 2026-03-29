@@ -24,6 +24,7 @@ indicators:
       default: 0
 
 index_indicator: fire_weather_index
+spatial_separation_scheme: adm_regions
 
 mappings:
   ignition_factors:

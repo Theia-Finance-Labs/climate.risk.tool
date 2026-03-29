@@ -262,7 +262,8 @@ mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
     hz_mod <- mod_hazards_events_server(
       "hazards",
       hazards_inventory = hazards_inventory,
-      hazard_configs = hazard_configs
+      hazard_configs = hazard_configs,
+      base_dir_reactive = base_dir_reactive
     )
 
     # Results ready output for conditional panel

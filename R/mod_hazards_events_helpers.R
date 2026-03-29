@@ -186,6 +186,39 @@ load_hazards_events_config <- function(file_path, hazard_configs, hazards_invent
       }
     }
 
+    # Spatial separation columns (backward-compatible defaults)
+    if ("spatial_level" %in% names(row_df) &&
+      !is.na(row_df$spatial_level[[1]]) &&
+      nzchar(as.character(row_df$spatial_level[[1]]))) {
+      res_row$spatial_level <- tolower(as.character(row_df$spatial_level[[1]]))
+    } else {
+      res_row$spatial_level <- "brazil"
+    }
+
+    if ("spatial_region_codes" %in% names(row_df) &&
+      !is.na(row_df$spatial_region_codes[[1]]) &&
+      nzchar(as.character(row_df$spatial_region_codes[[1]]))) {
+      res_row$spatial_region_codes <- as.character(row_df$spatial_region_codes[[1]])
+    } else {
+      res_row$spatial_region_codes <- NA_character_
+    }
+
+    if ("spatial_region_labels" %in% names(row_df) &&
+      !is.na(row_df$spatial_region_labels[[1]]) &&
+      nzchar(as.character(row_df$spatial_region_labels[[1]]))) {
+      res_row$spatial_region_labels <- as.character(row_df$spatial_region_labels[[1]])
+    } else {
+      res_row$spatial_region_labels <- NA_character_
+    }
+
+    if ("spatial_scheme" %in% names(row_df) &&
+      !is.na(row_df$spatial_scheme[[1]]) &&
+      nzchar(as.character(row_df$spatial_scheme[[1]]))) {
+      res_row$spatial_scheme <- tolower(as.character(row_df$spatial_scheme[[1]]))
+    } else {
+      res_row$spatial_scheme <- get_hazard_spatial_scheme(hazard_configs, hazard_type_val)
+    }
+
     return(res_row)
   })
 

@@ -86,9 +86,28 @@ apply_acute_profit_shock <- function(
     )
 
     if (nrow(event_damage) > 0) {
+      if (!"spatial_multiplier" %in% names(event_assets)) {
+        event_assets$spatial_multiplier <- 1
+      }
+
+      asset_multipliers <- event_assets |>
+        dplyr::group_by(.data$asset) |>
+        dplyr::summarise(
+          spatial_multiplier = first_non_missing(.data$spatial_multiplier),
+          .groups = "drop"
+        ) |>
+        dplyr::mutate(
+          spatial_multiplier = dplyr::coalesce(as.numeric(.data$spatial_multiplier), 1)
+        )
+
       event_damage <- event_damage |>
+        dplyr::left_join(asset_multipliers, by = "asset") |>
+        dplyr::mutate(
+          shock_value = as.numeric(.data$shock_value) * as.numeric(.data$spatial_multiplier)
+        ) |>
         dplyr::mutate(event_year = as.numeric(event$event_year)) |>
-        dplyr::rename(acute_damage = "shock_value")
+        dplyr::rename(acute_damage = "shock_value") |>
+        dplyr::select("asset", "event_year", "acute_damage")
 
       shocks_by_asset_year <- dplyr::bind_rows(shocks_by_asset_year, event_damage)
     }
