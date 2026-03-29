@@ -8,8 +8,13 @@ testthat::test_that("mod_status_ui creates expected elements", {
   testthat::expect_true(grepl("test-status_badge", html))
   testthat::expect_true(grepl("test-status_message", html))
   testthat::expect_true(grepl("test-events_table", html))
+  testthat::expect_true(grepl("test-run_repro_code", html))
+  testthat::expect_true(grepl("test-copy_repro_code", html))
+  testthat::expect_true(grepl("copyStatusReproCode\\(this\\)", html))
   testthat::expect_true(grepl("Analysis Status", html))
   testthat::expect_true(grepl("Configured Hazard Events", html))
+  testthat::expect_true(grepl("Reproduction Code", html))
+  testthat::expect_true(grepl("Copy to Clipboard", html))
 })
 
 testthat::test_that("mod_status_server displays events with event_id", {
@@ -98,5 +103,31 @@ testthat::test_that("mod_status_server displays correct status badges", {
     # Should display READY badge for complete status
     badge_output <- output$status_badge
     testthat::expect_true(!is.null(badge_output))
+  })
+})
+
+testthat::test_that("mod_status_server renders reproduction code", {
+  shiny::testServer(mod_status_server, args = list(
+    id = "test",
+    status_reactive = shiny::reactive("Ready"),
+    events_reactive = shiny::reactive(data.frame()),
+    run_repro_code_reactive = shiny::reactive("library(climate.risk.tool)\nprint('ok')")
+  ), {
+    code_output <- output$run_repro_code
+    testthat::expect_true(!is.null(code_output))
+    testthat::expect_match(session$userData$status_run_repro_code, "library\\(climate\\.risk\\.tool\\)")
+  })
+})
+
+testthat::test_that("mod_status_server renders reproduction code fallback", {
+  shiny::testServer(mod_status_server, args = list(
+    id = "test",
+    status_reactive = shiny::reactive("Ready"),
+    events_reactive = shiny::reactive(data.frame()),
+    run_repro_code_reactive = shiny::reactive("Reproduction code unavailable: select an input folder first.")
+  ), {
+    code_output <- output$run_repro_code
+    testthat::expect_true(!is.null(code_output))
+    testthat::expect_match(session$userData$status_run_repro_code, "select an input folder")
   })
 })

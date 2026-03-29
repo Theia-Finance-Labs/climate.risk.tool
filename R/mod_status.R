@@ -38,6 +38,43 @@ mod_status_ui <- function(id) {
         shiny::div(
           class = "events-table-container",
           DT::dataTableOutput(ns("events_table"))
+        ),
+        shiny::div(
+          class = "status-repro-wrapper",
+          shiny::tags$details(
+            class = "hazard-panel status-repro-panel",
+            shiny::tags$summary(
+              class = "hazard-panel__summary status-repro-panel__summary",
+              shiny::tags$span(
+                class = "status-repro-panel__title",
+                shiny::icon("code"),
+                "Reproduction Code"
+              )
+            ),
+            shiny::div(
+              class = "hazard-panel__table status-repro-panel__body",
+              shiny::div(
+                class = "status-repro-toolbar",
+                shiny::tags$button(
+                  id = ns("copy_repro_code"),
+                  type = "button",
+                  class = "btn btn-secondary btn-sm status-repro-copy-btn",
+                  `data-copy-target` = ns("run_repro_code"),
+                  onclick = "copyStatusReproCode(this);",
+                  shiny::icon("copy"),
+                  "Copy to Clipboard"
+                )
+              ),
+              shiny::p(
+                "R code to reproduce the current live analysis configuration.",
+                class = "text-muted status-repro-description"
+              ),
+              shiny::div(
+                class = "status-repro-code-shell",
+                shiny::verbatimTextOutput(ns("run_repro_code"), placeholder = TRUE)
+              )
+            )
+          )
         )
       )
     )
@@ -91,8 +128,9 @@ format_spatial_selection <- function(level, region_codes, region_labels) {
 #' @param status_reactive reactive containing current status message
 #' @param events_reactive reactive containing configured events
 #' @param delete_event_callback function to delete an event by event_id
+#' @param run_repro_code_reactive optional reactive containing the generated run reproduction code
 #' @export
-mod_status_server <- function(id, status_reactive, events_reactive, delete_event_callback = NULL) {
+mod_status_server <- function(id, status_reactive, events_reactive, delete_event_callback = NULL, run_repro_code_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -113,6 +151,17 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
     # Status message
     output$status_message <- shiny::renderText({
       status_reactive()
+    })
+
+    output$run_repro_code <- shiny::renderText({
+      code <- if (is.null(run_repro_code_reactive)) {
+        "Reproduction code will appear here once the current run inputs are available."
+      } else {
+        run_repro_code_reactive()
+      }
+
+      session$userData$status_run_repro_code <- code
+      code
     })
 
     # Events table with delete buttons

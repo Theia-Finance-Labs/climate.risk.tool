@@ -110,6 +110,22 @@ app_server <- function(input, output, session) {
     overrides_reload = overrides_reload
   )
 
+  run_repro_spec <- shiny::reactive({
+    events <- try(control$events(), silent = TRUE)
+    if (inherits(events, "try-error")) {
+      events <- NULL
+    }
+
+    list(
+      base_dir = get_base_dir(),
+      input_folder = control$input_folder(),
+      events = events,
+      growth_rate = control$growth_rate(),
+      discount_rate = control$discount_rate(),
+      risk_free_rate = control$risk_free_rate()
+    )
+  })
+
   # Initialize status module
   mod_status_server(
     "status",
@@ -117,7 +133,10 @@ app_server <- function(input, output, session) {
       values$status
     }),
     events_reactive = control$events,
-    delete_event_callback = control$delete_event
+    delete_event_callback = control$delete_event,
+    run_repro_code_reactive = shiny::reactive({
+      build_run_repro_code(run_repro_spec())
+    })
   )
 
   # Initialize results modules

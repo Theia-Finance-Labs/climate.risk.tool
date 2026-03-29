@@ -130,6 +130,7 @@ golem_add_external_resources <- function() {
       type = "text/css",
       href = "www/custom.css"
     ),
+    tags$script(src = "www/status-repro.js"),
     # Add Font Awesome for icons
     tags$link(
       rel = "stylesheet",
