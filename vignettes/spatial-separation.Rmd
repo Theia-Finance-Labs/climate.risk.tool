@@ -1,0 +1,129 @@
+---
+title: "spatial-separation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{spatial-separation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE # Usage guide only
+)
+```
+
+```{r setup}
+library(climate.risk.tool)
+
+base_dir <- file.path("..", "tests", "tests_data")
+```
+
+## Prepare inputs
+
+```{r}
+assets <- read_assets(file.path(base_dir, "user_input"))
+companies <- read_companies(file.path(base_dir, "user_input"))
+
+hazard_data <- load_hazards_and_inventory(
+  hazards_dir = file.path(base_dir, "hazards", "config"),
+  hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
+  aggregate_factor = 16L
+)
+
+hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc, hazard_data$hazards$csv)
+hazards_inventory <- hazard_data$inventory
+hazard_configs <- hazard_data$configs
+hazards_dir <- file.path(base_dir, "hazards", "config")
+precomputed_hazards <- read_precomputed_hazards(base_dir)
+```
+
+## Define events (default behavior: no spatial separation)
+
+When no spatial columns are provided, `compute_risk()` keeps the default behavior and does not spatially separate assets.
+
+```{r}
+events <- data.frame(
+  event_id = c("ev1", "ev2", "ev3", "ev4"),
+  hazard_type = c("Flood", "Flood", "Heat", "Heat"),
+  hazard_name = c(
+    "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
+    "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
+    "Compound__HI__GWL=present__RP=10__ensemble=mean",
+    "Compound__HI__GWL=3__RP=10__ensemble=mean"
+  ),
+  scenario_name = c("CurrentClimate", "CurrentClimate", "present", "3"),
+  return_period = c(10, 10, 10, 10),
+  event_year = c(2030L, 2030L, 2030L, 2035L),
+  stringsAsFactors = FALSE
+)
+```
+
+```{r}
+results_default <- compute_risk(
+  assets = assets,
+  companies = companies,
+  events = events,
+  hazards = hazards,
+  hazards_inventory = hazards_inventory,
+  precomputed_hazards = precomputed_hazards,
+  hazard_configs = hazard_configs,
+  hazards_dir = hazards_dir,
+  growth_rate = 0.02,
+  discount_rate = 0.05,
+  risk_free_rate = 0.02
+)
+```
+
+## Apply per-event spatial separation programmatically
+
+Use `set_events_spatial_separation()` to assign filters per `event_id`.
+
+```{r}
+events_spatial <- set_events_spatial_separation(
+  events = events,
+  hazard_configs = hazard_configs,
+  spatial_filters = list(
+    # ADM scheme shorthand (state-level by codes)
+    ev3 = list(state = c("11", "33")),
+    # Hydro scheme shorthand (micro hydrological region codes)
+    ev1 = list(micro = c("10316084", "11151279")),
+    # Explicit form with labels and level
+    ev4 = list(
+      level = "municipality",
+      codes = c("1100023", "1200401"),
+      labels = c("Ariquemes", "Rio Branco")
+    )
+  )
+)
+
+events_spatial
+```
+
+## Run with spatial separation
+
+```{r}
+results_spatial <- compute_risk(
+  assets = assets,
+  companies = companies,
+  events = events_spatial,
+  hazards = hazards,
+  hazards_inventory = hazards_inventory,
+  precomputed_hazards = precomputed_hazards,
+  hazard_configs = hazard_configs,
+  hazards_dir = hazards_dir,
+  growth_rate = 0.02,
+  discount_rate = 0.05,
+  risk_free_rate = 0.02
+)
+```
+
+Inspect status columns added by spatial filtering:
+
+```{r}
+results_spatial$assets_factors |>
+  dplyr::select(asset, event_id, hazard_type, spatial_exposure_status, spatial_multiplier)
+```
+

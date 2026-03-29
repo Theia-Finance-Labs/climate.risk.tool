@@ -44,6 +44,47 @@ mod_status_ui <- function(id) {
   )
 }
 
+#' @noRd
+format_spatial_selection <- function(level, region_codes, region_labels) {
+  parse_vals <- function(x) {
+    if (is.null(x) || length(x) == 0 || is.na(x) || !nzchar(trimws(as.character(x)))) {
+      return(character(0))
+    }
+    vals <- unlist(strsplit(as.character(x), "[|;,]"))
+    vals <- trimws(vals)
+    vals[nzchar(vals)]
+  }
+
+  lvl <- tolower(trimws(as.character(level)))
+  if (is.na(lvl) || !nzchar(lvl) || lvl == "brazil") {
+    return("Brazil (whole)")
+  }
+
+  labels <- parse_vals(region_labels)
+  codes <- parse_vals(region_codes)
+
+  level_label <- dplyr::case_when(
+    lvl == "state" ~ "States",
+    lvl == "municipality" ~ "Municipalities",
+    lvl == "macro" ~ "Macro regions",
+    lvl == "meso" ~ "Meso regions",
+    lvl == "micro" ~ "Micro regions",
+    TRUE ~ stringr::str_to_title(lvl)
+  )
+
+  values <- if (length(labels) > 0) labels else codes
+  if (length(values) == 0) {
+    return(level_label)
+  }
+
+  preview <- paste(utils::head(values, 3), collapse = ", ")
+  if (length(values) > 3) {
+    paste0(level_label, ": ", preview, " (+", length(values) - 3, " more)")
+  } else {
+    paste0(level_label, ": ", preview)
+  }
+}
+
 #' status Server Functions
 #'
 #' @param id Internal parameter for shiny
@@ -100,15 +141,30 @@ mod_status_server <- function(id, status_reactive, events_reactive, delete_event
       }
 
       # Prepare display data (exclude season column - it's now embedded in hazard_name)
+      if (!"spatial_level" %in% names(events)) events$spatial_level <- NA_character_
+      if (!"spatial_region_codes" %in% names(events)) events$spatial_region_codes <- NA_character_
+      if (!"spatial_region_labels" %in% names(events)) events$spatial_region_labels <- NA_character_
+
       display_data <- events |>
-        dplyr::select("event_id", "hazard_type", "hazard_name", "scenario_name", "return_period", "event_year") |>
+        dplyr::mutate(
+          spatial_selection = mapply(
+            FUN = format_spatial_selection,
+            level = .data$spatial_level,
+            region_codes = .data$spatial_region_codes,
+            region_labels = .data$spatial_region_labels,
+            SIMPLIFY = TRUE,
+            USE.NAMES = FALSE
+          )
+        ) |>
+        dplyr::select("event_id", "hazard_type", "hazard_name", "scenario_name", "return_period", "event_year", "spatial_selection") |>
         dplyr::rename(
           "Event ID" = "event_id",
           "Hazard Type" = "hazard_type",
           "Hazard Name" = "hazard_name",
           "Scenario" = "scenario_name",
           "Return Period (years)" = "return_period",
-          "Shock Year" = "event_year"
+          "Shock Year" = "event_year",
+          "Spatial Separation" = "spatial_selection"
         )
 
       # Add delete buttons column

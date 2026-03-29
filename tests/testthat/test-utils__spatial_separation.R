@@ -1,3 +1,28 @@
+testthat::test_that("evaluate_spatial_separation defaults to no separation when spatial columns are absent", {
+  assets_with_events <- tibble::tibble(
+    asset = c("A1", "A2"),
+    event_id = c("ev1", "ev1"),
+    hazard_type = c("Heat", "Heat"),
+    latitude = c(-10.0, -11.0),
+    longitude = c(-47.0, -48.0)
+  )
+
+  events <- tibble::tibble(
+    event_id = "ev1",
+    hazard_type = "Heat"
+  )
+
+  result <- evaluate_spatial_separation(
+    assets_with_events = assets_with_events,
+    events = events,
+    hazard_configs = list(Heat = list(spatial_separation_scheme = "adm_regions"))
+  )
+
+  testthat::expect_true(all(result$spatial_included))
+  testthat::expect_true(all(is.na(result$spatial_exposure_status)))
+  testthat::expect_true(all(result$spatial_multiplier == 1))
+})
+
 testthat::test_that("ADM municipality spatial selection marks state-only assets as insufficient", {
   assets_with_events <- tibble::tibble(
     asset = c("A1", "A2"),

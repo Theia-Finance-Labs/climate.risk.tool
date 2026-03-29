@@ -26,6 +26,9 @@ testthat::test_that("mod_status_server displays events with event_id", {
     scenario_name = c("rcp85", "rcp85"),
     return_period = c(100, 50),
     event_year = c(2030L, 2035L),
+    spatial_level = c("state", "brazil"),
+    spatial_region_codes = c("11|33", NA_character_),
+    spatial_region_labels = c("Rondonia|Rio de Janeiro", NA_character_),
     stringsAsFactors = FALSE
   )
 
@@ -42,7 +45,9 @@ testthat::test_that("mod_status_server displays events with event_id", {
     testthat::expect_true(!is.null(events_output))
 
     testthat::expect_true("Event ID" %in% colnames(events_output))
+    testthat::expect_true("Spatial Separation" %in% colnames(events_output))
     testthat::expect_equal(events_output$`Event ID`, c("ev1", "ev2"))
+    testthat::expect_equal(events_output$`Spatial Separation`[2], "Brazil (whole)")
   })
 })
 
