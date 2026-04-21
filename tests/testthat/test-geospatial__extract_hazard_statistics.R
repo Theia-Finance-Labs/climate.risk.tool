@@ -61,6 +61,67 @@ testthat::test_that("extract_spatial_statistics handles closest and small buffer
   testthat::expect_equal(mean_results$depth, 7)
 })
 
+testthat::test_that("extract_spatial_statistics emits persistent batch progress logs", {
+  testthat::skip_if_not_installed("terra")
+  testthat::skip_if_not_installed("sf")
+
+  hazard_rast <- terra::rast(
+    nrows = 10,
+    ncols = 10,
+    xmin = 0,
+    xmax = 10,
+    ymin = 0,
+    ymax = 10,
+    crs = "EPSG:4326"
+  )
+  hazard_rast <- terra::setValues(hazard_rast, 7)
+
+  hazards <- list("Flood__depth__GWL=present__RP=100__ensemble=mean" = hazard_rast)
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Flood__depth__GWL=present__RP=100__ensemble=mean",
+    hazard_key = "Flood__depth__GWL=present__RP=100__ensemble=mean",
+    hazard_type = "Flood",
+    hazard_indicator = "depth",
+    variable = "depth",
+    return_period = 100,
+    scenario_name = "present",
+    season = NA_character_,
+    ensemble = "mean",
+    source = "tif",
+    agg = NA_character_,
+    categorical = FALSE,
+    indicator_key = "Flood__depth__GWL=present__RP=100__ensemble=mean"
+  )
+
+  assets_df <- tibble::tibble(
+    asset = paste("Asset", LETTERS[1:5]),
+    company = "Company A",
+    latitude = c(0.1, 0.2, 0.3, 0.4, 0.5),
+    longitude = c(0.1, 0.2, 0.3, 0.4, 0.5),
+    municipality = NA_character_,
+    state = NA_character_,
+    asset_category = "test",
+    asset_subtype = "test",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  msgs <- testthat::capture_messages(
+    results <- extract_spatial_statistics(
+      assets_df = assets_df,
+      hazards = hazards,
+      hazards_inventory = hazards_inventory,
+      aggregation_method = "mean"
+    )
+  )
+
+  testthat::expect_equal(results$depth, rep(7, 5))
+  testthat::expect_true(any(grepl("Running 2 batch\\(es\\) of up to 4 asset\\(s\\) each", msgs)))
+  testthat::expect_true(any(grepl("Batch 1/2 complete", msgs)))
+  testthat::expect_true(any(grepl("Hazard complete \\| total elapsed", msgs)))
+})
+
 testthat::test_that("extract_spatial_statistics does not mask extraction failures with zero", {
   testthat::skip_if_not_installed("terra")
   testthat::skip_if_not_installed("sf")

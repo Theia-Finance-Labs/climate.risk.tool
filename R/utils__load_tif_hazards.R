@@ -136,7 +136,8 @@ load_tif_hazards <- function(mapping_df,
 
   # Configure terra for efficient loading
   old_opts <- terra::terraOptions()
-  on.exit(try(terra::terraOptions(old_opts), silent = TRUE), add = TRUE)
+  restore_opts <- old_opts[setdiff(names(old_opts), "metadata")]
+  on.exit(try(do.call(terra::terraOptions, restore_opts), silent = TRUE), add = TRUE)
   terra::terraOptions(todisk = TRUE, memfrac = memfrac, progress = 0)
 
   # Create named list for rasters

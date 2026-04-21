@@ -3,6 +3,102 @@
 extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
   message("  [extract_spatial_statistics] Extracting hazard statistics...")
 
+  format_duration <- function(seconds) {
+    total_seconds <- max(0L, as.integer(round(seconds)))
+    hours <- total_seconds %/% 3600L
+    minutes <- (total_seconds %% 3600L) %/% 60L
+    secs <- total_seconds %% 60L
+
+    if (hours > 0L) {
+      sprintf("%02d:%02d:%02d", hours, minutes, secs)
+    } else {
+      sprintf("%02d:%02d", minutes, secs)
+    }
+  }
+
+  extract_batch_values <- function(extracted, expected_rows, hazard_name, batch_idx, total_batches) {
+    if (!is.null(extracted) && nrow(extracted) == expected_rows) {
+      if (ncol(extracted) == 2) {
+        return(as.numeric(extracted[[2]]))
+      }
+      if (ncol(extracted) > 2) {
+        warning(
+          "[extract_spatial_statistics] Extraction returned ", ncol(extracted) - 1,
+          " layers for ", hazard_name, " in batch ", batch_idx, "/", total_batches,
+          ", expected 1"
+        )
+        return(as.numeric(extracted[[2]]))
+      }
+      warning(
+        "[extract_spatial_statistics] Extraction returned no value columns for ",
+        hazard_name, " in batch ", batch_idx, "/", total_batches
+      )
+      return(rep(NA_real_, expected_rows))
+    }
+
+    if (!is.null(extracted)) {
+      warning(
+        "[extract_spatial_statistics] Extraction returned ", nrow(extracted),
+        " rows, expected ", expected_rows, " for ", hazard_name,
+        " in batch ", batch_idx, "/", total_batches
+      )
+    }
+    rep(NA_real_, expected_rows)
+  }
+
+  estimate_extent_cells <- function(ext_obj, rast) {
+    raster_res <- terra::res(rast)
+    width <- max(0, ext_obj[2] - ext_obj[1])
+    height <- max(0, ext_obj[4] - ext_obj[3])
+    n_cols <- max(1, ceiling(width / raster_res[1]))
+    n_rows <- max(1, ceiling(height / raster_res[2]))
+    as.numeric(n_cols) * as.numeric(n_rows)
+  }
+
+  build_spatial_batches <- function(indices, coords, rast, max_batch_size, max_cells) {
+    split_indices <- function(local_idx) {
+      if (length(local_idx) <= 1L) {
+        return(list(local_idx))
+      }
+
+      local_coords <- coords[local_idx, , drop = FALSE]
+      local_ext <- terra::ext(
+        min(local_coords[, 1], na.rm = TRUE),
+        max(local_coords[, 1], na.rm = TRUE),
+        min(local_coords[, 2], na.rm = TRUE),
+        max(local_coords[, 2], na.rm = TRUE)
+      )
+      est_cells <- estimate_extent_cells(local_ext, rast)
+
+      if (length(local_idx) <= max_batch_size && est_cells <= max_cells) {
+        return(list(local_idx))
+      }
+
+      x_spread <- diff(range(local_coords[, 1], na.rm = TRUE))
+      y_spread <- diff(range(local_coords[, 2], na.rm = TRUE))
+      split_axis <- if (x_spread >= y_spread) 1 else 2
+      axis_order <- order(local_coords[, split_axis], na.last = TRUE)
+      midpoint <- ceiling(length(local_idx) / 2)
+      left_idx <- local_idx[axis_order[seq_len(midpoint)]]
+      right_idx <- if (midpoint < length(local_idx)) {
+        local_idx[axis_order[seq.int(midpoint + 1L, length(local_idx))]]
+      } else {
+        integer(0)
+      }
+
+      c(
+        split_indices(left_idx),
+        if (length(right_idx) > 0L) split_indices(right_idx) else list()
+      )
+    }
+
+    split_indices(indices)
+  }
+
+  old_progress <- terra::terraOptions()$progress
+  on.exit(try(terra::terraOptions(progress = old_progress), silent = TRUE), add = TRUE)
+  terra::terraOptions(progress = 0)
+
   # Filter to raster hazards (NetCDF or TIF) that actually exist in the hazards list
   available_hazard_keys <- names(hazards)
   raster_inventory <- hazards_inventory |>
@@ -17,22 +113,14 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
     # Define aggregation function mapping (used for both NC and TIF sources)
     aggregation_functions <- list(
       # Note: terra::extract() may forward extra arguments to `fun` (e.g., na.rm).
-      # All aggregation functions accept `...` to avoid unused-argument errors.
-      "mean" = function(x, ...) mean(x, na.rm = TRUE),
-      "median" = function(x, ...) stats::median(x, na.rm = TRUE),
-      "max" = function(x, ...) max(x, na.rm = TRUE),
-      "min" = function(x, ...) min(x, na.rm = TRUE),
+      # Using built-in function names keeps terra on its faster native path.
+      "mean" = "mean",
+      "median" = "median",
+      "max" = "max",
+      "min" = "min",
       "p10" = function(x, ...) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
       "p90" = function(x, ...) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
-      "mode" = function(x, ...) {
-        # Get most common value (for categorical data like land cover)
-        x_clean <- x[!is.na(x)]
-        if (length(x_clean) == 0) {
-          return(NA_real_)
-        }
-        ux <- unique(x_clean)
-        ux[which.max(tabulate(match(x_clean, ux)))]
-      }
+      "mode" = "modal"
     )
     # Create geometries for assets
     assets_sf <- create_asset_geometries(
@@ -126,48 +214,124 @@ extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, ag
       r_crs <- terra::crs(hazard_rast)
       if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
 
+      n_geoms <- nrow(assets_sf)
+      batch_size <- if (effective_aggregation_method == "closest") {
+        max(1L, min(50L, n_geoms))
+      } else {
+        max(1L, min(4L, n_geoms))
+      }
+      hazard_vals <- rep(NA_real_, n_geoms)
+
       # Fast path: vectorized terra::extract over all geometries at once (huge speedup vs per-asset crop/mask)
       if (effective_aggregation_method == "closest") {
         # Use centroid column as the active geometry for point extraction
         assets_centroids_sf <- sf::st_set_geometry(assets_sf, "centroid")
         assets_centroids_sf <- sf::st_transform(assets_centroids_sf, r_crs)
-        geom_vect <- terra::vect(assets_centroids_sf)
+        coords <- sf::st_coordinates(assets_centroids_sf)
+        batch_order <- order(coords[, 1], coords[, 2], na.last = TRUE)
+        batch_groups <- split(batch_order, ceiling(seq_along(batch_order) / batch_size))
+        n_batches <- length(batch_groups)
+        message("      Running ", n_batches, " batch(es) of up to ", batch_size, " asset(s) each")
+        hazard_start_time <- Sys.time()
 
-        extracted <- tryCatch(
-          terra::extract(hazard_rast, geom_vect),
-          error = function(e) NULL
+        for (batch_idx in seq_along(batch_groups)) {
+          batch_rows <- batch_groups[[batch_idx]]
+          batch_sf <- assets_centroids_sf[batch_rows, , drop = FALSE]
+          batch_vect <- terra::vect(batch_sf)
+          batch_n <- length(batch_rows)
+
+          extracted <- tryCatch(
+            terra::extract(hazard_rast, batch_vect),
+            error = function(e) NULL
+          )
+          hazard_vals[batch_rows] <- extract_batch_values(
+            extracted = extracted,
+            expected_rows = batch_n,
+            hazard_name = base_hazard_name,
+            batch_idx = batch_idx,
+            total_batches = n_batches
+          )
+
+          elapsed_seconds <- as.numeric(difftime(Sys.time(), hazard_start_time, units = "secs"))
+          eta_seconds <- if (batch_idx < n_batches) {
+            elapsed_seconds / batch_idx * (n_batches - batch_idx)
+          } else {
+            0
+          }
+          message(
+            "      Batch ", batch_idx, "/", n_batches,
+            " complete (", batch_n, " assets) | elapsed ",
+            format_duration(elapsed_seconds),
+            " | ETA ",
+            format_duration(eta_seconds)
+          )
+        }
+        message(
+          "      Hazard complete | total elapsed ",
+          format_duration(as.numeric(difftime(Sys.time(), hazard_start_time, units = "secs")))
         )
       } else {
         assets_sf_transformed <- sf::st_transform(assets_sf, r_crs)
-        geom_vect <- terra::vect(assets_sf_transformed)
-
-        extracted <- tryCatch(
-          terra::extract(hazard_rast, geom_vect, fun = agg_func, na.rm = TRUE, small = TRUE),
-          error = function(e) NULL
+        batch_centroids <- sf::st_coordinates(sf::st_centroid(sf::st_geometry(assets_sf_transformed)))
+        batch_groups <- build_spatial_batches(
+          indices = seq_len(n_geoms),
+          coords = batch_centroids,
+          rast = hazard_rast,
+          max_batch_size = batch_size,
+          max_cells = 25000000
         )
-      }
+        n_batches <- length(batch_groups)
+        message("      Running ", n_batches, " batch(es) of up to ", batch_size, " asset(s) each")
+        hazard_start_time <- Sys.time()
 
-      n_geoms <- nrow(assets_sf)
-      hazard_vals <- if (!is.null(extracted) && nrow(extracted) == n_geoms) {
-        # terra::extract returns an ID column + one column per layer
-        # The raster should be single-layer, so we get the last column (skipping ID column)
-        if (ncol(extracted) == 2) {
-          # Expected: ID + value column
-          as.numeric(extracted[[2]])
-        } else if (ncol(extracted) > 2) {
-          # Multiple layers (shouldn't happen, but handle it)
-          warning("[extract_spatial_statistics] Extraction returned ", ncol(extracted) - 1, " layers for ", base_hazard_name, ", expected 1")
-          as.numeric(extracted[[2]])  # Use first value column
-        } else {
-          # Only ID column, no values
-          warning("[extract_spatial_statistics] Extraction returned no value columns for ", base_hazard_name)
-          rep(NA_real_, n_geoms)
+        for (batch_idx in seq_along(batch_groups)) {
+          batch_rows <- batch_groups[[batch_idx]]
+          batch_sf <- assets_sf_transformed[batch_rows, , drop = FALSE]
+          batch_vect <- terra::vect(batch_sf)
+
+          # Crop each batch separately to keep extraction windows small even
+          # when assets are spread far apart.
+          hazard_rast_extract <- tryCatch(
+            terra::crop(hazard_rast, terra::ext(batch_vect), snap = "out"),
+            error = function(e) hazard_rast
+          )
+          if (inherits(hazard_rast_extract, "SpatRaster") && terra::ncell(hazard_rast_extract) == 0) {
+            hazard_rast_extract <- hazard_rast
+          }
+          batch_cells <- if (inherits(hazard_rast_extract, "SpatRaster")) terra::ncell(hazard_rast_extract) else NA_real_
+
+          extracted <- tryCatch(
+            terra::extract(hazard_rast_extract, batch_vect, fun = agg_func, na.rm = TRUE, small = TRUE),
+            error = function(e) NULL
+          )
+          batch_n <- length(batch_rows)
+          hazard_vals[batch_rows] <- extract_batch_values(
+            extracted = extracted,
+            expected_rows = batch_n,
+            hazard_name = base_hazard_name,
+            batch_idx = batch_idx,
+            total_batches = n_batches
+          )
+
+          elapsed_seconds <- as.numeric(difftime(Sys.time(), hazard_start_time, units = "secs"))
+          eta_seconds <- if (batch_idx < n_batches) {
+            elapsed_seconds / batch_idx * (n_batches - batch_idx)
+          } else {
+            0
+          }
+          message(
+            "      Batch ", batch_idx, "/", n_batches,
+            " complete (", batch_n, " assets) | elapsed ",
+            format_duration(elapsed_seconds),
+            " | ETA ",
+            format_duration(eta_seconds),
+            if (!is.na(batch_cells)) paste0(" | cells ", format(batch_cells, big.mark = ",")) else ""
+          )
         }
-      } else {
-        if (!is.null(extracted)) {
-          warning("[extract_spatial_statistics] Extraction returned ", nrow(extracted), " rows, expected ", n_geoms, " for ", base_hazard_name)
-        }
-        rep(NA_real_, n_geoms)
+        message(
+          "      Hazard complete | total elapsed ",
+          format_duration(as.numeric(difftime(Sys.time(), hazard_start_time, units = "secs")))
+        )
       }
 
       # For categorical indicators, round to nearest integer
