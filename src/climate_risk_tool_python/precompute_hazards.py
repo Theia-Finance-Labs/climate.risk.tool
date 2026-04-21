@@ -701,6 +701,11 @@ def compute_region_stats_for_slice(
                     if nodata_value is not None:
                         v = np.where(v == np.asarray(nodata_value, dtype=v.dtype), 0, v)
 
+            # For flood hazards, 0 means "no flood" and must not contribute to statistics.
+            # Keep only strictly-positive values when computing min/max/mean/quantiles/count.
+            if hazard_type == "Flood":
+                v = v[v > 0]
+
             if v.size == 0:
                 continue
 
