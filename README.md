@@ -7,7 +7,24 @@ R package for climate risk assessment using geospatial hazard data and financial
 
 ## Installation
 
-You can install the development version of climate.risk.tool from [GitHub](https://github.com/) with:
+This project uses **`renv`** to lock R package dependencies (see `renv.lock`).
+
+### Install from a local clone (recommended for reproducibility)
+
+``` r
+# 1) Install renv (one-time per machine)
+install.packages("renv")
+
+# 2) Restore the exact dependency set recorded in renv.lock
+renv::restore()
+
+# 3) Install the package from the current repo
+install.packages(".", repos = NULL, type = "source")
+```
+
+### Install directly from GitHub
+
+You can install the development version from GitHub with:
 
 ``` r
 # install.packages("pak")
