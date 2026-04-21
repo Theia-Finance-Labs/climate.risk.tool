@@ -190,3 +190,37 @@ testthat::test_that("repair_spatial_layer_geometries fixes invalid polygons and 
   testthat::expect_true(all(sf::st_is_valid(repaired$data)))
   testthat::expect_match(repaired$warnings[[1]], "Repaired 1 invalid geometry")
 })
+
+testthat::test_that("safe_spatial_region_join falls back to planar join when s2 fails", {
+  testthat::skip_if_not_installed("sf")
+
+  invalid_poly <- sf::st_polygon(list(rbind(
+    c(0, 0),
+    c(1, 1),
+    c(1, 0),
+    c(0, 1),
+    c(0, 0)
+  )))
+  region_sf <- sf::st_sf(
+    region_code = "R1",
+    geometry = sf::st_sfc(invalid_poly, crs = 4326)
+  )
+  pts_sf <- sf::st_as_sf(
+    tibble::tibble(asset = c("inside", "outside"), longitude = c(0.75, 1.5), latitude = c(0.75, 1.5)),
+    coords = c("longitude", "latitude"),
+    crs = 4326
+  )
+
+  testthat::expect_warning(
+    joined <- climate.risk.tool:::safe_spatial_region_join(
+      pts_sf = pts_sf,
+      selected_layer = region_sf,
+      layer_name = "test macro layer"
+    ),
+    "Falling back to planar spatial join for test macro layer because s2 rejected the geometry"
+  )
+
+  testthat::expect_s3_class(joined, "sf")
+  testthat::expect_equal(nrow(joined), 2)
+  testthat::expect_true("region_code" %in% names(joined))
+})

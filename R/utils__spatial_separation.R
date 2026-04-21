@@ -78,12 +78,25 @@ repair_spatial_layer_geometries <- function(sf_obj, layer_name) {
   on.exit(suppressMessages(sf::sf_use_s2(old_s2)), add = TRUE)
   repaired[invalid_idx, ] <- sf::st_make_valid(repaired[invalid_idx, , drop = FALSE])
 
-  repaired_validity <- tryCatch(
+  repaired_validity_geos <- tryCatch(
     suppressWarnings(sf::st_is_valid(repaired)),
     error = function(e) rep(NA, nrow(repaired))
   )
-  remaining_invalid <- sum(is.na(repaired_validity) | !repaired_validity)
-  repaired_count <- max(0L, length(invalid_idx) - remaining_invalid)
+  remaining_invalid_geos <- sum(is.na(repaired_validity_geos) | !repaired_validity_geos)
+  repaired_count <- max(0L, length(invalid_idx) - remaining_invalid_geos)
+
+  remaining_invalid_s2 <- 0L
+  if (isTRUE(old_s2) && isTRUE(sf::st_is_longlat(repaired))) {
+    suppressMessages(sf::sf_use_s2(TRUE))
+    repaired_validity_s2 <- tryCatch(
+      suppressWarnings(sf::st_is_valid(repaired)),
+      error = function(e) rep(NA, nrow(repaired))
+    )
+    remaining_invalid_s2 <- sum(is.na(repaired_validity_s2) | !repaired_validity_s2)
+    suppressMessages(sf::sf_use_s2(FALSE))
+  }
+
+  remaining_invalid <- max(remaining_invalid_geos, remaining_invalid_s2)
 
   warnings_out <- character()
 
@@ -118,6 +131,45 @@ repair_spatial_layer_geometries <- function(sf_obj, layer_name) {
   }
 
   list(data = repaired, warnings = warnings_out)
+}
+
+safe_spatial_region_join <- function(pts_sf, selected_layer, layer_name) {
+  tryCatch(
+    sf::st_join(
+      pts_sf,
+      selected_layer |>
+        dplyr::select("region_code"),
+      join = sf::st_within,
+      left = TRUE
+    ),
+    error = function(e) {
+      err_msg <- conditionMessage(e)
+      if (!grepl("Loop .* is not valid|crosses edge", err_msg, ignore.case = TRUE)) {
+        stop(e)
+      }
+
+      warning(
+        paste0(
+          "[spatial_separation] Falling back to planar spatial join for ",
+          layer_name,
+          " because s2 rejected the geometry: ",
+          err_msg
+        ),
+        call. = FALSE
+      )
+
+      old_s2 <- suppressMessages(sf::sf_use_s2(FALSE))
+      on.exit(suppressMessages(sf::sf_use_s2(old_s2)), add = TRUE)
+
+      sf::st_join(
+        pts_sf,
+        selected_layer |>
+          dplyr::select("region_code"),
+        join = sf::st_within,
+        left = TRUE
+      )
+    }
+  )
 }
 
 extract_shape_id_col <- function(sf_obj) {
@@ -529,12 +581,10 @@ evaluate_event_spatial_selection <- function(asset_rows, scheme, level, selected
       if (nrow(selected_layer) > 0) {
         pts <- asset_rows[has_coords, , drop = FALSE]
         pts_sf <- sf::st_as_sf(pts, coords = c("longitude", "latitude"), crs = 4326)
-        hits <- sf::st_join(
-          pts_sf,
-          selected_layer |>
-            dplyr::select("region_code"),
-          join = sf::st_within,
-          left = TRUE
+        hits <- safe_spatial_region_join(
+          pts_sf = pts_sf,
+          selected_layer = selected_layer,
+          layer_name = paste(level, scheme, "spatial separation layer")
         )
         matched_assets <- as.character(hits$asset[!is.na(hits$region_code)])
         if (length(matched_assets) > 0) {
