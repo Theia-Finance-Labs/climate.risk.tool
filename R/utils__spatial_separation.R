@@ -58,6 +58,68 @@ find_first_existing <- function(paths) {
   NULL
 }
 
+repair_spatial_layer_geometries <- function(sf_obj, layer_name) {
+  if (is.null(sf_obj) || nrow(sf_obj) == 0) {
+    return(list(data = sf_obj, warnings = character()))
+  }
+
+  validity <- tryCatch(
+    suppressWarnings(sf::st_is_valid(sf_obj)),
+    error = function(e) rep(NA, nrow(sf_obj))
+  )
+  invalid_idx <- which(is.na(validity) | !validity)
+
+  if (length(invalid_idx) == 0) {
+    return(list(data = sf_obj, warnings = character()))
+  }
+
+  repaired <- sf_obj
+  old_s2 <- suppressMessages(sf::sf_use_s2(FALSE))
+  on.exit(suppressMessages(sf::sf_use_s2(old_s2)), add = TRUE)
+  repaired[invalid_idx, ] <- sf::st_make_valid(repaired[invalid_idx, , drop = FALSE])
+
+  repaired_validity <- tryCatch(
+    suppressWarnings(sf::st_is_valid(repaired)),
+    error = function(e) rep(NA, nrow(repaired))
+  )
+  remaining_invalid <- sum(is.na(repaired_validity) | !repaired_validity)
+  repaired_count <- max(0L, length(invalid_idx) - remaining_invalid)
+
+  warnings_out <- character()
+
+  repair_note <- if (repaired_count > 0L) {
+    paste0(
+      "[spatial_separation] Repaired ",
+      repaired_count,
+      " invalid geomet", if (repaired_count == 1L) "ry" else "ries",
+      " in ", layer_name, "."
+    )
+  } else {
+    paste0(
+      "[spatial_separation] Attempted to repair ",
+      length(invalid_idx),
+      " invalid geomet", if (length(invalid_idx) == 1L) "ry" else "ries",
+      " in ", layer_name, "."
+    )
+  }
+  warning(repair_note, call. = FALSE)
+  warnings_out <- c(warnings_out, repair_note)
+
+  if (remaining_invalid > 0) {
+    remaining_note <- paste0(
+      "[spatial_separation] ",
+      remaining_invalid,
+      " geomet", if (remaining_invalid == 1L) "ry remains" else "ries remain",
+      " invalid in ", layer_name,
+      " after repair; spatial joins may still fail."
+    )
+    warning(remaining_note, call. = FALSE)
+    warnings_out <- c(warnings_out, remaining_note)
+  }
+
+  list(data = repaired, warnings = warnings_out)
+}
+
 extract_shape_id_col <- function(sf_obj) {
   candidates <- c("shapeID", "shape_id", "shapeid", "ShapeID")
   present <- candidates[candidates %in% names(sf_obj)]
@@ -277,6 +339,8 @@ load_spatial_separation_data <- function(base_dir, adm1_boundaries = NULL, adm2_
     return(NULL)
   }
 
+  spatial_warnings <- character()
+
   if (is.null(adm_codes)) {
     adm_codes <- try(load_adm_codes(base_dir), silent = TRUE)
     if (inherits(adm_codes, "try-error")) {
@@ -320,6 +384,14 @@ load_spatial_separation_data <- function(base_dir, adm1_boundaries = NULL, adm2_
     adm_muni_sf <- sf::st_transform(adm_muni_sf, 4326)
   }
 
+  adm_state_repair <- repair_spatial_layer_geometries(adm_state_sf, "ADM1 spatial separation layer")
+  adm_state_sf <- adm_state_repair$data
+  spatial_warnings <- c(spatial_warnings, adm_state_repair$warnings)
+
+  adm_muni_repair <- repair_spatial_layer_geometries(adm_muni_sf, "ADM2 spatial separation layer")
+  adm_muni_sf <- adm_muni_repair$data
+  spatial_warnings <- c(spatial_warnings, adm_muni_repair$warnings)
+
   adm_state <- if (!is.null(adm_state_sf)) prepare_adm_layer(adm_state_sf, adm_codes, "adm1") else NULL
   adm_muni <- if (!is.null(adm_muni_sf)) prepare_adm_layer(adm_muni_sf, adm_codes, "adm2") else NULL
 
@@ -335,7 +407,12 @@ load_spatial_separation_data <- function(base_dir, adm1_boundaries = NULL, adm2_
     if (!is.na(sf::st_crs(sf_obj)) && sf::st_crs(sf_obj)$epsg != 4326) {
       sf_obj <- sf::st_transform(sf_obj, 4326)
     }
-    prepare_hydro_layer(sf_obj, level)
+    repair_result <- repair_spatial_layer_geometries(
+      sf_obj,
+      paste0(toupper(substr(level, 1, 1)), substr(level, 2, nchar(level)), " hydro spatial separation layer")
+    )
+    spatial_warnings <<- c(spatial_warnings, repair_result$warnings)
+    prepare_hydro_layer(repair_result$data, level)
   }
 
   hydro_macro <- read_hydro("macro", "macro_RH")
@@ -384,7 +461,8 @@ load_spatial_separation_data <- function(base_dir, adm1_boundaries = NULL, adm2_
     lookup = list(
       state_name_to_code = state_name_to_code,
       municipality_name_to_code = municipality_name_to_code
-    )
+    ),
+    warnings = unique(spatial_warnings)
   )
 }
 

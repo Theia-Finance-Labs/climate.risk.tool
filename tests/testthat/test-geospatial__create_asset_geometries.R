@@ -115,3 +115,19 @@ testthat::test_that("create_asset_geometries respects output_crs parameter", {
   out_3857 <- create_asset_geometries(df, output_crs = 3857)
   testthat::expect_equal(sf::st_crs(out_3857$geometry)$epsg, 3857)
 })
+
+testthat::test_that("create_asset_geometries computes centroids without sf attribute warnings", {
+  df <- tibble::tibble(
+    asset = c("A1", "A2"),
+    latitude = c(-3, -4),
+    longitude = c(-60, -61),
+    size_in_m2 = c(1000, NA_real_)
+  )
+
+  testthat::expect_no_warning(
+    out <- create_asset_geometries(df, default_buffer_size_m = 1200, output_crs = 4326)
+  )
+
+  testthat::expect_equal(length(out$centroid), 2)
+  testthat::expect_true(all(sf::st_geometry_type(out$centroid) == "POINT"))
+})

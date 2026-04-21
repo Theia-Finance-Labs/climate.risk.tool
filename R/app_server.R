@@ -308,6 +308,8 @@ app_server <- function(input, output, session) {
 
     tryCatch(
       {
+        analysis_warnings <- character()
+
         # Load asset and company files from the selected folder
         values$assets <- read_assets(input_folder)
         companies <- read_companies(input_folder)
@@ -333,28 +335,44 @@ app_server <- function(input, output, session) {
         }
 
         # Run the complete climate risk analysis using pre-loaded data
-        results <- compute_risk(
-          assets = values$assets,
-          companies = companies,
-          events = ev_df,
-          hazards = values$hazards,
-          hazards_inventory = values$hazards_inventory,
-          precomputed_hazards = values$precomputed_hazards,
-          hazard_configs = values$hazard_configs,
-          hazards_dir = file.path(base_dir, "hazards", "config"),
-          adm1_boundaries = values$adm1_boundaries,
-          adm2_boundaries = values$adm2_boundaries,
-          base_dir = base_dir,
-          validate_inputs = TRUE,
-          growth_rate = control$growth_rate(),
-          discount_rate = control$discount_rate(),
-          risk_free_rate = control$risk_free_rate(),
-          aggregation_method = "mean" # Default aggregation method
+        results <- withCallingHandlers(
+          compute_risk(
+            assets = values$assets,
+            companies = companies,
+            events = ev_df,
+            hazards = values$hazards,
+            hazards_inventory = values$hazards_inventory,
+            precomputed_hazards = values$precomputed_hazards,
+            hazard_configs = values$hazard_configs,
+            hazards_dir = file.path(base_dir, "hazards", "config"),
+            adm1_boundaries = values$adm1_boundaries,
+            adm2_boundaries = values$adm2_boundaries,
+            base_dir = base_dir,
+            validate_inputs = TRUE,
+            growth_rate = control$growth_rate(),
+            discount_rate = control$discount_rate(),
+            risk_free_rate = control$risk_free_rate(),
+            aggregation_method = "mean" # Default aggregation method
+          ),
+          warning = function(w) {
+            warning_msg <- conditionMessage(w)
+            if (startsWith(warning_msg, "[spatial_separation]")) {
+              analysis_warnings <<- unique(c(analysis_warnings, warning_msg))
+            }
+          }
         )
 
         values$results <- results
         control$set_results(results)
         values$status <- "Analysis complete. Check the Profit Pathways and Company Analysis tabs for detailed results."
+        if (length(analysis_warnings) > 0) {
+          cleaned_warnings <- sub("^\\[spatial_separation\\]\\s*", "", analysis_warnings)
+          values$status <- paste(
+            values$status,
+            "Spatial separation warning:",
+            paste(cleaned_warnings, collapse = " ")
+          )
+        }
 
         # Switch to pathways tab after completion
         updateTabsetPanel(session, "main_tabs", selected = "assets")

@@ -61,6 +61,37 @@ testthat::test_that("extract_spatial_statistics handles closest and small buffer
   testthat::expect_equal(mean_results$depth, 7)
 })
 
+testthat::test_that("compute_spatial_batch_settings uses larger polygon batches on small rasters", {
+  testthat::skip_if_not_installed("terra")
+
+  small_rast <- terra::rast(
+    nrows = 10,
+    ncols = 10,
+    xmin = 0,
+    xmax = 10,
+    ymin = 0,
+    ymax = 10,
+    crs = "EPSG:4326"
+  )
+
+  small_settings <- climate.risk.tool:::compute_spatial_batch_settings(
+    hazard_rast = small_rast,
+    extraction_mode = "polygon",
+    n_geoms = 200L
+  )
+  point_settings <- climate.risk.tool:::compute_spatial_batch_settings(
+    hazard_rast = small_rast,
+    extraction_mode = "closest",
+    n_geoms = 200L
+  )
+
+  testthat::expect_gt(small_settings$batch_size, 4L)
+  testthat::expect_lte(small_settings$batch_size, 200L)
+  testthat::expect_true(is.numeric(small_settings$max_cells))
+  testthat::expect_gt(point_settings$batch_size, small_settings$batch_size)
+  testthat::expect_true(is.na(point_settings$max_cells))
+})
+
 testthat::test_that("extract_spatial_statistics emits persistent batch progress logs", {
   testthat::skip_if_not_installed("terra")
   testthat::skip_if_not_installed("sf")
@@ -117,8 +148,9 @@ testthat::test_that("extract_spatial_statistics emits persistent batch progress 
   )
 
   testthat::expect_equal(results$depth, rep(7, 5))
-  testthat::expect_true(any(grepl("Running 2 batch\\(es\\) of up to 4 asset\\(s\\) each", msgs)))
-  testthat::expect_true(any(grepl("Batch 1/2 complete", msgs)))
+  testthat::expect_true(any(grepl("Running 1 batch\\(es\\) of up to 5 asset\\(s\\) each", msgs)))
+  testthat::expect_true(any(grepl("Batch 1/1 complete", msgs)))
+  testthat::expect_true(any(grepl("cells 1", msgs)))
   testthat::expect_true(any(grepl("Hazard complete \\| total elapsed", msgs)))
 })
 

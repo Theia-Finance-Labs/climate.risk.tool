@@ -161,3 +161,32 @@ testthat::test_that("Flood micro spatial selection with state-only asset is insu
   testthat::expect_equal(result$spatial_included[1], FALSE)
   testthat::expect_equal(result$spatial_exposure_status[1], spatial_status_insufficient())
 })
+
+testthat::test_that("repair_spatial_layer_geometries fixes invalid polygons and warns", {
+  testthat::skip_if_not_installed("sf")
+
+  invalid_poly <- sf::st_polygon(list(rbind(
+    c(0, 0),
+    c(1, 1),
+    c(1, 0),
+    c(0, 1),
+    c(0, 0)
+  )))
+  invalid_sf <- sf::st_sf(
+    region_code = "R1",
+    geometry = sf::st_sfc(invalid_poly, crs = 4326)
+  )
+
+  testthat::expect_false(sf::st_is_valid(invalid_sf)[[1]])
+
+  testthat::expect_warning(
+    repaired <- climate.risk.tool:::repair_spatial_layer_geometries(
+      invalid_sf,
+      "test layer"
+    ),
+    "\\[spatial_separation\\] Repaired 1 invalid geometry in test layer\\."
+  )
+
+  testthat::expect_true(all(sf::st_is_valid(repaired$data)))
+  testthat::expect_match(repaired$warnings[[1]], "Repaired 1 invalid geometry")
+})
