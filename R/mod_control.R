@@ -78,9 +78,10 @@ mod_control_ui <- function(id) {
 #' @param id Internal parameter for shiny
 #' @param base_dir_reactive reactive containing base directory path
 #' @param overrides_reload reactive trigger for hazard override reload
+#' @param spatial_data_reactive optional reactive returning preloaded spatial separation data
 #' @return list with reactive values for input_folder, events, run_trigger, growth_rate, discount_rate, risk_free_rate, results_ready, and get_hazards_at_factor
 #' @export
-mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
+mod_control_server <- function(id, base_dir_reactive, overrides_reload, spatial_data_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -263,7 +264,8 @@ mod_control_server <- function(id, base_dir_reactive, overrides_reload) {
       "hazards",
       hazards_inventory = hazards_inventory,
       hazard_configs = hazard_configs,
-      base_dir_reactive = base_dir_reactive
+      base_dir_reactive = base_dir_reactive,
+      spatial_data_reactive = spatial_data_reactive
     )
 
     # Results ready output for conditional panel

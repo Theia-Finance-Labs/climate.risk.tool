@@ -45,9 +45,10 @@ mod_hazards_events_ui <- function(id, title = "Hazard events") {
 #' @param hazards_inventory reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, return_period, hazard_name
 #' @param hazard_configs reactive list from load_hazards_and_inventory()$configs
 #' @param base_dir_reactive optional reactive returning base_dir for loading spatial separation options
+#' @param spatial_data_reactive optional reactive returning preloaded spatial separation data
 #' @return reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, return_period, event_year, season
 #' @export
-mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs, base_dir_reactive = NULL) {
+mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs, base_dir_reactive = NULL, spatial_data_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
       events_rv <- shiny::reactiveVal(tibble::tibble(
@@ -69,6 +70,12 @@ mod_hazards_events_server <- function(id, hazards_inventory, hazard_configs, bas
     counter <- shiny::reactiveVal(1L)
 
     spatial_data <- shiny::reactive({
+      if (!is.null(spatial_data_reactive)) {
+        preloaded <- try(spatial_data_reactive(), silent = TRUE)
+        if (!inherits(preloaded, "try-error") && !is.null(preloaded)) {
+          return(preloaded)
+        }
+      }
       if (is.null(base_dir_reactive)) {
         return(NULL)
       }

@@ -116,6 +116,61 @@ testthat::test_that("mod_hazards_events_server exposes events reactive", {
   })
 })
 
+testthat::test_that("mod_hazards_events_server uses preloaded spatial data when provided", {
+  testthat::skip_on_ci()
+  testthat::skip_if_not_installed("shiny")
+  testthat::skip_if_not_installed("sf")
+
+  hazard_configs <- list(
+    Flood = list(
+      primary_indicator = "depth",
+      spatial_separation_scheme = "hydro_regions",
+      indicators = list(depth = list(index = c("scenario_name", "return_period")))
+    )
+  )
+
+  preloaded_spatial <- list(
+    adm = list(state = NULL, municipality = NULL),
+    hydro = list(
+      macro = sf::st_sf(
+        region_code = "R1",
+        region_label = "Region 1",
+        geometry = sf::st_sfc(
+          sf::st_polygon(list(rbind(c(0, 0), c(1, 0), c(1, 1), c(0, 1), c(0, 0)))),
+          crs = 4326
+        )
+      ),
+      meso = NULL,
+      micro = NULL
+    ),
+    overlaps = list(),
+    lookup = list(state_name_to_code = c(), municipality_name_to_code = c()),
+    warnings = "[spatial_separation] Repaired 1 invalid geometry in Macro hydro spatial separation layer."
+  )
+
+  shiny::testServer(mod_hazards_events_server, args = list(
+    id = "hz",
+    hazards_inventory = shiny::reactive({
+      data.frame(
+        hazard_type = "Flood",
+        hazard_indicator = "depth",
+        scenario_name = "rcp85",
+        return_period = 100,
+        hazard_name = "Flood__depth__GWL=rcp85__RP=100__ensemble=mean",
+        stringsAsFactors = FALSE
+      )
+    }),
+    hazard_configs = shiny::reactive(hazard_configs),
+    base_dir_reactive = shiny::reactive(""),
+    spatial_data_reactive = shiny::reactive(preloaded_spatial)
+  ), {
+    loaded <- spatial_data()
+    testthat::expect_false(is.null(loaded))
+    testthat::expect_equal(loaded$hydro$macro$region_code[[1]], "R1")
+    testthat::expect_equal(loaded$warnings[[1]], preloaded_spatial$warnings[[1]])
+  })
+})
+
 testthat::test_that("mod_hazards_events_server shows only one form at a time", {
   testthat::skip_on_ci()
   testthat::skip_if_not_installed("shiny")

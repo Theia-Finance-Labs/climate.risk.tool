@@ -88,7 +88,7 @@ testthat::test_that("validate_input_coherence does not error when assets with co
 
   # Precomputed data ONLY for Amazonas
   precomputed <- data.frame(
-    region = "Amazonas",
+    adm_name = "Amazonas",
     adm_level = "ADM1",
     hazard_type = "Flood",
     hazard_indicator = "depth",

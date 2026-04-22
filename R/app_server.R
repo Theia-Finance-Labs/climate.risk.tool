@@ -19,7 +19,9 @@ app_server <- function(input, output, session) {
     cnae_exposure = NULL,
     adm1_boundaries = NULL,
     adm2_boundaries = NULL,
-    region_name_mapping = NULL
+    region_name_mapping = NULL,
+    spatial_separation_data = NULL,
+    spatial_separation_warnings = character()
   )
   settings_modal_open <- shiny::reactiveVal(FALSE)
 
@@ -107,7 +109,10 @@ app_server <- function(input, output, session) {
   control <- mod_control_server(
     "control",
     base_dir_reactive = get_base_dir,
-    overrides_reload = overrides_reload
+    overrides_reload = overrides_reload,
+    spatial_data_reactive = reactive({
+      values$spatial_separation_data
+    })
   )
 
   run_repro_spec <- shiny::reactive({
@@ -204,6 +209,21 @@ app_server <- function(input, output, session) {
         municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
         values$adm1_boundaries <- sf::st_read(state_path, quiet = TRUE)
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
+
+        values$spatial_separation_data <- load_spatial_separation_data(
+          base_dir = base_dir,
+          adm1_boundaries = values$adm1_boundaries,
+          adm2_boundaries = values$adm2_boundaries
+        )
+        values$spatial_separation_warnings <- if (
+          !is.null(values$spatial_separation_data) &&
+          "warnings" %in% names(values$spatial_separation_data) &&
+          !is.null(values$spatial_separation_data$warnings)
+        ) {
+          unique(as.character(values$spatial_separation_data$warnings))
+        } else {
+          character()
+        }
 
         # Load region name mapping for displaying original names in frontend
         # Pass already loaded boundaries to avoid redundant file reads
@@ -347,6 +367,7 @@ app_server <- function(input, output, session) {
             hazards_dir = file.path(base_dir, "hazards", "config"),
             adm1_boundaries = values$adm1_boundaries,
             adm2_boundaries = values$adm2_boundaries,
+            spatial_separation_data = values$spatial_separation_data,
             base_dir = base_dir,
             validate_inputs = TRUE,
             growth_rate = control$growth_rate(),
@@ -365,6 +386,7 @@ app_server <- function(input, output, session) {
         values$results <- results
         control$set_results(results)
         values$status <- "Analysis complete. Check the Profit Pathways and Company Analysis tabs for detailed results."
+        analysis_warnings <- unique(c(analysis_warnings, values$spatial_separation_warnings))
         if (length(analysis_warnings) > 0) {
           cleaned_warnings <- sub("^\\[spatial_separation\\]\\s*", "", analysis_warnings)
           values$status <- paste(
