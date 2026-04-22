@@ -118,7 +118,102 @@ testthat::test_that("Flood micro spatial selection applies municipality overlap 
 })
 
 
-testthat::test_that("Flood micro spatial selection with state-only asset is insufficient", {
+testthat::test_that("Hydro municipality selection falls back to geometry overlap when overlap tables are missing", {
+  testthat::skip_if_not_installed("sf")
+
+  municipality_poly <- sf::st_polygon(list(rbind(
+    c(0, 0), c(10, 0), c(10, 10), c(0, 10), c(0, 0)
+  )))
+  meso_1 <- sf::st_polygon(list(rbind(
+    c(0, 0), c(3, 0), c(3, 10), c(0, 10), c(0, 0)
+  )))
+  meso_2 <- sf::st_polygon(list(rbind(
+    c(3, 0), c(9.99, 0), c(9.99, 10), c(3, 10), c(3, 0)
+  )))
+
+  assets_with_events <- tibble::tibble(
+    asset = "M1",
+    event_id = "ev1",
+    hazard_type = "Flood",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality_code = "1100023",
+    municipality = "Ariquemes",
+    state_code = "11",
+    state = "Rondonia"
+  )
+
+  events <- tibble::tibble(
+    event_id = "ev1",
+    hazard_type = "Flood",
+    spatial_scheme = "hydro_regions",
+    spatial_level = "meso",
+    spatial_region_codes = "M1|M2",
+    spatial_region_labels = "Meso 1|Meso 2"
+  )
+
+  hazard_configs <- list(
+    Flood = list(spatial_separation_scheme = "hydro_regions")
+  )
+
+  spatial_data <- list(
+    adm = list(
+      state = sf::st_sf(
+        region_code = "11",
+        region_label = "Rondonia",
+        geometry = sf::st_sfc(municipality_poly, crs = 4326)
+      ),
+      municipality = sf::st_sf(
+        region_code = "1100023",
+        region_label = "Ariquemes",
+        geometry = sf::st_sfc(municipality_poly, crs = 4326)
+      )
+    ),
+    hydro = list(
+      macro = NULL,
+      meso = sf::st_sf(
+        region_code = c("M1", "M2"),
+        region_label = c("Meso 1", "Meso 2"),
+        geometry = sf::st_sfc(meso_1, meso_2, crs = 4326)
+      ),
+      micro = NULL
+    ),
+    overlaps = list(),
+    lookup = list(state_name_to_code = c(), municipality_name_to_code = c())
+  )
+
+  warnings <- character()
+  result <- withCallingHandlers(
+    evaluate_spatial_separation(
+      assets_with_events = assets_with_events,
+      events = events,
+      hazard_configs = hazard_configs,
+      spatial_separation_data = spatial_data
+    ),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  fallback_warnings <- warnings[grepl("Hydro overlap table .* Falling back to runtime geometry overlaps", warnings)]
+  testthat::expect_equal(length(fallback_warnings), 1)
+  testthat::expect_equal(result$spatial_included[1], TRUE)
+  testthat::expect_gt(result$spatial_multiplier[1], 0.99)
+  testthat::expect_lt(result$spatial_multiplier[1], 1)
+  testthat::expect_true(is.na(result$spatial_exposure_status[1]))
+})
+
+testthat::test_that("Hydro state micro selection falls back to geometry overlap", {
+  testthat::skip_if_not_installed("sf")
+
+  state_poly <- sf::st_polygon(list(rbind(
+    c(0, 0), c(2, 0), c(2, 1), c(0, 1), c(0, 0)
+  )))
+  micro_left <- sf::st_polygon(list(rbind(
+    c(0, 0), c(1, 0), c(1, 1), c(0, 1), c(0, 0)
+  )))
+
   assets_with_events <- tibble::tibble(
     asset = "F2",
     event_id = "ev1",
@@ -145,19 +240,99 @@ testthat::test_that("Flood micro spatial selection with state-only asset is insu
   )
 
   spatial_data <- list(
-    adm = list(state = NULL, municipality = NULL),
+    adm = list(
+      state = sf::st_sf(
+        region_code = "53",
+        region_label = "Distrito Federal",
+        geometry = sf::st_sfc(state_poly, crs = 4326)
+      ),
+      municipality = NULL
+    ),
+    hydro = list(
+      macro = NULL,
+      meso = NULL,
+      micro = sf::st_sf(
+        region_code = "R6",
+        region_label = "Region 6",
+        geometry = sf::st_sfc(micro_left, crs = 4326)
+      )
+    ),
+    overlaps = list(),
+    lookup = list(state_name_to_code = c(), municipality_name_to_code = c())
+  )
+
+  warnings <- character()
+  result <- withCallingHandlers(
+    evaluate_spatial_separation(
+      assets_with_events = assets_with_events,
+      events = events,
+      hazard_configs = hazard_configs,
+      spatial_separation_data = spatial_data
+    ),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  testthat::expect_true(any(grepl("Hydro overlap table for state -> micro is missing or incomplete", warnings)))
+
+  testthat::expect_equal(result$spatial_included[1], TRUE)
+  testthat::expect_equal(result$spatial_multiplier[1], 0.5, tolerance = 0.01)
+  testthat::expect_true(is.na(result$spatial_exposure_status[1]))
+})
+
+testthat::test_that("Hydro fallback reports insufficient when source geometry is unavailable", {
+  assets_with_events <- tibble::tibble(
+    asset = "F2",
+    event_id = "ev1",
+    hazard_type = "Flood",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality_code = NA_character_,
+    municipality = NA_character_,
+    state_code = "53",
+    state = "Distrito Federal"
+  )
+
+  events <- tibble::tibble(
+    event_id = "ev1",
+    hazard_type = "Flood",
+    spatial_scheme = "hydro_regions",
+    spatial_level = "micro",
+    spatial_region_codes = "R6",
+    spatial_region_labels = "Region 6"
+  )
+
+  hazard_configs <- list(
+    Flood = list(spatial_separation_scheme = "hydro_regions")
+  )
+
+  spatial_data <- list(
+    adm = list(
+      state = NULL,
+      municipality = NULL
+    ),
     hydro = list(macro = NULL, meso = NULL, micro = NULL),
     overlaps = list(),
     lookup = list(state_name_to_code = c(), municipality_name_to_code = c())
   )
 
-  result <- evaluate_spatial_separation(
-    assets_with_events = assets_with_events,
-    events = events,
-    hazard_configs = hazard_configs,
-    spatial_separation_data = spatial_data
+  warnings <- character()
+  result <- withCallingHandlers(
+    evaluate_spatial_separation(
+      assets_with_events = assets_with_events,
+      events = events,
+      hazard_configs = hazard_configs,
+      spatial_separation_data = spatial_data
+    ),
+    warning = function(w) {
+      warnings <<- c(warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
   )
 
+  testthat::expect_true(any(grepl("Hydro overlap table for state -> micro is missing or incomplete", warnings)))
   testthat::expect_equal(result$spatial_included[1], FALSE)
   testthat::expect_equal(result$spatial_exposure_status[1], spatial_status_insufficient())
 })

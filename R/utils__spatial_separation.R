@@ -544,7 +544,141 @@ get_hydro_overlap_table <- function(spatial_data, source_level, target_level) {
   tbl
 }
 
-evaluate_event_spatial_selection <- function(asset_rows, scheme, level, selected_codes, selected_labels, spatial_data) {
+warn_hydro_geometry_fallback_once <- function(fallback_state, source_level, target_level) {
+  if (!is.null(fallback_state) && isTRUE(fallback_state$warned)) {
+    return(invisible(NULL))
+  }
+
+  warning(
+    paste0(
+      "[spatial_separation] Hydro overlap table for ",
+      source_level, " -> ", target_level,
+      " is missing or incomplete. Falling back to runtime geometry overlaps."
+    ),
+    call. = FALSE
+  )
+
+  if (!is.null(fallback_state)) {
+    fallback_state$warned <- TRUE
+  }
+
+  invisible(NULL)
+}
+
+get_fraction_from_hydro_overlap_table <- function(overlap_tbl, source_code, selected_codes) {
+  if (is.null(overlap_tbl) || nrow(overlap_tbl) == 0 || !is_non_empty_chr(source_code)) {
+    return(NA_real_)
+  }
+
+  source_rows <- overlap_tbl |>
+    dplyr::filter(.data$source_code == source_code)
+  if (nrow(source_rows) == 0) {
+    return(NA_real_)
+  }
+
+  matched_rows <- source_rows |>
+    dplyr::filter(.data$target_code %in% selected_codes)
+  if (nrow(matched_rows) == 0) {
+    return(NA_real_)
+  }
+
+  frac <- matched_rows |>
+    dplyr::summarise(total = sum(.data$fraction, na.rm = TRUE)) |>
+    dplyr::pull(.data$total)
+
+  if (length(frac) == 0 || is.na(frac)) {
+    return(NA_real_)
+  }
+
+  as.numeric(frac)
+}
+
+compute_geometry_overlap_fraction <- function(source_sf, target_sf, area_crs = 5880) {
+  if (is.null(source_sf) || nrow(source_sf) == 0) {
+    return(NA_real_)
+  }
+
+  if (is.null(target_sf) || nrow(target_sf) == 0) {
+    return(0)
+  }
+
+  old_s2 <- suppressMessages(sf::sf_use_s2(FALSE))
+  on.exit(suppressMessages(sf::sf_use_s2(old_s2)), add = TRUE)
+
+  tryCatch(
+    {
+      source_valid <- sf::st_make_valid(source_sf)
+      target_valid <- sf::st_make_valid(target_sf)
+
+      source_proj <- sf::st_transform(source_valid, area_crs)
+      target_proj <- sf::st_transform(target_valid, area_crs)
+
+      source_union <- sf::st_union(sf::st_geometry(source_proj))
+      target_union <- sf::st_union(sf::st_geometry(target_proj))
+
+      if (length(source_union) == 0 || any(sf::st_is_empty(source_union))) {
+        return(NA_real_)
+      }
+      if (length(target_union) == 0 || any(sf::st_is_empty(target_union))) {
+        return(0)
+      }
+
+      source_union_sf <- sf::st_sf(geometry = source_union)
+      target_union_sf <- sf::st_sf(geometry = target_union)
+      sf::st_crs(source_union_sf) <- sf::st_crs(source_proj)
+      sf::st_crs(target_union_sf) <- sf::st_crs(target_proj)
+
+      source_area <- as.numeric(sf::st_area(source_union_sf))
+      if (length(source_area) == 0 || is.na(source_area) || source_area <= 0) {
+        return(NA_real_)
+      }
+
+      inter <- suppressWarnings(sf::st_intersection(source_union_sf, target_union_sf))
+      inter_area <- if (is.null(inter) || nrow(inter) == 0) {
+        0
+      } else {
+        sum(as.numeric(sf::st_area(inter)), na.rm = TRUE)
+      }
+
+      frac <- as.numeric(inter_area / source_area)
+      if (!is.finite(frac)) {
+        return(NA_real_)
+      }
+
+      as.numeric(pmax(0, pmin(1, frac)))
+    },
+    error = function(e) NA_real_
+  )
+}
+
+compute_hydro_overlap_fraction_from_geometry <- function(spatial_data, source_level, source_code, target_level, selected_codes) {
+  if (is.null(spatial_data) || !source_level %in% c("municipality", "state") || !is_non_empty_chr(source_code)) {
+    return(NA_real_)
+  }
+
+  source_layer <- spatial_data$adm[[source_level]]
+  if (is.null(source_layer) || nrow(source_layer) == 0) {
+    return(NA_real_)
+  }
+
+  source_rows <- source_layer |>
+    dplyr::filter(.data$region_code == source_code)
+  if (nrow(source_rows) == 0) {
+    return(NA_real_)
+  }
+
+  target_layer <- spatial_data$hydro[[target_level]]
+  if (is.null(target_layer) || nrow(target_layer) == 0) {
+    return(0)
+  }
+
+  target_rows <- target_layer |>
+    dplyr::filter(.data$region_code %in% selected_codes)
+
+  compute_geometry_overlap_fraction(source_rows, target_rows)
+}
+
+evaluate_event_spatial_selection <- function(asset_rows, scheme, level, selected_codes, selected_labels, spatial_data, fallback_state = NULL) {
   if (is.null(asset_rows) || nrow(asset_rows) == 0) {
     return(tibble::tibble(
       asset = character(),
@@ -691,53 +825,74 @@ evaluate_event_spatial_selection <- function(asset_rows, scheme, level, selected
 
     if (has_muni) {
       overlap_tbl <- get_hydro_overlap_table(spatial_data, "municipality", level)
-      if (nrow(overlap_tbl) == 0) {
+      frac <- get_fraction_from_hydro_overlap_table(overlap_tbl, muni_codes[[i]], selected_codes)
+
+      if (is.na(frac)) {
+        if (nrow(overlap_tbl) == 0) {
+          warn_hydro_geometry_fallback_once(fallback_state, "municipality", level)
+        }
+        frac <- compute_hydro_overlap_fraction_from_geometry(
+          spatial_data = spatial_data,
+          source_level = "municipality",
+          source_code = muni_codes[[i]],
+          target_level = level,
+          selected_codes = selected_codes
+        )
+      }
+
+      if (is.na(frac)) {
         res$spatial_exposure_status[res$asset == asset_id] <- spatial_status_insufficient()
         next
       }
 
-      frac <- overlap_tbl |>
-        dplyr::filter(.data$source_code == muni_codes[[i]], .data$target_code %in% selected_codes) |>
-        dplyr::summarise(total = sum(.data$fraction, na.rm = TRUE)) |>
-        dplyr::pull(.data$total)
-
-      frac <- ifelse(length(frac) == 0 || is.na(frac), 0, frac)
       frac <- pmax(0, pmin(1, as.numeric(frac)))
+      idx <- res$asset == asset_id
 
       if (frac > 0) {
-        idx <- res$asset == asset_id
         res$spatial_included[idx] <- TRUE
         res$spatial_multiplier[idx] <- frac
         res$spatial_exposure_status[idx] <- NA_character_
+      } else {
+        res$spatial_included[idx] <- FALSE
+        res$spatial_multiplier[idx] <- 0
+        res$spatial_exposure_status[idx] <- spatial_status_not_exposed()
       }
       next
     }
 
     if (has_state) {
-      if (level == "micro") {
-        res$spatial_exposure_status[res$asset == asset_id] <- spatial_status_insufficient()
-        next
-      }
-
       overlap_tbl <- get_hydro_overlap_table(spatial_data, "state", level)
-      if (nrow(overlap_tbl) == 0 || !is_non_empty_chr(state_codes[[i]])) {
+      frac <- get_fraction_from_hydro_overlap_table(overlap_tbl, state_codes[[i]], selected_codes)
+
+      if (is.na(frac)) {
+        if (nrow(overlap_tbl) == 0) {
+          warn_hydro_geometry_fallback_once(fallback_state, "state", level)
+        }
+        frac <- compute_hydro_overlap_fraction_from_geometry(
+          spatial_data = spatial_data,
+          source_level = "state",
+          source_code = state_codes[[i]],
+          target_level = level,
+          selected_codes = selected_codes
+        )
+      }
+
+      if (is.na(frac)) {
         res$spatial_exposure_status[res$asset == asset_id] <- spatial_status_insufficient()
         next
       }
 
-      frac <- overlap_tbl |>
-        dplyr::filter(.data$source_code == state_codes[[i]], .data$target_code %in% selected_codes) |>
-        dplyr::summarise(total = sum(.data$fraction, na.rm = TRUE)) |>
-        dplyr::pull(.data$total)
-
-      frac <- ifelse(length(frac) == 0 || is.na(frac), 0, frac)
       frac <- pmax(0, pmin(1, as.numeric(frac)))
+      idx <- res$asset == asset_id
 
       if (frac > 0) {
-        idx <- res$asset == asset_id
         res$spatial_included[idx] <- TRUE
         res$spatial_multiplier[idx] <- frac
         res$spatial_exposure_status[idx] <- NA_character_
+      } else {
+        res$spatial_included[idx] <- FALSE
+        res$spatial_multiplier[idx] <- 0
+        res$spatial_exposure_status[idx] <- spatial_status_not_exposed()
       }
       next
     }
@@ -817,6 +972,9 @@ evaluate_spatial_separation <- function(
     )
   }
 
+  fallback_state <- new.env(parent = emptyenv())
+  fallback_state$warned <- FALSE
+
   event_ids <- unique(as.character(assets_with_events$event_id))
   eval_rows <- vector("list", length(event_ids))
 
@@ -875,7 +1033,8 @@ evaluate_spatial_separation <- function(
       level = level,
       selected_codes = selected_codes,
       selected_labels = selected_labels,
-      spatial_data = spatial_separation_data
+      spatial_data = spatial_separation_data,
+      fallback_state = fallback_state
     ) |>
       dplyr::mutate(event_id = ev_id)
 
