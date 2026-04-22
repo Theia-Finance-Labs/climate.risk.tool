@@ -9,6 +9,7 @@ app_server <- function(input, output, session) {
   values <- reactiveValues(
     data_loaded = FALSE,
     results = NULL,
+    run_events = NULL,
     status = "Ready to load data",
     # Store all loaded data files
     assets = NULL,
@@ -141,6 +142,9 @@ app_server <- function(input, output, session) {
     delete_event_callback = control$delete_event,
     run_repro_code_reactive = shiny::reactive({
       build_run_repro_code(run_repro_spec())
+    }),
+    spatial_data_reactive = reactive({
+      values$spatial_separation_data
     })
   )
 
@@ -153,6 +157,9 @@ app_server <- function(input, output, session) {
     }),
     cnae_exposure_reactive = reactive({
       values$cnae_exposure
+    }),
+    events_reactive = reactive({
+      values$run_events
     })
   )
   # Initialize plot modules
@@ -384,6 +391,7 @@ app_server <- function(input, output, session) {
         )
 
         values$results <- results
+        values$run_events <- ev_df
         control$set_results(results)
         values$status <- "Analysis complete. Check the Profit Pathways and Company Analysis tabs for detailed results."
         analysis_warnings <- unique(c(analysis_warnings, values$spatial_separation_warnings))

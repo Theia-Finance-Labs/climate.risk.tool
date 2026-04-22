@@ -10,7 +10,7 @@ mod_results_assets_ui <- function(id) {
       class = "results-container",
       shiny::h3("Asset Exposures", class = "results-title"),
       shiny::p(
-        "Expand a hazard to review the associated assets and impact metrics.",
+        "Expand an event to review the associated assets and impact metrics.",
         class = "text-muted",
         style = "margin-bottom: 1.5rem;"
       ),
@@ -38,8 +38,9 @@ mod_results_assets_ui <- function(id) {
 #' @param results_reactive reactive containing analysis results
 #' @param name_mapping_reactive reactive containing region name mapping dictionary
 #' @param cnae_exposure_reactive reactive returning CNAE exposure lookup table
+#' @param events_reactive optional reactive containing the configured events snapshot used in the latest run
 #' @export
-mod_results_assets_server <- function(id, results_reactive, name_mapping_reactive = NULL, cnae_exposure_reactive = NULL) {
+mod_results_assets_server <- function(id, results_reactive, name_mapping_reactive = NULL, cnae_exposure_reactive = NULL, events_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -231,113 +232,328 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       df[, cols_to_keep, drop = FALSE]
     }
 
-    extract_unique_hazards <- function(assets_df) {
-      hazard_name_exists <- "hazard_name" %in% names(assets_df)
-      hazard_type_exists <- "hazard_type" %in% names(assets_df)
+    resolve_run_events <- function() {
+      if (is.null(events_reactive)) {
+        return(NULL)
+      }
 
-      assets_df |>
+      events <- try(events_reactive(), silent = TRUE)
+      if (inherits(events, "try-error") || is.null(events) || nrow(events) == 0) {
+        return(NULL)
+      }
+
+      events
+    }
+
+    normalize_events_metadata <- function(events_df) {
+      if (is.null(events_df) || nrow(events_df) == 0) {
+        return(tibble::tibble())
+      }
+
+      required_cols <- c(
+        "event_id",
+        "hazard_type",
+        "hazard_name",
+        "scenario_name",
+        "return_period",
+        "event_year",
+        "spatial_level",
+        "spatial_region_codes",
+        "spatial_region_labels"
+      )
+
+      out <- events_df
+      for (col_name in required_cols) {
+        if (!col_name %in% names(out)) {
+          out[[col_name]] <- NA
+        }
+      }
+
+      out <- out |>
+        dplyr::select(dplyr::all_of(required_cols)) |>
         dplyr::mutate(
-          hazard_name_value = if (hazard_name_exists) .data$hazard_name else NA_character_,
-          hazard_type_value = if (hazard_type_exists) .data$hazard_type else NA_character_
+          event_id = as.character(.data$event_id),
+          return_period = suppressWarnings(as.numeric(.data$return_period)),
+          event_year = suppressWarnings(as.integer(.data$event_year))
         ) |>
-        dplyr::mutate(
-          hazard_label = dplyr::case_when(
-            !is.na(.data$hazard_name_value) & nzchar(.data$hazard_name_value) ~ .data$hazard_name_value,
-            !is.na(.data$hazard_type_value) & nzchar(.data$hazard_type_value) ~ .data$hazard_type_value,
-            TRUE ~ "Unknown hazard"
+        dplyr::filter(!is.na(.data$event_id) & nzchar(.data$event_id)) |>
+        dplyr::distinct(.data$event_id, .keep_all = TRUE)
+
+      out
+    }
+
+    extract_assets_event_metadata <- function(assets_df) {
+      if (is.null(assets_df) || nrow(assets_df) == 0 || !"event_id" %in% names(assets_df)) {
+        return(tibble::tibble())
+      }
+
+      metadata_cols <- c(
+        "event_id",
+        "hazard_type",
+        "hazard_name",
+        "scenario_name",
+        "return_period",
+        "hazard_return_period",
+        "event_year",
+        "spatial_level",
+        "spatial_region_codes",
+        "spatial_region_labels"
+      )
+
+      out <- assets_df |>
+        dplyr::select(dplyr::any_of(metadata_cols)) |>
+        dplyr::mutate(event_id = as.character(.data$event_id)) |>
+        dplyr::filter(!is.na(.data$event_id) & nzchar(.data$event_id)) |>
+        dplyr::distinct(.data$event_id, .keep_all = TRUE)
+
+      if ("hazard_return_period" %in% names(out)) {
+        if ("return_period" %in% names(out)) {
+          out$return_period <- dplyr::coalesce(
+            suppressWarnings(as.numeric(out$return_period)),
+            suppressWarnings(as.numeric(out$hazard_return_period))
           )
-        ) |>
-        dplyr::select(
-          "hazard_label",
-          dplyr::any_of("hazard_name"),
-          dplyr::any_of("hazard_type")
-        ) |>
-        dplyr::distinct() |>
-        dplyr::arrange(.data$hazard_label)
+        } else {
+          out$return_period <- suppressWarnings(as.numeric(out$hazard_return_period))
+        }
+      }
+
+      out |>
+        dplyr::select(-dplyr::any_of("hazard_return_period"))
+    }
+
+    merge_event_metadata <- function(run_events_df, assets_event_meta) {
+      if (nrow(run_events_df) == 0) {
+        return(assets_event_meta)
+      }
+      if (nrow(assets_event_meta) == 0) {
+        return(run_events_df)
+      }
+
+      merged <- run_events_df |>
+        dplyr::left_join(assets_event_meta, by = "event_id", suffix = c("", ".asset"))
+
+      merge_cols <- c(
+        "hazard_type",
+        "hazard_name",
+        "scenario_name",
+        "return_period",
+        "event_year",
+        "spatial_level",
+        "spatial_region_codes",
+        "spatial_region_labels"
+      )
+
+      for (col_name in merge_cols) {
+        asset_col <- paste0(col_name, ".asset")
+        if (asset_col %in% names(merged)) {
+          if (!col_name %in% names(merged)) {
+            merged[[col_name]] <- merged[[asset_col]]
+          } else {
+            merged[[col_name]] <- dplyr::coalesce(merged[[col_name]], merged[[asset_col]])
+          }
+          merged[[asset_col]] <- NULL
+        }
+      }
+
+      merged
+    }
+
+    build_event_panels <- function(assets_df, run_events_df = NULL) {
+      assets_event_meta <- extract_assets_event_metadata(assets_df)
+      run_events_meta <- normalize_events_metadata(run_events_df)
+
+      panel_events <- if (nrow(run_events_meta) > 0) {
+        merge_event_metadata(run_events_meta, assets_event_meta)
+      } else {
+        assets_event_meta
+      }
+
+      if (nrow(panel_events) == 0) {
+        return(panel_events)
+      }
+
+      panel_events |>
+        dplyr::mutate(
+          hazard_type_label = dplyr::if_else(
+            !is.na(.data$hazard_type) & nzchar(as.character(.data$hazard_type)),
+            as.character(.data$hazard_type),
+            "Unknown hazard"
+          ),
+          event_year_label = dplyr::if_else(
+            !is.na(.data$event_year),
+            as.character(.data$event_year),
+            "NA"
+          ),
+          panel_label = paste0(.data$event_id, " | ", .data$hazard_type_label, " | ", .data$event_year_label),
+          spatial_selection = mapply(
+            FUN = format_spatial_selection,
+            level = .data$spatial_level,
+            region_codes = .data$spatial_region_codes,
+            region_labels = .data$spatial_region_labels,
+            SIMPLIFY = TRUE,
+            USE.NAMES = FALSE
+          )
+        )
+    }
+
+    format_event_metadata_value <- function(value) {
+      if (is.null(value) || length(value) == 0) {
+        return("N/A")
+      }
+
+      val <- value[[1]]
+      if (is.numeric(val)) {
+        if (is.na(val)) {
+          return("N/A")
+        }
+        if (isTRUE(all.equal(val, round(val)))) {
+          return(as.character(as.integer(round(val))))
+        }
+        return(as.character(val))
+      }
+
+      val_chr <- as.character(val)
+      if (is.na(val_chr) || !nzchar(trimws(val_chr))) {
+        return("N/A")
+      }
+
+      val_chr
+    }
+
+    build_event_metadata_ui <- function(event_row) {
+      metadata_items <- list(
+        list(label = "Event ID", value = event_row$event_id),
+        list(label = "Hazard Type", value = event_row$hazard_type),
+        list(label = "Hazard Name", value = event_row$hazard_name),
+        list(label = "Scenario", value = event_row$scenario_name),
+        list(label = "Return Period (years)", value = event_row$return_period),
+        list(label = "Shock Year", value = event_row$event_year),
+        list(label = "Spatial Separation", value = event_row$spatial_selection)
+      )
+
+      shiny::tags$div(
+        class = "event-panel-metadata text-muted",
+        style = "margin-bottom: 0.75rem; font-size: 0.9em;",
+        purrr::map(metadata_items, function(item) {
+          shiny::tags$div(
+            shiny::tags$strong(paste0(item$label, ": ")),
+            format_event_metadata_value(item$value)
+          )
+        })
+      )
+    }
+
+    drop_event_columns_for_display <- function(df) {
+      if (is.null(df) || nrow(df) == 0) {
+        return(df)
+      }
+
+      event_level_cols <- c(
+        "event_id",
+        "hazard_name",
+        "hazard_type",
+        "scenario_name",
+        "return_period",
+        "hazard_return_period",
+        "event_year",
+        "spatial_level",
+        "spatial_region_codes",
+        "spatial_region_labels",
+        "spatial_scheme",
+        "spatial_selection"
+      )
+
+      df |>
+        dplyr::select(-dplyr::any_of(event_level_cols))
     }
 
     output$hazard_tables <- shiny::renderUI({
       results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors) || nrow(results$assets_factors) == 0) {
+      if (is.null(results)) {
         return(shiny::wellPanel(shiny::p("Asset results will appear here once the analysis completes.")))
       }
 
-      assets <- results$assets_factors
-      unique_hazards <- extract_unique_hazards(assets)
+      assets <- if (!is.null(results$assets_factors)) results$assets_factors else tibble::tibble()
+      panel_events <- build_event_panels(assets, resolve_run_events())
 
-      if (nrow(unique_hazards) == 0) {
-        return(shiny::wellPanel(shiny::p("No hazards available for display.")))
+      if (nrow(panel_events) == 0) {
+        return(shiny::wellPanel(shiny::p("No events available for display.")))
       }
 
-      hazard_blocks <- purrr::imap(unique_hazards$hazard_label, function(label, idx) {
+      event_blocks <- purrr::map(seq_len(nrow(panel_events)), function(idx) {
+        event_row <- panel_events[idx, , drop = FALSE]
         table_output <- DT::dataTableOutput(ns(paste0("assets_table_", idx)))
+        metadata_output <- build_event_metadata_ui(event_row)
 
         if (idx == 1) {
           shiny::tags$details(
             class = "hazard-panel",
             open = NA,
-            shiny::tags$summary(class = "hazard-panel__summary", label),
-            shiny::tags$div(class = "hazard-panel__table", table_output)
+            shiny::tags$summary(class = "hazard-panel__summary", event_row$panel_label[[1]]),
+            shiny::tags$div(class = "hazard-panel__table", metadata_output, table_output)
           )
         } else {
           shiny::tags$details(
             class = "hazard-panel",
-            shiny::tags$summary(class = "hazard-panel__summary", label),
-            shiny::tags$div(class = "hazard-panel__table", table_output)
+            shiny::tags$summary(class = "hazard-panel__summary", event_row$panel_label[[1]]),
+            shiny::tags$div(class = "hazard-panel__table", metadata_output, table_output)
           )
         }
       })
 
-      shiny::tagList(hazard_blocks)
+      shiny::tagList(event_blocks)
     })
 
     shiny::observe({
       results <- results_reactive()
-      if (is.null(results) || is.null(results$assets_factors) || nrow(results$assets_factors) == 0) {
+      if (is.null(results)) {
         session$userData$hazard_tables_data <- NULL
+        session$userData$hazard_tables_display_data <- NULL
         return(NULL)
       }
 
-      assets <- results$assets_factors
-      unique_hazards <- extract_unique_hazards(assets)
+      assets <- if (!is.null(results$assets_factors)) results$assets_factors else tibble::tibble()
+      panel_events <- build_event_panels(assets, resolve_run_events())
 
-      if (nrow(unique_hazards) == 0) {
+      if (nrow(panel_events) == 0) {
+        session$userData$hazard_tables_data <- NULL
+        session$userData$hazard_tables_display_data <- NULL
         return(NULL)
       }
 
-      session$userData$hazard_tables_data <- vector("list", length = nrow(unique_hazards))
+      session$userData$hazard_tables_data <- vector("list", length = nrow(panel_events))
+      session$userData$hazard_tables_display_data <- vector("list", length = nrow(panel_events))
 
-      purrr::iwalk(unique_hazards$hazard_label, function(label, idx) {
-        hazard_name_val <- if ("hazard_name" %in% names(unique_hazards)) unique_hazards$hazard_name[[idx]] else NA_character_
-        hazard_type_val <- if ("hazard_type" %in% names(unique_hazards)) unique_hazards$hazard_type[[idx]] else NA_character_
+      purrr::walk(seq_len(nrow(panel_events)), function(idx) {
+        event_row <- panel_events[idx, , drop = FALSE]
+        event_id_val <- event_row$event_id[[1]]
 
         output[[paste0("assets_table_", idx)]] <- DT::renderDataTable({
           current_assets <- assets
 
-          if (!is.na(hazard_name_val) && !is.null(hazard_name_val)) {
+          if ("event_id" %in% names(current_assets) && !is.na(event_id_val) && nzchar(as.character(event_id_val))) {
             current_assets <- current_assets |>
-              dplyr::filter(.data$hazard_name == !!hazard_name_val)
-          } else if (!is.na(hazard_type_val) && !is.null(hazard_type_val)) {
-            current_assets <- current_assets |>
-              dplyr::filter(.data$hazard_type == !!hazard_type_val)
+              dplyr::filter(as.character(.data$event_id) == as.character(event_id_val))
           }
 
           name_mapping <- if (!is.null(name_mapping_reactive)) name_mapping_reactive() else NULL
           cnae_exposure <- resolve_cnae_exposure()
           formatted_assets <- format_assets_table(current_assets, name_mapping, cnae_exposure, include_sector_name = FALSE)
+          session$userData$hazard_tables_data[[idx]] <- formatted_assets
 
           if (is.null(formatted_assets) || nrow(formatted_assets) == 0) {
-            session$userData$hazard_tables_data[[idx]] <- NULL
+            session$userData$hazard_tables_display_data[[idx]] <- tibble::tibble()
             return(DT::datatable(
-              tibble::tibble(Message = "No assets available for this hazard."),
+              tibble::tibble(Message = "No assets available for this event."),
               options = list(dom = "t"),
               rownames = FALSE
             ))
           }
 
-          # Drop empty columns for display only (download keeps all columns)
-          display_assets <- drop_empty_columns(formatted_assets)
-          session$userData$hazard_tables_data[[idx]] <- formatted_assets
+          display_assets <- formatted_assets |>
+            drop_event_columns_for_display() |>
+            drop_empty_columns()
+          session$userData$hazard_tables_display_data[[idx]] <- display_assets
 
           DT::datatable(
             display_assets,

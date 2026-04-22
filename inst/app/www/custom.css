@@ -346,6 +346,109 @@ body {
   margin-top: 1.75rem;
 }
 
+.status-map-wrapper {
+  margin-top: 1.5rem;
+}
+
+.status-map-title {
+  margin-bottom: 0.35rem;
+}
+
+.status-map-description {
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.status-map-shell {
+  background-color: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius-lg);
+  padding: 0.5rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.status-map-shell .plotly.html-widget {
+  width: 100%;
+}
+
+.status-map-toggle-container {
+  margin-top: 0.75rem;
+}
+
+.status-map-toggle-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.status-map-toggle-btn {
+  min-width: 64px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.status-map-toggle-btn__id {
+  font-weight: 700;
+}
+
+.status-map-toggle-btn__state {
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 0.1rem 0.35rem;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+  border: 1px solid currentColor;
+  line-height: 1.2;
+}
+
+.status-map-toggle-btn--on {
+  background-color: var(--primary-color);
+  color: var(--card-background);
+  border-color: var(--primary-color);
+}
+
+.status-map-toggle-btn--on:hover,
+.status-map-toggle-btn--on:focus {
+  background-color: #00822f;
+  color: var(--card-background);
+  border-color: #00822f;
+}
+
+.status-map-toggle-btn--on .status-map-toggle-btn__state {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+
+.status-map-toggle-btn--off {
+  background-color: #eef2f7;
+  color: #4a5568;
+  border-color: #cfd8e3;
+}
+
+.status-map-toggle-btn--off:hover,
+.status-map-toggle-btn--off:focus {
+  background-color: #e2e8f0;
+  color: #2d3748;
+  border-color: #b7c3d1;
+}
+
+.status-map-toggle-btn--off .status-map-toggle-btn__state {
+  background-color: rgba(74, 85, 104, 0.08);
+}
+
+.status-map-toggle-empty {
+  margin: 0;
+}
+
+.status-map-toggle-legend {
+  margin: 0 0 0.45rem 0;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+}
+
 .status-repro-panel {
   border-radius: var(--border-radius-lg);
 }
