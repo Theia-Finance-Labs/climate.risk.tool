@@ -94,7 +94,7 @@ testthat::test_that("mod_results_assets_server renders event-specific tables wit
     testthat::expect_true(all(unique(table_two$event_id) == "ev1"))
     testthat::expect_equal(nrow(table_three), 0)
     testthat::expect_true("sector" %in% colnames(table_one))
-    testthat::expect_true(all(table_one$sector == "35"))
+    testthat::expect_true(all(table_one$sector == "Hydropower Generation"))
     testthat::expect_false("sector_name" %in% colnames(table_one))
     testthat::expect_true("sector_code" %in% colnames(table_one))
     testthat::expect_true(all(table_one$sector_code == "35"))

@@ -13,6 +13,7 @@
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and states (from read_precomputed_hazards())
 #' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #' @param hazards_dir Character path to hazards/config directory containing hazard YAML files
+#' @param cnae_exposure Data frame with CNAE exposure mapping (must include `cnae` and `description`)
 #' @param adm1_boundaries Optional sf object with ADM1 (state) boundaries for state assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
@@ -60,6 +61,7 @@
 #' hazards <- load_hazards(file.path(base_dir, "hazards"))
 #' precomputed_hazards <- read_precomputed_hazards(base_dir)
 #' hazard_configs <- hazard_data$configs
+#' cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cnae_exposure")
 #'
 #' # Define events
 #' events <- data.frame(
@@ -78,6 +80,7 @@
 #'   precomputed_hazards = precomputed_hazards,
 #'   hazard_configs = hazard_configs,
 #'   hazards_dir = file.path(base_dir, "hazards"),
+#'   cnae_exposure = cnae_exposure,
 #'   growth_rate = 0.02,
 #'   discount_rate = 0.05,
 #'   risk_free_rate = 0.02
@@ -98,6 +101,7 @@ compute_risk <- function(assets,
                          precomputed_hazards,
                          hazard_configs,
                          hazards_dir,
+                         cnae_exposure,
                          adm1_boundaries = NULL,
                          adm2_boundaries = NULL,
                          spatial_separation_data = NULL,
@@ -128,6 +132,9 @@ compute_risk <- function(assets,
   }
   if (is.null(hazards_dir) || !dir.exists(hazards_dir)) {
     stop("hazards_dir must be a valid directory path")
+  }
+  if (!is.data.frame(cnae_exposure) || nrow(cnae_exposure) == 0) {
+    stop("cnae_exposure must be a non-empty data.frame with CNAE sector mapping")
   }
 
   # Validate aggregation_method
@@ -176,6 +183,7 @@ compute_risk <- function(assets,
       companies_df = companies,
       hazards_dir = hazards_dir,
       hazard_configs = hazard_configs,
+      cnae_exposure_df = cnae_exposure,
       precomputed_hazards_df = precomputed_hazards,
       adm1_names = adm1_names,
       adm2_names = adm2_names,

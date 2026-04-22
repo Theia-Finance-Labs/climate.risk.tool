@@ -1,3 +1,11 @@
+make_test_cnae_exposure <- function() {
+  data.frame(
+    cnae = c("1", "6", "10", "35", "123"),
+    description = c("Agriculture", "Oil and Gas Extraction", "Manufacturing", "Hydropower Generation", "Test Sector"),
+    stringsAsFactors = FALSE
+  )
+}
+
 testthat::test_that("validate_input_coherence errors on missing hazards_dir", {
   assets <- data.frame(asset = "A1", company = "C1")
   companies <- data.frame(company = "C1")
@@ -5,9 +13,10 @@ testthat::test_that("validate_input_coherence errors on missing hazards_dir", {
   testthat::expect_error(
     validate_input_coherence(
     assets_df = assets,
-    companies_df = companies,
+      companies_df = companies,
       hazards_dir = "missing_dir",
       hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list()))),
+      cnae_exposure_df = make_test_cnae_exposure(),
       precomputed_hazards_df = NULL,
       adm1_names = character(0),
       adm2_names = character(0),
@@ -27,6 +36,7 @@ testthat::test_that("validate_input_coherence errors on empty hazard_configs", {
       companies_df = companies,
       hazards_dir = get_hazards_dir(),
       hazard_configs = list(),
+      cnae_exposure_df = make_test_cnae_exposure(),
       precomputed_hazards_df = NULL,
       adm1_names = character(0),
       adm2_names = character(0),
@@ -46,6 +56,7 @@ testthat::test_that("validate_input_coherence errors on missing required input c
       companies_df = companies,
       hazards_dir = get_hazards_dir(),
       hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list()))),
+      cnae_exposure_df = make_test_cnae_exposure(),
       precomputed_hazards_df = NULL,
       adm1_names = character(0),
       adm2_names = character(0),
@@ -104,6 +115,7 @@ testthat::test_that("validate_input_coherence does not error when assets with co
       companies_df = companies,
       hazards_dir = get_hazards_dir(),
       hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list(file = "f.tif")))),
+      cnae_exposure_df = make_test_cnae_exposure(),
       precomputed_hazards_df = precomputed,
       adm1_names = c("Amazonas", "Amapa"),
       adm2_names = c("Manaus"),
@@ -146,7 +158,7 @@ testthat::test_that("validate_input_coherence ERRORS when asset WITHOUT coords i
 
   # Precomputed data ONLY for Amazonas
   precomputed <- data.frame(
-    region = "Amazonas",
+    adm_name = "Amazonas",
     adm_level = "ADM1",
     hazard_type = "Flood",
     hazard_indicator = "depth",
@@ -162,6 +174,7 @@ testthat::test_that("validate_input_coherence ERRORS when asset WITHOUT coords i
       companies_df = companies,
       hazards_dir = get_hazards_dir(),
       hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list(file = "f.tif")))),
+      cnae_exposure_df = make_test_cnae_exposure(),
       precomputed_hazards_df = precomputed,
       adm1_names = c("Amazonas", "Amapa"),
       adm2_names = character(0),
@@ -200,6 +213,7 @@ testthat::test_that("validate_input_coherence accepts IBGE codes for state and m
       companies_df = companies,
       hazards_dir = get_hazards_dir(),
       hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list(file = "f.tif")))),
+      cnae_exposure_df = make_test_cnae_exposure(),
       precomputed_hazards_df = NULL,
       adm1_names = c("Rondonia"),
       adm2_names = c("Ariquemes"),
@@ -209,4 +223,125 @@ testthat::test_that("validate_input_coherence accepts IBGE codes for state and m
   )
 })
 
+testthat::test_that("validate_input_coherence errors when CNAE exposure mapping is missing", {
+  assets <- data.frame(
+    asset = "A1",
+    company = "C1",
+    share_of_economic_activity = 1.0,
+    stringsAsFactors = FALSE
+  )
+  companies <- data.frame(
+    company = "C1",
+    revenues = 1000,
+    debt = 500,
+    volatility = 0.2,
+    net_profit_margin = 0.1,
+    loan_size = 100,
+    lgd = 0.4,
+    term = 5,
+    stringsAsFactors = FALSE
+  )
 
+  testthat::expect_error(
+    validate_input_coherence(
+      assets_df = assets,
+      companies_df = companies,
+      hazards_dir = get_hazards_dir(),
+      hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list(file = "f.tif")))),
+      cnae_exposure_df = NULL,
+      precomputed_hazards_df = NULL,
+      adm1_names = character(0),
+      adm2_names = character(0),
+      events_df = NULL
+    ),
+    "CNAE exposure mapping is required"
+  )
+})
+
+testthat::test_that("validate_input_coherence errors on unresolved sector code", {
+  assets <- data.frame(
+    asset = c("A1", "A2"),
+    company = c("C1", "C1"),
+    share_of_economic_activity = c(0.5, 0.5),
+    sector = c("9999", "35"),
+    state = c("11", "11"),
+    municipality = c("1100023", "1100023"),
+    stringsAsFactors = FALSE
+  )
+  companies <- data.frame(
+    company = "C1",
+    revenues = 1000,
+    debt = 500,
+    volatility = 0.2,
+    net_profit_margin = 0.1,
+    loan_size = 100,
+    lgd = 0.4,
+    term = 5,
+    stringsAsFactors = FALSE
+  )
+
+  cnae_exposure <- data.frame(
+    cnae = c("35"),
+    description = c("Hydropower Generation"),
+    stringsAsFactors = FALSE
+  )
+
+  testthat::expect_error(
+    validate_input_coherence(
+      assets_df = assets,
+      companies_df = companies,
+      hazards_dir = get_hazards_dir(),
+      hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list(file = "f.tif")))),
+      cnae_exposure_df = cnae_exposure,
+      precomputed_hazards_df = NULL,
+      adm1_names = c("Rondonia"),
+      adm2_names = c("Ariquemes"),
+      events_df = NULL
+    ),
+    "unresolved sector codes"
+  )
+})
+
+testthat::test_that("validate_input_coherence passes when sector codes resolve to names", {
+  assets <- data.frame(
+    asset = c("A1", "A2"),
+    company = c("C1", "C1"),
+    share_of_economic_activity = c(0.5, 0.5),
+    sector = c("06", "35"),
+    state = c("11", "11"),
+    municipality = c("1100023", "1100023"),
+    stringsAsFactors = FALSE
+  )
+  companies <- data.frame(
+    company = "C1",
+    revenues = 1000,
+    debt = 500,
+    volatility = 0.2,
+    net_profit_margin = 0.1,
+    loan_size = 100,
+    lgd = 0.4,
+    term = 5,
+    stringsAsFactors = FALSE
+  )
+
+  cnae_exposure <- data.frame(
+    cnae = c("6", "35"),
+    description = c("Oil and Gas Extraction", "Hydropower Generation"),
+    stringsAsFactors = FALSE
+  )
+
+  testthat::expect_message(
+    validate_input_coherence(
+      assets_df = assets,
+      companies_df = companies,
+      hazards_dir = get_hazards_dir(),
+      hazard_configs = list(Flood = list(primary_indicator = "depth", indicators = list(depth = list(file = "f.tif")))),
+      cnae_exposure_df = cnae_exposure,
+      precomputed_hazards_df = NULL,
+      adm1_names = c("Rondonia"),
+      adm2_names = c("Ariquemes"),
+      events_df = NULL
+    ),
+    "\\[validate_input_coherence\\] All validation checks passed"
+  )
+})

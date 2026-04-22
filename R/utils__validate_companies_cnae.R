@@ -38,6 +38,37 @@ validate_required_input_columns <- function(assets_df, companies_df, validation_
 }
 
 
+#' Validate CNAE exposure mapping schema and availability
+#'
+#' @param cnae_exposure_df CNAE exposure reference data frame
+#' @param validation_results List with errors and warnings vectors
+#' @return Updated validation_results list
+#' @noRd
+validate_cnae_exposure_mapping <- function(cnae_exposure_df, validation_results) {
+  if (is.null(cnae_exposure_df) || !is.data.frame(cnae_exposure_df) || nrow(cnae_exposure_df) == 0) {
+    validation_results$errors <- c(
+      validation_results$errors,
+      "CNAE exposure mapping is required and must be a non-empty data frame"
+    )
+    return(validation_results)
+  }
+
+  required_cols <- c("cnae", "description")
+  missing_cols <- setdiff(required_cols, names(cnae_exposure_df))
+  if (length(missing_cols) > 0) {
+    validation_results$errors <- c(
+      validation_results$errors,
+      paste0(
+        "CNAE exposure mapping is missing required column(s): ",
+        paste(missing_cols, collapse = ", ")
+      )
+    )
+  }
+
+  validation_results
+}
+
+
 #' Validate CNAE codes in assets against reference CNAE file
 #'
 #' @param assets_df Assets data frame
@@ -46,10 +77,18 @@ validate_required_input_columns <- function(assets_df, companies_df, validation_
 #' @return Updated validation_results list
 #' @noRd
 validate_cnae_codes <- function(assets_df, cnae_exposure_df, validation_results) {
+  if (!"cnae" %in% names(assets_df)) {
+    return(validation_results)
+  }
+
   # Get unique CNAE codes from assets (excluding NA)
   asset_cnae_codes <- assets_df |>
     dplyr::filter(!is.na(.data$cnae)) |>
     dplyr::pull(.data$cnae) |>
+    as.character() |>
+    trimws()
+  asset_cnae_codes <- asset_cnae_codes[!is.na(asset_cnae_codes) & nzchar(asset_cnae_codes)]
+  asset_cnae_codes <- asset_cnae_codes |>
     unique()
 
   if (length(asset_cnae_codes) == 0) {
@@ -63,6 +102,10 @@ validate_cnae_codes <- function(assets_df, cnae_exposure_df, validation_results)
   # Get valid CNAE codes from reference file
   valid_cnae_codes <- cnae_exposure_df |>
     dplyr::pull(.data$cnae) |>
+    as.character() |>
+    trimws()
+  valid_cnae_codes <- valid_cnae_codes[!is.na(valid_cnae_codes) & nzchar(valid_cnae_codes)]
+  valid_cnae_codes <- valid_cnae_codes |>
     unique()
 
   # Find invalid codes
@@ -79,6 +122,55 @@ validate_cnae_codes <- function(assets_df, cnae_exposure_df, validation_results)
   }
 
   return(validation_results)
+}
+
+
+#' Validate that code-like sector/CNAE values resolve to a full sector label
+#'
+#' @param assets_df Assets data frame
+#' @param cnae_exposure_df CNAE exposure reference data frame
+#' @param validation_results List with errors and warnings vectors
+#' @return Updated validation_results list
+#' @noRd
+validate_sector_resolution <- function(assets_df, cnae_exposure_df, validation_results) {
+  assets_with_sector <- attach_sector_metadata(assets_df, cnae_exposure_df)
+
+  if (!"sector_code" %in% names(assets_with_sector) || !"sector_name" %in% names(assets_with_sector)) {
+    validation_results$errors <- c(
+      validation_results$errors,
+      "Unable to validate sector resolution: sector metadata columns were not produced"
+    )
+    return(validation_results)
+  }
+
+  unresolved <- assets_with_sector |>
+    dplyr::mutate(
+      sector_code = trimws(as.character(.data$sector_code)),
+      sector_name = trimws(as.character(.data$sector_name))
+    ) |>
+    dplyr::filter(
+      !is.na(.data$sector_code),
+      nzchar(.data$sector_code),
+      is.na(.data$sector_name) | !nzchar(.data$sector_name)
+    )
+
+  if (nrow(unresolved) > 0) {
+    row_ref <- if ("asset" %in% names(unresolved)) {
+      paste0("asset '", unresolved$asset, "'")
+    } else {
+      paste0("row ", seq_len(nrow(unresolved)))
+    }
+    details <- paste0(row_ref, " (code: ", unresolved$sector_code, ")")
+    validation_results$errors <- c(
+      validation_results$errors,
+      paste0(
+        "Assets contain unresolved sector codes with no CNAE description: ",
+        paste(unique(details), collapse = ", ")
+      )
+    )
+  }
+
+  validation_results
 }
 
 

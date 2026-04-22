@@ -9,6 +9,7 @@ testthat::test_that("compute_risk keeps excluded assets with spatial status and 
 
   companies <- read_companies(get_test_data_dir("user_input"))
   precomputed <- read_precomputed_hazards(get_test_data_dir())
+  cnae_exposure <- load_mapping_from_config(get_test_data_dir(), hazard_data$configs, "Heat", "cnae_exposure")
 
   flood_row <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_type == "Flood") |>
@@ -38,6 +39,7 @@ testthat::test_that("compute_risk keeps excluded assets with spatial status and 
     precomputed_hazards = precomputed,
     hazard_configs = hazard_data$configs,
     hazards_dir = get_hazards_dir(),
+    cnae_exposure = cnae_exposure,
     validate_inputs = FALSE,
     growth_rate = 0.02,
     discount_rate = 0.05,
@@ -83,6 +85,7 @@ testthat::test_that("compute_risk uses geometry fallback for hydro municipality 
     )
 
   precomputed <- read_precomputed_hazards(get_test_data_dir())
+  cnae_exposure <- load_mapping_from_config(get_test_data_dir(), hazard_data$configs, "Heat", "cnae_exposure")
 
   flood_row <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_type == "Flood") |>
@@ -153,6 +156,7 @@ testthat::test_that("compute_risk uses geometry fallback for hydro municipality 
       precomputed_hazards = precomputed,
       hazard_configs = hazard_data$configs,
       hazards_dir = get_hazards_dir(),
+      cnae_exposure = cnae_exposure,
       spatial_separation_data = spatial_data,
       validate_inputs = FALSE,
       growth_rate = 0.02,

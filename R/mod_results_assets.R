@@ -155,12 +155,20 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       assets_df <- if (original_has_sector) {
         assets_df |>
           dplyr::mutate(
-            sector = dplyr::coalesce(.data$sector_code, as.character(.data$sector))
+            sector = dplyr::coalesce(
+              .data$sector_name,
+              dplyr::if_else(
+                !is.na(as.character(.data$sector)) & !grepl("^[0-9]+$", as.character(.data$sector)),
+                as.character(.data$sector),
+                NA_character_
+              ),
+              as.character(.data$sector)
+            )
           )
       } else {
         assets_df |>
           dplyr::mutate(
-            sector = .data$sector_code
+            sector = .data$sector_name
           )
       }
 

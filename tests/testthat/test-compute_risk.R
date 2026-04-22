@@ -8,6 +8,7 @@ testthat::test_that("compute_risk runs with config-driven hazards", {
   assets <- read_assets(get_test_data_dir("user_input"))
   companies <- read_companies(get_test_data_dir("user_input"))
   precomputed <- read_precomputed_hazards(get_test_data_dir())
+  cnae_exposure <- load_mapping_from_config(get_test_data_dir(), hazard_data$configs, "Heat", "cnae_exposure")
 
   flood_row <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_type == "Flood") |>
@@ -33,6 +34,7 @@ testthat::test_that("compute_risk runs with config-driven hazards", {
     precomputed_hazards = precomputed,
     hazard_configs = hazard_data$configs,
     hazards_dir = get_hazards_dir(),
+    cnae_exposure = cnae_exposure,
     validate_inputs = FALSE,
     growth_rate = 0.02,
     discount_rate = 0.05,
@@ -54,6 +56,7 @@ testthat::test_that("compute_risk produces stable snapshot output", {
   assets <- read_assets(get_test_data_dir("user_input"))
   companies <- read_companies(get_test_data_dir("user_input"))
   precomputed <- read_precomputed_hazards(get_test_data_dir())
+  cnae_exposure <- load_mapping_from_config(get_test_data_dir(), hazard_data$configs, "Heat", "cnae_exposure")
 
   flood_row <- hazard_data$inventory |>
     dplyr::filter(.data$hazard_type == "Flood") |>
@@ -79,6 +82,7 @@ testthat::test_that("compute_risk produces stable snapshot output", {
     precomputed_hazards = precomputed,
     hazard_configs = hazard_data$configs,
     hazards_dir = get_hazards_dir(),
+    cnae_exposure = cnae_exposure,
     validate_inputs = FALSE,
     growth_rate = 0.02,
     discount_rate = 0.05,

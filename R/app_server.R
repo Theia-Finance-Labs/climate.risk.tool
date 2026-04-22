@@ -199,16 +199,25 @@ app_server <- function(input, output, session) {
         # Pass hazard_configs to read_precomputed_hazards to ensure overrides are applied
         values$precomputed_hazards <- read_precomputed_hazards(base_dir, hazard_configs = values$hazard_configs)
         
-        # Load cnae_exposure from config if Heat hazard is present
-        if ("Heat" %in% names(values$hazard_configs)) {
-          heat_config <- values$hazard_configs[["Heat"]]
-          if (!is.null(heat_config$mappings) && "cnae_exposure" %in% names(heat_config$mappings)) {
-            values$cnae_exposure <- load_mapping_from_config(base_dir, values$hazard_configs, "Heat", "cnae_exposure")
-          } else {
-            values$cnae_exposure <- NULL
-          }
-        } else {
-          values$cnae_exposure <- NULL
+        # Load mandatory CNAE exposure mapping (required for sector resolution and validation)
+        mapping_hazards <- names(values$hazard_configs)[vapply(
+          values$hazard_configs,
+          function(cfg) {
+            !is.null(cfg$mappings) && "cnae_exposure" %in% names(cfg$mappings)
+          },
+          logical(1)
+        )]
+        if (length(mapping_hazards) == 0) {
+          stop("Mandatory mapping 'cnae_exposure' was not found in hazard config files")
+        }
+        values$cnae_exposure <- load_mapping_from_config(
+          base_dir = base_dir,
+          hazard_configs = values$hazard_configs,
+          hazard_type = mapping_hazards[[1]],
+          mapping_key = "cnae_exposure"
+        )
+        if (!is.data.frame(values$cnae_exposure) || nrow(values$cnae_exposure) == 0) {
+          stop("Mandatory mapping 'cnae_exposure' is empty or invalid")
         }
 
         # Load ADM1 and ADM2 boundaries for state assignment and validation
@@ -372,6 +381,7 @@ app_server <- function(input, output, session) {
             precomputed_hazards = values$precomputed_hazards,
             hazard_configs = values$hazard_configs,
             hazards_dir = file.path(base_dir, "hazards", "config"),
+            cnae_exposure = values$cnae_exposure,
             adm1_boundaries = values$adm1_boundaries,
             adm2_boundaries = values$adm2_boundaries,
             spatial_separation_data = values$spatial_separation_data,

@@ -22,8 +22,9 @@
 #' # Load boundary names
 #' adm1 <- load_adm1_state_names("tests/tests_data")
 #' adm2 <- load_adm2_municipality_names("tests/tests_data")
+#' cnae_exposure <- load_mapping_from_config("tests/tests_data", load_hazard_configs("tests/tests_data/hazards/config"), "Heat", "cnae_exposure")
 #' # Validate
-#' validate_input_coherence(assets, damage_factors, precomputed_hazards, cnae_exposure, adm1, adm2)
+#' validate_input_coherence(assets, companies, "tests/tests_data/hazards/config", load_hazard_configs("tests/tests_data/hazards/config"), cnae_exposure, precomputed_hazards, adm1, adm2)
 #' }
 #' @export
 validate_input_coherence <- function(
@@ -31,6 +32,7 @@ validate_input_coherence <- function(
   companies_df,
   hazards_dir,
   hazard_configs,
+  cnae_exposure_df,
   precomputed_hazards_df = NULL,
   adm1_names,
   adm2_names,
@@ -72,6 +74,23 @@ validate_input_coherence <- function(
   validation_results <- validate_mapping_tables_against_config(
     hazards_dir = hazards_dir,
     hazard_configs = hazard_configs,
+    validation_results = validation_results
+  )
+
+  validation_results <- validate_cnae_exposure_mapping(
+    cnae_exposure_df = cnae_exposure_df,
+    validation_results = validation_results
+  )
+
+  validation_results <- validate_cnae_codes(
+    assets_df = assets_df,
+    cnae_exposure_df = cnae_exposure_df,
+    validation_results = validation_results
+  )
+
+  validation_results <- validate_sector_resolution(
+    assets_df = assets_df,
+    cnae_exposure_df = cnae_exposure_df,
     validation_results = validation_results
   )
 
