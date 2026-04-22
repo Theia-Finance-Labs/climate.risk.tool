@@ -147,13 +147,21 @@ compute_risk <- function(assets,
   # PHASE 0: INPUT PREPARATION - Assign states to assets and validate
   # ============================================================================
 
-  # Assign states to assets that don't have one (requires boundaries)
+  # Assign ADM regions (state/municipality) from boundaries when available
   if (!is.null(adm1_boundaries)) {
-    message("[compute_risk] Assigning states to assets without location data...")
+    message("[compute_risk] Assigning ADM regions to assets...")
+    adm_codes <- NULL
+    if (!is.null(base_dir) && nzchar(base_dir)) {
+      adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+      if (file.exists(adm_codes_path)) {
+        adm_codes <- load_adm_codes_from_path(adm_codes_path)
+      }
+    }
     assets <- assign_state_to_assets_with_boundaries(
       assets,
       adm1_boundaries,
-      adm2_boundaries
+      adm2_boundaries,
+      adm_codes = adm_codes
     )
   }
 

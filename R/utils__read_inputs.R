@@ -219,17 +219,18 @@ read_assets <- function(folder_path) {
   assets_raw
 }
 
-#' Assign state to assets using already-loaded boundaries
+#' Assign ADM regions to assets using already-loaded boundaries
 #'
-#' @title Assign states to assets using spatial matching with loaded boundaries
-#' @description For assets without state assigned, uses spatial matching with ADM1 boundaries
-#'   based on coordinates (if available) or municipality lookup (if no coordinates).
-#'   State names are ASCII-normalized for consistency.
+#' @title Assign ADM1/ADM2 regions to assets using spatial matching with loaded boundaries
+#' @description For geolocated assets (latitude/longitude), assigns municipality and state
+#'   through point-in-polygon matching against ADM2/ADM1 boundaries. Coordinates are the
+#'   source of truth: existing ADM fields are overwritten for geolocated rows. For non-geolocated
+#'   assets, state can still be inferred from municipality when possible.
 #' @param assets_df Data frame with asset information
 #' @param adm1_boundaries sf object with ADM1 (state) boundaries
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for municipality-based lookup
 #' @param adm_codes Optional data frame with ADM codes (from load_adm_codes()). Required for code assignment.
-#' @return Data frame with state assigned to all assets
+#' @return Data frame with ADM columns assigned where possible
 #' @examples
 #' \dontrun{
 #' adm1 <- sf::st_read("path/to/ADM1.geojson")
@@ -238,222 +239,220 @@ read_assets <- function(folder_path) {
 #' }
 #' @export
 assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL, adm_codes = NULL) {
-  # Ensure state column is character (not logical if all NA)
-  if ("state" %in% names(assets_df)) {
-    assets_df$state <- as.character(assets_df$state)
-  }
-  if (!"state_code" %in% names(assets_df)) {
-    assets_df$state_code <- NA_character_
+  result <- tibble::as_tibble(assets_df) |>
+    dplyr::mutate(.asset_row_id = dplyr::row_number())
+
+  required_cols <- c(
+    "state", "state_code", "state_name",
+    "municipality", "municipality_code", "municipality_name"
+  )
+  for (col in required_cols) {
+    if (!col %in% names(result)) {
+      result[[col]] <- NA_character_
+    } else {
+      result[[col]] <- as.character(result[[col]])
+    }
   }
 
-  # Prepare ADM1 lookup if codes available
   adm1_lookup <- NULL
-  if (!is.null(adm_codes)) {
+  adm2_lookup <- NULL
+  if (!is.null(adm_codes) && nrow(adm_codes) > 0) {
     adm1_lookup <- adm_codes |>
       dplyr::filter(.data$adm_level == "adm1") |>
-      dplyr::select("code", "name", "shapeID") |>
+      dplyr::transmute(
+        shapeID = as.character(.data$shapeID),
+        state_code_lookup = as.character(.data$code),
+        state_name_lookup_raw = as.character(.data$name)
+      ) |>
+      dplyr::distinct()
+
+    adm2_lookup <- adm_codes |>
+      dplyr::filter(.data$adm_level == "adm2") |>
+      dplyr::transmute(
+        shapeID = as.character(.data$shapeID),
+        municipality_code_lookup = as.character(.data$code),
+        municipality_name_lookup_raw = as.character(.data$name)
+      ) |>
       dplyr::distinct()
   }
 
-  # Normalize state names in boundaries and add codes if available
   states_sf <- adm1_boundaries |>
     dplyr::mutate(
-      state_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII"),
-      shapeID = as.character(.data$shapeID)
+      shapeID = as.character(.data$shapeID),
+      state_name_raw = as.character(.data$shapeName),
+      state_name = normalize_geo_name(.data$state_name_raw)
     )
-  
   if (!is.null(adm1_lookup)) {
     states_sf <- states_sf |>
-      dplyr::left_join(
-        adm1_lookup |> dplyr::select("shapeID", "code") |> dplyr::rename(state_code_lookup = "code"),
-        by = "shapeID"
-      )
+      dplyr::left_join(adm1_lookup, by = "shapeID")
   } else {
     states_sf$state_code_lookup <- NA_character_
+    states_sf$state_name_lookup_raw <- NA_character_
+  }
+  states_sf <- states_sf |>
+    dplyr::mutate(
+      state_name_raw = dplyr::coalesce(.data$state_name_lookup_raw, .data$state_name_raw),
+      state_name = normalize_geo_name(.data$state_name_raw)
+    )
+
+  if (!sf::st_is_longlat(states_sf)) {
+    states_sf <- sf::st_transform(states_sf, 4326)
   }
 
-  # Identify assets without state
-  assets_without_state <- assets_df |>
-    dplyr::filter(is.na(.data$state))
+  municipalities_sf <- NULL
+  if (!is.null(adm2_boundaries)) {
+    municipalities_sf <- adm2_boundaries |>
+      dplyr::mutate(
+        shapeID = as.character(.data$shapeID),
+        municipality_name_raw = as.character(.data$shapeName),
+        municipality_name = normalize_geo_name(.data$municipality_name_raw)
+      )
 
-  assets_with_state_already <- assets_df |>
-    dplyr::filter(!is.na(.data$state))
+    if (!is.null(adm2_lookup)) {
+      municipalities_sf <- municipalities_sf |>
+        dplyr::left_join(adm2_lookup, by = "shapeID")
+    } else {
+      municipalities_sf$municipality_code_lookup <- NA_character_
+      municipalities_sf$municipality_name_lookup_raw <- NA_character_
+    }
 
-  if (nrow(assets_without_state) == 0) {
-    message("[assign_state_to_assets] All assets already have state assigned")
-    return(assets_df)
+    municipalities_sf <- municipalities_sf |>
+      dplyr::mutate(
+        municipality_name_raw = dplyr::coalesce(.data$municipality_name_lookup_raw, .data$municipality_name_raw),
+        municipality_name = normalize_geo_name(.data$municipality_name_raw),
+        municipality_code_lookup = as.character(.data$municipality_code_lookup),
+        state_code_from_muni = dplyr::if_else(
+          !is.na(.data$municipality_code_lookup) & nzchar(.data$municipality_code_lookup),
+          substr(.data$municipality_code_lookup, 1, 2),
+          NA_character_
+        )
+      )
+
+    if (!is.null(adm1_lookup)) {
+      state_name_lookup_from_code <- adm1_lookup |>
+        dplyr::select("state_code_lookup", "state_name_lookup_raw") |>
+        dplyr::distinct()
+      municipalities_sf <- municipalities_sf |>
+        dplyr::left_join(
+          state_name_lookup_from_code,
+          by = c("state_code_from_muni" = "state_code_lookup")
+        ) |>
+        dplyr::rename(state_name_from_muni_raw = "state_name_lookup_raw")
+    } else {
+      municipalities_sf$state_name_from_muni_raw <- NA_character_
+    }
+
+    if (!sf::st_is_longlat(municipalities_sf)) {
+      municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
+    }
   }
 
-  message("[assign_state_to_assets] Assigning state to ", nrow(assets_without_state), " assets")
-
-  # Strategy 1: Assets with lat/lon - spatial join to state
-  assets_with_coords <- assets_without_state |>
-    dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
-
-  if (nrow(assets_with_coords) > 0) {
-    message("  Assigning state via coordinates for ", nrow(assets_with_coords), " assets")
-
-    # Convert to sf object
-    assets_coords_sf <- sf::st_as_sf(
+  has_coords <- !is.na(result$latitude) & !is.na(result$longitude)
+  if (any(has_coords)) {
+    assets_with_coords <- result[has_coords, , drop = FALSE]
+    pts_sf <- sf::st_as_sf(
       assets_with_coords,
       coords = c("longitude", "latitude"),
       crs = 4326
     )
 
-    # Spatial join with states
-    assets_coords_joined <- sf::st_join(assets_coords_sf, states_sf, join = sf::st_within)
+    first_hit <- function(lst) {
+      vapply(lst, function(x) if (length(x) == 0) NA_integer_ else x[[1]], integer(1))
+    }
 
-    # Extract coordinates back and assign state
-    # Handle missing columns safely
-    state_names <- if ("state_name" %in% names(assets_coords_joined)) assets_coords_joined$state_name else NA_character_
-    state_codes <- if ("state_code_lookup" %in% names(assets_coords_joined)) assets_coords_joined$state_code_lookup else NA_character_
-    
-    assets_with_coords <- assets_with_coords |>
-      dplyr::mutate(
-        # Assign name as fallback or primary if code missing
-        state = state_names,
-        state_name = state_names,
-        state_code = state_codes
+    muni_idx <- rep(NA_integer_, nrow(assets_with_coords))
+    if (!is.null(municipalities_sf) && nrow(municipalities_sf) > 0) {
+      muni_idx <- first_hit(sf::st_intersects(pts_sf, municipalities_sf, sparse = TRUE))
+    }
+    state_idx <- first_hit(sf::st_intersects(pts_sf, states_sf, sparse = TRUE))
+
+    municipality_code_new <- if (!is.null(municipalities_sf)) municipalities_sf$municipality_code_lookup[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
+    municipality_name_raw_new <- if (!is.null(municipalities_sf)) municipalities_sf$municipality_name_raw[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
+    state_code_from_muni <- if (!is.null(municipalities_sf)) municipalities_sf$state_code_from_muni[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
+    state_name_from_muni_raw <- if (!is.null(municipalities_sf)) municipalities_sf$state_name_from_muni_raw[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
+
+    state_code_from_state <- states_sf$state_code_lookup[state_idx]
+    state_name_from_state_raw <- states_sf$state_name_raw[state_idx]
+
+    state_code_new <- dplyr::coalesce(state_code_from_muni, state_code_from_state)
+    state_name_raw_new <- dplyr::coalesce(state_name_from_muni_raw, state_name_from_state_raw)
+
+    idx <- which(has_coords)
+    result$municipality_code[idx] <- as.character(municipality_code_new)
+    result$municipality_name[idx] <- as.character(municipality_name_raw_new)
+    result$municipality[idx] <- normalize_geo_name(municipality_name_raw_new)
+    result$state_code[idx] <- as.character(state_code_new)
+    result$state_name[idx] <- as.character(state_name_raw_new)
+    result$state[idx] <- normalize_geo_name(state_name_raw_new)
+
+    outside_all <- is.na(muni_idx) & is.na(state_idx)
+    if (any(outside_all)) {
+      unresolved_rows <- idx[outside_all]
+      unresolved_assets <- if ("asset" %in% names(result)) {
+        as.character(result$asset[unresolved_rows])
+      } else {
+        as.character(unresolved_rows)
+      }
+      warning(
+        paste0(
+          "[assign_state_to_assets] Could not map geolocated assets to ADM polygons: ",
+          paste(unresolved_assets, collapse = ", ")
+        ),
+        call. = FALSE
       )
-      
-    # If we have codes, prefer using code in state column (based on new requirement)
-    # But for now, user asked to "keep the name in for good measures" and "use codes instead of names"
-    # The requirement "use codes instead of names for the adm regions" implies 'state' column should be code?
-    # Or should we just ensure we have 'state_code' column?
-    # The prompt says: "I'll have the shape id from the regions shapefiles, and the adm id from the user input"
-    # And "fix all issues that can happen with this change of not using the names anymore"
-    # It seems we should ensure 'state_code' is populated. 
-    # Let's keep 'state' as name for now to avoid breaking too much, but ensure 'state_code' is set.
-    # Actually, if the user input uses codes, 'state' might be a code.
-    # match_adm_codes_to_names logic: if state is code, state_code = state, state_name = looked up name.
-    # Here we are deriving from lat/lon. So we should set both if possible.
+    }
   }
 
-  # Strategy 2: Assets with municipality but no coordinates - join via municipality
-  assets_with_municipality <- assets_without_state |>
-    dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
-    dplyr::filter(!is.na(.data$municipality))
+  non_geo_missing_state <- (!has_coords) & is.na(result$state)
+  if (any(non_geo_missing_state)) {
+    message("[assign_state_to_assets] Assigning state for non-geolocated assets via municipality lookup")
 
-  if (nrow(assets_with_municipality) > 0 && !is.null(adm2_boundaries)) {
-    message("  Assigning state via municipality for ", nrow(assets_with_municipality), " assets")
-
-    # Prefer deterministic lookup via ADM codes when available.
-    if (!is.null(adm_codes)) {
-      adm2_lookup <- adm_codes |>
+    if (!is.null(adm_codes) && "municipality" %in% names(result)) {
+      muni_to_state_lookup <- adm_codes |>
         dplyr::filter(.data$adm_level == "adm2") |>
         dplyr::transmute(
-          municipality_lookup = tolower(trimws(stringi::stri_trans_general(as.character(.data$name), "Latin-ASCII"))),
-          municipality_code_lookup = as.character(.data$code)
+          municipality_lookup = tolower(trimws(normalize_geo_name(.data$name))),
+          municipality_code_lookup = as.character(.data$code),
+          state_code_lookup = substr(as.character(.data$code), 1, 2)
+        ) |>
+        dplyr::left_join(
+          adm_codes |>
+            dplyr::filter(.data$adm_level == "adm1") |>
+            dplyr::transmute(
+              state_code_lookup = as.character(.data$code),
+              state_name_lookup_raw = as.character(.data$name)
+            ) |>
+            dplyr::distinct(),
+          by = "state_code_lookup"
         ) |>
         dplyr::distinct()
 
-      adm1_lookup_codes <- adm_codes |>
-        dplyr::filter(.data$adm_level == "adm1") |>
-        dplyr::transmute(
-          state_code_lookup = as.character(.data$code),
-          state_name_lookup = stringi::stri_trans_general(as.character(.data$name), "Latin-ASCII")
-        ) |>
-        dplyr::distinct()
-
-      muni_to_state_lookup <- adm2_lookup |>
-        dplyr::mutate(state_code_lookup = substr(.data$municipality_code_lookup, 1, 2)) |>
-        dplyr::left_join(adm1_lookup_codes, by = "state_code_lookup") |>
-        dplyr::select("municipality_lookup", "state_code_lookup", "state_name_lookup") |>
-        dplyr::distinct()
-
-      assets_with_municipality <- assets_with_municipality |>
+      non_geo_rows <- result |>
+        dplyr::filter(.data$.asset_row_id %in% result$.asset_row_id[non_geo_missing_state]) |>
         dplyr::mutate(municipality_lookup = tolower(trimws(as.character(.data$municipality)))) |>
         dplyr::left_join(muni_to_state_lookup, by = "municipality_lookup") |>
         dplyr::mutate(
-          state = dplyr::coalesce(.data$state_name_lookup, .data$state),
-          state_code = dplyr::coalesce(.data$state_code_lookup, .data$state_code)
+          municipality_code = dplyr::coalesce(.data$municipality_code, .data$municipality_code_lookup),
+          state_code = dplyr::coalesce(.data$state_code, .data$state_code_lookup),
+          state_name = dplyr::coalesce(.data$state_name, .data$state_name_lookup_raw),
+          state = dplyr::coalesce(.data$state, normalize_geo_name(.data$state_name_lookup_raw))
         ) |>
-        dplyr::select(-dplyr::any_of(c("municipality_lookup", "state_name_lookup", "state_code_lookup")))
+        dplyr::select(-dplyr::any_of(c(
+          "municipality_lookup",
+          "municipality_code_lookup",
+          "state_code_lookup",
+          "state_name_lookup_raw"
+        )))
+
+      result <- result |>
+        dplyr::filter(!(.data$.asset_row_id %in% non_geo_rows$.asset_row_id)) |>
+        dplyr::bind_rows(non_geo_rows) |>
+        dplyr::arrange(.data$.asset_row_id)
     }
-
-    remaining_for_spatial <- assets_with_municipality |>
-      dplyr::filter(is.na(.data$state))
-
-    # Normalize municipality names in boundaries
-    municipalities_sf <- adm2_boundaries |>
-      dplyr::mutate(
-        municipality_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII"),
-        shapeID = as.character(.data$shapeID)
-      )
-
-    # Ensure both layers share CRS
-    if (!sf::st_is_longlat(municipalities_sf)) {
-      municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
-    }
-    if (!sf::st_is_longlat(states_sf)) {
-      states_sf <- sf::st_transform(states_sf, 4326)
-    }
-
-    muni_state_join <- sf::st_join(municipalities_sf, states_sf, join = sf::st_intersects)
-
-    municipality_lookup <- muni_state_join |>
-      sf::st_drop_geometry() |>
-      dplyr::select(dplyr::any_of(c("municipality_name", "state_name", "state_code_lookup"))) |>
-      dplyr::arrange(!is.na(.data$state_name), !is.na(.data$state_code_lookup)) |>
-      dplyr::distinct(.data$municipality_name, .keep_all = TRUE)
-
-    # Prepare join columns
-    # We join by municipality name. If municipality column is code, we should have used municipality_name?
-    # assets_with_municipality likely has 'municipality' column. 
-    # If read_assets was used, 'municipality' is normalized name if it was a code.
-    
-    join_by <- "municipality_name"
-    # If municipality_lookup doesn't have municipality_name (should have it from above mutate), checks needed?
-    
-    spatial_completed <- remaining_for_spatial |>
-      dplyr::mutate(municipality_join = tolower(trimws(as.character(.data$municipality)))) |>
-      dplyr::left_join(
-        municipality_lookup |>
-          dplyr::mutate(municipality_name_join = tolower(trimws(as.character(.data$municipality_name)))),
-        by = c("municipality_join" = "municipality_name_join")
-      ) |>
-      dplyr::mutate(
-        state = dplyr::coalesce(if ("state_name" %in% names(.data)) .data$state_name else NULL, .data$state),
-        state_code = {
-          has_lookup <- "state_code_lookup" %in% names(.data)
-          has_code <- "state_code" %in% names(.data)
-          if (has_lookup && has_code) {
-            dplyr::coalesce(.data$state_code_lookup, .data$state_code)
-          } else if (has_lookup) {
-            .data$state_code_lookup
-          } else if (has_code) {
-            .data$state_code
-          } else {
-            NA_character_
-          }
-        }
-      ) |>
-      dplyr::select(-dplyr::any_of(c("state_name", "state_code_lookup", "adm1_name", "municipality_join", "municipality_name_join")))
-    
-    assets_with_municipality <- dplyr::bind_rows(
-      assets_with_municipality |>
-        dplyr::filter(!is.na(.data$state)),
-      spatial_completed
-    )
   }
 
-  # Combine all assets back together
-  result <- dplyr::bind_rows(
-    assets_with_state_already,
-    if (exists("assets_with_coords") && nrow(assets_with_coords) > 0) assets_with_coords else NULL,
-    if (exists("assets_with_municipality") && nrow(assets_with_municipality) > 0) assets_with_municipality else NULL,
-    # Assets that still don't have state (no coords, no municipality)
-    assets_without_state |>
-      dplyr::filter(
-        (is.na(.data$latitude) | is.na(.data$longitude)) &
-          is.na(.data$municipality)
-      )
-  )
-
-  n_assigned <- sum(!is.na(result$state)) - sum(!is.na(assets_df$state))
-  message("[assign_state_to_assets] Assigned state to ", n_assigned, " additional assets")
-
-  return(result)
+  result |>
+    dplyr::select(-".asset_row_id")
 }
 
 
