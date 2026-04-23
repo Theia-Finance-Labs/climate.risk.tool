@@ -328,7 +328,9 @@ def load_adm_codes(base_dir: str) -> pd.DataFrame:
 
 
 def load_adm_shapefile(
-    adm_path: str, adm_codes_df: Optional[pd.DataFrame] = None
+    adm_path: str,
+    adm_codes_df: Optional[pd.DataFrame] = None,
+    adm_level: Optional[str] = None,
 ) -> gpd.GeoDataFrame:
     if not os.path.exists(adm_path):
         raise FileNotFoundError(adm_path)
@@ -367,16 +369,31 @@ def load_adm_shapefile(
     if shape_id_col:
         gdf["shape_id"] = gdf[shape_id_col].astype(str)
 
-    # Match to codes using shapeID
+    # Match to canonical ADM metadata using shapeID. Some boundary files contain
+    # name typos, so brazil_adm_codes.csv is the source of truth when available.
     gdf["adm_code"] = np.nan
     if adm_codes_df is not None and not adm_codes_df.empty and shape_id_col:
-        # Create mapping: shape_id -> adm_code (codes CSV is the source of truth)
+        codes_df = adm_codes_df.copy()
+        if adm_level is not None and "adm_level" in codes_df.columns:
+            codes_df = codes_df[
+                codes_df["adm_level"].astype(str).str.lower() == adm_level.lower()
+            ]
+
         shape_map = dict(
             zip(
-                adm_codes_df["shape_id"].astype(str), adm_codes_df["adm_code"].astype(str)
+                codes_df["shape_id"].astype(str), codes_df["adm_code"].astype(str)
             )
         )
         gdf["adm_code"] = gdf["shape_id"].map(shape_map)
+        if "adm_name" in codes_df.columns:
+            name_map = dict(
+                zip(
+                    codes_df["shape_id"].astype(str),
+                    codes_df["adm_name"].apply(fix_text),
+                )
+            )
+            canonical_names = gdf["shape_id"].map(name_map)
+            gdf["adm_name"] = canonical_names.fillna(gdf["adm_name"])
 
     # Metric area per row (same order as shape_id); EPSG:3857 gives m² for downstream use.
     gdf[SHAPE_AREA_COL] = gdf.to_crs("EPSG:3857").geometry.area.astype(np.float64)
@@ -1190,8 +1207,8 @@ def main():
     indicators = discover_indicators(hazard_configs, hazards_indicators_dir)
 
     adm_codes = load_adm_codes(base_dir)
-    adm1 = load_adm_shapefile(adm1_path, adm_codes)
-    adm2 = load_adm_shapefile(adm2_path, adm_codes)
+    adm1 = load_adm_shapefile(adm1_path, adm_codes, adm_level="adm1")
+    adm2 = load_adm_shapefile(adm2_path, adm_codes, adm_level="adm2")
 
     for i, ind in enumerate(indicators, 1):
         ht = ind["hazard_type"]

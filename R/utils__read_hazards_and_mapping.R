@@ -210,6 +210,37 @@ read_precomputed_hazards <- function(base_dir, hazard_configs = NULL) {
       state_code = NA_character_
     )
 
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  if (file.exists(adm_codes_path)) {
+    adm_codes <- load_adm_codes_from_path(adm_codes_path)
+
+    shape_lookup <- adm_codes |>
+      dplyr::transmute(
+        adm_level = toupper(.data$adm_level),
+        shape_id = as.character(.data$shapeID),
+        adm_name_from_shape = normalize_geo_name(.data$name)
+      ) |>
+      dplyr::filter(!is.na(.data$shape_id), nzchar(.data$shape_id), !is.na(.data$adm_name_from_shape)) |>
+      dplyr::distinct(.data$adm_level, .data$shape_id, .keep_all = TRUE)
+
+    code_lookup <- adm_codes |>
+      dplyr::transmute(
+        adm_level = toupper(.data$adm_level),
+        adm_code = as.character(.data$code),
+        adm_name_from_code = normalize_geo_name(.data$name)
+      ) |>
+      dplyr::filter(!is.na(.data$adm_code), nzchar(.data$adm_code), !is.na(.data$adm_name_from_code)) |>
+      dplyr::distinct(.data$adm_level, .data$adm_code, .keep_all = TRUE)
+
+    precomputed_df <- precomputed_df |>
+      dplyr::left_join(shape_lookup, by = c("adm_level", "shape_id")) |>
+      dplyr::left_join(code_lookup, by = c("adm_level", "adm_code")) |>
+      dplyr::mutate(
+        adm_name = dplyr::coalesce(.data$adm_name_from_shape, .data$adm_name_from_code, .data$adm_name)
+      ) |>
+      dplyr::select(-"adm_name_from_shape", -"adm_name_from_code")
+  }
+
   message("  File read complete (", nrow(precomputed_df), " rows). Mapping indicators from config...")
 
   # Load hazard configs if not provided
