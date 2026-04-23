@@ -468,7 +468,11 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         "spatial_region_codes",
         "spatial_region_labels",
         "spatial_scheme",
-        "spatial_selection"
+        "spatial_selection",
+        "state_code",
+        "state_name",
+        "municipality_code",
+        "municipality_name"
       )
 
       df |>

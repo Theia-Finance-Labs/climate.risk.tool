@@ -102,6 +102,7 @@ testthat::test_that("mod_results_assets_server renders event-specific tables wit
     testthat::expect_true(all(table_one$share_of_economic_activity == "40.0%"))
     testthat::expect_true(all(c("state", "state_code", "municipality", "municipality_code") %in% colnames(table_one)))
     testthat::expect_equal(table_one$state_code[1], "35")
+    testthat::expect_equal(table_one$state[1], "35 - Sao Paulo")
 
     display_tables <- session$userData$hazard_tables_display_data
     testthat::expect_length(display_tables, 3)
@@ -110,6 +111,10 @@ testthat::test_that("mod_results_assets_server renders event-specific tables wit
     testthat::expect_false("hazard_type" %in% names(display_tables[[1]]))
     testthat::expect_false("scenario_name" %in% names(display_tables[[1]]))
     testthat::expect_false("event_year" %in% names(display_tables[[1]]))
+    testthat::expect_false(any(c("state_code", "state_name", "municipality_code", "municipality_name") %in% names(display_tables[[1]])))
+    testthat::expect_false(any(c("state_code", "state_name", "municipality_code", "municipality_name") %in% names(display_tables[[2]])))
+    testthat::expect_equal(display_tables[[1]]$state[1], "35 - Sao Paulo")
+    testthat::expect_equal(display_tables[[2]]$municipality[1], "1100023 - Ariquemes")
 
     download_data <- assets_download_data()
     testthat::expect_s3_class(download_data, "data.frame")
@@ -119,6 +124,7 @@ testthat::test_that("mod_results_assets_server renders event-specific tables wit
     testthat::expect_true("scenario_name" %in% colnames(download_data))
     testthat::expect_true("event_year" %in% colnames(download_data))
     testthat::expect_true("sector_name" %in% colnames(download_data))
+    testthat::expect_true(all(c("state_code", "state_name", "municipality_code", "municipality_name") %in% colnames(download_data)))
     testthat::expect_setequal(
       unique(download_data$sector_name),
       c("Oil and Gas Extraction", "Hydropower Generation")

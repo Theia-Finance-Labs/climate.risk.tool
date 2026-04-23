@@ -69,7 +69,8 @@ detect_csv_separator <- function(file_path) {
 #'   The folder must directly contain asset_information.xlsx or asset_information.csv (but not both).
 #'   For CSV files, automatically detects separator (comma or semicolon).
 #'   Converts column names to snake_case and parses numeric columns correctly.
-#'   Municipality and state columns accept names.
+#'   Municipality and state columns accept names. Use state_code and municipality_code
+#'   for IBGE codes; legacy numeric codes in state or municipality are still accepted.
 #' @param folder_path Character string specifying the folder containing asset_information.xlsx or asset_information.csv
 #' @return tibble with asset information (includes state_code and municipality_code when available)
 #' @examples
@@ -621,9 +622,9 @@ repair_adm_boundary_names <- function(boundaries_sf, adm_codes, adm_level) {
 #' Match ADM codes to names in assets data frame
 #'
 #' @title Match ADM codes to names
-#' @description Matches ADM codes in State and Municipality columns to their names.
-#'   If State/Municipality columns contain numeric codes matching ADM codes, they are
-#'   matched to names and both code and name columns are populated.
+#' @description Matches ADM codes to their names. state_code and municipality_code
+#'   are the canonical input columns for IBGE codes. Legacy numeric codes in state
+#'   or municipality are also accepted and normalized into the canonical code columns.
 #' @param assets_df Data frame with asset information containing state and/or municipality columns
 #' @param adm_codes Data frame with ADM codes (from load_adm_codes())
 #' @return Data frame with state_code, state_name, municipality_code, municipality_name columns added
@@ -634,6 +635,12 @@ repair_adm_boundary_names <- function(boundaries_sf, adm_codes, adm_level) {
 #' }
 #' @export
 match_adm_codes_to_names <- function(assets_df, adm_codes) {
+  clean_chr <- function(x) {
+    x <- trimws(as.character(x))
+    x[x == "" | x == "NA"] <- NA_character_
+    x
+  }
+
   # Ensure code columns exist
   if (!"state_code" %in% names(assets_df)) {
     assets_df$state_code <- NA_character_
@@ -651,80 +658,70 @@ match_adm_codes_to_names <- function(assets_df, adm_codes) {
   # Create lookup tables for adm1 and adm2
   adm1_lookup <- adm_codes |>
     dplyr::filter(.data$adm_level == "adm1") |>
-    dplyr::select("code", "name") |>
+    dplyr::transmute(
+      code = as.character(.data$code),
+      name = as.character(.data$name),
+      name_normalized = normalize_geo_name(.data$name)
+    ) |>
     dplyr::distinct()
   
   adm2_lookup <- adm_codes |>
     dplyr::filter(.data$adm_level == "adm2") |>
-    dplyr::select("code", "name") |>
+    dplyr::transmute(
+      code = as.character(.data$code),
+      name = as.character(.data$name),
+      name_normalized = normalize_geo_name(.data$name),
+      state_code = substr(as.character(.data$code), 1, 2)
+    ) |>
+    dplyr::left_join(
+      adm1_lookup |>
+        dplyr::select(state_code = "code", state_name = "name", state_name_normalized = "name_normalized"),
+      by = "state_code"
+    ) |>
     dplyr::distinct()
-  
-  # Match State codes (adm1)
-  if ("state" %in% names(assets_df)) {
-    # Check if state column contains codes (numeric strings matching adm1 codes)
-    state_values <- assets_df$state
-    is_code <- !is.na(state_values) & 
-               nzchar(trimws(as.character(state_values))) &
-               grepl("^\\d+$", trimws(as.character(state_values))) &
-               trimws(as.character(state_values)) %in% adm1_lookup$code
-    
-    # Match codes to names
-    assets_df <- assets_df |>
-      dplyr::mutate(
-        state_code = dplyr::if_else(
-          is_code,
-          trimws(as.character(.data$state)),
-          .data$state_code
-        ),
-        state_name = dplyr::if_else(
-          is_code,
-          adm1_lookup$name[match(trimws(as.character(.data$state)), adm1_lookup$code)],
-          .data$state_name
-        ),
-        # Update state column with normalized name if code was matched
-        state = dplyr::if_else(
-          is_code,
-          stringi::stri_trans_general(
-            adm1_lookup$name[match(trimws(as.character(.data$state)), adm1_lookup$code)],
-            "Latin-ASCII"
-          ),
-          .data$state
-        )
-      )
-  }
-  
-  # Match Municipality codes (adm2)
-  if ("municipality" %in% names(assets_df)) {
-    # Check if municipality column contains codes (numeric strings matching adm2 codes)
-    municipality_values <- assets_df$municipality
-    is_code <- !is.na(municipality_values) & 
-               nzchar(trimws(as.character(municipality_values))) &
-               grepl("^\\d+$", trimws(as.character(municipality_values))) &
-               trimws(as.character(municipality_values)) %in% adm2_lookup$code
-    
-    # Match codes to names
-    assets_df <- assets_df |>
-      dplyr::mutate(
-        municipality_code = dplyr::if_else(
-          is_code,
-          trimws(as.character(.data$municipality)),
-          .data$municipality_code
-        ),
-        municipality_name = dplyr::if_else(
-          is_code,
-          adm2_lookup$name[match(trimws(as.character(.data$municipality)), adm2_lookup$code)],
-          .data$municipality_name
-        ),
-        # Update municipality column with normalized name if code was matched
-        municipality = dplyr::if_else(
-          is_code,
-          stringi::stri_trans_general(
-            adm2_lookup$name[match(trimws(as.character(.data$municipality)), adm2_lookup$code)],
-            "Latin-ASCII"
-          ),
-          .data$municipality
-        )
-      )
+
+  state_code_input <- coerce_geo_code(assets_df$state_code, width = 2)
+  state_legacy_input <- clean_chr(assets_df$state)
+  state_code_from_legacy <- ifelse(state_legacy_input %in% adm1_lookup$code, state_legacy_input, NA_character_)
+  state_code_resolved <- dplyr::coalesce(state_code_input, state_code_from_legacy)
+  state_idx <- match(state_code_resolved, adm1_lookup$code)
+  state_matched <- !is.na(state_idx)
+
+  assets_df$state_code <- dplyr::coalesce(state_code_resolved, clean_chr(assets_df$state_code))
+  assets_df$state_name <- ifelse(state_matched, adm1_lookup$name[state_idx], clean_chr(assets_df$state_name))
+  assets_df$state <- ifelse(state_matched, adm1_lookup$name_normalized[state_idx], clean_chr(assets_df$state))
+
+  municipality_code_input <- coerce_geo_code(assets_df$municipality_code, width = 7)
+  municipality_legacy_input <- clean_chr(assets_df$municipality)
+  municipality_code_from_legacy <- ifelse(
+    municipality_legacy_input %in% adm2_lookup$code,
+    municipality_legacy_input,
+    NA_character_
+  )
+  municipality_code_resolved <- dplyr::coalesce(municipality_code_input, municipality_code_from_legacy)
+  municipality_idx <- match(municipality_code_resolved, adm2_lookup$code)
+  municipality_matched <- !is.na(municipality_idx)
+
+  assets_df$municipality_code <- dplyr::coalesce(municipality_code_resolved, clean_chr(assets_df$municipality_code))
+  assets_df$municipality_name <- ifelse(
+    municipality_matched,
+    adm2_lookup$name[municipality_idx],
+    clean_chr(assets_df$municipality_name)
+  )
+  assets_df$municipality <- ifelse(
+    municipality_matched,
+    adm2_lookup$name_normalized[municipality_idx],
+    clean_chr(assets_df$municipality)
+  )
+
+  state_missing <- is.na(clean_chr(assets_df$state_code)) &
+    is.na(clean_chr(assets_df$state_name)) &
+    is.na(clean_chr(assets_df$state))
+  fill_state_from_municipality <- municipality_matched & state_missing
+  if (any(fill_state_from_municipality)) {
+    assets_df$state_code[fill_state_from_municipality] <- adm2_lookup$state_code[municipality_idx[fill_state_from_municipality]]
+    assets_df$state_name[fill_state_from_municipality] <- adm2_lookup$state_name[municipality_idx[fill_state_from_municipality]]
+    assets_df$state[fill_state_from_municipality] <- adm2_lookup$state_name_normalized[municipality_idx[fill_state_from_municipality]]
   }
   
   assets_df

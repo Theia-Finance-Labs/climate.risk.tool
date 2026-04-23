@@ -494,6 +494,32 @@ testthat::test_that("match_adm_codes_to_names matches adm2 codes correctly", {
   testthat::expect_equal(result$municipality_name, c("Porto Velho", "Alta Floresta D'Oeste"))
   # Original municipality column should now contain normalized names
   testthat::expect_equal(result$municipality, c("Porto Velho", "Alta Floresta D'Oeste"))
+  testthat::expect_equal(result$state_code, c("11", "11"))
+  testthat::expect_equal(result$state_name, c("Rondônia", "Rondônia"))
+  testthat::expect_equal(result$state, c("Rondonia", "Rondonia"))
+})
+
+
+testthat::test_that("match_adm_codes_to_names uses explicit code columns as canonical inputs", {
+  base_dir <- get_test_data_dir()
+  adm_codes <- load_adm_codes(base_dir)
+
+  assets_with_code_columns <- tibble::tibble(
+    asset = c("A1", "A2"),
+    state = c(NA_character_, NA_character_),
+    state_code = c("33", NA_character_),
+    municipality = c(NA_character_, NA_character_),
+    municipality_code = c("3301850", "5300108")
+  )
+
+  result <- match_adm_codes_to_names(assets_with_code_columns, adm_codes)
+
+  testthat::expect_equal(result$state_code, c("33", "53"))
+  testthat::expect_equal(result$state_name, c("Rio de Janeiro", "Distrito Federal"))
+  testthat::expect_equal(result$state, c("Rio de Janeiro", "Distrito Federal"))
+  testthat::expect_equal(result$municipality_code, c("3301850", "5300108"))
+  testthat::expect_equal(result$municipality_name, c("Guapimirim", "Brasília"))
+  testthat::expect_equal(result$municipality, c("Guapimirim", "Brasilia"))
 })
 
 
@@ -590,4 +616,43 @@ testthat::test_that("read_assets matches codes when brazil_adm_codes.csv exists"
   testthat::expect_equal(assets$state_name[1], "Rondônia")
   testthat::expect_equal(assets$municipality_code[1], "1100205")
   testthat::expect_equal(assets$municipality_name[1], "Porto Velho")
+})
+
+
+testthat::test_that("read_assets matches explicit state_code and municipality_code columns", {
+  base_dir <- get_test_data_dir()
+
+  temp_root <- tempfile()
+  dir.create(temp_root)
+  on.exit(unlink(temp_root, recursive = TRUE), add = TRUE)
+
+  areas_dir <- file.path(temp_root, "areas")
+  dir.create(areas_dir)
+  adm_codes_src <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  file.copy(adm_codes_src, file.path(areas_dir, "brazil_adm_codes.csv"))
+
+  input_dir <- file.path(temp_root, "user_input")
+  dir.create(input_dir)
+
+  assets_with_code_columns <- data.frame(
+    Asset = c("A1", "A2"),
+    Company = c("C1", "C1"),
+    `Share of Economic Activity` = c(0.5, 0.5),
+    `State Code` = c("33", NA_character_),
+    `Municipality Code` = c("3301850", "5300108"),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+
+  asset_file <- file.path(input_dir, "asset_information.csv")
+  readr::write_csv(assets_with_code_columns, asset_file)
+
+  assets <- read_assets(input_dir)
+
+  testthat::expect_equal(assets$state_code, c("33", "53"))
+  testthat::expect_equal(assets$state_name, c("Rio de Janeiro", "Distrito Federal"))
+  testthat::expect_equal(assets$state, c("Rio de Janeiro", "Distrito Federal"))
+  testthat::expect_equal(assets$municipality_code, c("3301850", "5300108"))
+  testthat::expect_equal(assets$municipality_name, c("Guapimirim", "Brasília"))
+  testthat::expect_equal(assets$municipality, c("Guapimirim", "Brasilia"))
 })
