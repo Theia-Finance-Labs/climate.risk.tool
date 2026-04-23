@@ -89,14 +89,9 @@ app_ui <- function(request) {
         div(
           class = "app-footer-logos",
           tags$img(
-            src = "www/GIZ.png",
-            alt = "GIZ logo",
-            class = "partner-logo giz-logo"
-          ),
-          tags$img(
-            src = "www/TFL.png",
-            alt = "Theia Finance Labs logo",
-            class = "partner-logo tfl-logo"
+            src = "www/FiBras II - Coop_BaCen_Curupira_Theia.png",
+            alt = "Project logo",
+            class = "partner-logo"
           )
         )
       )

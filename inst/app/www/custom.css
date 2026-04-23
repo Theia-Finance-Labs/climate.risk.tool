@@ -81,9 +81,10 @@ body {
 }
 
 .partner-logo {
-  height: 52px;
-  width: auto;
-  max-width: 220px;
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: none;
   object-fit: contain;
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
 }
@@ -105,6 +106,7 @@ body {
   justify-content: center;
   gap: 1.5rem;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .app-title {
@@ -741,8 +743,9 @@ body {
   }
 
   .partner-logo {
-    height: 40px;
-    max-width: 180px;
+    width: 100%;
+    height: auto;
+    max-width: none;
   }
 
   .app-settings-btn {
@@ -753,8 +756,9 @@ body {
 
 @media (min-width: 992px) {
   .partner-logo {
-    height: 56px;
-    max-width: 240px;
+    width: 100%;
+    height: auto;
+    max-width: none;
   }
 
   .app-footer {
