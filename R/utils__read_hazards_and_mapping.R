@@ -507,6 +507,10 @@ read_hazards_mapping <- function(mapping_path) {
 load_region_name_mapping <- function(base_dir, adm1_sf = NULL, adm2_sf = NULL) {
   # Initialize result list
   mapping <- list(province = character(0), municipality = character(0))
+  adm_codes <- try(load_adm_codes(base_dir), silent = TRUE)
+  if (inherits(adm_codes, "try-error")) {
+    adm_codes <- NULL
+  }
 
   # Load province (ADM1) names
   if (!is.null(adm1_sf)) {
@@ -515,6 +519,7 @@ load_region_name_mapping <- function(base_dir, adm1_sf = NULL, adm2_sf = NULL) {
     province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
     provinces_sf <- if (file.exists(province_path)) sf::st_read(province_path, quiet = TRUE) else NULL
   }
+  provinces_sf <- repair_adm_boundary_names(provinces_sf, adm_codes, "adm1")
 
   if (!is.null(provinces_sf) && "shapeName" %in% names(provinces_sf)) {
     # Get original names
@@ -535,6 +540,7 @@ load_region_name_mapping <- function(base_dir, adm1_sf = NULL, adm2_sf = NULL) {
     municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
     municipalities_sf <- if (file.exists(municipality_path)) sf::st_read(municipality_path, quiet = TRUE) else NULL
   }
+  municipalities_sf <- repair_adm_boundary_names(municipalities_sf, adm_codes, "adm2")
 
   if (!is.null(municipalities_sf) && "shapeName" %in% names(municipalities_sf)) {
     # Get original names

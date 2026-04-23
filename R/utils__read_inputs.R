@@ -498,6 +498,9 @@ assign_state_to_assets <- function(assets_df, base_dir) {
     NULL
   }
 
+  adm1_boundaries <- repair_adm_boundary_names(adm1_boundaries, adm_codes, "adm1")
+  adm2_boundaries <- repair_adm_boundary_names(adm2_boundaries, adm_codes, "adm2")
+
   # Call the main function with loaded boundaries
   assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries, adm_codes)
 }
@@ -547,6 +550,72 @@ load_adm_codes_from_path <- function(file_path) {
       shapeID = "shape_id"
     ) |>
     tibble::as_tibble()
+}
+
+#' Repair ADM boundary names from canonical ADM codes
+#'
+#' @param boundaries_sf sf object containing shapeID and shapeName columns
+#' @param adm_codes Data frame from load_adm_codes()
+#' @param adm_level ADM level to use from adm_codes ("adm1" or "adm2")
+#' @return sf object with shapeName repaired when shapeID matches adm_codes
+#' @noRd
+repair_adm_boundary_names <- function(boundaries_sf, adm_codes, adm_level) {
+  if (is.null(boundaries_sf) || is.null(adm_codes)) {
+    return(boundaries_sf)
+  }
+  if (!all(c("shapeID", "shapeName") %in% names(boundaries_sf))) {
+    return(boundaries_sf)
+  }
+  if (!all(c("shapeID", "name", "adm_level") %in% names(adm_codes))) {
+    return(boundaries_sf)
+  }
+
+  adm_lookup <- adm_codes |>
+    dplyr::filter(.data$adm_level == !!adm_level) |>
+    dplyr::transmute(
+      shapeID = as.character(.data$shapeID),
+      shapeName_repaired = as.character(.data$name)
+    ) |>
+    dplyr::filter(!is.na(.data$shapeID), !is.na(.data$shapeName_repaired), nzchar(.data$shapeName_repaired)) |>
+    dplyr::distinct(.data$shapeID, .keep_all = TRUE)
+
+  if (nrow(adm_lookup) == 0) {
+    return(boundaries_sf)
+  }
+
+  repaired <- boundaries_sf |>
+    dplyr::mutate(
+      shapeID = as.character(.data$shapeID),
+      shapeName_before_repair = as.character(.data$shapeName)
+    ) |>
+    dplyr::left_join(adm_lookup, by = "shapeID")
+
+  changed <- !is.na(repaired$shapeName_repaired) &
+    repaired$shapeName_repaired != repaired$shapeName_before_repair
+
+  repaired <- repaired |>
+    dplyr::mutate(
+      shapeName = dplyr::coalesce(.data$shapeName_repaired, .data$shapeName_before_repair)
+    )
+
+  if (any(changed)) {
+    existing_original <- if ("shapeName_original" %in% names(repaired)) {
+      as.character(repaired$shapeName_original)
+    } else {
+      rep(NA_character_, nrow(repaired))
+    }
+    repaired <- repaired |>
+      dplyr::mutate(
+        shapeName_original = dplyr::if_else(
+          changed,
+          .data$shapeName_before_repair,
+          existing_original
+        )
+      )
+  }
+
+  repaired |>
+    dplyr::select(-"shapeName_repaired", -"shapeName_before_repair")
 }
 
 #' Match ADM codes to names in assets data frame

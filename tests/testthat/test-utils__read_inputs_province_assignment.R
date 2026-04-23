@@ -83,6 +83,62 @@ testthat::test_that("read_precomputed_hazards normalizes region names", {
   }
 })
 
+testthat::test_that("repair_adm_boundary_names replaces typoed ADM names from codes", {
+  boundaries <- sf::st_sf(
+    shapeID = "14911670B85657526756793",
+    shapeName = "Rio de Jeneiro",
+    geometry = sf::st_sfc(sf::st_point(c(0, 0)), crs = 4326)
+  )
+  adm_codes <- tibble::tibble(
+    code = "33",
+    name = "Rio de Janeiro",
+    adm_level = "adm1",
+    shapeID = "14911670B85657526756793"
+  )
+
+  repaired <- repair_adm_boundary_names(boundaries, adm_codes, "adm1")
+
+  testthat::expect_equal(repaired$shapeName[[1]], "Rio de Janeiro")
+  testthat::expect_equal(repaired$shapeName_original[[1]], "Rio de Jeneiro")
+  testthat::expect_s3_class(repaired, "sf")
+})
+
+testthat::test_that("repaired ADM1 names prevent false asset state validation errors", {
+  boundaries <- sf::st_sf(
+    shapeID = "14911670B85657526756793",
+    shapeName = "Rio de Jeneiro",
+    geometry = sf::st_sfc(sf::st_point(c(0, 0)), crs = 4326)
+  )
+  adm_codes <- tibble::tibble(
+    code = "33",
+    name = "Rio de Janeiro",
+    adm_level = "adm1",
+    shapeID = "14911670B85657526756793"
+  )
+  repaired <- repair_adm_boundary_names(boundaries, adm_codes, "adm1")
+  adm1_names <- repaired |>
+    dplyr::pull(.data$shapeName) |>
+    as.character() |>
+    stringi::stri_trans_general("Latin-ASCII") |>
+    unique()
+  assets <- data.frame(
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = "Rio de Janeiro",
+    stringsAsFactors = FALSE
+  )
+
+  validation <- validate_assets_geography(
+    assets_df = assets,
+    adm1_names = adm1_names,
+    adm2_names = character(0),
+    validation_results = list(errors = character(), warnings = character())
+  )
+
+  testthat::expect_false(any(grepl("Assets contain state names not in ADM1 boundaries", validation$errors)))
+})
+
 testthat::test_that("assign_state_to_assets assigns state via coordinates", {
   base_dir <- get_test_data_dir()
 

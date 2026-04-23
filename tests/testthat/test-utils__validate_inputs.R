@@ -125,6 +125,35 @@ testthat::test_that("validate_input_coherence does not error when assets with co
   )
 })
 
+testthat::test_that("validate_precomputed_hazards_geography prefers ADM identifiers over typoed names", {
+  precomputed <- data.frame(
+    adm_name = c("Rio Granda do Norte", "Rio de Jeneiro", "Gracho Cardoso"),
+    adm_code = c("24", "33", "2802602"),
+    shape_id = c(
+      "14911670B91095571793858",
+      "14911670B85657526756793",
+      "56859067B69544192053845"
+    ),
+    adm_level = c("ADM1", "ADM1", "ADM2"),
+    hazard_type = "Flood",
+    hazard_indicator = "depth",
+    stringsAsFactors = FALSE
+  )
+
+  validation <- validate_precomputed_hazards_geography(
+    precomputed_hazards_df = precomputed,
+    adm1_names = c("Rio Grande do Norte", "Rio de Janeiro"),
+    adm2_names = "Gracho Cardoso",
+    validation_results = list(errors = character(), warnings = character()),
+    adm1_codes = c("24", "33"),
+    adm2_codes = "2802602",
+    adm1_shape_ids = c("14911670B91095571793858", "14911670B85657526756793"),
+    adm2_shape_ids = "56859067B69544192053845"
+  )
+
+  testthat::expect_equal(validation$errors, character(0))
+})
+
 testthat::test_that("validate_input_coherence ERRORS when asset WITHOUT coords is in state missing precomputed data", {
   # Asset WITHOUT coordinates in a state (e.g., Amapa)
   assets <- data.frame(

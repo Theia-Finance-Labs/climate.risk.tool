@@ -429,6 +429,9 @@ load_spatial_separation_data <- function(base_dir, adm1_boundaries = NULL, adm2_
     adm_muni_sf <- sf::st_read(muni_path, quiet = TRUE)
   }
 
+  adm_state_sf <- repair_adm_boundary_names(adm_state_sf, adm_codes, "adm1")
+  adm_muni_sf <- repair_adm_boundary_names(adm_muni_sf, adm_codes, "adm2")
+
   if (!is.null(adm_state_sf) && !is.na(sf::st_crs(adm_state_sf)) && sf::st_crs(adm_state_sf)$epsg != 4326) {
     adm_state_sf <- sf::st_transform(adm_state_sf, 4326)
   }

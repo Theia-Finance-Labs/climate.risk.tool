@@ -12,6 +12,13 @@ load_adm1_state_names <- function(base_dir) {
   }
 
   states_sf <- sf::st_read(state_path, quiet = TRUE)
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  adm_codes <- if (file.exists(adm_codes_path)) {
+    load_adm_codes_from_path(adm_codes_path)
+  } else {
+    NULL
+  }
+  states_sf <- repair_adm_boundary_names(states_sf, adm_codes, "adm1")
 
   # Normalize names same way as in assign_state_to_assets
   state_names <- states_sf |>
@@ -37,6 +44,13 @@ load_adm2_municipality_names <- function(base_dir) {
   }
 
   municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE)
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  adm_codes <- if (file.exists(adm_codes_path)) {
+    load_adm_codes_from_path(adm_codes_path)
+  } else {
+    NULL
+  }
+  municipalities_sf <- repair_adm_boundary_names(municipalities_sf, adm_codes, "adm2")
 
   # Normalize names same way as in assign_province_to_assets
   municipality_names <- municipalities_sf |>
@@ -222,57 +236,111 @@ validate_precomputed_hazards_geography <- function(
   adm1_names,
   adm2_names,
   validation_results,
+  adm1_codes = NULL,
+  adm2_codes = NULL,
+  adm1_shape_ids = NULL,
+  adm2_shape_ids = NULL,
   assets_df = NULL,
   events_df = NULL,
   hazard_configs = NULL
 ) {
-  # Validate provinces (if column exists)
-  if ("adm_name" %in% names(precomputed_hazards_df) && length(adm1_names) > 0) {
-    # Check adm_level to see if these are provinces
-    province_rows <- precomputed_hazards_df |>
-      dplyr::filter(.data$adm_level == "ADM1", !is.na(.data$adm_name))
-
-    if (nrow(province_rows) > 0) {
-      hazard_provinces <- province_rows |>
-        dplyr::pull(.data$adm_name) |>
-        unique()
-
-      invalid_provinces <- hazard_provinces[!hazard_provinces %in% adm1_names]
-
-      if (length(invalid_provinces) > 0) {
-        validation_results$errors <- c(
-          validation_results$errors,
-          paste0(
-            "Precomputed hazards contain province names not in ADM1 boundaries: ",
-            paste(invalid_provinces, collapse = ", ")
-          )
-        )
-      }
-    }
+  non_empty_unique <- function(x) {
+    x <- as.character(x)
+    unique(x[!is.na(x) & nzchar(trimws(x))])
   }
 
-  # Validate municipalities (if column exists)
-  if ("adm_name" %in% names(precomputed_hazards_df) && length(adm2_names) > 0) {
-    municipality_rows <- precomputed_hazards_df |>
-      dplyr::filter(.data$adm_level == "ADM2", !is.na(.data$adm_name))
+  validate_precomputed_level <- function(rows, level_label, region_label, valid_names, valid_codes, valid_shape_ids, validation_results) {
+    if (nrow(rows) == 0) {
+      return(validation_results)
+    }
 
-    if (nrow(municipality_rows) > 0) {
-      hazard_municipalities <- municipality_rows |>
-        dplyr::pull(.data$adm_name) |>
-        unique()
+    checked_identifier <- FALSE
 
-      invalid_municipalities <- hazard_municipalities[!hazard_municipalities %in% adm2_names]
+    if ("shape_id" %in% names(rows) && length(valid_shape_ids) > 0) {
+      shape_ids <- non_empty_unique(rows$shape_id)
+      if (length(shape_ids) > 0) {
+        checked_identifier <- TRUE
+        invalid_shape_ids <- shape_ids[!shape_ids %in% valid_shape_ids]
+        if (length(invalid_shape_ids) > 0) {
+          validation_results$errors <- c(
+            validation_results$errors,
+            paste0(
+              "Precomputed hazards contain ", level_label, " shape IDs not in boundaries: ",
+              paste(invalid_shape_ids, collapse = ", ")
+            )
+          )
+        }
+      }
+    }
 
-      if (length(invalid_municipalities) > 0) {
+    if ("adm_code" %in% names(rows) && length(valid_codes) > 0) {
+      adm_codes <- non_empty_unique(rows$adm_code)
+      if (length(adm_codes) > 0) {
+        checked_identifier <- TRUE
+        invalid_codes <- adm_codes[!adm_codes %in% valid_codes]
+        if (length(invalid_codes) > 0) {
+          validation_results$errors <- c(
+            validation_results$errors,
+            paste0(
+              "Precomputed hazards contain ", level_label, " ADM codes not in boundaries: ",
+              paste(invalid_codes, collapse = ", ")
+            )
+          )
+        }
+      }
+    }
+
+    if (!checked_identifier && "adm_name" %in% names(rows) && length(valid_names) > 0) {
+      adm_names <- non_empty_unique(rows$adm_name)
+      invalid_names <- adm_names[!adm_names %in% valid_names]
+      if (length(invalid_names) > 0) {
         validation_results$errors <- c(
           validation_results$errors,
           paste0(
-            "Precomputed hazards contain municipality names not in ADM2 boundaries: ",
-            paste(invalid_municipalities, collapse = ", ")
+            "Precomputed hazards contain ", region_label, " names not in ", level_label, " boundaries: ",
+            paste(invalid_names, collapse = ", ")
           )
         )
       }
     }
+
+    validation_results
+  }
+
+  province_rows <- precomputed_hazards_df |>
+    dplyr::filter(.data$adm_level == "ADM1")
+  validation_results <- validate_precomputed_level(
+    rows = province_rows,
+    level_label = "ADM1",
+    region_label = "province",
+    valid_names = adm1_names,
+    valid_codes = adm1_codes,
+    valid_shape_ids = adm1_shape_ids,
+    validation_results = validation_results
+  )
+
+  municipality_rows <- precomputed_hazards_df |>
+    dplyr::filter(.data$adm_level == "ADM2")
+  validation_results <- validate_precomputed_level(
+    rows = municipality_rows,
+    level_label = "ADM2",
+    region_label = "municipality",
+    valid_names = adm2_names,
+    valid_codes = adm2_codes,
+    valid_shape_ids = adm2_shape_ids,
+    validation_results = validation_results
+  )
+
+  filter_precomputed_region <- function(level, name = NULL, code = NULL) {
+    rows <- precomputed_hazards_df |>
+      dplyr::filter(.data$adm_level == !!level)
+    if (!is.null(code) && !is.na(code) && nzchar(as.character(code)) && "adm_code" %in% names(rows)) {
+      return(rows |> dplyr::filter(.data$adm_code == !!as.character(code)))
+    }
+    if (!is.null(name) && !is.na(name) && nzchar(as.character(name)) && "adm_name" %in% names(rows)) {
+      return(rows |> dplyr::filter(.data$adm_name == !!as.character(name)))
+    }
+    rows[0, , drop = FALSE]
   }
 
   # Validate that state and municipality names in assets exist in reference lists
@@ -341,11 +409,18 @@ validate_precomputed_hazards_geography <- function(
 
     # Check hazard coverage for each municipality
     for (municipality in asset_municipalities) {
-      municipality_hazards <- precomputed_hazards_df |>
-        dplyr::filter(
-          .data$adm_name == !!municipality,
-          .data$adm_level == "ADM2"
-        ) |>
+      municipality_code <- if ("municipality_code" %in% names(assets_df)) {
+        assets_df |>
+          dplyr::filter(.data$municipality == !!municipality) |>
+          dplyr::pull(.data$municipality_code) |>
+          non_empty_unique() |>
+          head(1)
+      } else {
+        character(0)
+      }
+      municipality_code <- if (length(municipality_code) > 0) municipality_code[[1]] else NULL
+
+      municipality_hazards <- filter_precomputed_region("ADM2", name = municipality, code = municipality_code) |>
         dplyr::select("hazard_type", "hazard_indicator") |>
         dplyr::distinct()
 
@@ -382,10 +457,27 @@ validate_precomputed_hazards_geography <- function(
             head(1)
 
           if (length(state_for_municipality) > 0 && !is.na(state_for_municipality)) {
-            state_has_hazard <- precomputed_hazards_df |>
+            state_code_for_municipality <- if ("state_code" %in% names(assets_df)) {
+              assets_df |>
+                dplyr::filter(.data$municipality == !!municipality) |>
+                dplyr::pull(.data$state_code) |>
+                non_empty_unique() |>
+                head(1)
+            } else {
+              character(0)
+            }
+            state_code_for_municipality <- if (length(state_code_for_municipality) > 0) {
+              state_code_for_municipality[[1]]
+            } else {
+              NULL
+            }
+
+            state_has_hazard <- filter_precomputed_region(
+              "ADM1",
+              name = state_for_municipality,
+              code = state_code_for_municipality
+            ) |>
               dplyr::filter(
-                .data$adm_name == !!state_for_municipality,
-                .data$adm_level == "ADM1",
                 .data$hazard_type == !!hazard_type,
                 # Try matching by indicator key OR variable name
                 (.data$hazard_indicator == !!hazard_indicator | .data$hazard_indicator == !!hazard_var)
@@ -417,11 +509,18 @@ validate_precomputed_hazards_geography <- function(
 
     # Check hazard coverage for states (for all assets with states)
     for (state in asset_states) {
-      state_hazards <- precomputed_hazards_df |>
-        dplyr::filter(
-          .data$adm_name == !!state,
-          .data$adm_level == "ADM1"
-        ) |>
+      state_code <- if ("state_code" %in% names(assets_df)) {
+        assets_df |>
+          dplyr::filter(.data$state == !!state) |>
+          dplyr::pull(.data$state_code) |>
+          non_empty_unique() |>
+          head(1)
+      } else {
+        character(0)
+      }
+      state_code <- if (length(state_code) > 0) state_code[[1]] else NULL
+
+      state_hazards <- filter_precomputed_region("ADM1", name = state, code = state_code) |>
         dplyr::select("hazard_type", "hazard_indicator") |>
         dplyr::distinct()
 

@@ -157,6 +157,8 @@ compute_risk <- function(assets,
         adm_codes <- load_adm_codes_from_path(adm_codes_path)
       }
     }
+    adm1_boundaries <- repair_adm_boundary_names(adm1_boundaries, adm_codes, "adm1")
+    adm2_boundaries <- repair_adm_boundary_names(adm2_boundaries, adm_codes, "adm2")
     assets <- assign_state_to_assets_with_boundaries(
       assets,
       adm1_boundaries,
@@ -186,6 +188,35 @@ compute_risk <- function(assets,
       character(0)
     }
 
+    adm1_shape_ids <- if ("shapeID" %in% names(adm1_boundaries)) {
+      unique(as.character(adm1_boundaries$shapeID))
+    } else {
+      character(0)
+    }
+    adm2_shape_ids <- if (!is.null(adm2_boundaries) && "shapeID" %in% names(adm2_boundaries)) {
+      unique(as.character(adm2_boundaries$shapeID))
+    } else {
+      character(0)
+    }
+    adm1_codes <- if (!is.null(adm_codes) && all(c("code", "adm_level") %in% names(adm_codes))) {
+      adm_codes |>
+        dplyr::filter(.data$adm_level == "adm1") |>
+        dplyr::pull(.data$code) |>
+        as.character() |>
+        unique()
+    } else {
+      character(0)
+    }
+    adm2_codes <- if (!is.null(adm_codes) && all(c("code", "adm_level") %in% names(adm_codes))) {
+      adm_codes |>
+        dplyr::filter(.data$adm_level == "adm2") |>
+        dplyr::pull(.data$code) |>
+        as.character() |>
+        unique()
+    } else {
+      character(0)
+    }
+
     validate_input_coherence(
       assets_df = assets,
       companies_df = companies,
@@ -195,6 +226,10 @@ compute_risk <- function(assets,
       precomputed_hazards_df = precomputed_hazards,
       adm1_names = adm1_names,
       adm2_names = adm2_names,
+      adm1_codes = adm1_codes,
+      adm2_codes = adm2_codes,
+      adm1_shape_ids = adm1_shape_ids,
+      adm2_shape_ids = adm2_shape_ids,
       events_df = events
     )
   }

@@ -223,13 +223,20 @@ app_server <- function(input, output, session) {
         # Load ADM1 and ADM2 boundaries for state assignment and validation
         state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
         municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+        adm_codes <- try(load_adm_codes(base_dir), silent = TRUE)
+        if (inherits(adm_codes, "try-error")) {
+          adm_codes <- NULL
+        }
         values$adm1_boundaries <- sf::st_read(state_path, quiet = TRUE)
         values$adm2_boundaries <- sf::st_read(municipality_path, quiet = TRUE)
+        values$adm1_boundaries <- repair_adm_boundary_names(values$adm1_boundaries, adm_codes, "adm1")
+        values$adm2_boundaries <- repair_adm_boundary_names(values$adm2_boundaries, adm_codes, "adm2")
 
         values$spatial_separation_data <- load_spatial_separation_data(
           base_dir = base_dir,
           adm1_boundaries = values$adm1_boundaries,
-          adm2_boundaries = values$adm2_boundaries
+          adm2_boundaries = values$adm2_boundaries,
+          adm_codes = adm_codes
         )
         values$spatial_separation_warnings <- if (
           !is.null(values$spatial_separation_data) &&

@@ -36,6 +36,10 @@ validate_input_coherence <- function(
   precomputed_hazards_df = NULL,
   adm1_names,
   adm2_names,
+  adm1_codes = NULL,
+  adm2_codes = NULL,
+  adm1_shape_ids = NULL,
+  adm2_shape_ids = NULL,
   events_df = NULL
 ) {
   message("[validate_input_coherence] Starting validation checks...")
@@ -100,6 +104,10 @@ validate_input_coherence <- function(
       adm1_names,
       adm2_names,
       validation_results,
+      adm1_codes = adm1_codes,
+      adm2_codes = adm2_codes,
+      adm1_shape_ids = adm1_shape_ids,
+      adm2_shape_ids = adm2_shape_ids,
       assets_df = assets_df,
       events_df = events_df,
       hazard_configs = hazard_configs
