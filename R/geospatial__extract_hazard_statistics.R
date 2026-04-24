@@ -138,6 +138,27 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   }
 
   final_result <- dplyr::bind_rows(all_results)
+
+  # Temporary hardcoded formatting rule until config supports indicator-specific rounding.
+  # Force fire danger days to integer values for both intensity and indicator column.
+  final_result <- final_result |>
+    dplyr::mutate(
+      hazard_intensity = dplyr::if_else(
+        .data$hazard_indicator == "days_danger_total" & !is.na(.data$hazard_intensity),
+        as.numeric(round(.data$hazard_intensity)),
+        .data$hazard_intensity
+      )
+    )
+  if ("days_danger_total" %in% names(final_result)) {
+    final_result <- final_result |>
+      dplyr::mutate(
+        days_danger_total = dplyr::if_else(
+          .data$hazard_indicator == "days_danger_total" & !is.na(.data$days_danger_total),
+          as.numeric(round(.data$days_danger_total)),
+          .data$days_danger_total
+        )
+      )
+  }
   
   # Validate no duplicates exist by (asset, indicator_key)
   # Duplicates indicate a design flaw - assets should only appear in one path
