@@ -11,16 +11,15 @@ compute_risk(
   hazards,
   hazards_inventory,
   precomputed_hazards,
-  damage_factors,
-  cnae_exposure = NULL,
-  land_cover_legend = NULL,
+  hazard_configs,
+  hazards_dir,
   adm1_boundaries = NULL,
   adm2_boundaries = NULL,
   validate_inputs = TRUE,
   growth_rate = 0.02,
   discount_rate = 0.05,
   risk_free_rate = 0.02,
-  aggregation_method = "median"
+  aggregation_method = "mean"
 )
 }
 \arguments{
@@ -28,7 +27,7 @@ compute_risk(
 
 \item{companies}{Data frame containing company information (from read_companies())}
 
-\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{hazard_return_period}, \code{event_year} (or NA).
+\item{events}{data.frame with columns \code{hazard_type}, \code{hazard_name}, \code{scenario_name}, \code{return_period}, \code{event_year} (or NA).
 The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{hazards}{Named list of SpatRaster objects (from load_hazards())}
@@ -37,11 +36,9 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{precomputed_hazards}{Data frame with precomputed hazard statistics for municipalities and states (from read_precomputed_hazards())}
 
-\item{damage_factors}{Data frame with damage and cost factors (from read_damage_cost_factors())}
+\item{hazard_configs}{Named list from load_hazards_and_inventory()$configs}
 
-\item{cnae_exposure}{Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())}
-
-\item{land_cover_legend}{Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())}
+\item{hazards_dir}{Character path to hazards/config directory containing hazard YAML files}
 
 \item{adm1_boundaries}{Optional sf object with ADM1 (state) boundaries for state assignment and validation}
 
@@ -55,17 +52,17 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{risk_free_rate}{Numeric. Risk-free rate for Merton model (default: 0.02)}
 
-\item{aggregation_method}{Character. Statistical aggregation method for hazard extraction (default: "median").
-Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
-For TIF files: uses terra::extract with the specified function.
-For NC files: uses the median ensemble layer by default (ensemble selection is separate from aggregation_method).
-For precomputed data: uses the median ensemble variant (ensemble selection is separate from aggregation_method).
+\item{aggregation_method}{Character. Statistical aggregation method for hazard extraction (default: "mean").
+Valid options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest".
+For NetCDF files: uses terra::extract with the specified function.
+For NC files: uses the mean ensemble layer by default (ensemble selection is separate from aggregation_method).
+For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).
 #'}
 }
 \value{
 List containing final results:
 \itemize{
-\item assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
+\item assets_factors: Asset-level hazard exposure with damage factors and event information (return_period, event_year)
 \item companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 \item assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 \item companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -81,7 +78,7 @@ Compute Climate Risk Analysis (orchestrator)
 The function executes the following 16-step pipeline:
 \enumerate{
 \item Read inputs: Load asset and company data from CSV files
-\item Load hazards: Read climate hazard raster files (.tif)
+\item Load hazards: Read climate hazard NetCDF files (.nc)
 \item Load areas: Load municipality and state boundary files
 \item Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > state priority
 \item Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
@@ -107,8 +104,7 @@ assets <- read_assets(input_folder)
 companies <- read_companies(input_folder)
 hazards <- load_hazards(file.path(base_dir, "hazards"))
 precomputed_hazards <- read_precomputed_hazards(base_dir)
-damage_factors <- read_damage_cost_factors(base_dir)
-cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+hazard_configs <- hazard_data$configs
 
 # Define events
 events <- data.frame(
@@ -125,8 +121,8 @@ results <- compute_risk(
   hazards = hazards,
   hazards_inventory = hazards_inventory,
   precomputed_hazards = precomputed_hazards,
-  damage_factors = damage_factors,
-  cnae_exposure = cnae_exposure,
+  hazard_configs = hazard_configs,
+  hazards_dir = file.path(base_dir, "hazards"),
   growth_rate = 0.02,
   discount_rate = 0.05,
   risk_free_rate = 0.02

@@ -6,28 +6,28 @@
 #'
 #' @param assets Data frame containing asset information (from read_assets())
 #' @param companies Data frame containing company information (from read_companies())
-#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `hazard_return_period`, `event_year` (or NA).
+#' @param events data.frame with columns `hazard_type`, `hazard_name`, `scenario_name`, `return_period`, `event_year` (or NA).
 #'   The `event_id` column is auto-generated internally if not provided.
 #' @param hazards Named list of SpatRaster objects (from load_hazards())
 #' @param hazards_inventory Data frame with hazard metadata including hazard_indicator (from load_hazards_and_inventory()$inventory)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics for municipalities and states (from read_precomputed_hazards())
-#' @param damage_factors Data frame with damage and cost factors (from read_damage_cost_factors())
-#' @param cnae_exposure Optional tibble with CNAE exposure data for sector-based metric selection (from read_cnae_labor_productivity_exposure())
-#' @param land_cover_legend Optional tibble with land cover legend for Fire hazard (from read_land_cover_legend())
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
+#' @param hazards_dir Character path to hazards/config directory containing hazard YAML files
+#' @param cnae_exposure Data frame with CNAE exposure mapping (must include `cnae` and `description`)
 #' @param adm1_boundaries Optional sf object with ADM1 (state) boundaries for state assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
 #' @param risk_free_rate Numeric. Risk-free rate for Merton model (default: 0.02)
-#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "median").
-#'   Valid options: "mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90".
-#'   For TIF files: uses terra::extract with the specified function.
-#'   For NC files: uses the median ensemble layer by default (ensemble selection is separate from aggregation_method).
-#'   For precomputed data: uses the median ensemble variant (ensemble selection is separate from aggregation_method).
+#' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
+#'   Valid options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest".
+#'   For NetCDF files: uses terra::extract with the specified function.
+#'   For NC files: uses the mean ensemble layer by default (ensemble selection is separate from aggregation_method).
+#'   For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).
 #' #'
 #' @return List containing final results:
-#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (hazard_return_period, event_year)
+#'   - assets_factors: Asset-level hazard exposure with damage factors and event information (return_period, event_year)
 #'   - companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)
 #'   - assets_yearly: Detailed yearly asset trajectories with revenue, profit, and discounted values by year and scenario
 #'   - companies_yearly: Detailed yearly company trajectories with aggregated revenue, profit, and discounted values by year and scenario
@@ -35,7 +35,7 @@
 #' @details
 #' The function executes the following 16-step pipeline:
 #' 1. Read inputs: Load asset and company data from CSV files
-#' 2. Load hazards: Read climate hazard raster files (.tif)
+#' 2. Load hazards: Read climate hazard NetCDF files (.nc)
 #' 3. Load areas: Load municipality and state boundary files
 #' 4. Geolocate assets: Add geometry and centroid columns using lat/lon > municipality > state priority
 #' 5. Extract hazard statistics: Extract and aggregate hazard values for each asset geometry in long format
@@ -60,8 +60,8 @@
 #' companies <- read_companies(input_folder)
 #' hazards <- load_hazards(file.path(base_dir, "hazards"))
 #' precomputed_hazards <- read_precomputed_hazards(base_dir)
-#' damage_factors <- read_damage_cost_factors(base_dir)
-#' cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
+#' hazard_configs <- hazard_data$configs
+#' cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cnae_exposure")
 #'
 #' # Define events
 #' events <- data.frame(
@@ -78,7 +78,8 @@
 #'   hazards = hazards,
 #'   hazards_inventory = hazards_inventory,
 #'   precomputed_hazards = precomputed_hazards,
-#'   damage_factors = damage_factors,
+#'   hazard_configs = hazard_configs,
+#'   hazards_dir = file.path(base_dir, "hazards"),
 #'   cnae_exposure = cnae_exposure,
 #'   growth_rate = 0.02,
 #'   discount_rate = 0.05,
@@ -98,16 +99,18 @@ compute_risk <- function(assets,
                          hazards,
                          hazards_inventory,
                          precomputed_hazards,
-                         damage_factors,
-                         cnae_exposure = NULL,
-                         land_cover_legend = NULL,
+                         hazard_configs,
+                         hazards_dir,
+                         cnae_exposure,
                          adm1_boundaries = NULL,
                          adm2_boundaries = NULL,
+                         spatial_separation_data = NULL,
+                         base_dir = NULL,
                          validate_inputs = TRUE,
                          growth_rate = 0.02,
                          discount_rate = 0.05,
                          risk_free_rate = 0.02,
-                         aggregation_method = "median") {
+                         aggregation_method = "mean") {
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -124,12 +127,18 @@ compute_risk <- function(assets,
   if (!is.data.frame(precomputed_hazards) || nrow(precomputed_hazards) == 0) {
     stop("precomputed_hazards must be a non-empty data.frame (from read_precomputed_hazards())")
   }
-  if (!is.data.frame(damage_factors) || nrow(damage_factors) == 0) {
-    stop("damage_factors must be a non-empty data.frame (from read_damage_cost_factors())")
+  if (is.null(hazard_configs) || length(hazard_configs) == 0) {
+    stop("hazard_configs must be a non-empty list from load_hazards_and_inventory()")
+  }
+  if (is.null(hazards_dir) || !dir.exists(hazards_dir)) {
+    stop("hazards_dir must be a valid directory path")
+  }
+  if (!is.data.frame(cnae_exposure) || nrow(cnae_exposure) == 0) {
+    stop("cnae_exposure must be a non-empty data.frame with CNAE sector mapping")
   }
 
   # Validate aggregation_method
-  valid_aggregation_methods <- c("mean", "median", "p2_5", "p5", "p95", "p97_5", "max", "min", "p10", "p90")
+  valid_aggregation_methods <- c("mean", "median", "p90", "p10", "max", "min", "mode", "closest")
   if (!aggregation_method %in% valid_aggregation_methods) {
     stop("aggregation_method must be one of: ", paste(valid_aggregation_methods, collapse = ", "))
   }
@@ -138,13 +147,23 @@ compute_risk <- function(assets,
   # PHASE 0: INPUT PREPARATION - Assign states to assets and validate
   # ============================================================================
 
-  # Assign states to assets that don't have one (requires boundaries)
+  # Assign ADM regions (state/municipality) from boundaries when available
   if (!is.null(adm1_boundaries)) {
-    message("[compute_risk] Assigning states to assets without location data...")
+    message("[compute_risk] Assigning ADM regions to assets...")
+    adm_codes <- NULL
+    if (!is.null(base_dir) && nzchar(base_dir)) {
+      adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+      if (file.exists(adm_codes_path)) {
+        adm_codes <- load_adm_codes_from_path(adm_codes_path)
+      }
+    }
+    adm1_boundaries <- repair_adm_boundary_names(adm1_boundaries, adm_codes, "adm1")
+    adm2_boundaries <- repair_adm_boundary_names(adm2_boundaries, adm_codes, "adm2")
     assets <- assign_state_to_assets_with_boundaries(
       assets,
       adm1_boundaries,
-      adm2_boundaries
+      adm2_boundaries,
+      adm_codes = adm_codes
     )
   }
 
@@ -169,14 +188,48 @@ compute_risk <- function(assets,
       character(0)
     }
 
+    adm1_shape_ids <- if ("shapeID" %in% names(adm1_boundaries)) {
+      unique(as.character(adm1_boundaries$shapeID))
+    } else {
+      character(0)
+    }
+    adm2_shape_ids <- if (!is.null(adm2_boundaries) && "shapeID" %in% names(adm2_boundaries)) {
+      unique(as.character(adm2_boundaries$shapeID))
+    } else {
+      character(0)
+    }
+    adm1_codes <- if (!is.null(adm_codes) && all(c("code", "adm_level") %in% names(adm_codes))) {
+      adm_codes |>
+        dplyr::filter(.data$adm_level == "adm1") |>
+        dplyr::pull(.data$code) |>
+        as.character() |>
+        unique()
+    } else {
+      character(0)
+    }
+    adm2_codes <- if (!is.null(adm_codes) && all(c("code", "adm_level") %in% names(adm_codes))) {
+      adm_codes |>
+        dplyr::filter(.data$adm_level == "adm2") |>
+        dplyr::pull(.data$code) |>
+        as.character() |>
+        unique()
+    } else {
+      character(0)
+    }
+
     validate_input_coherence(
       assets_df = assets,
       companies_df = companies,
-      damage_factors_df = damage_factors,
-      precomputed_hazards_df = precomputed_hazards,
+      hazards_dir = hazards_dir,
+      hazard_configs = hazard_configs,
       cnae_exposure_df = cnae_exposure,
+      precomputed_hazards_df = precomputed_hazards,
       adm1_names = adm1_names,
       adm2_names = adm2_names,
+      adm1_codes = adm1_codes,
+      adm2_codes = adm2_codes,
+      adm1_shape_ids = adm1_shape_ids,
+      adm2_shape_ids = adm2_shape_ids,
       events_df = events
     )
   }
@@ -204,8 +257,8 @@ compute_risk <- function(assets,
 
   # Filter hazards to only those referenced by events
   # Note: For multi-indicator hazards (Fire), this will internally expand to load all required indicators
-  # Note: For NC hazards, only the median ensemble is loaded by default
-  hazards <- filter_hazards_by_events(hazards, events, hazards_inventory)
+  # Note: For NC hazards, only the mean ensemble is loaded by default
+  hazards <- filter_hazards_by_events(hazards, events, hazards_inventory, hazard_configs)
 
 
   # ============================================================================
@@ -213,35 +266,219 @@ compute_risk <- function(assets,
   # ============================================================================
 
   # Filter inventory to match filtered hazards (prevent warnings about unfound hazards)
-  filtered_hazard_names <- names(hazards)
+  filtered_hazard_keys <- names(hazards)
   filtered_inventory <- hazards_inventory |>
-    dplyr::filter(.data$hazard_name %in% filtered_hazard_names)
+    dplyr::filter(.data$indicator_key %in% filtered_hazard_keys)
 
   # Extract hazard statistics: spatial extraction for assets with coordinates,
   # precomputed lookup for assets with municipality/state only
-
   assets_long <- extract_hazard_statistics(
     assets_df = assets,
     hazards = hazards,
     hazards_inventory = filtered_inventory,
     precomputed_hazards = precomputed_hazards,
-    aggregation_method = aggregation_method,
-    damage_factors_df = damage_factors
+    hazard_configs = hazard_configs,
+    aggregation_method = aggregation_method
   )
 
   # Step 2.3: Join event information (event_year, scenario_name) from events
   # For multi-indicator hazards (Fire), create a mapping from all indicator hazard_names to the event
   # For single-indicator hazards, use hazard_name directly
-  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, aggregation_method)
+  events_expanded_for_join <- create_event_hazard_mapping(events, hazards_inventory, hazard_configs)
+  
+    # Join with explicit suffixes to handle overlapping columns between extraction and events
+    # We prioritize event-level metadata (like scenario_name, return_period) over
+    # metadata extracted from raster filenames.
+    assets_with_events <- assets_long |>
+      dplyr::inner_join(
+        events_expanded_for_join,
+        by = "indicator_key",
+        suffix = c(".extracted", ".event"),
+        relationship = "many-to-many"
+      )
+    
+    # Identify all columns that came from the event table (they have .event suffix or no suffix if unique)
+    event_cols <- names(events_expanded_for_join)
+    # Preserve per-indicator metadata from extraction
+    event_cols <- setdiff(event_cols, c("indicator_key", "hazard_indicator", "hazard_type", "matching_method"))
+    
+    # CRITICAL: Filter out columns that don't exist in assets_with_events
+    # This can happen if events_expanded_for_join has columns not present in assets_long
+    event_cols <- intersect(event_cols, names(assets_with_events))
+    
+    for (col in event_cols) {
+      event_col_name <- if (paste0(col, ".event") %in% names(assets_with_events)) paste0(col, ".event") else col
+      extracted_col_name <- paste0(col, ".extracted")
+      
+      # If we have an event-specific version of this column, use it to overwrite/create the main column
+      if (event_col_name %in% names(assets_with_events)) {
+        # CRITICAL FIX: Use simple assignment instead of mutate to avoid many-to-many issues
+        # with character columns that might contain commas or other special characters
+        assets_with_events[[col]] <- assets_with_events[[event_col_name]]
+        
+        # Clean up the suffixed columns
+        if (event_col_name != col) {
+          assets_with_events[[event_col_name]] <- NULL
+        }
+        if (extracted_col_name %in% names(assets_with_events)) {
+          assets_with_events[[extracted_col_name]] <- NULL
+        }
+      }
+    }
 
-  assets_with_events <- assets_long |>
-    dplyr::inner_join(
-      events_expanded_for_join |> dplyr::select("hazard_name", "event_id", "event_year"),
-      by = "hazard_name", relationship = "many-to-many"
+    # Ensure matching_method is preserved from extraction
+    if (paste0("matching_method", ".extracted") %in% names(assets_with_events)) {
+      assets_with_events$matching_method <- assets_with_events[["matching_method.extracted"]]
+      assets_with_events[["matching_method.extracted"]] <- NULL
+    }
+    if (paste0("matching_method", ".event") %in% names(assets_with_events)) {
+      assets_with_events[["matching_method.event"]] <- NULL
+    }
+
+    # Ensure hazard_type is preserved (required downstream)
+    if (paste0("hazard_type", ".extracted") %in% names(assets_with_events)) {
+      assets_with_events$hazard_type <- assets_with_events[["hazard_type.extracted"]]
+      assets_with_events[["hazard_type.extracted"]] <- NULL
+    }
+    if (paste0("hazard_type", ".event") %in% names(assets_with_events)) {
+      if (!"hazard_type" %in% names(assets_with_events)) {
+        assets_with_events$hazard_type <- assets_with_events[["hazard_type.event"]]
+      }
+      assets_with_events[["hazard_type.event"]] <- NULL
+    }
+
+    # Ensure hazard_name is preserved (needed for display in results)
+    if (paste0("hazard_name", ".event") %in% names(assets_with_events)) {
+      assets_with_events$hazard_name <- assets_with_events[["hazard_name.event"]]
+      assets_with_events[["hazard_name.event"]] <- NULL
+    }
+    if (paste0("hazard_name", ".extracted") %in% names(assets_with_events)) {
+      if (!"hazard_name" %in% names(assets_with_events)) {
+        assets_with_events$hazard_name <- assets_with_events[["hazard_name.extracted"]]
+      }
+      assets_with_events[["hazard_name.extracted"]] <- NULL
+    }
+
+    # Remove the source column entirely as requested - we only care about matching_method
+    # We do this for all possible variants of the source column
+    source_cols <- grep("^source(\\..+)?$", names(assets_with_events), value = TRUE)
+    if (length(source_cols) > 0) {
+      for (scol in source_cols) {
+        assets_with_events[[scol]] <- NULL
+      }
+    }
+
+    # Preserve per-indicator metadata from extraction when suffixes exist
+    # This must be OUTSIDE the loop to ensure it runs even if event_cols is empty
+    if (paste0("hazard_indicator", ".extracted") %in% names(assets_with_events)) {
+      assets_with_events$hazard_indicator <- assets_with_events[["hazard_indicator.extracted"]]
+      assets_with_events[["hazard_indicator.extracted"]] <- NULL
+    }
+    if (paste0("hazard_indicator", ".event") %in% names(assets_with_events)) {
+      assets_with_events[["hazard_indicator.event"]] <- NULL
+    }
+
+    # Backfill missing index columns (e.g., season) from inventory when absent
+    # This prevents mapping joins from failing when a required index is missing
+    index_backfill_cols <- intersect(
+      c("season", "scenario_name", "return_period", "gwl", "ensemble"),
+      names(hazards_inventory)
+    )
+    if (length(index_backfill_cols) > 0) {
+      inventory_backfill <- hazards_inventory |>
+        dplyr::select("indicator_key", dplyr::any_of(index_backfill_cols)) |>
+        dplyr::distinct(.data$indicator_key, .keep_all = TRUE)
+
+      assets_with_events <- assets_with_events |>
+        dplyr::left_join(inventory_backfill, by = "indicator_key", suffix = c("", ".inv"))
+
+      for (col in index_backfill_cols) {
+        inv_col <- paste0(col, ".inv")
+        if (inv_col %in% names(assets_with_events)) {
+          if (col %in% names(assets_with_events)) {
+            assets_with_events[[col]] <- dplyr::coalesce(assets_with_events[[col]], assets_with_events[[inv_col]])
+          } else {
+            assets_with_events[[col]] <- assets_with_events[[inv_col]]
+          }
+          assets_with_events[[inv_col]] <- NULL
+        }
+      }
+    }
+
+  # Step 2.4: Apply spatial separation (per event) before mapping/shock joins
+  spatial_eval <- evaluate_spatial_separation(
+    assets_with_events = assets_with_events,
+    events = events,
+    hazard_configs = hazard_configs,
+    spatial_separation_data = spatial_separation_data,
+    base_dir = base_dir,
+    adm1_boundaries = adm1_boundaries,
+    adm2_boundaries = adm2_boundaries
+  )
+
+  assets_with_events <- assets_with_events |>
+    dplyr::left_join(spatial_eval, by = c("asset", "event_id")) |>
+    dplyr::mutate(
+      spatial_included = dplyr::coalesce(.data$spatial_included, TRUE),
+      spatial_multiplier = dplyr::coalesce(as.numeric(.data$spatial_multiplier), 1)
     )
 
-  # Step 2.4: Join damage cost factors (needs scenario_name for Heat hazards, land_cover_legend for Fire)
-  assets_factors <- join_damage_cost_factors(assets_with_events, damage_factors, cnae_exposure, land_cover_legend)
+  included_events <- assets_with_events |>
+    dplyr::filter(.data$spatial_included)
+
+  excluded_events <- assets_with_events |>
+    dplyr::filter(!.data$spatial_included)
+
+  excluded_rows <- build_spatial_exclusion_rows(excluded_events)
+
+  # Step 2.5: Join mapping tables for hazard-specific factors (included rows only)
+  assets_factors_included <- if (nrow(included_events) > 0) {
+    join_damage_cost_factors(included_events, hazard_configs, hazards_dir)
+  } else {
+    tibble::tibble()
+  }
+
+  # Rows used for shocks are the included rows only.
+  assets_factors_for_shocks <- assets_factors_included
+
+  # Assets factors output includes both included rows (with factors) and excluded rows (with status).
+  # Avoid binding with empty tables to prevent class-coercion issues on complex columns.
+  assets_factors <- if (nrow(assets_factors_included) == 0 && nrow(excluded_rows) == 0) {
+    tibble::tibble()
+  } else if (nrow(excluded_rows) == 0) {
+    assets_factors_included
+  } else if (nrow(assets_factors_included) == 0) {
+    excluded_rows
+  } else {
+    dplyr::bind_rows(assets_factors_included, excluded_rows)
+  }
+
+  # Standardize output columns: keep hazard_return_period and remove long-format metadata
+  if ("return_period" %in% names(assets_factors)) {
+    if ("hazard_return_period" %in% names(assets_factors)) {
+      assets_factors$hazard_return_period <- dplyr::coalesce(
+        assets_factors$hazard_return_period,
+        assets_factors$return_period
+      )
+    } else {
+      assets_factors$hazard_return_period <- assets_factors$return_period
+    }
+    assets_factors$return_period <- NULL
+  }
+
+  # Drop long-format only columns and any suffixed columns
+  drop_cols <- c("hazard_indicator", "hazard_intensity", "source", "indicator_key", "hazard_key")
+  drop_cols <- intersect(drop_cols, names(assets_factors))
+  if (length(drop_cols) > 0) {
+    assets_factors <- assets_factors |>
+      dplyr::select(-dplyr::all_of(drop_cols))
+  }
+
+  suffix_cols <- grep("\\.(extracted|event|inv)$", names(assets_factors), value = TRUE)
+  if (length(suffix_cols) > 0) {
+    assets_factors <- assets_factors |>
+      dplyr::select(-dplyr::all_of(suffix_cols))
+  }
 
 
   # ============================================================================
@@ -259,8 +496,9 @@ compute_risk <- function(assets,
   # This now returns both baseline and shock scenarios in one dataframe
   yearly_shock <- compute_shock_trajectories(
     yearly_baseline_profits = yearly_baseline,
-    assets_with_factors = assets_factors,
+    assets_with_factors = assets_factors_for_shocks,
     events = events,
+    hazard_configs = hazard_configs,
     companies = companies
   )
 

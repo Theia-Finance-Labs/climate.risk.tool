@@ -1,548 +1,591 @@
-testthat::test_that("geolocated assets extract from TIF files", {
-  # Load all hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
+testthat::test_that("extract_spatial_statistics handles closest and small buffer extraction", {
+  testthat::skip_if_not_installed("terra")
+  testthat::skip_if_not_installed("sf")
 
-  # Define events with just 1 TIF hazard for focused testing (using formatted hazard name)
-  # Use RP=100 since precomputed data has this for Barcelos (not RP=10)
-  events <- tibble::tibble(
-    hazard_name = "Flood__depth(cm)__GWL=rcp85__RP=100",
-    event_year = 2030,
+  hazard_rast <- terra::rast(
+    nrows = 1,
+    ncols = 1,
+    xmin = 0,
+    xmax = 10,
+    ymin = 0,
+    ymax = 10,
+    crs = "EPSG:4326"
   )
+  hazard_rast <- terra::setValues(hazard_rast, 7)
 
-  # Filter to just the selected hazard (like the real pipeline does)
-  tif_hazards <- filter_hazards_by_events(hazard_data$hazards$tif, events)
-  tif_inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$source == "tif", .data$hazard_name %in% names(tif_hazards))
-
-  # Create 2 assets with coordinates (no municipality/province)
-  assets <- tibble::tibble(
-    asset = c("asset_tif_1", "asset_tif_2"),
-    company = c("company_a", "company_b"),
-    latitude = c(-3.0, -15.0),
-    longitude = c(-60.0, -47.9),
-    municipality = NA_character_,
-    state = NA_character_,
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
-  )
-
-  # Extract
-  out <- extract_hazard_statistics(
-    assets,
-    tif_hazards,
-    tif_inventory,
-    precomputed_hazards = tibble::tibble()
-  )
-
-
-  # Verify: all matching_method = "coordinates"
-  testthat::expect_true(all(out$matching_method == "coordinates"))
-
-  # Verify: hazard statistics are numeric and >= 0
-  testthat::expect_true(is.numeric(out$hazard_intensity))
-  testthat::expect_true(all(out$hazard_intensity >= 0))
-
-  # Should have results for both assets
-  testthat::expect_equal(length(unique(out$asset)), 2)
-})
-
-
-testthat::test_that("geolocated assets extract from NC files", {
-  # Load all hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-
-  # Define events with just 1 NC hazard for focused testing
-  # NC hazards expand to all ensemble variants automatically
-  # Use GWL=present which exists in test data, and include season for SPI3
-  events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median",
-    event_year = 2030,
-    season = "Summer"
-  )
-
-  # Filter to just the selected hazard (expands to all ensemble variants)
-  nc_hazards <- filter_hazards_by_events(hazard_data$hazards$nc, events)
-  nc_inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name %in% names(nc_hazards))
-
-  # Create 2 assets with coordinates
-  assets <- tibble::tibble(
-    asset = c("asset_nc_1", "asset_nc_2"),
-    company = c("company_a", "company_b"),
-    latitude = c(-3.0, -15.0),
-    longitude = c(-60.0, -47.9),
-    municipality = NA_character_,
-    state = NA_character_,
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
-  )
-
-  # Extract
-  out <- extract_hazard_statistics(
-    assets,
-    nc_hazards,
-    nc_inventory,
-    precomputed_hazards = tibble::tibble()
-  )
-
-  # Verify: all matching_method = "coordinates"
-  testthat::expect_true(all(out$matching_method == "coordinates"))
-
-  # Verify: hazard_intensity column exists and is numeric
-  testthat::expect_true("hazard_intensity" %in% names(out))
-  testthat::expect_true(is.numeric(out$hazard_intensity))
-
-  # Should have results for both assets
-  testthat::expect_equal(length(unique(out$asset)), 2)
-})
-
-
-testthat::test_that("mixed assets use priority: coordinates > municipality > state", {
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-
-  # Define events with just 2 hazards (1 TIF + 1 NC) for focused testing
-  # Use RP=100 for flood since that exists in precomputed data for Barcelos
-  events <- tibble::tibble(
-    hazard_name = c(
-      "Flood__depth(cm)__GWL=rcp85__RP=100", # TIF hazard (use RP=100 which exists in precomputed)
-      "Drought__SPI3__GWL=present__RP=10__season=Summer__ensemble=median" # NC hazard with season
-    ),
-    event_year = 2030,
-  )
-
-  # Filter hazards to match events (like the real pipeline)
-  all_hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
-  hazards <- filter_hazards_by_events(all_hazards, events)
-  inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name %in% names(hazards))
-
-  # Create 3 assets demonstrating priority cascade
-  assets <- tibble::tibble(
-    asset = c("asset_coords", "asset_municipality", "asset_state"),
-    company = rep("company_a", 3),
-    latitude = c(-3.0, NA_real_, NA_real_),
-    longitude = c(-60.0, NA_real_, NA_real_),
-    municipality = c("Barcelos", "Barcelos", NA_character_),
-    state = c("Amazonas", "Amazonas", "Amazonas"),
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
-  )
-
-  # Extract (pass precomputed for administrative lookup)
-  out <- extract_hazard_statistics(assets, hazards, inventory, precomputed)
-
-  # Verify all 3 assets got results
-  testthat::expect_equal(length(unique(out$asset)), 3)
-
-  # Verify each asset's matching_method
-  asset1_method <- unique(out$matching_method[out$asset == "asset_coords"])
-  asset2_method <- unique(out$matching_method[out$asset == "asset_municipality"])
-  asset3_method <- unique(out$matching_method[out$asset == "asset_state"])
-
-  testthat::expect_equal(asset1_method, "coordinates")
-  testthat::expect_equal(asset2_method, "municipality")
-  testthat::expect_equal(asset3_method, "state")
-
-  # Verify source field for precomputed data
-  asset2_source <- unique(out$source[out$asset == "asset_municipality"])
-  asset3_source <- unique(out$source[out$asset == "asset_state"])
-  testthat::expect_equal(asset2_source, "precomputed (municipality)")
-  testthat::expect_equal(asset3_source, "precomputed (state)")
-
-  # Verify all get valid hazard statistics
-  testthat::expect_true(all(is.numeric(out$hazard_intensity)))
-  testthat::expect_true(all(!is.na(out$hazard_intensity)))
-})
-
-
-testthat::test_that("extract_precomputed_statistics errors when a required hazard is missing", {
-  assets <- tibble::tibble(
-    asset = "asset_missing",
-    company = "company_a",
-    latitude = NA_real_,
-    longitude = NA_real_,
-    municipality = "TestMunicipality",
-    state = "TestProvince",
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 1,
-    cnae = NA_real_
-  )
-
+  hazards <- list("Flood__depth__GWL=present__RP=100__ensemble=mean" = hazard_rast)
   hazards_inventory <- tibble::tibble(
-    hazard_name = c(
-      "Flood__depth(cm)__GWL=pc__RP=10",
-      "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median"
-    ),
-    hazard_type = c("Flood", "Drought"),
-    hazard_indicator = c("depth(cm)", "SPI3"),
-    hazard_return_period = c(10, 5),
-    scenario_name = c("CurrentClimate", "present"),
-    source = c("tif", "nc")
-  )
-
-  precomputed_hazards <- tibble::tibble(
-    region = "TestMunicipality",
-    adm_level = "ADM2",
-    hazard_name = "Flood__depth(cm)__GWL=pc__RP=10",
+    hazard_name = "Flood__depth__GWL=present__RP=100__ensemble=mean",
+    hazard_key = "Flood__depth__GWL=present__RP=100__ensemble=mean",
     hazard_type = "Flood",
-    hazard_indicator = "depth(cm)",
-    hazard_return_period = 10,
-    scenario_name = "CurrentClimate",
-    aggregation_method = "mean",
-    hazard_value = 0.2
+    hazard_indicator = "depth",
+    variable = "depth",
+    return_period = 100,
+    scenario_name = "present",
+    season = NA_character_,
+    ensemble = "mean",
+    source = "tif",
+    agg = NA_character_,
+    categorical = FALSE,
+    indicator_key = "Flood__depth__GWL=present__RP=100__ensemble=mean"
   )
 
-  testthat::expect_error(
-    extract_precomputed_statistics(
-      assets_df = assets,
-      precomputed_hazards = precomputed_hazards,
+  assets_df <- tibble::tibble(
+    asset = "Asset A",
+    company = "Company A",
+    latitude = 0.1,
+    longitude = 0.1,
+    municipality = NA_character_,
+    state = NA_character_,
+    asset_category = "test",
+    asset_subtype = "test",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  closest_results <- extract_spatial_statistics(
+    assets_df = assets_df,
+    hazards = hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "closest"
+  )
+  testthat::expect_equal(closest_results$depth, 7)
+
+  mean_results <- extract_spatial_statistics(
+    assets_df = assets_df,
+    hazards = hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "mean"
+  )
+  testthat::expect_equal(mean_results$depth, 7)
+})
+
+testthat::test_that("compute_spatial_batch_settings uses larger polygon batches on small rasters", {
+  testthat::skip_if_not_installed("terra")
+
+  small_rast <- terra::rast(
+    nrows = 10,
+    ncols = 10,
+    xmin = 0,
+    xmax = 10,
+    ymin = 0,
+    ymax = 10,
+    crs = "EPSG:4326"
+  )
+
+  small_settings <- climate.risk.tool:::compute_spatial_batch_settings(
+    hazard_rast = small_rast,
+    extraction_mode = "polygon",
+    n_geoms = 200L
+  )
+  point_settings <- climate.risk.tool:::compute_spatial_batch_settings(
+    hazard_rast = small_rast,
+    extraction_mode = "closest",
+    n_geoms = 200L
+  )
+
+  testthat::expect_gt(small_settings$batch_size, 4L)
+  testthat::expect_lte(small_settings$batch_size, 200L)
+  testthat::expect_true(is.numeric(small_settings$max_cells))
+  testthat::expect_gt(point_settings$batch_size, small_settings$batch_size)
+  testthat::expect_true(is.na(point_settings$max_cells))
+})
+
+testthat::test_that("extract_spatial_statistics emits persistent batch progress logs", {
+  testthat::skip_if_not_installed("terra")
+  testthat::skip_if_not_installed("sf")
+
+  hazard_rast <- terra::rast(
+    nrows = 10,
+    ncols = 10,
+    xmin = 0,
+    xmax = 10,
+    ymin = 0,
+    ymax = 10,
+    crs = "EPSG:4326"
+  )
+  hazard_rast <- terra::setValues(hazard_rast, 7)
+
+  hazards <- list("Flood__depth__GWL=present__RP=100__ensemble=mean" = hazard_rast)
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Flood__depth__GWL=present__RP=100__ensemble=mean",
+    hazard_key = "Flood__depth__GWL=present__RP=100__ensemble=mean",
+    hazard_type = "Flood",
+    hazard_indicator = "depth",
+    variable = "depth",
+    return_period = 100,
+    scenario_name = "present",
+    season = NA_character_,
+    ensemble = "mean",
+    source = "tif",
+    agg = NA_character_,
+    categorical = FALSE,
+    indicator_key = "Flood__depth__GWL=present__RP=100__ensemble=mean"
+  )
+
+  assets_df <- tibble::tibble(
+    asset = paste("Asset", LETTERS[1:5]),
+    company = "Company A",
+    latitude = c(0.1, 0.2, 0.3, 0.4, 0.5),
+    longitude = c(0.1, 0.2, 0.3, 0.4, 0.5),
+    municipality = NA_character_,
+    state = NA_character_,
+    asset_category = "test",
+    asset_subtype = "test",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  msgs <- testthat::capture_messages(
+    results <- extract_spatial_statistics(
+      assets_df = assets_df,
+      hazards = hazards,
       hazards_inventory = hazards_inventory,
       aggregation_method = "mean"
-    ),
-    regexp = "Missing precomputed hazard data.*Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median"
+    )
   )
+
+  testthat::expect_equal(results$depth, rep(7, 5))
+  testthat::expect_true(any(grepl("Running 1 batch\\(es\\) of up to 5 asset\\(s\\) each", msgs)))
+  testthat::expect_true(any(grepl("Batch 1/1 complete", msgs)))
+  testthat::expect_true(any(grepl("cells 1", msgs)))
+  testthat::expect_true(any(grepl("Hazard complete \\| total elapsed", msgs)))
 })
 
-
-testthat::test_that("extract_hazard_statistics errors for missing precomputed hazard, scenario or region", {
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-
-  # --- CASE 1: missing hazard/scenario/return period in precomputed data ---
-  # Create asset with only province (forces precomputed lookup)
-  asset_missing_hazard <- tibble::tibble(
-    asset = "test_asset",
-    company = "company_a",
-    latitude = NA_real_,
-    longitude = NA_real_,
-    municipality = NA_character_,
-    state = "Amazonas",
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
+testthat::test_that("extract_spatial_statistics does not mask extraction failures with zero", {
+  testthat::skip_if_not_installed("terra")
+  testthat::skip_if_not_installed("sf")
+  
+  # Create a raster with actual values
+  hazard_rast <- terra::rast(
+    nrows = 10,
+    ncols = 10,
+    xmin = -60,
+    xmax = -40,
+    ymin = -30,
+    ymax = -10,
+    crs = "EPSG:4326"
   )
-
-  # Find a hazard combo in inventory NOT in precomputed for Amazonas
-  precomputed_combos <- precomputed |>
-    dplyr::filter(.data$region == "Amazonas", .data$adm_level == "ADM1") |>
-    dplyr::distinct(.data$hazard_type, .data$scenario_name, .data$hazard_return_period)
-
-  missing_hazard <- hazard_data$inventory |>
-    dplyr::anti_join(
-      precomputed_combos,
-      by = c("hazard_type", "scenario_name", "hazard_return_period")
-    ) |>
-    # Exclude Fire/land_cover which has special handling (synthetic default value)
-    dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
-
-  # Skip test if no missing hazards found (all hazards in inventory are in precomputed)
-  testthat::skip_if(
-    nrow(missing_hazard) == 0,
-    "No missing hazards found - all hazards in inventory are available in precomputed data (excluding Fire/land_cover which has special handling)"
+  # Set all values to 45.2 (a typical FWI value)
+  hazard_rast <- terra::setValues(hazard_rast, 45.2)
+  
+  # Key in hazards list must match indicator_key from inventory
+  indicator_key_val <- "fire_weather_index__fwi__return_period=100__gwl=3__ensemble=mean"
+  hazards <- list()
+  hazards[[indicator_key_val]] <- hazard_rast
+  
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Fire__fire_weather_index__return_period=100__gwl=3__ensemble=mean",
+    hazard_key = "Fire__fire_weather_index__return_period=100__gwl=3__ensemble=mean",
+    hazard_type = "Fire",
+    hazard_indicator = "fire_weather_index",
+    variable = "fwi",
+    return_period = 100,
+    scenario_name = NA_character_,
+    gwl = 3,
+    season = NA_character_,
+    ensemble = "mean",
+    source = "nc",
+    agg = "closest",
+    categorical = FALSE,
+    indicator_key = indicator_key_val
   )
   
-  # Create events with this missing hazard
-  events <- tibble::tibble(
-    hazard_name = missing_hazard$hazard_name[1],
-    event_year = 2030,
-  )
-
-  # Filter to just this hazard
-  all_hazards <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
-  hazards <- filter_hazards_by_events(all_hazards, events)
-  # Use full inventory so the function can check if required hazards are in precomputed
-  # The missing hazard should be in inventory but not in precomputed
-  inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name == missing_hazard$hazard_name[1])
-
-  # Should error with message about missing hazards
-  # Note: The function will error if a hazard in inventory is not found in precomputed data
-  testthat::expect_error(
-    extract_hazard_statistics(asset_missing_hazard, hazards, inventory, precomputed),
-    regexp = "Missing precomputed hazard data"
-  )
-
-  # --- CASE 2: missing municipality and province in precomputed data ---
-  asset_noregion <- tibble::tibble(
-    asset = "test_asset_noregion",
-    company = "company_a",
-    latitude = NA_real_,
-    longitude = NA_real_,
-    municipality = "NonExistentMunicipality12345",
-    state = "NonExistentProvince67890",
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
-  )
-  events2 <- tibble::tibble(
-    hazard_name = "Flood__depth(cm)__GWL=CurrentClimate__RP=10",
-    event_year = 2030,
-  )
-  all_hazards2 <- c(hazard_data$hazards$tif, hazard_data$hazards$nc)
-  hazards2 <- filter_hazards_by_events(all_hazards2, events2)
-  inventory2 <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name %in% names(hazards2))
-
-  expect_case2 <- testthat::expect_error(
-    extract_hazard_statistics(asset_noregion, hazards2, inventory2, precomputed),
-    regexp = "Cannot determine|not found|NonExistent"
-  )
-
-
-  # final assertions are via the expect_error checks above for both cases
-})
-
-
-testthat::test_that("CSV hazards use specified aggregation method", {
-  # Load hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-
-  # Define Heat HI events (CSV files available in test data)
-  # Include ensemble suffix for CSV hazards
-  events <- tibble::tibble(
-    hazard_name = c("Heat__HI__GWL=present__RP=10__ensemble=median", "Heat__HI__GWL=present__RP=5__ensemble=median"),
-    event_year = c(2030, 2030)
-  )
-
-  # Filter to CSV hazards
-  csv_hazards <- filter_hazards_by_events(hazard_data$hazards$csv, events)
-  csv_inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$source == "csv", .data$hazard_name %in% names(csv_hazards))
-
-  # Create assets with coordinates
-  assets <- tibble::tibble(
-    asset = c("asset_csv_1", "asset_csv_2"),
-    company = c("company_a", "company_b"),
-    latitude = c(-3.0, -15.0),
-    longitude = c(-60.0, -47.9),
+  # Asset within the raster bounds
+  assets_df <- tibble::tibble(
+    asset = "Asset A",
+    company = "Company A",
+    latitude = -20.0,
+    longitude = -50.0,
     municipality = NA_character_,
     state = NA_character_,
-    asset_category = "office",
-    asset_subtype = NA_character_,
-    size_in_m2 = 1000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
+    asset_category = "test",
+    asset_subtype = "test",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+  
+  results <- extract_spatial_statistics(
+    assets_df = assets_df,
+    hazards = hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "closest"
+  )
+  
+  # Should extract the actual value (45.2), NOT 0
+  testthat::expect_equal(results$fwi, 45.2, tolerance = 0.01)
+  testthat::expect_false(results$fwi == 0)
+  testthat::expect_true(results$fwi > 40)  # Verify it's a reasonable FWI value
+})
+
+testthat::test_that("extract_spatial_statistics with closest extracts actual NetCDF values not empty values", {
+  testthat::skip_if_not_installed("terra")
+  testthat::skip_if_not_installed("sf")
+
+  # Create a NetCDF-like raster with non-zero values
+  # Using a grid that covers Brazil-like coordinates
+  hazard_rast <- terra::rast(
+    nrows = 10,
+    ncols = 10,
+    xmin = -60,
+    xmax = -40,
+    ymin = -30,
+    ymax = -10,
+    crs = "EPSG:4326"
+  )
+  # Set values to something other than 0 or -1 (the "empty" values mentioned)
+  hazard_rast <- terra::setValues(hazard_rast, rep(5.5, 100))
+
+  hazards <- list("Heat__hi__GWL=present__RP=5__ensemble=mean" = hazard_rast)
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Heat__hi__GWL=present__RP=5__ensemble=mean",
+    hazard_key = "Heat__hi__GWL=present__RP=5__ensemble=mean",
+    indicator_key = "Heat__hi__GWL=present__RP=5__ensemble=mean",
+    hazard_type = "Heat",
+    hazard_indicator = "hi",
+    variable = "hi",
+    return_period = 5,
+    scenario_name = "present",
+    season = NA_character_,
+    ensemble = "mean",
+    source = "nc",
+    agg = "closest",
+    categorical = FALSE
   )
 
-  # Extract with mean aggregation
-  out <- extract_hazard_statistics(
-    assets,
-    csv_hazards,
-    csv_inventory,
-    precomputed_hazards = tibble::tibble(),
+  # Asset with coordinates in the middle of the raster
+  assets_df <- tibble::tibble(
+    asset = "Asset B",
+    company = "Company B",
+    latitude = -20,
+    longitude = -50,
+    municipality = NA_character_,
+    state = NA_character_,
+    asset_category = "test",
+    asset_subtype = "test",
+    size_in_m2 = 100,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  results <- extract_spatial_statistics(
+    assets_df = assets_df,
+    hazards = hazards,
+    hazards_inventory = hazards_inventory,
+    aggregation_method = "closest"
+  )
+  
+  # Should extract the actual value (5.5), not empty value (0 or -1)
+  testthat::expect_equal(results$hi, 5.5)
+  testthat::expect_true(results$hi > 0)
+  testthat::expect_false(results$hi == -1)
+})
+
+testthat::test_that("extract_hazard_statistics surfaces missing precomputed keys", {
+  hazards_inventory <- tibble::tibble(
+    hazard_name = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    hazard_key = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    indicator_key = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    hazard_type = "Heat",
+    hazard_indicator = "heat_index",
+    return_period = 5,
+    scenario_name = "present",
+    season = NA_character_,
+    ensemble = "mean",
+    source = "csv",
+    agg = NA_character_,
+    categorical = FALSE,
+    variable = "hi"
+  )
+
+  precomputed <- tibble::tibble(
+    region = "KnownCity",
+    adm_level = "ADM2",
+    hazard_type = "Heat",
+    hazard_indicator = "heat_index",
+    hazard_name = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    hazard_key = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    indicator_key = "Heat__hi__scenario_name=present__RP=5__ensemble=mean",
+    scenario_name = "present",
+    return_period = 5,
+    aggregation_method = "mean",
+    hazard_value = 1,
+    ensemble = "mean",
+    season = NA_character_,
+    variable = "hi"
+  )
+
+  assets_df <- tibble::tibble(
+    asset = c("A1", "A2"),
+    company = c("C1", "C2"),
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = c("MissingTown", NA_character_),
+    state = c("MissingState", "MissingState"),
+    asset_category = "test",
+    asset_subtype = "test",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  testthat::expect_error(
+    extract_hazard_statistics(
+      assets_df = assets_df,
+      hazards = list(),
+      hazards_inventory = hazards_inventory,
+      precomputed_hazards = precomputed,
+      aggregation_method = "mean"
+    ),
+    "Missing regions \\(ADM2\\): MissingTown"
+  )
+
+  testthat::expect_error(
+    extract_hazard_statistics(
+      assets_df = assets_df,
+      hazards = list(),
+      hazards_inventory = hazards_inventory,
+      precomputed_hazards = precomputed,
+      aggregation_method = "mean"
+    ),
+    "Missing regions \\(ADM1\\): MissingState"
+  )
+})
+
+testthat::test_that("extract_hazard_statistics applies inference for precomputed indicators", {
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
+
+  fwi_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "fire_weather_index") |>
+    dplyr::slice(1)
+
+  days_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "days_danger_total") |>
+    dplyr::slice(1)
+
+  # Only include precomputed indicators in inventory
+  hazards_inventory <- dplyr::bind_rows(fwi_row, days_row)
+  hazard_configs <- hazards_data$configs
+
+  precomputed <- tibble::tibble(
+    region = "TestState",
+    adm_level = "ADM1",
+    hazard_name = fwi_row$hazard_name,
+    hazard_key = fwi_row$hazard_key,
+    scenario_name = fwi_row$scenario_name,
+    return_period = fwi_row$return_period,
+    gwl = fwi_row$gwl,
+    indicator_key = fwi_row$indicator_key,
+    hazard_type = fwi_row$hazard_type,
+    hazard_indicator = fwi_row$hazard_indicator,
+    indicator_file = fwi_row$indicator_file,
+    indicator_variable = fwi_row$indicator_variable,
+    variable = fwi_row$variable,
+    ensemble = fwi_row$ensemble,
+    season = fwi_row$season,
+    mean = 12.3
+  )
+
+  precomputed <- dplyr::bind_rows(
+    precomputed,
+    tibble::tibble(
+      region = "TestState",
+      adm_level = "ADM1",
+      hazard_name = days_row$hazard_name,
+      hazard_key = days_row$hazard_key,
+      scenario_name = days_row$scenario_name,
+      return_period = days_row$return_period,
+      gwl = days_row$gwl,
+      indicator_key = days_row$indicator_key,
+      hazard_type = days_row$hazard_type,
+      hazard_indicator = days_row$hazard_indicator,
+      indicator_file = days_row$indicator_file,
+      indicator_variable = days_row$indicator_variable,
+      variable = days_row$variable,
+      ensemble = days_row$ensemble,
+      season = days_row$season,
+      mean = 2.2
+    )
+  )
+
+  assets_df <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = "TestState",
+    asset_category = "agriculture",
+    asset_subtype = "soybean",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
+  )
+
+  results <- extract_hazard_statistics(
+    assets_df = assets_df,
+    hazards = list(),
+    hazards_inventory = hazards_inventory,
+    precomputed_hazards = precomputed,
+    hazard_configs = hazard_configs,
     aggregation_method = "mean"
   )
 
-  # Verify: all matching_method = "coordinates"
-  testthat::expect_true(all(out$matching_method == "coordinates"))
+  fwi_row_result <- results |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "fire_weather_index")
 
-  # Verify: hazard statistics are numeric
-  testthat::expect_true(is.numeric(out$hazard_intensity))
-
-  # Should have results for both assets and both return periods
-  # (2 assets × 2 events = 4 rows)
-  testthat::expect_equal(nrow(out), 4)
-  testthat::expect_equal(length(unique(out$asset)), 2)
-
-  # Should have Heat HI indicator
-  indicators <- unique(out$hazard_indicator)
-  testthat::expect_true("HI" %in% indicators)
+  testthat::expect_equal(nrow(fwi_row_result), 1)
+  testthat::expect_equal(fwi_row_result$fwi[1], 12.3, tolerance = 0.0001)
 })
 
-
-testthat::test_that("agriculture portfolio with state but no municipality works", {
-  # Bug reproduction: Portfolio with state data but no municipality should work
-  # Error was: "Can't compute column `asset_subtype`"
-  
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-  damage_factors <- read_damage_cost_factors(base_dir)
-  
-  # Create agriculture assets with state but NO municipality
-  assets <- tibble::tibble(
-    asset = c("farm_1", "farm_2"),
-    company = c("agri_company_a", "agri_company_b"),
-    latitude = NA_real_,
-    longitude = NA_real_,
-    municipality = NA_character_,  # No municipality
-    state = c("Amazonas", "Mato Grosso"),  # Only state provided (using states from test data)
-    asset_category = "agriculture",
-    asset_subtype = c("Soybean", "Corn"),  # Valid crop types
-    size_in_m2 = 100000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
+testthat::test_that("extract_hazard_statistics raises error when non-precomputed indicators required but not available", {
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
   )
-  
-  # Create drought event (agriculture-specific)
-  events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
-    event_year = 2030
-  )
-  
-  # Load hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-  
-  # Filter hazards (Drought is in NC format, not CSV)
-  all_hazards <- c(hazard_data$hazards$nc)
-  hazards <- filter_hazards_by_events(all_hazards, events)
-  inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name %in% names(hazards))
-  
-  # This should NOT error - should use state-level precomputed data
-  out <- extract_hazard_statistics(
-    assets,
-    hazards,
-    inventory,
-    precomputed,
-    damage_factors_df = damage_factors
-  )
-  
-  # Verify results
-  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
-  # so we get 6 rows per asset = 12 rows total for 2 assets
-  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
-  testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
-  testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
-  testthat::expect_true(all(out$asset_category == "agriculture"))
-  testthat::expect_true(all(!is.na(out$asset_subtype)))  # asset_subtype should be preserved
-  testthat::expect_true(all(out$asset_subtype %in% c("Soybean", "Corn")))
-  testthat::expect_true(all(!is.na(out$state)))  # State should be preserved
-})
+  land_cover_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover") |>
+    dplyr::slice(1)
 
+  fwi_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "fire_weather_index") |>
+    dplyr::slice(1)
 
-testthat::test_that("agriculture portfolio without crop types defaults to Soybean", {
-  # Bug reproduction: Portfolio without crop types should default to Soybean
-  # According to methodology: when croptype cannot be matched, use Soybean by default
-  
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-  damage_factors <- read_damage_cost_factors(base_dir)
-  
-  # Create agriculture assets WITHOUT crop types (asset_subtype)
-  assets <- tibble::tibble(
-    asset = c("farm_unknown_1", "farm_unknown_2"),
-    company = c("agri_company_c", "agri_company_d"),
+  # Include non-precomputed indicator (land_cover) in inventory
+  hazards_inventory <- dplyr::bind_rows(fwi_row, land_cover_row)
+  hazard_configs <- hazards_data$configs
+
+  # Only provide precomputed data for fwi (not land_cover, which is marked precomputed: false)
+  precomputed <- tibble::tibble(
+    region = "TestState",
+    adm_level = "ADM1",
+    hazard_name = fwi_row$hazard_name,
+    hazard_key = fwi_row$hazard_key,
+    scenario_name = fwi_row$scenario_name,
+    return_period = fwi_row$return_period,
+    gwl = fwi_row$gwl,
+    indicator_key = fwi_row$indicator_key,
+    hazard_type = fwi_row$hazard_type,
+    hazard_indicator = fwi_row$hazard_indicator,
+    indicator_file = fwi_row$indicator_file,
+    indicator_variable = fwi_row$indicator_variable,
+    variable = fwi_row$variable,
+    ensemble = fwi_row$ensemble,
+    season = fwi_row$season,
+    mean = 12.3
+  )
+
+  assets_df <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
     latitude = NA_real_,
     longitude = NA_real_,
     municipality = NA_character_,
-    state = c("Amazonas", "Mato Grosso"),  # Using states from test data
+    state = "TestState",
     asset_category = "agriculture",
-    asset_subtype = NA_character_,  # Missing crop type - should default to Soybean
-    size_in_m2 = 100000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
+    asset_subtype = "soybean",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
   )
-  
-  # Create drought event (agriculture-specific)
-  events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
-    event_year = 2030
+
+  testthat::expect_error(
+    extract_hazard_statistics(
+      assets_df = assets_df,
+      hazards = list(),
+      hazards_inventory = hazards_inventory,
+      precomputed_hazards = precomputed,
+      hazard_configs = hazard_configs,
+      aggregation_method = "mean"
+    ),
+    "No hazards available for precomputed lookup"
   )
-  
-  # Load hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-  
-  # Filter hazards (Drought is in NC format, not CSV)
-  all_hazards <- c(hazard_data$hazards$nc)
-  hazards <- filter_hazards_by_events(all_hazards, events)
-  inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name %in% names(hazards))
-  
-  # This should NOT error - should use Soybean as default crop type
-  out <- extract_hazard_statistics(
-    assets,
-    hazards,
-    inventory,
-    precomputed,
-    damage_factors_df = damage_factors
-  )
-  
-  # Verify results
-  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
-  # so we get 6 rows per asset = 12 rows total for 2 assets
-  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
-  testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
-  testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
-  testthat::expect_true(all(out$asset_category == "agriculture"))
-  # asset_subtype should still be NA in output (we don't change the original data)
-  # but the logic should use "Other"/Soybean internally for damage factor matching
-  testthat::expect_true(all(is.na(out$asset_subtype)))
-  testthat::expect_true(all(!is.na(out$hazard_intensity)))  # Should have hazard data
 })
 
-
-testthat::test_that("agriculture portfolio with invalid crop types defaults to Soybean", {
-  # Bug reproduction: Portfolio with crop types that don't match our 4 crops should default to Soybean
+testthat::test_that("extract_hazard_statistics detects and reports duplicates", {
+  hazards_data <- load_hazards_and_inventory(
+    hazards_dir = get_hazards_dir(),
+    hazard_indicators_dir = get_hazard_indicators_dir(),
+    aggregate_factor = 16L
+  )
   
-  base_dir <- get_test_data_dir()
-  precomputed <- read_precomputed_hazards(base_dir)
-  damage_factors <- read_damage_cost_factors(base_dir)
+  fwi_row <- hazards_data$inventory |>
+    dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "fire_weather_index") |>
+    dplyr::slice(1)
   
-  # Create agriculture assets with INVALID crop types (not in our 4 supported crops)
-  assets <- tibble::tibble(
-    asset = c("farm_wheat", "farm_barley"),
-    company = c("agri_company_e", "agri_company_f"),
-    latitude = NA_real_,
-    longitude = NA_real_,
+  hazards_inventory <- fwi_row
+  hazard_configs <- hazards_data$configs
+  
+  precomputed <- tibble::tibble(
+    region = "TestState",
+    adm_level = "ADM1",
+    hazard_name = fwi_row$hazard_name,
+    hazard_key = fwi_row$hazard_key,
+    scenario_name = fwi_row$scenario_name,
+    return_period = fwi_row$return_period,
+    gwl = fwi_row$gwl,
+    indicator_key = fwi_row$indicator_key,
+    hazard_type = fwi_row$hazard_type,
+    hazard_indicator = fwi_row$hazard_indicator,
+    indicator_file = fwi_row$indicator_file,
+    indicator_variable = fwi_row$indicator_variable,
+    variable = fwi_row$variable,
+    ensemble = fwi_row$ensemble,
+    season = fwi_row$season,
+    mean = 12.3
+  )
+  
+  # Create asset with coordinates (will use spatial extraction)
+  assets_with_coords <- tibble::tibble(
+    asset = "A1",
+    company = "C1",
+    latitude = -23.5,
+    longitude = -46.6,
     municipality = NA_character_,
-    state = c("Amazonas", "Mato Grosso"),  # Using states from test data
+    state = "TestState",
     asset_category = "agriculture",
-    asset_subtype = c("Wheat", "Barley"),  # Invalid crop types - not in our damage factors
-    size_in_m2 = 100000,
-    share_of_economic_activity = 0.5,
-    cnae = NA_real_
+    asset_subtype = "soybean",
+    size_in_m2 = 10,
+    share_of_economic_activity = 1,
+    cnae = NA_character_
   )
   
-  # Create drought event (agriculture-specific)
-  events <- tibble::tibble(
-    hazard_name = "Drought__SPI3__GWL=present__RP=5__season=Summer__ensemble=median",
-    event_year = 2030
+  # Create mock hazard raster for spatial extraction
+  # This would normally come from load_hazards, but we'll create a simple one for testing
+  mock_raster <- terra::rast(nrows = 10, ncols = 10, xmin = -50, xmax = -40, ymin = -30, ymax = -20)
+  terra::values(mock_raster) <- 12.3
+  terra::crs(mock_raster) <- "EPSG:4326"
+  
+  hazards_list <- list()
+  hazards_list[[fwi_row$indicator_key]] <- mock_raster
+  
+  # Create duplicate scenario: same asset appears in both coordinate-based and precomputed results
+  # This simulates a bug where an asset is processed twice
+  assets_without_coords <- assets_with_coords |>
+    dplyr::mutate(latitude = NA_real_, longitude = NA_real_)
+  
+  # Combine both asset sets to create duplicate scenario
+  assets_duplicate <- dplyr::bind_rows(assets_with_coords, assets_without_coords)
+  
+  # This should detect duplicates and raise an error
+  testthat::expect_error(
+    extract_hazard_statistics(
+      assets_df = assets_duplicate,
+      hazards = hazards_list,
+      hazards_inventory = hazards_inventory,
+      precomputed_hazards = precomputed,
+      hazard_configs = hazard_configs,
+      aggregation_method = "mean"
+    ),
+    "duplicate asset/indicator_key combinations"
   )
-  
-  # Load hazards
-  hazard_data <- load_hazards_and_inventory(get_hazards_dir(), aggregate_factor = 16L)
-  
-  # Filter hazards (Drought is in NC format, not CSV)
-  all_hazards <- c(hazard_data$hazards$nc)
-  hazards <- filter_hazards_by_events(all_hazards, events)
-  inventory <- hazard_data$inventory |>
-    dplyr::filter(.data$hazard_name %in% names(hazards))
-  
-  # This should NOT error - should use Soybean as default for unrecognized crops
-  out <- extract_hazard_statistics(
-    assets,
-    hazards,
-    inventory,
-    precomputed,
-    damage_factors_df = damage_factors
-  )
-  
-  # Verify results
-  # Note: precomputed data has multiple aggregation methods (mean, median, p2.5, p5, p95, p97.5)
-  # so we get 6 rows per asset = 12 rows total for 2 assets
-  testthat::expect_equal(nrow(out), 12)  # 2 assets × 6 aggregation methods
-  testthat::expect_equal(length(unique(out$asset)), 2)  # 2 unique assets
-  testthat::expect_true(all(out$matching_method == "state"))  # Should match at state level
-  testthat::expect_true(all(out$asset_category == "agriculture"))
-  # asset_subtype should be preserved as-is in output
-  testthat::expect_true(all(out$asset_subtype %in% c("Wheat", "Barley")))
-  testthat::expect_true(all(!is.na(out$hazard_intensity)))  # Should have hazard data
 })
+

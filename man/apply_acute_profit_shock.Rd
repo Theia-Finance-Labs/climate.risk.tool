@@ -2,29 +2,33 @@
 % Please edit documentation in R/shock__apply_acute_profit_shock.R
 \name{apply_acute_profit_shock}
 \alias{apply_acute_profit_shock}
-\title{Apply Acute Shock to Yearly Profit (Placeholder)}
+\title{Apply Acute Shock to Yearly Profit}
 \usage{
-apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+apply_acute_profit_shock(
+  yearly_trajectories,
+  assets_factors,
+  acute_events,
+  hazard_configs
+)
 }
 \arguments{
 \item{yearly_trajectories}{tibble with columns: asset, company, year, revenue, profit}
 
-\item{assets_factors}{tibble with hazard data and cost factors (currently unused)}
+\item{assets_factors}{tibble with hazard data and mapping factors}
 
-\item{acute_events}{tibble with acute event information (currently unused)}
+\item{acute_events}{tibble with acute event information including event_id, hazard_type, event_year}
+
+\item{hazard_configs}{Named list from load_hazards_and_inventory()$configs}
 }
 \value{
 tibble with columns: asset, company, year, revenue, profit
 }
 \description{
-Placeholder function that passes through profit values unchanged.
-This is a temporary implementation that maintains the expected output structure
-while the actual shock calculation logic is being developed. Unlike revenue shocks,
-profit shocks may involve fixed costs or operational disruptions that aren't
-proportional to revenue impacts.
+Applies profit shocks from acute climate events based on hazard configuration
+equations. Profit shocks are computed per event and aggregated by asset-year.
 }
 \details{
-Apply Acute Shock to Yearly Profit Trajectories (Placeholder)
+Apply Acute Shock to Yearly Profit Trajectories
 }
 \examples{
 \dontrun{
@@ -35,8 +39,11 @@ yearly_trajectories <- data.frame(
   revenue = c(1000, 1200),
   profit = c(100, 120)
 )
-assets_factors <- data.frame(asset = "A1", hazard_type = "flood", cost_factor = 100)
-acute_events <- data.frame(event_id = "e1", hazard_type = "flood", event_year = 2030)
-result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events)
+assets_factors <- data.frame(asset = "A1", hazard_type = "Flood", cost_factor = 100)
+acute_events <- data.frame(event_id = "e1", hazard_type = "Flood", event_year = 2030)
+hazard_configs <- list(
+  Flood = list(shocks = list())
+)
+result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 }
 }

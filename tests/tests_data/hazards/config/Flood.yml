@@ -1,0 +1,32 @@
+indicators:
+  flood_depth:
+    file: flood_depth/
+    variable: flood_depth_cm
+    index: [scenario_name, return_period]
+    agg: median
+
+index_indicator: flood_depth
+spatial_separation_scheme: hydro_regions
+
+mappings:
+  damage_and_cost_factors:
+    file: damage_and_cost_factors.csv
+    variables: [damage_factor, cost_factor, business_disruption]
+    join:
+      on_indicator_intensity: [flood_depth_cm]
+      on_assets: [asset_category]
+
+shocks:
+  revenue:
+    equations:
+      - name: flood_non_agriculture
+        when: "asset_category != 'agriculture'"
+        equation: "revenue ~ revenue * (1 - business_disruption / 365)"
+      - name: flood_agriculture
+        when: "asset_category == 'agriculture'"
+        equation: "revenue ~ revenue * (1 - damage_factor) * (1 - business_disruption / 365)"
+  profit:
+    equations:
+      - name: flood_buildings
+        when: "asset_category %in% c('commercial building', 'industrial building')"
+        equation: "profit ~ profit - (damage_factor * cost_factor)"

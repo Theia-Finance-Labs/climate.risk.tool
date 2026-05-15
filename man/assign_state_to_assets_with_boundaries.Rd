@@ -7,7 +7,8 @@
 assign_state_to_assets_with_boundaries(
   assets_df,
   adm1_boundaries,
-  adm2_boundaries = NULL
+  adm2_boundaries = NULL,
+  adm_codes = NULL
 )
 }
 \arguments{
@@ -16,6 +17,8 @@ assign_state_to_assets_with_boundaries(
 \item{adm1_boundaries}{sf object with ADM1 (state) boundaries}
 
 \item{adm2_boundaries}{Optional sf object with ADM2 (municipality) boundaries for municipality-based lookup}
+
+\item{adm_codes}{Optional data frame with ADM codes (from load_adm_codes()). Required for code assignment.}
 }
 \value{
 Data frame with state assigned to all assets
@@ -31,6 +34,7 @@ Assign state to assets using already-loaded boundaries
 \examples{
 \dontrun{
 adm1 <- sf::st_read("path/to/ADM1.geojson")
-assets_with_states <- assign_state_to_assets_with_boundaries(assets, adm1)
+adm_codes <- load_adm_codes("path/to/base_dir")
+assets_with_states <- assign_state_to_assets_with_boundaries(assets, adm1, adm_codes = adm_codes)
 }
 }

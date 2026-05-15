@@ -2,30 +2,32 @@
 % Please edit documentation in R/utils__read_inputs.R
 \name{read_companies}
 \alias{read_companies}
-\title{Read company information from Excel file}
+\title{Read company information from Excel or CSV file}
 \usage{
 read_companies(file_path)
 }
 \arguments{
-\item{file_path}{Character string specifying either the path to the company Excel file directly,
-or a folder path containing company_information.xlsx}
+\item{file_path}{Character string specifying either the path to the company file directly,
+or a folder path containing company_information.xlsx or company_information.csv}
 }
 \value{
 tibble with company information
 }
 \description{
-Reads company information from an Excel file,
+Reads company information from an Excel (.xlsx) or CSV (.csv) file,
 converting column names to snake_case and parsing numeric columns correctly.
-Can accept either a direct file path or a folder path containing company_information.xlsx.
+Can accept either a direct file path or a folder path containing company_information.xlsx or company_information.csv.
+For CSV files, automatically detects separator (comma or semicolon).
+If both Excel and CSV files exist in the folder, an error is raised.
 }
 \details{
-Read company data from Excel file
+Read company data from Excel or CSV file
 }
 \examples{
 \dontrun{
 # Direct file path
 companies <- read_companies("path/to/company_information.xlsx")
-# Or folder path
+# Or folder path (will look for .xlsx or .csv)
 companies <- read_companies("path/to/folder")
 }
 }

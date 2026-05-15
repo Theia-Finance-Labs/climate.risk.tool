@@ -1,151 +1,157 @@
-#' Create event-to-hazard mapping for joining with extracted assets
+#' Create event-to-indicator mapping for joining with extracted assets
 #'
-#' @description Creates a mapping table from hazard_names (with extraction suffixes)
-#'   to event information (event_id, event_year, season). For multi-indicator
-#'   hazards (Fire), creates multiple rows per event (one per indicator). For
-#'   single-indicator hazards, creates one row per event.
+#' @description Creates a mapping table from indicator_key to event information
+#'   (event_id, event_year, scenario_name, return_period, season, hazard_name).
+#'   For multi-indicator hazards (Fire), creates multiple rows per event
+#'   (one per indicator). For single-indicator hazards, creates one row per event.
 #'
 #' @details
 #' This function is used internally in compute_risk() to create a join table
-#' between extracted assets (which have indicator-specific hazard_names) and
-#' user-defined events (which have one row per event, not per indicator).
-#'
-#' For single-indicator hazards (Flood, Heat, Drought):
-#'   - Appends extraction_method suffix to hazard_name
-#'   - Returns one row per event
-#'
-#' For multi-indicator hazards (Fire):
-#'   - Creates 3 rows per event (land_cover, FWI, days_danger_total)
-#'   - Each row gets the appropriate hazard_name with extraction_method suffix
-#'   - All 3 rows share the same event_id, event_year, season
+#' between extracted assets (which have indicator_key per raster) and
+#' user-defined events (one row per event, not per indicator).
 #'
 #' @param events Tibble. User-defined events (one row per event).
-#'   Expected columns: event_id, hazard_type, hazard_name, scenario_name,
-#'   hazard_return_period, event_year, season
+#'   Expected columns: event_id, hazard_type, scenario_name,
+#'   return_period, event_year, season
 #'
 #' @param hazards_inventory Tibble. Full inventory from load_hazards_and_inventory()
 #'   Expected columns: hazard_type, hazard_indicator, scenario_name,
-#'   hazard_return_period, hazard_name
+#'   return_period, indicator_key
 #'
-#' @param aggregation_method Character. Extraction method for assets (e.g., "mean")
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #'
-#' @return Tibble with columns: hazard_name (with extraction suffix), event_id,
-#'   event_year, season. May have multiple rows per event_id for multi-indicator hazards.
+#' @return Tibble with columns: indicator_key, event_id, event_year,
+#'   scenario_name, return_period, season, hazard_name.
+#'   May have multiple rows per event_id for multi-indicator hazards.
 #'
 #' @noRd
-create_event_hazard_mapping <- function(events, hazards_inventory, aggregation_method) {
+create_event_hazard_mapping <- function(events, hazards_inventory, hazard_configs) {
   if (is.null(events) || nrow(events) == 0) {
     return(tibble::tibble(
-      hazard_name = character(),
+      indicator_key = character(),
       event_id = character(),
       event_year = integer(),
-      season = character()
+      scenario_name = character(),
+      return_period = numeric(),
+      season = character(),
+      hazard_name = character()
     ))
   }
 
-  config <- get_hazard_type_config()
-  multi_indicator_types <- names(config)[sapply(names(config), is_multi_indicator_hazard)]
-
-  # For events that don't have hazard_name yet, look it up from inventory
-  # This handles programmatic usage where user only provides hazard_type, scenario, RP
-  if (!"hazard_name" %in% names(events)) {
-    events_with_hazard_name <- purrr::map_dfr(seq_len(nrow(events)), function(i) {
-      event_row <- events[i, ]
-
-      # Get primary indicator for this hazard type
-      primary_ind <- config[[event_row$hazard_type]]$primary_indicator
-
-      # Find matching hazard_name in inventory
-      matched <- hazards_inventory |>
-        dplyr::filter(
-          .data$hazard_type == event_row$hazard_type,
-          .data$hazard_indicator == primary_ind,
-          .data$scenario_name == event_row$scenario_name,
-          as.numeric(.data$hazard_return_period) == as.numeric(event_row$hazard_return_period)
-        )
-
-      event_row$hazard_name <- if (nrow(matched) > 0) {
-        matched$hazard_name[1]
-      } else {
-        NA_character_
-      }
-
-      event_row
-    })
-
-    events <- events_with_hazard_name
+  if (is.null(hazard_configs)) {
+    return(tibble::tibble(
+      indicator_key = character(),
+      event_id = character(),
+      event_year = integer(),
+      scenario_name = character(),
+      return_period = numeric(),
+      season = character(),
+      hazard_name = character()
+    ))
   }
+
+  multi_indicator_types <- names(hazard_configs)[
+    vapply(names(hazard_configs), function(htype) is_multi_indicator_hazard(hazard_configs, htype), logical(1))
+  ]
 
   # Process single-indicator events
   single_events <- events |>
-    dplyr::filter(!(.data$hazard_type %in% multi_indicator_types)) |>
-    dplyr::mutate(
-      hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method)
-    ) |>
-    dplyr::select("hazard_name", "event_id", "event_year")
+    dplyr::filter(!(.data$hazard_type %in% multi_indicator_types))
 
   # Process multi-indicator events (expand to all indicators)
   multi_events <- events |>
     dplyr::filter(.data$hazard_type %in% multi_indicator_types)
 
-  if (nrow(multi_events) == 0) {
-    return(single_events)
-  }
-
-  # Expand multi-indicator events
-  expanded_multi <- purrr::map_dfr(seq_len(nrow(multi_events)), function(i) {
-    event <- multi_events |> dplyr::slice(i)
-    required_indicators <- config[[event$hazard_type]]$indicators
-
-    # Create one row per required indicator
-    purrr::map_dfr(required_indicators, function(indicator) {
-      # Match from inventory to get correct hazard_name for this indicator
+  build_event_rows <- function(event_row, indicators) {
+    purrr::map_dfr(indicators, function(indicator) {
       matched <- hazards_inventory |>
         dplyr::filter(
-          .data$hazard_type == event$hazard_type,
+          tolower(.data$hazard_type) == tolower(event_row$hazard_type),
           .data$hazard_indicator == indicator
         )
-
       if (nrow(matched) == 0) {
         return(NULL)
       }
 
-      # Determine hazard_name based on indicator type
-      if (indicator == "land_cover") {
-        # Static indicator: use inventory's scenario/RP
-        base_hazard_name <- matched$hazard_name[1]
-        extraction_method <- "mode" # land_cover uses mode (categorical)
-      } else {
-        # Dynamic indicator: match user-selected scenario/RP
-        event_rp_numeric <- as.numeric(event$hazard_return_period)
-        exact_match <- matched |>
-          dplyr::mutate(rp_numeric = as.numeric(.data$hazard_return_period)) |>
-          dplyr::filter(
-            .data$scenario_name == event$scenario_name,
-            .data$rp_numeric == event_rp_numeric
-          )
-
-        base_hazard_name <- if (nrow(exact_match) > 0) {
-          exact_match$hazard_name[1]
-        } else {
-          matched$hazard_name[1]
+      index_cols <- hazard_configs[[event_row$hazard_type]]$indicators[[indicator]]$index
+      filtered <- matched
+      if (length(index_cols) > 0) {
+        for (idx_col in index_cols) {
+          if (!idx_col %in% names(event_row)) {
+            if (idx_col == "gwl" && "scenario_name" %in% names(event_row)) {
+              filtered <- filtered |>
+                dplyr::filter(.data$scenario_name == event_row$scenario_name)
+              next
+            }
+            if (idx_col == "scenario_name" && "gwl" %in% names(event_row)) {
+              filtered <- filtered |>
+                dplyr::filter(.data$scenario_name == event_row$gwl)
+              next
+            }
+            filtered <- filtered[0, ]
+            next
+          }
+          if (idx_col == "return_period") {
+            event_rp_numeric <- as.numeric(event_row$return_period)
+            filtered <- filtered |>
+              dplyr::mutate(rp_numeric = as.numeric(.data$return_period)) |>
+              dplyr::filter(.data$rp_numeric == event_rp_numeric)
+          } else {
+            filtered <- filtered |>
+              dplyr::filter(.data[[idx_col]] == event_row[[idx_col]])
+          }
         }
-        extraction_method <- aggregation_method
+      }
+      if (nrow(filtered) == 0) {
+        filtered <- matched
       }
 
-      # Append extraction_method suffix
-      hazard_name_with_suffix <- paste0(base_hazard_name, "__extraction_method=", extraction_method)
-
-      tibble::tibble(
-        hazard_name = hazard_name_with_suffix,
-        event_id = event$event_id,
-        event_year = event$event_year
-      )
+      # Start with all columns from event_row to ensure gwl and other indices are preserved
+      res_row <- event_row |>
+        dplyr::mutate(
+          indicator_key = filtered$indicator_key[1],
+          return_period = as.numeric(.data$return_period),
+          hazard_name = filtered$hazard_name[1],
+          season = if ("season" %in% names(event_row)) as.character(.data$season) else NA_character_
+        )
+      
+      # Ensure it's a tibble
+      tibble::as_tibble(res_row)
     })
+  }
+
+  single_rows <- purrr::map_dfr(seq_len(nrow(single_events)), function(i) {
+    event <- single_events |> dplyr::slice(i)
+    indicators <- get_required_indicators(hazard_configs, event$hazard_type)
+    build_event_rows(event, indicators)
   })
 
-  # Combine single and multi-indicator mappings
-  result <- dplyr::bind_rows(single_events, expanded_multi)
+  multi_rows <- purrr::map_dfr(seq_len(nrow(multi_events)), function(i) {
+    event <- multi_events |> dplyr::slice(i)
+    indicators <- get_required_indicators(hazard_configs, event$hazard_type)
+    rows <- build_event_rows(event, indicators)
+    
+    # For multi-indicator hazards, use the indexing indicator's hazard_name for ALL indicators
+    if (nrow(rows) > 0) {
+      index_indicator <- get_index_indicator(hazard_configs, event$hazard_type)
+      if (!is.null(index_indicator) && length(index_indicator) == 1 && !is.na(index_indicator)) {
+        # Find the hazard_name from the indexing indicator
+        # indicator_key format: "fire_weather_index__fwi__return_period=100__gwl=3__ensemble=mean"
+        # Match at the start of the string
+        index_row <- rows |> dplyr::filter(
+          grepl(paste0("^", index_indicator, "__"), .data$indicator_key, fixed = FALSE)
+        )
+        if (nrow(index_row) > 0) {
+          indexing_hazard_name <- index_row$hazard_name[1]
+          # Apply this hazard_name to all indicators in this event
+          rows <- rows |> dplyr::mutate(hazard_name = indexing_hazard_name)
+        }
+      }
+    }
+    
+    rows
+  })
 
+  result <- dplyr::bind_rows(single_rows, multi_rows)
   return(result)
 }

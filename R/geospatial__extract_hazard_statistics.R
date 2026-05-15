@@ -5,15 +5,15 @@
 #' @param hazards Named list of hazard rasters (from load_hazards) - used for spatial extraction
 #' @param hazards_inventory Data frame with hazard metadata (hazard_name, hazard_type, hazard_indicator, etc.)
 #' @param precomputed_hazards Data frame with precomputed hazard statistics (from read_precomputed_hazards)
+#' @param hazard_configs Named list of hazard configurations (from load_hazards_and_inventory()$configs)
 #' @param aggregation_method Character. Statistical aggregation method for hazard extraction (default: "mean").
-#'   For NC sources: selects which ensemble raster to extract. For TIF sources: determines which statistic
-#'   to compute from extracted pixel values. Options: "mean", "median", "max", "min", "p2_5", "p5", "p95", "p97_5"
-#' @param damage_factors_df Optional data frame with damage factors for drought growing season matching in precomputed extraction
+#'   Determines which statistic to compute from extracted pixel values for precomputed sources.
+#'   Options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest"
 #' @return Data frame in long format with columns: asset, company, latitude, longitude,
 #'   municipality, state, asset_category, asset_subtype, size_in_m2, share_of_economic_activity,
-#'   hazard_name, hazard_type, hazard_indicator, hazard_intensity, matching_method
+#'   hazard_name, hazard_type, hazard_indicator, indicator-specific columns, matching_method
 #' @noRd
-extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, aggregation_method = "mean", damage_factors_df = NULL) {
+extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, precomputed_hazards = NULL, hazard_configs = NULL, aggregation_method = "mean") {
   message("[extract_hazard_statistics] Processing ", nrow(assets_df), " assets...")
 
   # Separate assets into coordinate-based and administrative-based
@@ -33,23 +33,103 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   if (nrow(assets_with_coords) > 0) {
     message("[extract_hazard_statistics] Processing coordinate-based assets...")
 
+    # Filter inventory to only include indicators that are in hazards (spatial)
+    # This prevents warnings about unfound hazards in extract_spatial_statistics
+    filtered_hazard_keys <- names(hazards)
+    filtered_inventory <- hazards_inventory |>
+      dplyr::filter(.data$indicator_key %in% filtered_hazard_keys)
+
     # Unified extraction workflow handles both NC and TIF sources
     all_results[[length(all_results) + 1]] <- extract_spatial_statistics(
-      assets_with_coords, hazards, hazards_inventory, aggregation_method
+      assets_with_coords, hazards, filtered_inventory, aggregation_method
     )
   }
 
   # ========= Process assets WITHOUT coordinates (precomputed lookup) =========
   if (nrow(assets_without_coords) > 0) {
     message("[extract_hazard_statistics] Processing administrative-based assets...")
+    if (!is.null(hazard_configs) && length(hazard_configs) > 0) {
+      precomputed_flags <- purrr::map_dfr(names(hazard_configs), function(hazard_type) {
+        cfg <- hazard_configs[[hazard_type]]
+        purrr::map_dfr(names(cfg$indicators), function(ind_key) {
+          ind_cfg <- cfg$indicators[[ind_key]]
+          tibble::tibble(
+            hazard_type = hazard_type,
+            hazard_indicator = ind_key,
+            precomputed = if (is.null(ind_cfg$precomputed)) TRUE else isTRUE(ind_cfg$precomputed)
+          )
+        })
+      })
 
-    all_results[[length(all_results) + 1]] <- extract_precomputed_statistics(
+      non_precomputed_required <- hazards_inventory |>
+        dplyr::left_join(precomputed_flags, by = c("hazard_type", "hazard_indicator")) |>
+        dplyr::mutate(precomputed = dplyr::coalesce(.data$precomputed, TRUE)) |>
+        dplyr::filter(!.data$precomputed)
+
+      if (nrow(non_precomputed_required) > 0) {
+        available_hazard_keys <- names(hazards)
+        required_non_precomputed_keys <- unique(non_precomputed_required$indicator_key)
+        missing_non_precomputed_keys <- setdiff(required_non_precomputed_keys, available_hazard_keys)
+        if (length(missing_non_precomputed_keys) > 0) {
+          stop(
+            "No hazards available for precomputed lookup.\n",
+            "  Total hazards in inventory: ", nrow(hazards_inventory), "\n",
+            "  This usually means filter_hazards_by_events selected 0 hazards.\n",
+            "  Check your event configuration and ensure events match available hazards."
+          )
+        }
+      }
+    }
+
+    precomputed_results <- extract_precomputed_statistics(
       assets_without_coords,
       precomputed_hazards,
       hazards_inventory,
-      aggregation_method,
-      damage_factors_df = damage_factors_df
+      hazard_configs,
+      aggregation_method
     )
+
+    # Apply inference values from hazard configs if defined for assets without coordinates
+    if (nrow(precomputed_results) > 0 && !is.null(hazard_configs)) {
+      for (h_type in names(hazard_configs)) {
+        cfg <- hazard_configs[[h_type]]
+        for (ind_key in names(cfg$indicators)) {
+          ind_cfg <- cfg$indicators[[ind_key]]
+          if (!is.null(ind_cfg$inference) && length(ind_cfg$inference) > 0) {
+            # Check if this indicator column exists in results
+            if (ind_key %in% names(precomputed_results)) {
+              # Apply inference values based on asset_category or other criteria if needed
+              # For now, we support a simple 'default' or category-specific inference
+              for (inf_key in names(ind_cfg$inference)) {
+                inf_val <- ind_cfg$inference[[inf_key]]
+                if (inf_key == "default") {
+                  precomputed_results <- precomputed_results |>
+                    dplyr::mutate(
+                      !!ind_key := dplyr::if_else(
+                        .data$hazard_type == h_type & (is.na(.data[[ind_key]]) | .data[[ind_key]] == 0),
+                        as.numeric(inf_val),
+                        .data[[ind_key]]
+                      )
+                    )
+                } else {
+                  # Assume inf_key is an asset_category
+                  precomputed_results <- precomputed_results |>
+                    dplyr::mutate(
+                      !!ind_key := dplyr::if_else(
+                        .data$hazard_type == h_type & .data$asset_category == inf_key & (is.na(.data[[ind_key]]) | .data[[ind_key]] == 0),
+                        as.numeric(inf_val),
+                        .data[[ind_key]]
+                      )
+                    )
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    all_results[[length(all_results) + 1]] <- precomputed_results
   }
 
   # Combine all results
@@ -58,576 +138,89 @@ extract_hazard_statistics <- function(assets_df, hazards, hazards_inventory, pre
   }
 
   final_result <- dplyr::bind_rows(all_results)
+
+  # Temporary hardcoded formatting rule until config supports indicator-specific rounding.
+  # Force fire danger days to integer values for both intensity and indicator column.
+  final_result <- final_result |>
+    dplyr::mutate(
+      hazard_intensity = dplyr::if_else(
+        .data$hazard_indicator == "days_danger_total" & !is.na(.data$hazard_intensity),
+        as.numeric(round(.data$hazard_intensity)),
+        .data$hazard_intensity
+      )
+    )
+  if ("days_danger_total" %in% names(final_result)) {
+    final_result <- final_result |>
+      dplyr::mutate(
+        days_danger_total = dplyr::if_else(
+          .data$hazard_indicator == "days_danger_total" & !is.na(.data$days_danger_total),
+          as.numeric(round(.data$days_danger_total)),
+          .data$days_danger_total
+        )
+      )
+  }
+  
+  # Validate no duplicates exist by (asset, indicator_key)
+  # Duplicates indicate a design flaw - assets should only appear in one path
+  dups <- final_result |>
+    dplyr::count(.data$asset, .data$indicator_key) |>
+    dplyr::filter(.data$n > 1)
+  
+  if (nrow(dups) > 0) {
+    # Get details about which assets/indicators are duplicated
+    dup_details <- final_result |>
+      dplyr::inner_join(dups |> dplyr::select("asset", "indicator_key"), by = c("asset", "indicator_key")) |>
+      dplyr::select("asset", "indicator_key", "matching_method", "hazard_type", "hazard_indicator") |>
+      dplyr::distinct()
+    
+    # Determine which path created each duplicate
+    spatial_dups <- dup_details |>
+      dplyr::filter(is.na(.data$matching_method) | !.data$matching_method %in% c("municipality lookup", "state lookup"))
+    precomputed_dups <- dup_details |>
+      dplyr::filter(.data$matching_method %in% c("municipality lookup", "state lookup"))
+    
+    error_msg <- paste0(
+      "[extract_hazard_statistics] Detected ", nrow(dups), " duplicate asset/indicator_key combinations. ",
+      "This indicates a design flaw - assets should only be processed in one path.\n",
+      "  Total duplicate combinations: ", nrow(dups), "\n",
+      "  First duplicate: Asset=", dups$asset[1], ", Indicator=", dups$indicator_key[1], "\n"
+    )
+    
+    if (nrow(spatial_dups) > 0) {
+      error_msg <- paste0(
+        error_msg,
+        "  Duplicates from spatial extraction path: ", nrow(spatial_dups), " combinations\n"
+      )
+    }
+    
+    if (nrow(precomputed_dups) > 0) {
+      error_msg <- paste0(
+        error_msg,
+        "  Duplicates from precomputed lookup path: ", nrow(precomputed_dups), " combinations\n"
+      )
+    }
+    
+    # Show first few duplicate details
+    if (nrow(dup_details) > 0) {
+      error_msg <- paste0(
+        error_msg,
+        "\n  Sample duplicates:\n",
+        paste0(
+          "    Asset=", head(dup_details$asset, 5), 
+          ", Indicator=", head(dup_details$indicator_key, 5),
+          ", Method=", head(dup_details$matching_method, 5),
+          collapse = "\n"
+        )
+      )
+      if (nrow(dup_details) > 5) {
+        error_msg <- paste0(error_msg, "\n    ... and ", nrow(dup_details) - 5, " more")
+      }
+    }
+    
+    stop(error_msg)
+  }
+  
   message("[extract_hazard_statistics] Completed processing for ", nrow(assets_df), " assets")
 
   return(final_result)
-}
-
-#' Extract statistics from spatial hazards (unified for NC, TIF, and CSV sources)
-#' @noRd
-extract_spatial_statistics <- function(assets_df, hazards, hazards_inventory, aggregation_method = "mean") {
-  message("  [extract_spatial_statistics] Extracting hazard statistics...")
-  message("    Using aggregation method: ", aggregation_method)
-
-  # Separate CSV hazards from raster hazards (TIF/NC)
-  csv_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source == "csv")
-
-  raster_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source %in% c("tif", "nc"))
-
-  all_results <- list()
-
-  # ========= Process CSV hazards (closest-point assignment) =========
-  if (nrow(csv_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing CSV hazards with closest-point assignment...")
-
-    # Extract CSV hazards from the hazards list
-    csv_hazard_names <- csv_inventory$hazard_name
-    hazards_csv <- hazards[csv_hazard_names]
-    hazards_csv <- hazards_csv[!sapply(hazards_csv, is.null)]
-
-    if (length(hazards_csv) > 0) {
-      csv_results <- extract_csv_statistics(
-        assets_df,
-        hazards_csv,
-        csv_inventory,
-        aggregation_method
-      )
-      all_results[[length(all_results) + 1]] <- csv_results
-    }
-  }
-
-  # ========= Process raster hazards (TIF/NC with polygon extraction) =========
-  if (nrow(raster_inventory) > 0) {
-    message("  [extract_spatial_statistics] Processing raster hazards (TIF/NC) with polygon extraction...")
-
-    # Define aggregation function mapping (used for TIF sources)
-    aggregation_functions <- list(
-      "mean" = function(x) mean(x, na.rm = TRUE),
-      "median" = function(x) stats::median(x, na.rm = TRUE),
-      "max" = function(x) max(x, na.rm = TRUE),
-      "min" = function(x) min(x, na.rm = TRUE),
-      "p2_5" = function(x) as.numeric(stats::quantile(x, 0.025, na.rm = TRUE, type = 7)),
-      "p5" = function(x) as.numeric(stats::quantile(x, 0.05, na.rm = TRUE, type = 7)),
-      "p10" = function(x) as.numeric(stats::quantile(x, 0.10, na.rm = TRUE, type = 7)),
-      "p90" = function(x) as.numeric(stats::quantile(x, 0.90, na.rm = TRUE, type = 7)),
-      "p95" = function(x) as.numeric(stats::quantile(x, 0.95, na.rm = TRUE, type = 7)),
-      "p97_5" = function(x) as.numeric(stats::quantile(x, 0.975, na.rm = TRUE, type = 7)),
-      "mode" = function(x) {
-        # Get most common value (for categorical data like land cover)
-        x_clean <- x[!is.na(x)]
-        if (length(x_clean) == 0) {
-          return(NA_real_)
-        }
-        ux <- unique(x_clean)
-        ux[which.max(tabulate(match(x_clean, ux)))]
-      }
-    )
-    # Validate aggregation method for TIF sources
-    if (!aggregation_method %in% names(aggregation_functions)) {
-      stop(
-        "Invalid aggregation_method '", aggregation_method, "' for TIF extraction. ",
-        "Valid options: ", paste(names(aggregation_functions), collapse = ", ")
-      )
-    }
-
-    # Create geometries for assets (shared by both NC and TIF)
-    assets_sf <- create_asset_geometries(
-      assets_df,
-      default_buffer_size_m = 1111,
-      output_crs = 4326
-    )
-
-    # Convert to sf
-    if (!inherits(assets_sf$geometry, "sfc")) {
-      assets_sf <- sf::st_as_sf(assets_sf)
-    } else {
-      assets_sf <- sf::st_as_sf(assets_sf, sf_column_name = "geometry")
-    }
-
-    # Process raster inventory
-    combined_inventory <- raster_inventory |>
-      dplyr::mutate(base_event_id = .data$hazard_name)
-
-    n_hazards <- nrow(combined_inventory)
-    results_list <- vector("list", n_hazards)
-
-    for (i in seq_len(n_hazards)) {
-      hazard_meta <- combined_inventory |> dplyr::slice(i)
-
-      base_hazard_name <- hazard_meta$hazard_name
-      hazard_source <- hazard_meta$source
-      hazard_rast <- hazards[[base_hazard_name]]
-
-      # Get metadata
-      hazard_type <- hazard_meta$hazard_type
-      hazard_indicator <- hazard_meta$hazard_indicator
-      hazard_return_period <- hazard_meta$hazard_return_period
-      hazard_scenario_name <- hazard_meta$scenario_name
-
-      # Special handling for Fire land_cover: force mode aggregation (categorical data)
-      effective_aggregation_method <- aggregation_method
-      if (hazard_type == "Fire" && hazard_indicator == "land_cover") {
-        effective_aggregation_method <- "mode"
-        message("      Fire land_cover detected - forcing 'mode' aggregation for categorical data")
-      }
-
-      # Get the aggregation function based on effective method
-      agg_func <- aggregation_functions[[effective_aggregation_method]]
-
-      # Add extraction_method suffix for output
-      hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", effective_aggregation_method)
-
-      message("    Processing ", toupper(hazard_source), " hazard ", i, "/", n_hazards, ": ", base_hazard_name)
-
-      # Get raster CRS
-      r_crs <- terra::crs(hazard_rast)
-      if (is.na(r_crs) || r_crs == "") stop("Raster CRS is not set")
-
-      # Unified extraction method: polygon extraction with masking and aggregation for both NC and TIF
-      message("      Using polygon extraction (crop/mask) for ", toupper(hazard_source), " source")
-
-      n_geoms <- nrow(assets_sf)
-      stats_df <- tibble::tibble(
-        ID = seq_len(n_geoms),
-        hazard_intensity = NA_real_
-      )
-
-      # Process each geometry
-      for (j in seq_len(n_geoms)) {
-        if (j %% max(1, floor(n_geoms / 10)) == 0 || j == n_geoms) {
-          message("      Asset ", j, "/", n_geoms, " (", round(100 * j / n_geoms), "%)")
-        }
-
-        geom_j <- assets_sf |> dplyr::slice(j)
-        geom_j_transformed <- sf::st_transform(geom_j, r_crs)
-        geom_vect <- terra::vect(geom_j_transformed)
-
-        r_crop <- tryCatch(
-          suppressWarnings(terra::crop(hazard_rast, geom_vect)),
-          error = function(e) NULL
-        )
-
-        if (!is.null(r_crop) && terra::ncell(r_crop) > 0) {
-          r_mask <- tryCatch(
-            suppressWarnings(terra::mask(r_crop, geom_vect)),
-            error = function(e) NULL
-          )
-
-          if (!is.null(r_mask) && terra::ncell(r_mask) > 0) {
-            vals <- as.numeric(terra::values(r_mask, mat = FALSE, na.rm = TRUE))
-
-            if (length(vals) > 0) {
-              # Apply the chosen aggregation method
-              intensity_val <- agg_func(vals)
-
-              # For Fire land_cover (categorical codes), round to nearest integer
-              # Aggregated rasters may have fractional values, but land_cover codes are whole numbers
-              if (hazard_type == "Fire" && hazard_indicator == "land_cover" && !is.na(intensity_val)) {
-                intensity_val <- round(intensity_val)
-              }
-
-              # Update hazard_intensity
-              stats_df <- stats_df |>
-                dplyr::mutate(
-                  hazard_intensity = dplyr::if_else(.data$ID == j, intensity_val, .data$hazard_intensity)
-                )
-            }
-          }
-        }
-      }
-
-      # Combine statistics with asset data (same format for both NC and TIF)
-      df_i <- dplyr::bind_cols(
-        sf::st_drop_geometry(assets_sf),
-        stats_df |> dplyr::select(-"ID")
-      ) |>
-        dplyr::mutate(
-          # Use hazard_name with ensemble suffix added
-          hazard_name = hazard_name_with_ensemble,
-          hazard_type = hazard_type,
-          scenario_name = hazard_scenario_name,
-          hazard_indicator = hazard_indicator,
-          hazard_return_period = hazard_return_period,
-          source = hazard_source,
-          matching_method = "coordinates",
-          # Replace NAs with 0
-          hazard_intensity = dplyr::coalesce(.data$hazard_intensity, 0)
-        ) |>
-        dplyr::select(
-          "asset", "company", "latitude", "longitude",
-          "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-          "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-          "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
-        )
-
-      results_list[[i]] <- df_i
-    }
-
-    # Filter out NULL entries for raster results
-    results_list <- results_list[!sapply(results_list, is.null)]
-
-    if (length(results_list) > 0) {
-      raster_results <- dplyr::bind_rows(results_list)
-      all_results[[length(all_results) + 1]] <- raster_results
-    }
-  }
-
-  # Combine CSV and raster results
-  if (length(all_results) == 0) {
-    return(tibble::tibble())
-  }
-
-  return(dplyr::bind_rows(all_results))
-}
-
-#' Extract statistics from precomputed administrative data (municipality/state lookup)
-#' @param damage_factors_df Optional data frame with damage factors for drought growing season matching
-#' @noRd
-extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazards_inventory, aggregation_method = "mean", damage_factors_df = NULL) {
-  message("  [extract_precomputed_statistics] Looking up precomputed data for ", nrow(assets_df), " assets...")
-  message("    Using aggregation method: ", aggregation_method)
-
-  # Precomputed data should have correct hazard indicators already
-  message("    Using precomputed hazard indicators directly from data")
-
-  # Define scenario name normalization function (used throughout)
-  normalize_scenario_name <- function(sname) {
-    sname <- tolower(as.character(sname))
-    # Map common variations
-    sname <- gsub("rcp8.5", "rcp85", sname, fixed = TRUE)
-    sname <- gsub("rcp2.6", "rcp26", sname, fixed = TRUE)
-    sname <- gsub("rcp4.5", "rcp45", sname, fixed = TRUE)
-    sname <- gsub(" ", "", sname, fixed = TRUE)
-    return(sname)
-  }
-
-  required_hazards <- hazards_inventory
-
-
-  precomp_results_list <- list()
-
-  for (i in seq_len(nrow(assets_df))) {
-    asset_row <- assets_df |> dplyr::slice(i)
-    asset_name <- asset_row |> dplyr::pull(.data$asset)
-    municipality <- asset_row |> dplyr::pull(.data$municipality)
-    state <- asset_row |> dplyr::pull(.data$state)
-    asset_category <- asset_row |> dplyr::pull(.data$asset_category)
-    asset_subtype <- asset_row |> dplyr::pull(.data$asset_subtype)
-
-    # Try municipality first (ADM2), then state (ADM1)
-    # Note: Names are already normalized in read_assets() and read_precomputed_hazards()
-    matched_data <- NULL
-    match_level <- NULL
-    matched_region <- NULL
-
-    if (!is.na(municipality) && nzchar(as.character(municipality))) {
-      matched_data <- precomputed_hazards |>
-        dplyr::filter(
-          .data$region == municipality,
-          .data$adm_level == "ADM2"
-        )
-      match_level <- "municipality"
-      matched_region <- municipality
-    }
-
-    if (is.null(matched_data) || nrow(matched_data) == 0) {
-      if (!is.na(state) && nzchar(as.character(state))) {
-        matched_data <- precomputed_hazards |>
-          dplyr::filter(
-            .data$region == state,
-            .data$adm_level == "ADM1"
-          )
-        match_level <- "state"
-        matched_region <- state
-      }
-    }
-
-    if (is.null(matched_data) || nrow(matched_data) == 0) {
-      stop(
-        "Cannot determine hazard statistics for asset ", i, " (", asset_name, "). ",
-        "No match found in precomputed data for municipality='", municipality,
-        "' or state='", state, "'"
-      )
-    }
-
-    # FILTER: Only keep hazards that match the required hazards from inventory
-    # Match by hazard_name + season (for drought with season column)
-
-    # Separate fire/land_cover (handled specially - no precomputed lookup)
-    fire_land_cover <- required_hazards |>
-      dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover")
-
-    required_hazards_other <- required_hazards |>
-      dplyr::filter(!(.data$hazard_type == "Fire" & .data$hazard_indicator == "land_cover"))
-
-    # Get list of required hazard_names
-    required_hazard_names <- required_hazards_other |> dplyr::pull(.data$hazard_name)
-
-    # Filter by hazard_name first
-    hazard_matches <- matched_data |>
-      dplyr::filter(.data$hazard_name %in% required_hazard_names)
-
-    if (length(required_hazard_names) > 0) {
-      missing_hazards <- setdiff(required_hazard_names, unique(hazard_matches$hazard_name))
-
-      if (length(missing_hazards) > 0) {
-        stop(
-          "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
-          "Could not find hazards: ", paste(missing_hazards, collapse = ", "),
-          " when matching municipality='", municipality, "' or state='", state, "'."
-        )
-      }
-    }
-
-    # Use filtered hazard matches for further processing
-    matched_data <- hazard_matches
-
-    # Special handling for drought hazards with agriculture assets: check growing season matching
-    # This applies the same logic as the coordinate-based extraction
-    if (!is.null(damage_factors_df) &&
-      asset_category == "agriculture" &&
-      any(matched_data$hazard_type == "Drought", na.rm = TRUE)) {
-      # Get the crop type (default to "Other"/Soybean if missing)
-      asset_subtype_clean <- dplyr::if_else(
-        is.na(asset_subtype) | asset_subtype == "",
-        "Other",
-        as.character(asset_subtype)
-      )
-
-      # Get state for matching (use actual state, fallback to "Other" handled in join_drought_damage_factors)
-      state_clean <- dplyr::if_else(
-        is.na(state) | state == "",
-        "Other",
-        as.character(state)
-      )
-
-      # Get crop's growing seasons from damage factors
-      # When asset_subtype_clean is "Other", use Soybean's growing seasons (as "Other" defaults to Soybean)
-      crop_subtype_for_lookup <- if (asset_subtype_clean == "Other") "Soybean" else asset_subtype_clean
-
-      crop_growing_seasons <- damage_factors_df |>
-        dplyr::filter(
-          .data$hazard_type == "Drought",
-          .data$hazard_indicator == "SPI3",
-          .data$subtype == crop_subtype_for_lookup,
-          .data$state == state_clean | .data$state == "Other"
-        ) |>
-        dplyr::distinct(.data$season) |>
-        dplyr::pull(.data$season)
-
-      # If no specific state match, try "Other" state
-      if (length(crop_growing_seasons) == 0 && state_clean != "Other") {
-        crop_growing_seasons <- damage_factors_df |>
-          dplyr::filter(
-            .data$hazard_type == "Drought",
-            .data$hazard_indicator == "SPI3",
-            .data$subtype == crop_subtype_for_lookup,
-            .data$state == "Other"
-          ) |>
-          dplyr::distinct(.data$season) |>
-          dplyr::pull(.data$season)
-      }
-
-      # For drought hazards, we validate that we have the crop's growing seasons available
-      # The actual season matching and off-window logic is handled in join_drought_damage_factors
-      # This ensures consistency with the coordinate-based extraction path
-      # Note: We keep the requested season's data (from hazard_name), and join_drought_damage_factors
-      # will check if it matches the crop's growing season and apply off-window logic if needed
-
-      if (length(crop_growing_seasons) == 0) {
-        # No growing seasons found for this crop - this will be handled in join_drought_damage_factors
-        message(
-          "      Warning: No growing seasons found for crop '", asset_subtype_clean,
-          "' in state '", state_clean, "' for asset ", asset_name
-        )
-      } else {
-        # Log the growing seasons for debugging
-        message(
-          "      Crop '", asset_subtype_clean, "' growing seasons: ",
-          paste(crop_growing_seasons, collapse = ", ")
-        )
-      }
-    }
-
-    # Transform precomputed data to match expected output format
-    # Filter by the chosen aggregation method (ensemble)
-    asset_hazard_data <- matched_data |>
-      dplyr::filter(.data$aggregation_method == aggregation_method)
-
-    if (length(required_hazard_names) > 0) {
-      missing_agg_hazards <- setdiff(required_hazard_names, unique(asset_hazard_data$hazard_name))
-
-      if (length(missing_agg_hazards) > 0) {
-        stop(
-          "Missing precomputed hazard data for asset ", i, " (", asset_name, "). ",
-          "Aggregation method '", aggregation_method, "' not available for hazards: ",
-          paste(missing_agg_hazards, collapse = ", "),
-          ". Checked municipality='", municipality, "' and state='", state, "'."
-        )
-      }
-    }
-
-    asset_hazard_data <- asset_hazard_data |>
-      dplyr::mutate(
-        # Extract the value from the column matching the aggregation method
-        hazard_intensity = .data$hazard_value,
-        hazard_name = paste0(.data$hazard_name, "__extraction_method=", aggregation_method),
-        matching_method = match_level,
-        source = paste0("precomputed (", match_level, ")"), # Add source column indicating municipality or state
-        # Add asset information to each hazard row
-        asset = asset_row$asset,
-        company = asset_row$company,
-        latitude = asset_row$latitude,
-        longitude = asset_row$longitude,
-        municipality = asset_row$municipality,
-        state = asset_row$state,
-        asset_category = asset_row$asset_category,
-        asset_subtype = asset_row$asset_subtype,
-        size_in_m2 = asset_row$size_in_m2,
-        share_of_economic_activity = asset_row$share_of_economic_activity,
-        cnae = asset_row$cnae
-      ) |>
-      dplyr::select(
-        "asset", "company", "latitude", "longitude",
-        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
-      )
-
-    # Add fire/land_cover rows with default value 0.5 (not precomputed)
-    if (nrow(fire_land_cover) > 0) {
-      # Get the first matched row to extract metadata (for constructing hazard_name)
-      # We need to find the corresponding hazard_name from inventory for land_cover
-      land_cover_meta <- hazards_inventory |>
-        dplyr::filter(.data$hazard_type == "Fire", .data$hazard_indicator == "land_cover") |>
-        dplyr::slice(1)
-
-      if (nrow(land_cover_meta) > 0) {
-        # Create synthetic land_cover rows with default value 0.5
-        land_cover_rows <- tibble::tibble(
-          asset = asset_row$asset,
-          company = asset_row$company,
-          latitude = asset_row$latitude,
-          longitude = asset_row$longitude,
-          municipality = asset_row$municipality,
-          state = asset_row$state,
-          asset_category = asset_row$asset_category,
-          asset_subtype = asset_row$asset_subtype,
-          size_in_m2 = asset_row$size_in_m2,
-          share_of_economic_activity = asset_row$share_of_economic_activity,
-          cnae = asset_row$cnae,
-          hazard_name = paste0(land_cover_meta$hazard_name[1], "__extraction_method=mode"),
-          hazard_type = "Fire",
-          hazard_indicator = "land_cover",
-          hazard_return_period = land_cover_meta$hazard_return_period[1],
-          scenario_name = land_cover_meta$scenario_name[1],
-          source = if ("source" %in% names(land_cover_meta)) land_cover_meta$source[1] else "tif",
-          hazard_intensity = 0.5, # Default land_cover_risk value
-          matching_method = match_level
-        )
-
-        # Combine with other hazard data
-        asset_hazard_data <- dplyr::bind_rows(asset_hazard_data, land_cover_rows)
-        message("      Added fire/land_cover with default value 0.5 for asset ", asset_name)
-      }
-    }
-
-    precomp_results_list[[length(precomp_results_list) + 1]] <- asset_hazard_data
-  }
-
-  if (length(precomp_results_list) == 0) {
-    return(tibble::tibble())
-  }
-
-  return(do.call(rbind, precomp_results_list))
-}
-
-#' Extract statistics from CSV hazards using closest-point assignment
-#' @noRd
-extract_csv_statistics <- function(assets_df, hazards_csv, hazards_inventory, aggregation_method = "mean") {
-  message("  [extract_csv_statistics] Extracting hazard statistics from CSV point data...")
-  message("    Using closest-point assignment (aggregation_method parameter kept for consistency)")
-
-  # Filter inventory to only CSV sources
-  csv_inventory <- hazards_inventory |>
-    dplyr::filter(.data$source == "csv")
-
-  n_hazards <- nrow(csv_inventory)
-  results_list <- vector("list", n_hazards)
-
-  for (i in seq_len(n_hazards)) {
-    hazard_meta <- csv_inventory |> dplyr::slice(i)
-
-    base_hazard_name <- hazard_meta$hazard_name
-    hazard_csv_data <- hazards_csv[[base_hazard_name]]
-
-    if (is.null(hazard_csv_data)) {
-      warning("CSV hazard data not found for: ", base_hazard_name)
-      next
-    }
-
-    # Get metadata
-    hazard_type <- hazard_meta$hazard_type
-    hazard_indicator <- hazard_meta$hazard_indicator
-    hazard_return_period <- hazard_meta$hazard_return_period
-    hazard_scenario_name <- hazard_meta$scenario_name
-
-    # Add extraction_method suffix for output consistency
-    hazard_name_with_ensemble <- paste0(base_hazard_name, "__extraction_method=", aggregation_method)
-
-    message("    Processing CSV hazard ", i, "/", n_hazards, ": ", base_hazard_name)
-
-    n_assets <- nrow(assets_df)
-    asset_intensities <- numeric(n_assets)
-
-    # For each asset, find closest CSV point
-    for (j in seq_len(n_assets)) {
-      asset_lat <- assets_df$latitude[j]
-      asset_lon <- assets_df$longitude[j]
-
-      # Calculate Euclidean distance to all CSV points
-      distances <- sqrt(
-        (hazard_csv_data$lat - asset_lat)^2 +
-          (hazard_csv_data$lon - asset_lon)^2
-      )
-
-      # Find minimum distance
-      min_idx <- which.min(distances)
-
-      # Extract hazard intensity from closest point
-      asset_intensities[j] <- hazard_csv_data$hazard_intensity[min_idx]
-    }
-
-    # Combine with asset data
-    df_i <- assets_df |>
-      dplyr::mutate(
-        hazard_intensity = asset_intensities,
-        hazard_name = hazard_name_with_ensemble,
-        hazard_type = hazard_type,
-        scenario_name = hazard_scenario_name,
-        hazard_indicator = hazard_indicator,
-        hazard_return_period = hazard_return_period,
-        source = "csv",
-        matching_method = "coordinates"
-      ) |>
-      dplyr::select(
-        "asset", "company", "latitude", "longitude",
-        "municipality", "state", "asset_category", "asset_subtype", "size_in_m2",
-        "share_of_economic_activity", "cnae", "hazard_name", "hazard_type",
-        "hazard_indicator", "hazard_return_period", "scenario_name", "source", "hazard_intensity", "matching_method"
-      )
-
-    results_list[[i]] <- df_i
-  }
-
-  # Filter out NULL entries
-  results_list <- results_list[!sapply(results_list, is.null)]
-
-  if (length(results_list) == 0) {
-    return(tibble::tibble())
-  }
-
-  return(do.call(rbind, results_list))
 }

@@ -9,38 +9,127 @@ to_snake_case <- function(names) {
     tolower()
 }
 
-#' Read asset data from Excel file
+normalize_geo_name <- function(name) {
+  name_chr <- as.character(name)
+  name_chr <- trimws(name_chr)
+  name_chr[name_chr == "" | name_chr == "NA"] <- NA_character_
+  if (!any(!is.na(name_chr))) {
+    return(name_chr)
+  }
+  stringi::stri_trans_general(name_chr, "Latin-ASCII")
+}
+
+coerce_geo_code <- function(code, width = NULL) {
+  code_chr <- trimws(as.character(code))
+  code_chr[code_chr == "" | code_chr == "NA"] <- NA_character_
+  code_chr <- gsub("\\.0+$", "", code_chr)
+  is_digits <- !is.na(code_chr) & grepl("^\\d+$", code_chr)
+  if (!is.null(width)) {
+    code_chr <- ifelse(
+      is_digits,
+      sprintf(paste0("%0", width, "d"), as.integer(code_chr)),
+      NA_character_
+    )
+  }
+  code_chr
+}
+
+#' Detect CSV separator (comma or semicolon)
 #'
-#' @title Read asset information from Excel file
-#' @description Reads asset information from Excel file in the specified folder.
-#'   The folder must directly contain asset_information.xlsx.
+#' @title Detect CSV separator
+#' @description Detects whether a CSV file uses comma or semicolon as separator
+#'   by analyzing the first non-empty line of the file.
+#' @param file_path Path to CSV file
+#' @return Character string: "comma" or "semicolon" (defaults to "comma" if unclear)
+#' @noRd
+detect_csv_separator <- function(file_path) {
+  # Read first 100 lines
+  lines <- readLines(file_path, n = 100, warn = FALSE)
+  # Find first non-empty line
+  non_empty_lines <- lines[nzchar(trimws(lines))]
+  if (length(non_empty_lines) == 0) {
+    return("comma")  # default
+  }
+  first_line <- non_empty_lines[1]
+  
+  comma_count <- stringr::str_count(first_line, ",")
+  semicolon_count <- stringr::str_count(first_line, ";")
+  
+  if (semicolon_count > comma_count) {
+    return("semicolon")
+  } else {
+    return("comma")
+  }
+}
+
+#' Read asset data from Excel or CSV file
+#'
+#' @title Read asset information from Excel or CSV file
+#' @description Reads asset information from Excel (.xlsx) or CSV (.csv) file in the specified folder.
+#'   The folder must directly contain asset_information.xlsx or asset_information.csv (but not both).
+#'   For CSV files, automatically detects separator (comma or semicolon).
 #'   Converts column names to snake_case and parses numeric columns correctly.
-#' @param folder_path Character string specifying the folder containing asset_information.xlsx
-#' @return tibble with asset information
+#'   Municipality and state columns accept names. Use state_code and municipality_code
+#'   for IBGE codes; legacy numeric codes in state or municipality are still accepted.
+#' @param folder_path Character string specifying the folder containing asset_information.xlsx or asset_information.csv
+#' @return tibble with asset information (includes state_code and municipality_code when available)
 #' @examples
 #' \dontrun{
-#' # Folder path containing asset_information.xlsx
+#' # Folder path containing asset_information.xlsx or asset_information.csv
 #' assets <- read_assets("path/to/folder")
 #' }
 #' @export
 read_assets <- function(folder_path) {
   message("[read_assets] Reading asset data from: ", folder_path)
 
-  # File must be directly in the specified folder
-  assets_path <- file.path(folder_path, "asset_information.xlsx")
+  # Check for both Excel and CSV files
+  assets_xlsx <- file.path(folder_path, "asset_information.xlsx")
+  assets_csv <- file.path(folder_path, "asset_information.csv")
+  has_xlsx <- file.exists(assets_xlsx)
+  has_csv <- file.exists(assets_csv)
 
-  # Check if file exists
-  if (!file.exists(assets_path)) {
-    stop("Asset information file not found at: ", assets_path)
+  # Validate that only one format exists
+  if (has_xlsx && has_csv) {
+    stop("Both asset_information.xlsx and asset_information.csv found. Please use only one format.")
+  }
+  if (!has_xlsx && !has_csv) {
+    stop("Neither asset_information.xlsx nor asset_information.csv found in: ", folder_path)
   }
 
-  # Read assets data
-  assets_raw <- readxl::read_excel(assets_path) |>
-    tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case)
+  # Read assets data based on file format
+  if (has_xlsx) {
+    assets_raw <- readxl::read_excel(assets_xlsx) |>
+      tibble::as_tibble() |>
+      dplyr::rename_with(to_snake_case)
+  } else {
+    # CSV file - detect separator
+    separator <- detect_csv_separator(assets_csv)
+    if (separator == "semicolon") {
+      assets_raw <- readr::read_csv2(
+        assets_csv,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    } else {
+      assets_raw <- readr::read_csv(
+        assets_csv,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    }
+  }
 
   # Convert numeric columns for assets
-  numeric_asset_cols <- c("share_of_economic_activity", "latitude", "longitude", "size_in_m2", "size_in_hectare")
+  numeric_asset_cols <- c(
+    "share_of_economic_activity", "latitude", "longitude",
+    "size_in_m2", "size_in_hectare", "cost_factor"
+  )
 
   assets_raw <- assets_raw |>
     dplyr::mutate(
@@ -106,134 +195,265 @@ read_assets <- function(folder_path) {
       )
     )
 
+  if (!"state_code" %in% names(assets_raw)) {
+    assets_raw$state_code <- NA_character_
+  }
+  if (!"municipality_code" %in% names(assets_raw)) {
+    assets_raw$municipality_code <- NA_character_
+  }
+
+  # Load ADM codes file - required for code matching
+  # The file is in the base_dir/areas/ folder (one level up from input folder)
+  # e.g., if folder_path is tests/tests_data/user_input, look in tests/tests_data/areas/
+  base_dir <- dirname(folder_path)
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  
+  if (!file.exists(adm_codes_path)) {
+    stop("brazil_adm_codes.csv not found. Expected at: ", adm_codes_path)
+  }
+  
+  message("[read_assets] Loading brazil_adm_codes.csv and matching codes to names...")
+  adm_codes <- load_adm_codes_from_path(adm_codes_path)
+  assets_raw <- match_adm_codes_to_names(assets_raw, adm_codes)
+
   message("[read_assets] Loaded ", nrow(assets_raw), " assets")
   assets_raw
 }
 
-#' Assign state to assets using already-loaded boundaries
+#' Assign ADM regions to assets using already-loaded boundaries
 #'
-#' @title Assign states to assets using spatial matching with loaded boundaries
-#' @description For assets without state assigned, uses spatial matching with ADM1 boundaries
-#'   based on coordinates (if available) or municipality lookup (if no coordinates).
-#'   State names are ASCII-normalized for consistency.
+#' @title Assign ADM1/ADM2 regions to assets using spatial matching with loaded boundaries
+#' @description For geolocated assets (latitude/longitude), assigns municipality and state
+#'   through point-in-polygon matching against ADM2/ADM1 boundaries. Coordinates are the
+#'   source of truth: existing ADM fields are overwritten for geolocated rows. For non-geolocated
+#'   assets, state can still be inferred from municipality when possible.
 #' @param assets_df Data frame with asset information
 #' @param adm1_boundaries sf object with ADM1 (state) boundaries
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for municipality-based lookup
-#' @return Data frame with state assigned to all assets
+#' @param adm_codes Optional data frame with ADM codes (from load_adm_codes()). Required for code assignment.
+#' @return Data frame with ADM columns assigned where possible
 #' @examples
 #' \dontrun{
 #' adm1 <- sf::st_read("path/to/ADM1.geojson")
-#' assets_with_states <- assign_state_to_assets_with_boundaries(assets, adm1)
+#' adm_codes <- load_adm_codes("path/to/base_dir")
+#' assets_with_states <- assign_state_to_assets_with_boundaries(assets, adm1, adm_codes = adm_codes)
 #' }
 #' @export
-assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL) {
-  # Ensure state column is character (not logical if all NA)
-  if ("state" %in% names(assets_df)) {
-    assets_df$state <- as.character(assets_df$state)
+assign_state_to_assets_with_boundaries <- function(assets_df, adm1_boundaries, adm2_boundaries = NULL, adm_codes = NULL) {
+  result <- tibble::as_tibble(assets_df) |>
+    dplyr::mutate(.asset_row_id = dplyr::row_number())
+
+  required_cols <- c(
+    "state", "state_code", "state_name",
+    "municipality", "municipality_code", "municipality_name"
+  )
+  for (col in required_cols) {
+    if (!col %in% names(result)) {
+      result[[col]] <- NA_character_
+    } else {
+      result[[col]] <- as.character(result[[col]])
+    }
   }
 
-  # Normalize state names in boundaries
+  adm1_lookup <- NULL
+  adm2_lookup <- NULL
+  if (!is.null(adm_codes) && nrow(adm_codes) > 0) {
+    adm1_lookup <- adm_codes |>
+      dplyr::filter(.data$adm_level == "adm1") |>
+      dplyr::transmute(
+        shapeID = as.character(.data$shapeID),
+        state_code_lookup = as.character(.data$code),
+        state_name_lookup_raw = as.character(.data$name)
+      ) |>
+      dplyr::distinct()
+
+    adm2_lookup <- adm_codes |>
+      dplyr::filter(.data$adm_level == "adm2") |>
+      dplyr::transmute(
+        shapeID = as.character(.data$shapeID),
+        municipality_code_lookup = as.character(.data$code),
+        municipality_name_lookup_raw = as.character(.data$name)
+      ) |>
+      dplyr::distinct()
+  }
+
   states_sf <- adm1_boundaries |>
     dplyr::mutate(
-      state_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
+      shapeID = as.character(.data$shapeID),
+      state_name_raw = as.character(.data$shapeName),
+      state_name = normalize_geo_name(.data$state_name_raw)
+    )
+  if (!is.null(adm1_lookup)) {
+    states_sf <- states_sf |>
+      dplyr::left_join(adm1_lookup, by = "shapeID")
+  } else {
+    states_sf$state_code_lookup <- NA_character_
+    states_sf$state_name_lookup_raw <- NA_character_
+  }
+  states_sf <- states_sf |>
+    dplyr::mutate(
+      state_name_raw = dplyr::coalesce(.data$state_name_lookup_raw, .data$state_name_raw),
+      state_name = normalize_geo_name(.data$state_name_raw)
     )
 
-  # Identify assets without state
-  assets_without_state <- assets_df |>
-    dplyr::filter(is.na(.data$state))
-
-  assets_with_state_already <- assets_df |>
-    dplyr::filter(!is.na(.data$state))
-
-  if (nrow(assets_without_state) == 0) {
-    message("[assign_state_to_assets] All assets already have state assigned")
-    return(assets_df)
+  if (!sf::st_is_longlat(states_sf)) {
+    states_sf <- sf::st_transform(states_sf, 4326)
   }
 
-  message("[assign_state_to_assets] Assigning state to ", nrow(assets_without_state), " assets")
+  municipalities_sf <- NULL
+  if (!is.null(adm2_boundaries)) {
+    municipalities_sf <- adm2_boundaries |>
+      dplyr::mutate(
+        shapeID = as.character(.data$shapeID),
+        municipality_name_raw = as.character(.data$shapeName),
+        municipality_name = normalize_geo_name(.data$municipality_name_raw)
+      )
 
-  # Strategy 1: Assets with lat/lon - spatial join to state
-  assets_with_coords <- assets_without_state |>
-    dplyr::filter(!is.na(.data$latitude), !is.na(.data$longitude))
+    if (!is.null(adm2_lookup)) {
+      municipalities_sf <- municipalities_sf |>
+        dplyr::left_join(adm2_lookup, by = "shapeID")
+    } else {
+      municipalities_sf$municipality_code_lookup <- NA_character_
+      municipalities_sf$municipality_name_lookup_raw <- NA_character_
+    }
 
-  if (nrow(assets_with_coords) > 0) {
-    message("  Assigning state via coordinates for ", nrow(assets_with_coords), " assets")
+    municipalities_sf <- municipalities_sf |>
+      dplyr::mutate(
+        municipality_name_raw = dplyr::coalesce(.data$municipality_name_lookup_raw, .data$municipality_name_raw),
+        municipality_name = normalize_geo_name(.data$municipality_name_raw),
+        municipality_code_lookup = as.character(.data$municipality_code_lookup),
+        state_code_from_muni = dplyr::if_else(
+          !is.na(.data$municipality_code_lookup) & nzchar(.data$municipality_code_lookup),
+          substr(.data$municipality_code_lookup, 1, 2),
+          NA_character_
+        )
+      )
 
-    # Convert to sf object
-    assets_coords_sf <- sf::st_as_sf(
+    if (!is.null(adm1_lookup)) {
+      state_name_lookup_from_code <- adm1_lookup |>
+        dplyr::select("state_code_lookup", "state_name_lookup_raw") |>
+        dplyr::distinct()
+      municipalities_sf <- municipalities_sf |>
+        dplyr::left_join(
+          state_name_lookup_from_code,
+          by = c("state_code_from_muni" = "state_code_lookup")
+        ) |>
+        dplyr::rename(state_name_from_muni_raw = "state_name_lookup_raw")
+    } else {
+      municipalities_sf$state_name_from_muni_raw <- NA_character_
+    }
+
+    if (!sf::st_is_longlat(municipalities_sf)) {
+      municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
+    }
+  }
+
+  has_coords <- !is.na(result$latitude) & !is.na(result$longitude)
+  if (any(has_coords)) {
+    assets_with_coords <- result[has_coords, , drop = FALSE]
+    pts_sf <- sf::st_as_sf(
       assets_with_coords,
       coords = c("longitude", "latitude"),
       crs = 4326
     )
 
-    # Spatial join with states
-    assets_coords_joined <- sf::st_join(assets_coords_sf, states_sf, join = sf::st_within)
-
-    # Extract coordinates back and assign state
-    coords_matrix <- sf::st_coordinates(assets_coords_joined)
-    assets_with_coords <- assets_with_coords |>
-      dplyr::mutate(
-        state = assets_coords_joined$state_name
-      )
-  }
-
-  # Strategy 2: Assets with municipality but no coordinates - join via municipality
-  assets_with_municipality <- assets_without_state |>
-    dplyr::filter(is.na(.data$latitude) | is.na(.data$longitude)) |>
-    dplyr::filter(!is.na(.data$municipality))
-
-  if (nrow(assets_with_municipality) > 0 && !is.null(adm2_boundaries)) {
-    message("  Assigning state via municipality for ", nrow(assets_with_municipality), " assets")
-
-    # Normalize municipality names in boundaries
-    municipalities_sf <- adm2_boundaries |>
-      dplyr::mutate(
-        municipality_name = stringi::stri_trans_general(as.character(.data$shapeName), "Latin-ASCII")
-      )
-
-    # Ensure both layers share CRS
-    if (!sf::st_is_longlat(municipalities_sf)) {
-      municipalities_sf <- sf::st_transform(municipalities_sf, 4326)
-    }
-    if (!sf::st_is_longlat(states_sf)) {
-      states_sf <- sf::st_transform(states_sf, 4326)
+    first_hit <- function(lst) {
+      vapply(lst, function(x) if (length(x) == 0) NA_integer_ else x[[1]], integer(1))
     }
 
-    muni_points <- sf::st_point_on_surface(municipalities_sf)
-    muni_points_joined <- sf::st_join(muni_points, states_sf, join = sf::st_within)
+    muni_idx <- rep(NA_integer_, nrow(assets_with_coords))
+    if (!is.null(municipalities_sf) && nrow(municipalities_sf) > 0) {
+      muni_idx <- first_hit(sf::st_intersects(pts_sf, municipalities_sf, sparse = TRUE))
+    }
+    state_idx <- first_hit(sf::st_intersects(pts_sf, states_sf, sparse = TRUE))
 
-    municipality_lookup <- muni_points_joined |>
-      sf::st_drop_geometry() |>
-      dplyr::select("municipality_name", "state_name")
+    municipality_code_new <- if (!is.null(municipalities_sf)) municipalities_sf$municipality_code_lookup[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
+    municipality_name_raw_new <- if (!is.null(municipalities_sf)) municipalities_sf$municipality_name_raw[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
+    state_code_from_muni <- if (!is.null(municipalities_sf)) municipalities_sf$state_code_from_muni[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
+    state_name_from_muni_raw <- if (!is.null(municipalities_sf)) municipalities_sf$state_name_from_muni_raw[muni_idx] else rep(NA_character_, nrow(assets_with_coords))
 
-    assets_with_municipality <- assets_with_municipality |>
-      dplyr::left_join(
-        municipality_lookup,
-        by = c("municipality" = "municipality_name")
-      ) |>
-      dplyr::mutate(
-        state = dplyr::coalesce(.data$state_name, .data$state)
-      ) |>
-      dplyr::select(-dplyr::any_of(c("state_name", "adm1_name")))
+    state_code_from_state <- states_sf$state_code_lookup[state_idx]
+    state_name_from_state_raw <- states_sf$state_name_raw[state_idx]
+
+    state_code_new <- dplyr::coalesce(state_code_from_muni, state_code_from_state)
+    state_name_raw_new <- dplyr::coalesce(state_name_from_muni_raw, state_name_from_state_raw)
+
+    idx <- which(has_coords)
+    result$municipality_code[idx] <- as.character(municipality_code_new)
+    result$municipality_name[idx] <- as.character(municipality_name_raw_new)
+    result$municipality[idx] <- normalize_geo_name(municipality_name_raw_new)
+    result$state_code[idx] <- as.character(state_code_new)
+    result$state_name[idx] <- as.character(state_name_raw_new)
+    result$state[idx] <- normalize_geo_name(state_name_raw_new)
+
+    outside_all <- is.na(muni_idx) & is.na(state_idx)
+    if (any(outside_all)) {
+      unresolved_rows <- idx[outside_all]
+      unresolved_assets <- if ("asset" %in% names(result)) {
+        as.character(result$asset[unresolved_rows])
+      } else {
+        as.character(unresolved_rows)
+      }
+      warning(
+        paste0(
+          "[assign_state_to_assets] Could not map geolocated assets to ADM polygons: ",
+          paste(unresolved_assets, collapse = ", ")
+        ),
+        call. = FALSE
+      )
+    }
   }
 
-  # Combine all assets back together
-  result <- dplyr::bind_rows(
-    assets_with_state_already,
-    if (exists("assets_with_coords") && nrow(assets_with_coords) > 0) assets_with_coords else NULL,
-    if (exists("assets_with_municipality") && nrow(assets_with_municipality) > 0) assets_with_municipality else NULL,
-    # Assets that still don't have state (no coords, no municipality)
-    assets_without_state |>
-      dplyr::filter(
-        (is.na(.data$latitude) | is.na(.data$longitude)) &
-          is.na(.data$municipality)
-      )
-  )
+  non_geo_missing_state <- (!has_coords) & is.na(result$state)
+  if (any(non_geo_missing_state)) {
+    message("[assign_state_to_assets] Assigning state for non-geolocated assets via municipality lookup")
 
-  n_assigned <- sum(!is.na(result$state)) - sum(!is.na(assets_df$state))
-  message("[assign_state_to_assets] Assigned state to ", n_assigned, " additional assets")
+    if (!is.null(adm_codes) && "municipality" %in% names(result)) {
+      muni_to_state_lookup <- adm_codes |>
+        dplyr::filter(.data$adm_level == "adm2") |>
+        dplyr::transmute(
+          municipality_lookup = tolower(trimws(normalize_geo_name(.data$name))),
+          municipality_code_lookup = as.character(.data$code),
+          state_code_lookup = substr(as.character(.data$code), 1, 2)
+        ) |>
+        dplyr::left_join(
+          adm_codes |>
+            dplyr::filter(.data$adm_level == "adm1") |>
+            dplyr::transmute(
+              state_code_lookup = as.character(.data$code),
+              state_name_lookup_raw = as.character(.data$name)
+            ) |>
+            dplyr::distinct(),
+          by = "state_code_lookup"
+        ) |>
+        dplyr::distinct()
 
-  return(result)
+      non_geo_rows <- result |>
+        dplyr::filter(.data$.asset_row_id %in% result$.asset_row_id[non_geo_missing_state]) |>
+        dplyr::mutate(municipality_lookup = tolower(trimws(as.character(.data$municipality)))) |>
+        dplyr::left_join(muni_to_state_lookup, by = "municipality_lookup") |>
+        dplyr::mutate(
+          municipality_code = dplyr::coalesce(.data$municipality_code, .data$municipality_code_lookup),
+          state_code = dplyr::coalesce(.data$state_code, .data$state_code_lookup),
+          state_name = dplyr::coalesce(.data$state_name, .data$state_name_lookup_raw),
+          state = dplyr::coalesce(.data$state, normalize_geo_name(.data$state_name_lookup_raw))
+        ) |>
+        dplyr::select(-dplyr::any_of(c(
+          "municipality_lookup",
+          "municipality_code_lookup",
+          "state_code_lookup",
+          "state_name_lookup_raw"
+        )))
+
+      result <- result |>
+        dplyr::filter(!(.data$.asset_row_id %in% non_geo_rows$.asset_row_id)) |>
+        dplyr::bind_rows(non_geo_rows) |>
+        dplyr::arrange(.data$.asset_row_id)
+    }
+  }
+
+  result |>
+    dplyr::select(-".asset_row_id")
 }
 
 
@@ -257,6 +477,7 @@ assign_state_to_assets <- function(assets_df, base_dir) {
   # Load state boundaries
   state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
   municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
 
   if (!file.exists(state_path)) {
     message("[assign_state_to_assets] State boundaries not found, skipping state assignment")
@@ -270,34 +491,281 @@ assign_state_to_assets <- function(assets_df, base_dir) {
   } else {
     NULL
   }
+  
+  # Load ADM codes
+  adm_codes <- if (file.exists(adm_codes_path)) {
+    load_adm_codes_from_path(adm_codes_path)
+  } else {
+    NULL
+  }
+
+  adm1_boundaries <- repair_adm_boundary_names(adm1_boundaries, adm_codes, "adm1")
+  adm2_boundaries <- repair_adm_boundary_names(adm2_boundaries, adm_codes, "adm2")
 
   # Call the main function with loaded boundaries
-  assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries)
+  assign_state_to_assets_with_boundaries(assets_df, adm1_boundaries, adm2_boundaries, adm_codes)
 }
 
-#' Read company data from Excel file
+#' Load ADM codes from brazil_adm_codes.csv file
 #'
-#' @title Read company information from Excel file
-#' @description Reads company information from an Excel file,
+#' @title Load ADM codes mapping file
+#' @description Loads the brazil_adm_codes.csv file which maps ADM codes to names.
+#'   The file should have columns: adm_code, adm_name, adm_level (adm1 or adm2), shape_id
+#' @param base_dir Base directory containing areas/brazil_adm_codes.csv
+#' @return Data frame with columns: code, name, adm_level, shapeID (normalized from file columns)
+#' @examples
+#' \dontrun{
+#' adm_codes <- load_adm_codes("tests/tests_data")
+#' }
+#' @export
+load_adm_codes <- function(base_dir) {
+  adm_codes_path <- file.path(base_dir, "areas", "brazil_adm_codes.csv")
+  if (!file.exists(adm_codes_path)) {
+    stop("brazil_adm_codes.csv not found at: ", adm_codes_path)
+  }
+  load_adm_codes_from_path(adm_codes_path)
+}
+
+#' Load ADM codes from a specific file path
+#'
+#' @title Load ADM codes from file path
+#' @description Internal function to load ADM codes from a specific file path
+#' @param file_path Path to brazil_adm_codes.csv file
+#' @return Data frame with columns: code, name, adm_level, shapeID
+#' @noRd
+load_adm_codes_from_path <- function(file_path) {
+  readr::read_csv(
+    file_path,
+    col_types = readr::cols(
+      adm_code = "c",
+      adm_name = "c",
+      adm_level = "c",
+      shape_id = "c"
+    ),
+    show_col_types = FALSE,
+    locale = readr::locale(encoding = "UTF-8")
+  ) |>
+    dplyr::rename(
+      code = "adm_code",
+      name = "adm_name",
+      shapeID = "shape_id"
+    ) |>
+    tibble::as_tibble()
+}
+
+#' Repair ADM boundary names from canonical ADM codes
+#'
+#' @param boundaries_sf sf object containing shapeID and shapeName columns
+#' @param adm_codes Data frame from load_adm_codes()
+#' @param adm_level ADM level to use from adm_codes ("adm1" or "adm2")
+#' @return sf object with shapeName repaired when shapeID matches adm_codes
+#' @noRd
+repair_adm_boundary_names <- function(boundaries_sf, adm_codes, adm_level) {
+  if (is.null(boundaries_sf) || is.null(adm_codes)) {
+    return(boundaries_sf)
+  }
+  if (!all(c("shapeID", "shapeName") %in% names(boundaries_sf))) {
+    return(boundaries_sf)
+  }
+  if (!all(c("shapeID", "name", "adm_level") %in% names(adm_codes))) {
+    return(boundaries_sf)
+  }
+
+  adm_lookup <- adm_codes |>
+    dplyr::filter(.data$adm_level == !!adm_level) |>
+    dplyr::transmute(
+      shapeID = as.character(.data$shapeID),
+      shapeName_repaired = as.character(.data$name)
+    ) |>
+    dplyr::filter(!is.na(.data$shapeID), !is.na(.data$shapeName_repaired), nzchar(.data$shapeName_repaired)) |>
+    dplyr::distinct(.data$shapeID, .keep_all = TRUE)
+
+  if (nrow(adm_lookup) == 0) {
+    return(boundaries_sf)
+  }
+
+  repaired <- boundaries_sf |>
+    dplyr::mutate(
+      shapeID = as.character(.data$shapeID),
+      shapeName_before_repair = as.character(.data$shapeName)
+    ) |>
+    dplyr::left_join(adm_lookup, by = "shapeID")
+
+  changed <- !is.na(repaired$shapeName_repaired) &
+    repaired$shapeName_repaired != repaired$shapeName_before_repair
+
+  repaired <- repaired |>
+    dplyr::mutate(
+      shapeName = dplyr::coalesce(.data$shapeName_repaired, .data$shapeName_before_repair)
+    )
+
+  if (any(changed)) {
+    existing_original <- if ("shapeName_original" %in% names(repaired)) {
+      as.character(repaired$shapeName_original)
+    } else {
+      rep(NA_character_, nrow(repaired))
+    }
+    repaired <- repaired |>
+      dplyr::mutate(
+        shapeName_original = dplyr::if_else(
+          changed,
+          .data$shapeName_before_repair,
+          existing_original
+        )
+      )
+  }
+
+  repaired |>
+    dplyr::select(-"shapeName_repaired", -"shapeName_before_repair")
+}
+
+#' Match ADM codes to names in assets data frame
+#'
+#' @title Match ADM codes to names
+#' @description Matches ADM codes to their names. state_code and municipality_code
+#'   are the canonical input columns for IBGE codes. Legacy numeric codes in state
+#'   or municipality are also accepted and normalized into the canonical code columns.
+#' @param assets_df Data frame with asset information containing state and/or municipality columns
+#' @param adm_codes Data frame with ADM codes (from load_adm_codes())
+#' @return Data frame with state_code, state_name, municipality_code, municipality_name columns added
+#' @examples
+#' \dontrun{
+#' adm_codes <- load_adm_codes("tests/tests_data")
+#' assets <- match_adm_codes_to_names(assets, adm_codes)
+#' }
+#' @export
+match_adm_codes_to_names <- function(assets_df, adm_codes) {
+  clean_chr <- function(x) {
+    x <- trimws(as.character(x))
+    x[x == "" | x == "NA"] <- NA_character_
+    x
+  }
+
+  # Ensure code columns exist
+  if (!"state_code" %in% names(assets_df)) {
+    assets_df$state_code <- NA_character_
+  }
+  if (!"municipality_code" %in% names(assets_df)) {
+    assets_df$municipality_code <- NA_character_
+  }
+  if (!"state_name" %in% names(assets_df)) {
+    assets_df$state_name <- NA_character_
+  }
+  if (!"municipality_name" %in% names(assets_df)) {
+    assets_df$municipality_name <- NA_character_
+  }
+  
+  # Create lookup tables for adm1 and adm2
+  adm1_lookup <- adm_codes |>
+    dplyr::filter(.data$adm_level == "adm1") |>
+    dplyr::transmute(
+      code = as.character(.data$code),
+      name = as.character(.data$name),
+      name_normalized = normalize_geo_name(.data$name)
+    ) |>
+    dplyr::distinct()
+  
+  adm2_lookup <- adm_codes |>
+    dplyr::filter(.data$adm_level == "adm2") |>
+    dplyr::transmute(
+      code = as.character(.data$code),
+      name = as.character(.data$name),
+      name_normalized = normalize_geo_name(.data$name),
+      state_code = substr(as.character(.data$code), 1, 2)
+    ) |>
+    dplyr::left_join(
+      adm1_lookup |>
+        dplyr::select(state_code = "code", state_name = "name", state_name_normalized = "name_normalized"),
+      by = "state_code"
+    ) |>
+    dplyr::distinct()
+
+  state_code_input <- coerce_geo_code(assets_df$state_code, width = 2)
+  state_legacy_input <- clean_chr(assets_df$state)
+  state_code_from_legacy <- ifelse(state_legacy_input %in% adm1_lookup$code, state_legacy_input, NA_character_)
+  state_code_resolved <- dplyr::coalesce(state_code_input, state_code_from_legacy)
+  state_idx <- match(state_code_resolved, adm1_lookup$code)
+  state_matched <- !is.na(state_idx)
+
+  assets_df$state_code <- dplyr::coalesce(state_code_resolved, clean_chr(assets_df$state_code))
+  assets_df$state_name <- ifelse(state_matched, adm1_lookup$name[state_idx], clean_chr(assets_df$state_name))
+  assets_df$state <- ifelse(state_matched, adm1_lookup$name_normalized[state_idx], clean_chr(assets_df$state))
+
+  municipality_code_input <- coerce_geo_code(assets_df$municipality_code, width = 7)
+  municipality_legacy_input <- clean_chr(assets_df$municipality)
+  municipality_code_from_legacy <- ifelse(
+    municipality_legacy_input %in% adm2_lookup$code,
+    municipality_legacy_input,
+    NA_character_
+  )
+  municipality_code_resolved <- dplyr::coalesce(municipality_code_input, municipality_code_from_legacy)
+  municipality_idx <- match(municipality_code_resolved, adm2_lookup$code)
+  municipality_matched <- !is.na(municipality_idx)
+
+  assets_df$municipality_code <- dplyr::coalesce(municipality_code_resolved, clean_chr(assets_df$municipality_code))
+  assets_df$municipality_name <- ifelse(
+    municipality_matched,
+    adm2_lookup$name[municipality_idx],
+    clean_chr(assets_df$municipality_name)
+  )
+  assets_df$municipality <- ifelse(
+    municipality_matched,
+    adm2_lookup$name_normalized[municipality_idx],
+    clean_chr(assets_df$municipality)
+  )
+
+  state_missing <- is.na(clean_chr(assets_df$state_code)) &
+    is.na(clean_chr(assets_df$state_name)) &
+    is.na(clean_chr(assets_df$state))
+  fill_state_from_municipality <- municipality_matched & state_missing
+  if (any(fill_state_from_municipality)) {
+    assets_df$state_code[fill_state_from_municipality] <- adm2_lookup$state_code[municipality_idx[fill_state_from_municipality]]
+    assets_df$state_name[fill_state_from_municipality] <- adm2_lookup$state_name[municipality_idx[fill_state_from_municipality]]
+    assets_df$state[fill_state_from_municipality] <- adm2_lookup$state_name_normalized[municipality_idx[fill_state_from_municipality]]
+  }
+  
+  assets_df
+}
+
+#' Read company data from Excel or CSV file
+#'
+#' @title Read company information from Excel or CSV file
+#' @description Reads company information from an Excel (.xlsx) or CSV (.csv) file,
 #'   converting column names to snake_case and parsing numeric columns correctly.
-#'   Can accept either a direct file path or a folder path containing company_information.xlsx.
-#' @param file_path Character string specifying either the path to the company Excel file directly,
-#'   or a folder path containing company_information.xlsx
+#'   Can accept either a direct file path or a folder path containing company_information.xlsx or company_information.csv.
+#'   For CSV files, automatically detects separator (comma or semicolon).
+#'   If both Excel and CSV files exist in the folder, an error is raised.
+#' @param file_path Character string specifying either the path to the company file directly,
+#'   or a folder path containing company_information.xlsx or company_information.csv
 #' @return tibble with company information
 #' @examples
 #' \dontrun{
 #' # Direct file path
 #' companies <- read_companies("path/to/company_information.xlsx")
-#' # Or folder path
+#' # Or folder path (will look for .xlsx or .csv)
 #' companies <- read_companies("path/to/folder")
 #' }
 #' @export
 read_companies <- function(file_path) {
   message("[read_companies] Reading company data from: ", file_path)
 
-  # If file_path is a directory, look for company_information.xlsx in it
+  # If file_path is a directory, look for company_information files
   if (dir.exists(file_path)) {
-    file_path <- file.path(file_path, "company_information.xlsx")
+    company_xlsx <- file.path(file_path, "company_information.xlsx")
+    company_csv <- file.path(file_path, "company_information.csv")
+    has_xlsx <- file.exists(company_xlsx)
+    has_csv <- file.exists(company_csv)
+
+    # Validate that only one format exists
+    if (has_xlsx && has_csv) {
+      stop("Both company_information.xlsx and company_information.csv found. Please use only one format.")
+    }
+    if (!has_xlsx && !has_csv) {
+      stop("Neither company_information.xlsx nor company_information.csv found in: ", file_path)
+    }
+
+    # Use the file that exists
+    file_path <- if (has_xlsx) company_xlsx else company_csv
   }
 
   # Check if file exists
@@ -305,10 +773,37 @@ read_companies <- function(file_path) {
     stop("Company file not found at: ", file_path)
   }
 
-  # Read companies data
-  companies_raw <- readxl::read_excel(file_path) |>
-    tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case)
+  # Determine file format and read accordingly
+  is_csv <- grepl("\\.csv$", file_path, ignore.case = TRUE)
+
+  if (is_csv) {
+    # CSV file - detect separator
+    separator <- detect_csv_separator(file_path)
+    if (separator == "semicolon") {
+      companies_raw <- readr::read_csv2(
+        file_path,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    } else {
+      companies_raw <- readr::read_csv(
+        file_path,
+        col_types = readr::cols(.default = "c"),
+        show_col_types = FALSE,
+        locale = readr::locale(encoding = "UTF-8")
+      ) |>
+        tibble::as_tibble() |>
+        dplyr::rename_with(to_snake_case)
+    }
+  } else {
+    # Excel file
+    companies_raw <- readxl::read_excel(file_path) |>
+      tibble::as_tibble() |>
+      dplyr::rename_with(to_snake_case)
+  }
 
   # Convert numeric columns for companies
   numeric_company_cols <- c("revenues", "debt", "volatility", "net_profit_margin", "loan_size", "lgd", "term")
@@ -323,388 +818,4 @@ read_companies <- function(file_path) {
 
   message("[read_companies] Loaded ", nrow(companies_raw), " companies")
   companies_raw
-}
-
-#' Read damage and cost factors from CSV file
-#'
-#' @title Read damage and cost factors lookup table
-#' @description Reads damage and cost factors from CSV file, parsing numeric columns
-#'   and handling comma decimal separators correctly.
-#' @param base_dir Character string specifying the base directory containing damage_and_cost_factors.csv
-#' @return tibble with damage and cost factors
-#' @examples
-#' \dontrun{
-#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' factors <- read_damage_cost_factors(base_dir)
-#' }
-#' @export
-read_damage_cost_factors <- function(base_dir) {
-  message("[read_damage_cost_factors] Reading damage and cost factors from: ", base_dir)
-
-  # Define file path
-  factors_path <- file.path(base_dir, "damage_and_cost_factors.csv")
-
-  # Check if file exists
-  if (!file.exists(factors_path)) {
-    stop("Damage and cost factors file not found at: ", factors_path)
-  }
-
-  # Read the damage and cost factors CSV
-  # The CSV uses comma as decimal separator and quotes around numbers
-  # GWL column can contain both numeric values (e.g., "1.5") and text values (e.g., "present"),
-  # so we must read it as character to preserve both
-  factors_df <- readr::read_csv(
-    factors_path,
-    col_types = readr::cols(GWL = readr::col_character()),
-    show_col_types = FALSE
-  ) |>
-    tibble::as_tibble() |>
-    dplyr::mutate(
-      # Clean up the numeric columns that have comma decimal separators and quotes
-      damage_factor = as.numeric(gsub(",", ".", gsub('"', "", .data$damage_factor))),
-      cost_factor = suppressWarnings(as.numeric(gsub(",", ".", gsub('"', "", .data$cost_factor)))),
-      # Ensure hazard_intensity is numeric
-      hazard_intensity = as.numeric(.data$hazard_intensity)
-    ) |>
-    # Convert column names to snake_case for consistency
-    dplyr::rename_with(to_snake_case) |>
-    # Normalize state names (remove accents, convert to ASCII)
-    dplyr::mutate(
-      state = dplyr::if_else(
-        !is.na(.data$state) & .data$state != "-" & nzchar(as.character(.data$state)),
-        stringi::stri_trans_general(as.character(.data$state), "Latin-ASCII"),
-        .data$state
-      )
-    )
-
-  message("[read_damage_cost_factors] Loaded ", nrow(factors_df), " factor records")
-  factors_df
-}
-
-#' Read CNAE Labor Productivity Exposure data from Excel file
-#'
-#' @title Read CNAE Labor Productivity Exposure lookup table
-#' @description Reads CNAE sector codes and their labor productivity exposure classification
-#'   from Excel file. Used to determine metric (high/median/low) for Heat hazard damage factors.
-#' @param base_dir Character string specifying the base directory containing cnae_labor_productivity_exposure.xlsx
-#' @return tibble with columns: cnae (numeric), description, lp_exposure (character: "high", "median", "low")
-#' @examples
-#' \dontrun{
-#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' cnae_exposure <- read_cnae_labor_productivity_exposure(base_dir)
-#' }
-#' @export
-read_cnae_labor_productivity_exposure <- function(base_dir) {
-  message("[read_cnae_labor_productivity_exposure] Reading CNAE exposure data from: ", base_dir)
-
-  # Define file path
-  cnae_path <- file.path(base_dir, "cnae_labor_productivity_exposure.xlsx")
-
-  # Check if file exists
-  if (!file.exists(cnae_path)) {
-    stop("CNAE labor productivity exposure file not found at: ", cnae_path)
-  }
-
-  # Read CNAE data
-  cnae_raw <- readxl::read_excel(cnae_path) |>
-    tibble::as_tibble() |>
-    dplyr::rename_with(to_snake_case)
-
-  # Normalize lp_exposure values to lowercase
-  cnae_df <- cnae_raw |>
-    dplyr::mutate(
-      cnae = as.numeric(.data$cnae)
-    ) |>
-    dplyr::select("cnae", "description", "lp_exposure")
-
-  message("[read_cnae_labor_productivity_exposure] Loaded ", nrow(cnae_df), " CNAE records")
-  cnae_df
-}
-
-#' Read precomputed administrative hazard statistics from CSV file
-#'
-#' @title Read precomputed hazard statistics for provinces and municipalities
-#' @description Reads precomputed hazard statistics from CSV file containing hazard data
-#'   aggregated at ADM1 (province) and ADM2 (municipality) levels. Used to look up hazard
-#'   values for assets without coordinates but with province or municipality information.
-#' @param base_dir Character string specifying the base directory containing precomputed_adm_hazards.csv
-#' @return tibble with precomputed hazard statistics including columns: region, adm_level,
-#'   scenario_name, hazard_return_period, hazard_type, min, max, mean, median,
-#'   p2_5, p5, p95, p97_5. adm_level is "ADM1" for provinces or "ADM2" for municipalities.
-#'   Note: scenario_code may be present in the CSV but is not used (scenario_name is used instead).
-#' @examples
-#' \dontrun{
-#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' precomputed <- read_precomputed_hazards(base_dir)
-#' # Look up Amazonas province flood hazard
-#' amazonas_flood <- precomputed |>
-#'   dplyr::filter(region == "Amazonas", adm_level == "ADM1", hazard_type == "flood")
-#' }
-#' @export
-read_precomputed_hazards <- function(base_dir) {
-  message("[read_precomputed_hazards] Reading precomputed hazard statistics from: ", base_dir)
-
-  # Define file path
-  precomputed_path <- file.path(base_dir, "precomputed_adm_hazards.csv")
-
-  # Check if file exists
-  if (!file.exists(precomputed_path)) {
-    stop("Precomputed hazards file not found at: ", precomputed_path)
-  }
-
-  # Read the precomputed hazards CSV
-  precomputed_df <- readr::read_csv(precomputed_path, show_col_types = FALSE) |>
-    tibble::as_tibble()
-
-  # # Ensure numeric columns are numeric
-  # numeric_cols <- c(
-  #   "hazard_return_period", "min", "max", "mean", "median",
-  #   "p2_5", "p5", "p95", "p97_5", "n_obs", "max_x", "max_y"
-  # )
-
-  # precomputed_df <- precomputed_df |>
-  #   dplyr::mutate(
-  #     dplyr::across(
-  #       dplyr::any_of(numeric_cols),
-  #       ~ as.numeric(.)
-  #     )
-  #   )
-
-  # Validate adm_level values
-  valid_adm_levels <- c("ADM1", "ADM2")
-  invalid_levels <- setdiff(unique(precomputed_df$adm_level), valid_adm_levels)
-  if (length(invalid_levels) > 0) {
-    warning("Found unexpected adm_level values: ", paste(invalid_levels, collapse = ", "))
-  }
-
-  message("[read_precomputed_hazards] Loaded ", nrow(precomputed_df), " precomputed hazard records")
-  message("  ADM1 (province) records: ", sum(precomputed_df$adm_level == "ADM1"))
-  message("  ADM2 (municipality) records: ", sum(precomputed_df$adm_level == "ADM2"))
-
-  # Transform data: construct proper hazard_name and create ensemble-specific rows
-  # Unified naming WITHOUT ensemble suffix (base event format)
-
-  # Define ensemble columns to melt
-  summary_cols <- c("mean", "median", "p2_5", "p5", "p95", "p97_5")
-
-  transformed_list <- list()
-
-  for (summ_col in summary_cols) {
-    # Create rows for this ensemble
-    # Check if season column exists for drought hazards
-    has_season <- "season" %in% names(precomputed_df)
-
-    if (has_season) {
-      ensemble_data <- precomputed_df |>
-        dplyr::mutate(
-          # Unified hazard_name - include season for drought (like NC files do)
-          hazard_name = dplyr::if_else(
-            .data$hazard_type == "Drought" & !is.na(.data$season),
-            paste0(
-              .data$hazard_type, "__", .data$hazard_indicator,
-              "__GWL=", .data$scenario_name,
-              "__RP=", .data$hazard_return_period,
-              "__season=", .data$season,
-              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
-            ),
-            paste0(
-              .data$hazard_type, "__", .data$hazard_indicator,
-              "__GWL=", .data$scenario_name,
-              "__RP=", .data$hazard_return_period,
-              ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
-            )
-          ),
-          aggregation_method = summ_col,
-          hazard_value = .data[[summ_col]]
-        )
-    } else {
-      ensemble_data <- precomputed_df |>
-        dplyr::mutate(
-          # Unified hazard_name WITHOUT season
-          hazard_name = paste0(
-            .data$hazard_type, "__", .data$hazard_indicator,
-            "__GWL=", .data$scenario_name,
-            "__RP=", .data$hazard_return_period,
-            ifelse(is.na(.data$ensemble), "", paste0("__ensemble=", .data$ensemble))
-          ),
-          aggregation_method = summ_col,
-          hazard_value = .data[[summ_col]]
-        )
-    }
-
-    transformed_list[[summ_col]] <- ensemble_data
-  }
-
-  # Combine all ensemble variants
-  precomputed_final <- dplyr::bind_rows(transformed_list)
-
-  # Preserve season column if it exists (for drought hazards)
-  if ("season" %in% names(precomputed_final)) {
-    precomputed_final <- precomputed_final |>
-      dplyr::mutate(
-        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
-        scenario_name = as.character(.data$scenario_name),
-        season = as.character(.data$season)
-      )
-    season_count <- sum(!is.na(precomputed_final$season))
-    message("  Season column preserved with ", season_count, " non-NA values")
-  } else {
-    precomputed_final <- precomputed_final |>
-      dplyr::mutate(
-        # region = stringi::stri_trans_general(as.character(.data$region), "Latin-ASCII"),
-        scenario_name = as.character(.data$scenario_name)
-      )
-  }
-
-  message("  Transformed to ", nrow(precomputed_final), " records with hazard_name and ensemble columns")
-
-  precomputed_final
-}
-
-#' Read hazards name mapping from CSV (INTERNAL)
-#'
-#' @description Internal function used by load_hazards_and_inventory().
-#'   Reads the hazards name mapping CSV file and validates that it
-#'   contains all required columns including hazard_indicator.
-#' @param mapping_path Character path to the CSV mapping file
-#' @return Tibble with columns: hazard_file, hazard_type, hazard_indicator,
-#'   scenario_name, hazard_return_period (scenario_code may be present but is not used)
-#' @noRd
-read_hazards_mapping <- function(mapping_path) {
-  if (!file.exists(mapping_path)) {
-    stop("Mapping file not found: ", mapping_path)
-  }
-
-  mapping <- utils::read.csv(mapping_path, stringsAsFactors = FALSE, strip.white = TRUE)
-  mapping <- tibble::as_tibble(mapping)
-
-  # Validate required columns
-  required_cols <- c(
-    "hazard_file", "hazard_type", "hazard_indicator",
-    "scenario_name", "hazard_return_period"
-  )
-  missing_cols <- setdiff(required_cols, names(mapping))
-  if (length(missing_cols) > 0) {
-    stop("Mapping file missing required columns: ", paste(missing_cols, collapse = ", "))
-  }
-
-  return(mapping)
-}
-
-#' Read Land Cover Legend and Risk Metrics
-#'
-#' @title Read Land Cover Legend
-#' @description Reads the land cover legend Excel file that maps land cover codes
-#'   to risk metrics. Used for Fire hazard to translate land cover extraction
-#'   results into fire risk percentages.
-#' @param base_dir Character. Base directory path containing land_cover_legend_and_index.xlsx
-#' @return Tibble with columns: land_cover_code (numeric), land_cover_class (character),
-#'   land_cover_category (numeric), land_cover_risk (numeric between 0 and 1)
-#' @examples
-#' \dontrun{
-#' legend <- read_land_cover_legend("workspace/demo_inputs")
-#' # Returns tibble with columns: land_cover_code, land_cover_class,
-#' # land_cover_category, land_cover_risk
-#' }
-#' @export
-read_land_cover_legend <- function(base_dir) {
-  file_path <- file.path(base_dir, "land_cover_legend_and_index.xlsx")
-
-  if (!file.exists(file_path)) {
-    stop("Land cover legend file not found: ", file_path)
-  }
-
-  message("[read_land_cover_legend] Reading land cover legend from: ", file_path)
-
-  # Read Excel file
-  legend_df <- readxl::read_excel(file_path)
-
-  # Validate required columns
-  required_cols <- c("Code", "Class", "Category", "Risk")
-  missing_cols <- setdiff(required_cols, names(legend_df))
-  if (length(missing_cols) > 0) {
-    stop("Land cover legend file missing required columns: ", paste(missing_cols, collapse = ", "))
-  }
-
-  # Rename and clean
-  legend_clean <- legend_df |>
-    dplyr::select(
-      land_cover_code = "Code",
-      land_cover_class = "Class",
-      land_cover_category = "Category",
-      land_cover_risk = "Risk"
-    ) |>
-    dplyr::mutate(
-      land_cover_code = as.numeric(.data$land_cover_code),
-      land_cover_risk = as.numeric(.data$land_cover_risk)
-    )
-
-  message("[read_land_cover_legend] Loaded ", nrow(legend_clean), " land cover categories")
-
-  return(legend_clean)
-}
-
-#' Load region name mapping dictionary
-#'
-#' @title Load mapping from normalized names to original names
-#' @description Creates a dictionary mapping normalized (ASCII) region names to their original
-#'   names with special characters. This is used to display original names in the frontend
-#'   while keeping normalized names for internal processing.
-#' @param base_dir Base directory containing areas subdirectory
-#' @return Named list with two elements:
-#'   - province: Named character vector mapping normalized province names to original names
-#'   - municipality: Named character vector mapping normalized municipality names to original names
-#' @examples
-#' \dontrun{
-#' base_dir <- system.file("tests_data", package = "climate.risk.tool")
-#' name_mapping <- load_region_name_mapping(base_dir)
-#' # Access original name: name_mapping$province["Sao Paulo"] returns "São Paulo"
-#' }
-#' @export
-load_region_name_mapping <- function(base_dir) {
-  # Initialize result list
-  mapping <- list(province = character(0), municipality = character(0))
-
-  # Load province (ADM1) names
-  province_path <- file.path(base_dir, "areas", "province", "geoBoundaries-BRA-ADM1_simplified.geojson")
-  if (file.exists(province_path)) {
-    provinces_sf <- sf::st_read(province_path, quiet = TRUE)
-
-    if ("shapeName" %in% names(provinces_sf)) {
-      # Get original names
-      original_names <- as.character(provinces_sf$shapeName)
-
-      # Get normalized names (same way as used throughout the codebase)
-      normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
-
-      # Create mapping: normalized -> original
-      mapping$province <- original_names
-      names(mapping$province) <- normalized_names
-    }
-  }
-
-  # Load municipality (ADM2) names
-  municipality_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
-  if (file.exists(municipality_path)) {
-    municipalities_sf <- sf::st_read(municipality_path, quiet = TRUE)
-
-    if ("shapeName" %in% names(municipalities_sf)) {
-      # Get original names
-      original_names <- as.character(municipalities_sf$shapeName)
-
-      # Get normalized names (same way as used throughout the codebase)
-      normalized_names <- stringi::stri_trans_general(original_names, "Latin-ASCII")
-
-      # Create mapping: normalized -> original
-      mapping$municipality <- original_names
-      names(mapping$municipality) <- normalized_names
-    }
-  }
-
-  message(
-    "[load_region_name_mapping] Loaded ", length(mapping$province), " province names and ",
-    length(mapping$municipality), " municipality names"
-  )
-
-  return(mapping)
 }

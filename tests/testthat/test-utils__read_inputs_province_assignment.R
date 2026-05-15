@@ -38,13 +38,18 @@ testthat::test_that("read_damage_cost_factors normalizes state names", {
   damage_factors <- read_damage_cost_factors(base_dir)
 
   testthat::expect_true("state" %in% names(damage_factors))
+  testthat::expect_true("state_code" %in% names(damage_factors))
 
-  # Check that Heat rows have normalized state names (no accents)
-  compound_rows <- damage_factors |> dplyr::filter(.data$hazard_type == "Heat")
+  # Check that state names are normalized (no accents)
+  if ("hazard_type" %in% names(damage_factors)) {
+    check_rows <- damage_factors |> dplyr::filter(.data$hazard_type == "Heat")
+  } else {
+    check_rows <- damage_factors
+  }
 
-  if (nrow(compound_rows) > 0) {
+  if (nrow(check_rows) > 0) {
     # Get non-dash states
-    states_to_check <- compound_rows$state[compound_rows$state != "-" & !is.na(compound_rows$state)]
+    states_to_check <- check_rows$state[check_rows$state != "-" & !is.na(check_rows$state)]
 
     if (length(states_to_check) > 0) {
       # All state characters should be ASCII
@@ -54,6 +59,10 @@ testthat::test_that("read_damage_cost_factors normalizes state names", {
       )
     }
   }
+
+  if (any(!is.na(damage_factors$state) & damage_factors$state != "-")) {
+    testthat::expect_true(any(!is.na(damage_factors$state_code)))
+  }
 })
 
 testthat::test_that("read_precomputed_hazards normalizes region names", {
@@ -61,15 +70,73 @@ testthat::test_that("read_precomputed_hazards normalizes region names", {
 
   precomputed <- read_precomputed_hazards(base_dir)
 
-  testthat::expect_true("region" %in% names(precomputed))
+  region_col <- if ("region" %in% names(precomputed)) "region" else "adm_name"
+  testthat::expect_true(!is.null(region_col))
+  testthat::expect_true(region_col %in% names(precomputed))
 
   # Check that region names are normalized (no accents)
-  if (any(!is.na(precomputed$region))) {
-    region_chars <- paste(precomputed$region[!is.na(precomputed$region)], collapse = "")
+  if (any(!is.na(precomputed[[region_col]]))) {
+    region_chars <- paste(precomputed[[region_col]][!is.na(precomputed[[region_col]])], collapse = "")
     testthat::expect_true(all(charToRaw(region_chars) < 128),
       info = "Precomputed hazard region names should be ASCII (no accents)"
     )
   }
+})
+
+testthat::test_that("repair_adm_boundary_names replaces typoed ADM names from codes", {
+  boundaries <- sf::st_sf(
+    shapeID = "14911670B85657526756793",
+    shapeName = "Rio de Jeneiro",
+    geometry = sf::st_sfc(sf::st_point(c(0, 0)), crs = 4326)
+  )
+  adm_codes <- tibble::tibble(
+    code = "33",
+    name = "Rio de Janeiro",
+    adm_level = "adm1",
+    shapeID = "14911670B85657526756793"
+  )
+
+  repaired <- repair_adm_boundary_names(boundaries, adm_codes, "adm1")
+
+  testthat::expect_equal(repaired$shapeName[[1]], "Rio de Janeiro")
+  testthat::expect_equal(repaired$shapeName_original[[1]], "Rio de Jeneiro")
+  testthat::expect_s3_class(repaired, "sf")
+})
+
+testthat::test_that("repaired ADM1 names prevent false asset state validation errors", {
+  boundaries <- sf::st_sf(
+    shapeID = "14911670B85657526756793",
+    shapeName = "Rio de Jeneiro",
+    geometry = sf::st_sfc(sf::st_point(c(0, 0)), crs = 4326)
+  )
+  adm_codes <- tibble::tibble(
+    code = "33",
+    name = "Rio de Janeiro",
+    adm_level = "adm1",
+    shapeID = "14911670B85657526756793"
+  )
+  repaired <- repair_adm_boundary_names(boundaries, adm_codes, "adm1")
+  adm1_names <- repaired |>
+    dplyr::pull(.data$shapeName) |>
+    as.character() |>
+    stringi::stri_trans_general("Latin-ASCII") |>
+    unique()
+  assets <- data.frame(
+    latitude = NA_real_,
+    longitude = NA_real_,
+    municipality = NA_character_,
+    state = "Rio de Janeiro",
+    stringsAsFactors = FALSE
+  )
+
+  validation <- validate_assets_geography(
+    assets_df = assets,
+    adm1_names = adm1_names,
+    adm2_names = character(0),
+    validation_results = list(errors = character(), warnings = character())
+  )
+
+  testthat::expect_false(any(grepl("Assets contain state names not in ADM1 boundaries", validation$errors)))
 })
 
 testthat::test_that("assign_state_to_assets assigns state via coordinates", {
@@ -97,6 +164,11 @@ testthat::test_that("assign_state_to_assets assigns state via coordinates", {
 
   # Both assets should have state assigned
   testthat::expect_true(all(!is.na(result$state)))
+  testthat::expect_true(all(!is.na(result$state_code)))
+  testthat::expect_true(all(!is.na(result$state_name)))
+  testthat::expect_true(all(!is.na(result$municipality)))
+  testthat::expect_true(all(!is.na(result$municipality_code)))
+  testthat::expect_true(all(!is.na(result$municipality_name)))
   testthat::expect_equal(nrow(result), nrow(test_assets))
 })
 
@@ -127,4 +199,77 @@ testthat::test_that("assign_state_to_assets assigns state via municipality names
   testthat::expect_true(!is.na(result$state[1]))
   # State should be Rondonia (ASCII normalized)
   testthat::expect_equal(tolower(result$state[1]), "rondonia")
+})
+
+testthat::test_that("assign_state_to_assets overwrites conflicting ADM values for geolocated assets", {
+  base_dir <- get_test_data_dir()
+
+  state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
+  muni_path <- file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
+  testthat::skip_if_not(file.exists(state_path) && file.exists(muni_path), "ADM1/ADM2 boundaries not found")
+
+  test_assets <- data.frame(
+    asset = c("A_conflict"),
+    company = c("C1"),
+    latitude = c(-15.7801),
+    longitude = c(-47.9292),
+    municipality = c("Fake Municipality"),
+    municipality_code = c("9999999"),
+    municipality_name = c("Fake Municipality"),
+    state = c("Fake State"),
+    state_code = c("99"),
+    state_name = c("Fake State"),
+    asset_category = c("commercial building"),
+    size_in_m2 = c(1000),
+    share_of_economic_activity = c(1),
+    stringsAsFactors = FALSE
+  )
+
+  result <- assign_state_to_assets(test_assets, base_dir)
+
+  testthat::expect_true(!is.na(result$state_code[[1]]))
+  testthat::expect_true(!is.na(result$municipality_code[[1]]))
+  testthat::expect_true(result$state_code[[1]] != "99")
+  testthat::expect_true(result$municipality_code[[1]] != "9999999")
+  testthat::expect_true(tolower(result$state[[1]]) != "fake state")
+  testthat::expect_true(tolower(result$municipality[[1]]) != "fake municipality")
+})
+
+testthat::test_that("assign_state_to_assets warns and keeps ADM unresolved for outside points", {
+  base_dir <- get_test_data_dir()
+
+  state_path <- file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
+  testthat::skip_if_not(file.exists(state_path), "ADM1 boundaries not found")
+
+  test_assets <- data.frame(
+    asset = c("A_outside"),
+    company = c("C1"),
+    latitude = c(85),
+    longitude = c(0),
+    municipality = c("Will Be Overwritten"),
+    municipality_code = c("1100205"),
+    municipality_name = c("Porto Velho"),
+    state = c("Will Be Overwritten"),
+    state_code = c("11"),
+    state_name = c("Rondonia"),
+    asset_category = c("commercial building"),
+    size_in_m2 = c(1000),
+    share_of_economic_activity = c(1),
+    stringsAsFactors = FALSE
+  )
+
+  result <- NULL
+  testthat::expect_warning(
+    {
+      result <- assign_state_to_assets(test_assets, base_dir)
+    },
+    "Could not map geolocated assets to ADM polygons"
+  )
+
+  testthat::expect_true(is.na(result$state[[1]]))
+  testthat::expect_true(is.na(result$state_code[[1]]))
+  testthat::expect_true(is.na(result$state_name[[1]]))
+  testthat::expect_true(is.na(result$municipality[[1]]))
+  testthat::expect_true(is.na(result$municipality_code[[1]]))
+  testthat::expect_true(is.na(result$municipality_name[[1]]))
 })

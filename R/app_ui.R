@@ -19,6 +19,15 @@ app_ui <- function(request) {
           class = "app-header-text",
           h1("Physical Risk Analysis Tool", class = "app-title"),
           p("Physical risk assessment for financial portfolios in Brazil", class = "app-subtitle")
+        ),
+        div(
+          class = "app-header-actions",
+          actionButton(
+            inputId = "open_settings",
+            label = "Settings",
+            icon = icon("gear"),
+            class = "btn btn-secondary app-settings-btn"
+          )
         )
       ),
       div(
@@ -80,14 +89,9 @@ app_ui <- function(request) {
         div(
           class = "app-footer-logos",
           tags$img(
-            src = "www/GIZ.png",
-            alt = "GIZ logo",
-            class = "partner-logo giz-logo"
-          ),
-          tags$img(
-            src = "www/TFL.png",
-            alt = "Theia Finance Labs logo",
-            class = "partner-logo tfl-logo"
+            src = "www/FiBras II - Coop_BaCen_Curupira_Theia.png",
+            alt = "Project logo",
+            class = "partner-logo"
           )
         )
       )
@@ -121,6 +125,7 @@ golem_add_external_resources <- function() {
       type = "text/css",
       href = "www/custom.css"
     ),
+    tags$script(src = "www/status-repro.js"),
     # Add Font Awesome for icons
     tags$link(
       rel = "stylesheet",

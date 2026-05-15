@@ -24,59 +24,39 @@ create_asset_geometries <- function(assets_df, default_buffer_size_m = 1111, out
   # This ensures buffer distances are in actual meters, not degrees
   buffer_crs <- 3857
 
-  # Initialize geometry and centroid columns
   n_assets <- nrow(assets_df)
-
-  # Use purrr::map for functional approach
-  geolocation_results <- purrr::map(seq_len(n_assets), function(i) {
-    row <- assets_df |> dplyr::slice(i)
-
-    # Extract lat/lon
-    lat_val <- row |> dplyr::pull(.data$latitude)
-    lon_val <- row |> dplyr::pull(.data$longitude)
-
-    # Check if coordinates are available
-    if (is.na(lat_val) || is.na(lon_val)) {
-      asset_name <- row |> dplyr::pull(.data$asset)
-      stop(
-        "Asset ", i, " (", asset_name, ") does not have valid latitude/longitude coordinates. ",
-        "Assets without coordinates should use precomputed administrative hazard data."
-      )
-    }
-
-    # Create point geometry in WGS84
-    point <- sf::st_point(c(lon_val, lat_val))
-    point_sf <- sf::st_sfc(point, crs = 4326) # WGS84
-    # Transform to CRS 3857 for metric buffering
-    point_sf <- sf::st_transform(point_sf, buffer_crs)
-
-    # Use size_in_m2 if available, otherwise default buffer
-    size_m2_val <- row |> dplyr::pull(.data$size_in_m2)
-    if (!is.na(size_m2_val) && is.numeric(size_m2_val) && size_m2_val > 0) {
-      # Calculate radius from area (assuming circular area: A = pi * r^2)
-      radius <- sqrt(size_m2_val / pi)
-      geom <- sf::st_buffer(point_sf, dist = radius)
+  invalid_rows <- which(is.na(assets_df$latitude) | is.na(assets_df$longitude))
+  if (length(invalid_rows) > 0) {
+    first_invalid_row <- invalid_rows[1]
+    asset_name <- if ("asset" %in% names(assets_df)) {
+      assets_df$asset[first_invalid_row]
     } else {
-      # Default buffer in meters (CRS 3857 uses meters)
-      geom <- sf::st_buffer(point_sf, dist = default_buffer_size_m)
+      NA_character_
     }
-
-    # Transform geometry to output CRS
-    geom <- sf::st_transform(geom, output_crs)
-
-    list(
-      geometry = geom,
-      centroid = sf::st_centroid(geom)
+    stop(
+      "Asset ", first_invalid_row, " (", asset_name, ") does not have valid latitude/longitude coordinates. ",
+      "Assets without coordinates should use precomputed administrative hazard data."
     )
-  })
+  }
 
-  # Extract results
-  geometry_list <- purrr::map(geolocation_results, "geometry")
-  centroid_list <- purrr::map(geolocation_results, "centroid")
+  points_sf <- sf::st_as_sf(
+    assets_df,
+    coords = c("longitude", "latitude"),
+    crs = 4326,
+    remove = FALSE
+  )
+  points_buffer_sf <- sf::st_transform(points_sf, buffer_crs)
 
-  # Convert to sfc objects
-  geometry_sfc <- do.call(c, geometry_list)
-  centroid_sfc <- do.call(c, centroid_list)
+  size_m2_vals <- suppressWarnings(as.numeric(assets_df$size_in_m2))
+  buffer_radii <- ifelse(
+    !is.na(size_m2_vals) & size_m2_vals > 0,
+    sqrt(size_m2_vals / pi),
+    default_buffer_size_m
+  )
+
+  geometry_sfc <- sf::st_buffer(sf::st_geometry(points_buffer_sf), dist = buffer_radii)
+  geometry_sfc <- sf::st_transform(geometry_sfc, output_crs)
+  centroid_sfc <- sf::st_centroid(geometry_sfc)
 
   # Add columns to original dataframe using mutate for consistency
   assets_df <- assets_df |>

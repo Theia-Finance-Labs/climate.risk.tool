@@ -4,22 +4,28 @@
 \alias{apply_acute_revenue_shock}
 \title{Apply Acute Revenue Shock}
 \usage{
-apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+apply_acute_revenue_shock(
+  yearly_trajectories,
+  assets_factors,
+  acute_events,
+  hazard_configs
+)
 }
 \arguments{
 \item{yearly_trajectories}{tibble with columns: asset, company, year, revenue}
 
-\item{assets_factors}{tibble with hazard data and damage factors including event_id, hazard_type}
+\item{assets_factors}{tibble with hazard data and mapping factors including event_id, hazard_type}
 
 \item{acute_events}{tibble with acute event information including event_id, hazard_type, event_year}
+
+\item{hazard_configs}{Named list from load_hazards_and_inventory()$configs}
 }
 \value{
 tibble with columns: asset, company, year, revenue (with shocks applied)
 }
 \description{
 Applies revenue shocks from acute climate events in event_id order.
-Supports Flood (business disruption), Heat/heat (labor productivity loss via Cobb-Douglas),
-and Drought (crop damage for agriculture). Multiple shocks in the same year are applied sequentially by event_id.
+Shock equations are defined in hazard configuration YAML files.
 NOTE: This function only affects REVENUE. Profit is computed separately using compute_profits_from_revenue().
 }
 \details{
@@ -40,6 +46,9 @@ assets_factors <- data.frame(
 acute_events <- data.frame(
   event_id = "event_1", hazard_type = "Flood", event_year = 2030
 )
-result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events)
+hazard_configs <- list(
+  Flood = list(shocks = list())
+)
+result <- apply_acute_revenue_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
 }
 }

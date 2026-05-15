@@ -8,7 +8,7 @@ import os
 import re
 from unidecode import unidecode
 
-CSV_PATH = "workspace/demo_inputs/precomputed_adm_hazards.csv"
+CSV_PATH = "workspace/demo_inputs/precomputed_adm_indicators.csv"
 
 
 def fix_encoding_patterns(text):
