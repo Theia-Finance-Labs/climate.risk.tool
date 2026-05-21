@@ -251,12 +251,24 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
         assets_fallbacks <- list()
       }
 
+      season_matching <- mapping$season_matching
+      if (is.null(season_matching)) {
+        season_matching <- list()
+      }
+
+      defaults <- mapping$defaults
+      if (is.null(defaults)) {
+        defaults <- list()
+      }
+
       mappings[[mapping_key]] <- list(
         key = mapping_key,
         file = as.character(mapping$file),
         intensity_match = as.character(intensity_match),
         variables = variables,
         assets_fallbacks = assets_fallbacks,
+        season_matching = season_matching,
+        defaults = defaults,
         join = list(
           on_indicator_intensity = on_indicator_intensity,
           on_indicator_index = on_indicator_index,

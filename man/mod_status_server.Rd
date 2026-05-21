@@ -8,7 +8,9 @@ mod_status_server(
   id,
   status_reactive,
   events_reactive,
-  delete_event_callback = NULL
+  delete_event_callback = NULL,
+  run_repro_code_reactive = NULL,
+  spatial_data_reactive = NULL
 )
 }
 \arguments{
@@ -19,6 +21,10 @@ mod_status_server(
 \item{events_reactive}{reactive containing configured events}
 
 \item{delete_event_callback}{function to delete an event by event_id}
+
+\item{run_repro_code_reactive}{optional reactive containing the generated run reproduction code}
+
+\item{spatial_data_reactive}{optional reactive containing loaded spatial separation layers}
 }
 \description{
 status Server Functions

@@ -13,8 +13,11 @@ compute_risk(
   precomputed_hazards,
   hazard_configs,
   hazards_dir,
+  cnae_exposure,
   adm1_boundaries = NULL,
   adm2_boundaries = NULL,
+  spatial_separation_data = NULL,
+  base_dir = NULL,
   validate_inputs = TRUE,
   growth_rate = 0.02,
   discount_rate = 0.05,
@@ -39,6 +42,8 @@ The \code{event_id} column is auto-generated internally if not provided.}
 \item{hazard_configs}{Named list from load_hazards_and_inventory()$configs}
 
 \item{hazards_dir}{Character path to hazards/config directory containing hazard YAML files}
+
+\item{cnae_exposure}{Data frame with CNAE exposure mapping (must include \code{cnae} and \code{description})}
 
 \item{adm1_boundaries}{Optional sf object with ADM1 (state) boundaries for state assignment and validation}
 
@@ -105,6 +110,7 @@ companies <- read_companies(input_folder)
 hazards <- load_hazards(file.path(base_dir, "hazards"))
 precomputed_hazards <- read_precomputed_hazards(base_dir)
 hazard_configs <- hazard_data$configs
+cnae_exposure <- load_mapping_from_config(base_dir, hazard_configs, "Heat", "cnae_exposure")
 
 # Define events
 events <- data.frame(
@@ -123,6 +129,7 @@ results <- compute_risk(
   precomputed_hazards = precomputed_hazards,
   hazard_configs = hazard_configs,
   hazards_dir = file.path(base_dir, "hazards"),
+  cnae_exposure = cnae_exposure,
   growth_rate = 0.02,
   discount_rate = 0.05,
   risk_free_rate = 0.02

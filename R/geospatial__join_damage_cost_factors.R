@@ -87,6 +87,18 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
       variables <- mapping$variables
       if (!is.null(variables) && length(variables) > 0) {
         keep_cols <- unique(c(mapping_cols, variables))
+        
+        # If season_matching with off_window is enabled, also keep the off_window column
+        if (!is.null(mapping$season_matching) && 
+            !is.null(mapping$season_matching$strategy) &&
+            mapping$season_matching$strategy == "off_window") {
+          off_window_col <- mapping$season_matching$off_window_column
+          if (is.null(off_window_col)) {
+            off_window_col <- "off_window"
+          }
+          keep_cols <- unique(c(keep_cols, off_window_col))
+        }
+        
         missing_in_mapping <- setdiff(keep_cols, names(mapping_df))
         if (length(missing_in_mapping) > 0) {
           stop(
@@ -137,6 +149,23 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
       # CONFIG-DRIVEN TRANSFORMATIONS
       # Apply mapping asset fallbacks before joining
       # ========================================================================
+      # #region agent log
+      tryCatch({
+        log_data <- list(
+          hazard_type = hazard_type,
+          mapping_key = mapping_key,
+          nrow_base_table = nrow(base_table),
+          intensity_cols = intensity_cols,
+          join_cols = join_cols,
+          sample_spi3 = if ("spi3" %in% names(base_table)) head(base_table$spi3, 5) else NA,
+          sample_state = if ("state" %in% names(base_table)) head(base_table$state, 5) else NA,
+          sample_asset_subtype = if ("asset_subtype" %in% names(base_table)) head(base_table$asset_subtype, 5) else NA,
+          sample_season = if ("season" %in% names(base_table)) head(base_table$season, 5) else NA,
+          hypothesisId = "A,B,C,D"
+        )
+        write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:136", message = "Before fallback application", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
+      }, error = function(e) {})
+      # #endregion
       fallback_original_cols <- character()
       if (!is.null(mapping$assets_fallbacks) && length(mapping$assets_fallbacks) > 0) {
         left_by_right <- setNames(asset_cols_to_check, mapping_cols)
@@ -170,6 +199,25 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
           # on_unmatched_combination intentionally unsupported
         }
       }
+      
+      # #region agent log
+      tryCatch({
+        log_data <- list(
+          hazard_type = hazard_type,
+          mapping_key = mapping_key,
+          fallbacks_applied = !is.null(mapping$assets_fallbacks),
+          sample_spi3_after_fallback = if ("spi3" %in% names(base_table)) head(base_table$spi3, 5) else NA,
+          sample_state_after_fallback = if ("state" %in% names(base_table)) head(base_table$state, 5) else NA,
+          sample_asset_subtype_after_fallback = if ("asset_subtype" %in% names(base_table)) head(base_table$asset_subtype, 5) else NA,
+          sample_season_after_fallback = if ("season" %in% names(base_table)) head(base_table$season, 5) else NA,
+          unique_mapping_states = if ("state" %in% names(mapping_df)) head(unique(mapping_df$state), 10) else NA,
+          unique_mapping_subtypes = if ("asset_subtype" %in% names(mapping_df)) head(unique(mapping_df$asset_subtype), 10) else NA,
+          unique_mapping_seasons = if ("season" %in% names(mapping_df)) head(unique(mapping_df$season), 10) else NA,
+          hypothesisId = "A,B,C,E"
+        )
+        write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:172", message = "After fallback, before join", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
+      }, error = function(e) {})
+      # #endregion
 
       # Perform the join.
       base_table <- dplyr::left_join(
@@ -177,6 +225,168 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
         mapping_df,
         by = join_cols
       )
+      
+      # ========================================================================
+      # SEASON MATCHING WITH OFF_WINDOW LOGIC
+      # Handle off-season scenarios where event season doesn't match crop season
+      # ========================================================================
+      if (!is.null(mapping$season_matching) && 
+          !is.null(mapping$season_matching$strategy) &&
+          mapping$season_matching$strategy == "off_window") {
+        
+        off_window_col <- mapping$season_matching$off_window_column
+        if (is.null(off_window_col)) {
+          off_window_col <- "off_window"
+        }
+        
+        # Identify which join columns are season-related
+        season_join_cols <- join_cols[grepl("season", names(join_cols), ignore.case = TRUE)]
+        if (length(season_join_cols) == 0) {
+          season_join_cols <- join_cols[grepl("season", join_cols, ignore.case = TRUE)]
+        }
+        
+        if (length(season_join_cols) > 0) {
+          # Find rows that didn't match (NA in variables columns)
+          result_cols <- mapping$variables
+          if (is.null(result_cols) || length(result_cols) == 0) {
+            result_cols <- c("damage_factor", "cost_factor")
+          }
+          
+          # Check which result columns are actually in base_table after join
+          result_cols_present <- intersect(result_cols, names(base_table))
+          
+          if (length(result_cols_present) > 0) {
+            # Rows that didn't match have NA in result columns
+            unmatched_mask <- rowSums(is.na(base_table[result_cols_present])) == length(result_cols_present)
+            
+            if (any(unmatched_mask)) {
+              # For unmatched rows, apply off_window logic
+              unmatched_assets <- base_table[unmatched_mask, ]
+              
+              # Build join keys excluding season
+              non_season_join_cols <- join_cols[!names(join_cols) %in% names(season_join_cols)]
+              if (length(non_season_join_cols) == 0) {
+                non_season_join_cols <- join_cols[!join_cols %in% season_join_cols]
+              }
+              
+              if (length(non_season_join_cols) > 0) {
+                # Prepare mapping data with all seasons for averaging
+                # Need to include off_window column and result columns
+                cols_to_keep <- unique(c(unname(non_season_join_cols), result_cols_present, off_window_col))
+                cols_to_keep <- intersect(cols_to_keep, names(mapping_df))
+                
+                if (length(cols_to_keep) > 0 && off_window_col %in% names(mapping_df)) {
+                  mapping_for_averaging <- mapping_df |>
+                    dplyr::select(dplyr::all_of(cols_to_keep))
+                  
+                  # Join unmatched assets with mapping (without season constraint)
+                  # Get column names for the join (left side)
+                  left_cols <- names(non_season_join_cols)
+                  if (is.null(left_cols) || any(left_cols == "")) {
+                    left_cols <- as.character(non_season_join_cols)
+                  }
+                  left_cols_present <- intersect(left_cols, names(unmatched_assets))
+                  
+                  if (length(left_cols_present) > 0) {
+                    # Create a subset of non_season_join_cols that match left_cols_present
+                    valid_join_cols <- non_season_join_cols[names(non_season_join_cols) %in% left_cols_present]
+                    if (length(valid_join_cols) == 0) {
+                      valid_join_cols <- non_season_join_cols[non_season_join_cols %in% left_cols_present]
+                    }
+                    
+                    if (length(valid_join_cols) > 0) {
+                      # Join and average across all seasons
+                      # Remove off_window column from unmatched_assets if it exists (to avoid .x/.y suffixes)
+                      off_season_results <- unmatched_assets |>
+                        dplyr::select(-dplyr::any_of(c(result_cols_present, off_window_col))) |>
+                        dplyr::inner_join(
+                          mapping_for_averaging,
+                          by = valid_join_cols,
+                          relationship = "many-to-many"
+                        )
+                      
+                      if (nrow(off_season_results) > 0) {
+                        # Group by asset and average damage_factor and off_window
+                        # Use all columns from unmatched_assets as grouping keys
+                        group_cols <- setdiff(names(unmatched_assets), c(result_cols_present, off_window_col))
+                        group_cols <- intersect(group_cols, names(off_season_results))
+                        
+                        cols_to_average <- intersect(c(result_cols_present, off_window_col), names(off_season_results))
+                        
+                        averaged_results <- off_season_results |>
+                          dplyr::group_by(dplyr::across(dplyr::all_of(group_cols))) |>
+                          dplyr::summarize(
+                            dplyr::across(
+                              dplyr::all_of(cols_to_average),
+                              ~mean(.x, na.rm = TRUE)
+                            ),
+                            .groups = "drop"
+                          )
+                        
+                        # Apply off_window multiplication to damage_factor
+                        if ("damage_factor" %in% names(averaged_results) && off_window_col %in% names(averaged_results)) {
+                          averaged_results <- averaged_results |>
+                            dplyr::mutate(
+                              damage_factor = .data$damage_factor * .data[[off_window_col]]
+                            )
+                        }
+                        
+                        # Remove the off_window column if it wasn't in original base_table
+                        if (!off_window_col %in% names(base_table)) {
+                          averaged_results <- averaged_results |>
+                            dplyr::select(-dplyr::all_of(off_window_col))
+                        }
+                        
+                        # Replace unmatched rows with averaged results
+                        # Match by asset and event_id
+                        match_keys <- intersect(c("asset", "event_id"), names(base_table))
+                        if (length(match_keys) > 0) {
+                          # Remove old unmatched rows
+                          base_table <- base_table[!unmatched_mask, ]
+                          
+                          # Add new averaged rows
+                          base_table <- dplyr::bind_rows(base_table, averaged_results)
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+      
+      # #region agent log
+      tryCatch({
+        damage_factor_col <- if ("damage_factor" %in% names(base_table)) "damage_factor" else "cost_factor"
+        matched_rows <- sum(!is.na(base_table[[damage_factor_col]]))
+        unmatched_rows <- sum(is.na(base_table[[damage_factor_col]]))
+        
+        # Get first unmatched row details if any
+        unmatched_sample <- NULL
+        if (unmatched_rows > 0) {
+          unmatched_idx <- which(is.na(base_table[[damage_factor_col]]))[1]
+          unmatched_sample <- list(
+            spi3 = if ("spi3" %in% names(base_table)) base_table$spi3[unmatched_idx] else NA,
+            state = if ("state" %in% names(base_table)) base_table$state[unmatched_idx] else NA,
+            asset_subtype = if ("asset_subtype" %in% names(base_table)) base_table$asset_subtype[unmatched_idx] else NA,
+            season = if ("season" %in% names(base_table)) base_table$season[unmatched_idx] else NA
+          )
+        }
+        
+        log_data <- list(
+          hazard_type = hazard_type,
+          mapping_key = mapping_key,
+          total_rows = nrow(base_table),
+          matched_rows = matched_rows,
+          unmatched_rows = unmatched_rows,
+          unmatched_sample = unmatched_sample,
+          hypothesisId = "A,B,C,D"
+        )
+        write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:179", message = "After join", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
+      }, error = function(e) {})
+      # #endregion
 
       if (all(c("cost_factor.x", "cost_factor.y") %in% names(base_table))) {
         base_table$cost_factor <- dplyr::coalesce(base_table$cost_factor.x, base_table$cost_factor.y)
@@ -435,10 +645,36 @@ apply_intensity_matching <- function(asset_df, mapping_df, intensity_cols, match
   }
 
   asset_vals <- suppressWarnings(as.numeric(asset_df[[intensity_col]]))
+  
+  # #region agent log
+  tryCatch({
+    log_data <- list(
+      intensity_col = intensity_col,
+      sample_asset_vals_before = head(asset_vals, 5),
+      mapping_vals_range = c(min(mapping_vals), max(mapping_vals)),
+      mapping_vals_sample = head(mapping_vals, 10),
+      hypothesisId = "D"
+    )
+    write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:430", message = "Before intensity matching", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
+  }, error = function(e) {})
+  # #endregion
+  
   closest_vals <- vapply(asset_vals, function(x) {
     if (is.na(x)) return(NA_real_)
     mapping_vals[which.min(abs(mapping_vals - x))]
   }, numeric(1))
+  
+  # #region agent log
+  tryCatch({
+    log_data <- list(
+      intensity_col = intensity_col,
+      sample_asset_vals_after = head(closest_vals, 5),
+      num_changed = sum(asset_vals != closest_vals, na.rm = TRUE),
+      hypothesisId = "D"
+    )
+    write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:445", message = "After intensity matching", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
+  }, error = function(e) {})
+  # #endregion
 
   asset_df[[intensity_col]] <- closest_vals
   return(asset_df)
