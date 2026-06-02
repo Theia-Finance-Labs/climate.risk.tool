@@ -128,7 +128,7 @@ read_assets <- function(folder_path) {
   # Convert numeric columns for assets
   numeric_asset_cols <- c(
     "share_of_economic_activity", "latitude", "longitude",
-    "size_in_m2", "size_in_hectare", "cost_factor"
+    "size_in_m2", "size_in_hectare", "cost_factor", "growth_rate"
   )
 
   assets_raw <- assets_raw |>
