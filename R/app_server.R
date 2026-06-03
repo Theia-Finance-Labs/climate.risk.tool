@@ -404,9 +404,6 @@ app_server <- function(input, output, session) {
             aggregation_method = "mean",
             on_progress = function(value, msg) {
               progress$set(value = value, detail = msg)
-              # Force-flush the WebSocket queue so the progress bar actually
-              # updates in the browser while R is blocked on synchronous work.
-              later::run_now()
             }
           ),
           warning = function(w) {

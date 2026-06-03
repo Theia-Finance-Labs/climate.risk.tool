@@ -112,20 +112,23 @@ compute_risk <- function(assets,
                          risk_free_rate = 0.02,
                          aggregation_method = "mean",
                          on_progress = NULL) {
-  # Internal helper: report progress to console or via callback
+  # Internal helper: always print an ASCII bar to the R console AND call
+  # the optional on_progress callback (e.g. for a Shiny progress widget).
   .report_progress <- function(value, msg) {
+    bar_width <- 30
+    filled <- round(value * bar_width)
+    bar <- paste0(
+      "[", paste(rep("=", filled), collapse = ""),
+      if (filled < bar_width) ">" else "",
+      paste(rep(" ", max(0, bar_width - filled - 1)), collapse = ""),
+      "]"
+    )
+    message(sprintf("%s %3d%%  %s", bar, round(value * 100), msg))
     if (!is.null(on_progress)) {
-      on_progress(value, msg)
-    } else {
-      bar_width <- 30
-      filled <- round(value * bar_width)
-      bar <- paste0(
-        "[", paste(rep("=", filled), collapse = ""),
-        if (filled < bar_width) ">" else "",
-        paste(rep(" ", max(0, bar_width - filled - 1)), collapse = ""),
-        "]"
+      tryCatch(
+        on_progress(value, msg),
+        error = function(e) message("[progress callback error] ", conditionMessage(e))
       )
-      message(sprintf("%s %3d%%  %s", bar, round(value * 100), msg))
     }
   }
 
