@@ -166,7 +166,8 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
         write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:136", message = "Before fallback application", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
       }, error = function(e) {})
       # #endregion
-      fallback_original_cols <- character()
+      # Named list: original_col_name -> fallback_val (used to build "Assumed X" labels later)
+      fallback_info <- list()
       if (!is.null(mapping$assets_fallbacks) && length(mapping$assets_fallbacks) > 0) {
         left_by_right <- setNames(asset_cols_to_check, mapping_cols)
         mapping_value_sets <- lapply(mapping_cols, function(col) unique(mapping_df[[col]]))
@@ -190,7 +191,7 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
               original_col <- paste0(left_col, "_original")
               if (!original_col %in% names(base_table)) {
                 base_table[[original_col]] <- base_table[[left_col]]
-                fallback_original_cols <- unique(c(fallback_original_cols, original_col))
+                fallback_info[[original_col]] <- fallback_val
               }
               base_table[[left_col]][missing_or_unknown] <- fallback_val
             }
@@ -199,6 +200,8 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
           # on_unmatched_combination intentionally unsupported
         }
       }
+      # Keep backward-compat alias used later
+      fallback_original_cols <- names(fallback_info)
       
       # #region agent log
       tryCatch({
@@ -410,12 +413,25 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
         }
       }
       
-      # Restore original values after join for any fallback columns
+      # Restore original values after join for any fallback columns.
+      # Rows whose original value was NA or not in the mapping used the fallback;
+      # show "Assumed <fallback>" in the display column so users know it was inferred.
       if (length(fallback_original_cols) > 0) {
         for (original_col in fallback_original_cols) {
           restored_col <- sub("_original$", "", original_col)
+          fb_val <- fallback_info[[original_col]]
           if (original_col %in% names(base_table) && restored_col %in% names(base_table)) {
-            base_table[[restored_col]] <- base_table[[original_col]]
+            orig_vals <- base_table[[original_col]]
+            cur_vals  <- base_table[[restored_col]]   # fallback val for rows that used it
+            # Rows that used the fallback: original was NA, or original was not in the mapping
+            # (those are the only rows where cur_vals == fb_val but orig_vals differs)
+            used_fallback <- is.na(orig_vals) |
+              (!is.na(orig_vals) & !is.na(cur_vals) & orig_vals != cur_vals)
+            # Restore originals first, then relabel
+            base_table[[restored_col]] <- orig_vals
+            if (!is.null(fb_val) && any(used_fallback, na.rm = TRUE)) {
+              base_table[[restored_col]][used_fallback] <- paste0("Assumed ", fb_val)
+            }
             base_table[[original_col]] <- NULL
           }
         }
