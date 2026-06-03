@@ -488,20 +488,25 @@ create_fi_expected_loss_plot <- function(companies_df) {
 
   bar_colors <- ifelse(fi_data$EL_change_pct > 0, palette_brazil$yellow, palette_brazil$green)
 
+  # Build hover text in R so number formatting is reliable
+  fi_data <- fi_data |>
+    dplyr::mutate(
+      hover_text = paste0(
+        "<b>", .data$fi_display, "</b><br>",
+        "EL Baseline: R$", format(round(.data$EL_baseline), big.mark = ","), "<br>",
+        "EL Shock: R$",    format(round(.data$EL_shock),    big.mark = ","), "<br>",
+        "Change: ", sprintf("%.2f", .data$EL_change_pct), "%"
+      )
+    )
+
   plotly::plot_ly(
     data = fi_data,
     x = ~fi_display,
     y = ~EL_change_pct,
     type = "bar",
     marker = list(color = bar_colors),
-    customdata = ~cbind(EL_baseline, EL_shock),
-    hovertemplate = paste0(
-      "<b>%{x}</b><br>",
-      "EL Baseline: R$%{customdata[0]:,.0f}<br>",
-      "EL Shock: R$%{customdata[1]:,.0f}<br>",
-      "Change: %{y:.2f}%<br>",
-      "<extra></extra>"
-    )
+    text = ~hover_text,
+    hovertemplate = "%{text}<extra></extra>"
   ) |>
     plotly::layout(
       xaxis = list(
