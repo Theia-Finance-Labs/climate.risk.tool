@@ -505,8 +505,8 @@ create_fi_expected_loss_plot <- function(companies_df) {
     y = ~EL_change_pct,
     type = "bar",
     marker = list(color = bar_colors),
-    text = ~hover_text,
-    hovertemplate = "%{text}<extra></extra>"
+    hovertext = ~hover_text,
+    hovertemplate = "%{hovertext}<extra></extra>"
   ) |>
     plotly::layout(
       xaxis = list(
