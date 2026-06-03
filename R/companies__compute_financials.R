@@ -52,6 +52,16 @@ compute_companies_financials <- function(
   # Step 4: Format final results
   companies_results <- gather_and_pivot_results(companies_el)
 
+  # Re-attach the FI column when the user supplied it in company_information.
+  # gather_and_pivot_results only keeps the columns it needs for pivoting, so
+  # we join FI back here from the original companies input.
+  if ("fi" %in% names(companies)) {
+    fi_lookup <- companies |>
+      dplyr::select("company", "fi") |>
+      dplyr::distinct(.data$company, .keep_all = TRUE)
+    companies_results <- dplyr::left_join(companies_results, fi_lookup, by = "company")
+  }
+
   return(companies_results)
 }
 

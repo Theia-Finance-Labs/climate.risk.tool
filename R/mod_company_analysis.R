@@ -45,6 +45,9 @@ mod_company_analysis_ui <- function(id) {
         )
       ),
 
+      # FI Expected Loss Change Plot (only rendered when FI column is present)
+      shiny::uiOutput(ns("fi_plot_section")),
+
       # Portfolio Summary Plot
       shiny::div(
         class = "chart-section",
@@ -121,6 +124,44 @@ mod_company_analysis_server <- function(id, results_reactive) {
       results <- results_reactive()
       message("[mod_company_analysis] Rendering expected loss plot, nrows=", nrow(results$companies))
       create_expected_loss_change_plot(results$companies)
+    })
+
+    # FI Expected Loss Change Plot – conditionally shown
+    output$fi_plot_section <- shiny::renderUI({
+      if (!has_results()) return(NULL)
+
+      results <- results_reactive()
+      companies <- results$companies
+
+      # Only render when at least one non-NA/non-empty FI value exists
+      if (!"fi" %in% names(companies)) return(NULL)
+      fi_vals <- trimws(as.character(companies$fi))
+      if (all(is.na(companies$fi) | fi_vals == "" | fi_vals == "NA")) return(NULL)
+
+      shiny::div(
+        class = "chart-section",
+        style = "margin-bottom: 3rem;",
+        shiny::h4("Change in Expected Loss per FI", class = "section-header"),
+        shiny::p(
+          paste0(
+            "Percentage change in total expected loss from baseline to shock, ",
+            "aggregated by Financial Institution. ",
+            "Companies with no FI specified are grouped as ‘Unknown’."
+          ),
+          class = "text-muted",
+          style = "margin-bottom: 1rem;"
+        ),
+        shiny::div(
+          class = "chart-container",
+          plotly::plotlyOutput(ns("fi_el_change_plot"), height = "400px")
+        )
+      )
+    })
+
+    output$fi_el_change_plot <- plotly::renderPlotly({
+      if (!has_results()) return(plotly::plot_ly())
+      results <- results_reactive()
+      create_fi_expected_loss_plot(results$companies)
     })
 
     # Portfolio Summary Plot
@@ -393,4 +434,86 @@ create_portfolio_summary_plot <- function(summary_data) {
     )
 
   p
+}
+
+#' Create FI Expected Loss Change Plot
+#'
+#' @description Bar chart showing percentage change in total expected loss
+#'   (baseline → shock) aggregated by Financial Institution. Companies with
+#'   no FI assigned are grouped under "Unknown".
+#' @param companies_df Data frame with company results including `fi`,
+#'   `Expected_loss_baseline`, and `Expected_loss_shock` columns.
+#' @return plotly object
+#' @noRd
+create_fi_expected_loss_plot <- function(companies_df) {
+  if (is.null(companies_df) || nrow(companies_df) == 0) {
+    return(plotly::plot_ly())
+  }
+  if (!all(c("fi", "Expected_loss_baseline", "Expected_loss_shock") %in% names(companies_df))) {
+    return(plotly::plot_ly())
+  }
+
+  palette_brazil <- list(
+    green  = "#009C3B",
+    yellow = "#FFDF00",
+    blue   = "#002776"
+  )
+
+  # Normalise FI values: empty / NA → "Unknown"
+  fi_data <- companies_df |>
+    dplyr::mutate(
+      fi_display = dplyr::case_when(
+        is.na(.data$fi) | trimws(as.character(.data$fi)) %in% c("", "NA") ~ "Unknown",
+        TRUE ~ trimws(as.character(.data$fi))
+      )
+    ) |>
+    dplyr::group_by(.data$fi_display) |>
+    dplyr::summarise(
+      EL_baseline = sum(.data$Expected_loss_baseline, na.rm = TRUE),
+      EL_shock    = sum(.data$Expected_loss_shock,    na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(
+      EL_change_pct = dplyr::if_else(
+        .data$EL_baseline == 0 | is.na(.data$EL_baseline),
+        NA_real_,
+        (.data$EL_shock - .data$EL_baseline) / .data$EL_baseline * 100
+      )
+    ) |>
+    dplyr::filter(!is.na(.data$EL_change_pct)) |>
+    dplyr::arrange(dplyr::desc(.data$EL_change_pct)) |>
+    dplyr::mutate(fi_display = factor(.data$fi_display, levels = .data$fi_display))
+
+  if (nrow(fi_data) == 0) return(plotly::plot_ly())
+
+  bar_colors <- ifelse(fi_data$EL_change_pct > 0, palette_brazil$yellow, palette_brazil$green)
+
+  plotly::plot_ly(
+    data = fi_data,
+    x = ~fi_display,
+    y = ~EL_change_pct,
+    type = "bar",
+    marker = list(color = bar_colors),
+    customdata = ~cbind(EL_baseline, EL_shock),
+    hovertemplate = paste0(
+      "<b>%{x}</b><br>",
+      "EL Baseline: R$%{customdata[0]:,.0f}<br>",
+      "EL Shock: R$%{customdata[1]:,.0f}<br>",
+      "Change: %{y:.2f}%<br>",
+      "<extra></extra>"
+    )
+  ) |>
+    plotly::layout(
+      xaxis = list(
+        title = "Financial Institution",
+        tickangle = -30
+      ),
+      yaxis = list(
+        title = "Expected Loss Change (%)",
+        showgrid = TRUE,
+        gridcolor = "#DDE5EC"
+      ),
+      hovermode = "closest",
+      margin = list(l = 60, r = 20, t = 40, b = 100)
+    )
 }
