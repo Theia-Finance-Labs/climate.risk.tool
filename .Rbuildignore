@@ -29,3 +29,9 @@ $run_dev.*
 ^data-raw/notebooks$
 ^[.]?air[.]toml$
 ^\.vscode$
+^src/
+^python/
+^scripts/
+^pyproject\.toml$
+^uv\.lock$
+^CONTEXT\.md$

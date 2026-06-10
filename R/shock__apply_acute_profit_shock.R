@@ -22,7 +22,9 @@
 #' hazard_configs <- list(
 #'   Flood = list(shocks = list())
 #' )
-#' result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
+#' result <- apply_acute_profit_shock(
+#'   yearly_trajectories, assets_factors, acute_events, hazard_configs
+#' )
 #' }
 #' @export
 apply_acute_profit_shock <- function(

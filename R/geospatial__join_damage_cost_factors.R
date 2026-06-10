@@ -149,23 +149,6 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
       # CONFIG-DRIVEN TRANSFORMATIONS
       # Apply mapping asset fallbacks before joining
       # ========================================================================
-      # #region agent log
-      tryCatch({
-        log_data <- list(
-          hazard_type = hazard_type,
-          mapping_key = mapping_key,
-          nrow_base_table = nrow(base_table),
-          intensity_cols = intensity_cols,
-          join_cols = join_cols,
-          sample_spi3 = if ("spi3" %in% names(base_table)) head(base_table$spi3, 5) else NA,
-          sample_state = if ("state" %in% names(base_table)) head(base_table$state, 5) else NA,
-          sample_asset_subtype = if ("asset_subtype" %in% names(base_table)) head(base_table$asset_subtype, 5) else NA,
-          sample_season = if ("season" %in% names(base_table)) head(base_table$season, 5) else NA,
-          hypothesisId = "A,B,C,D"
-        )
-        write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:136", message = "Before fallback application", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
-      }, error = function(e) {})
-      # #endregion
       # Named list: original_col_name -> fallback_val (used to build "Assumed X" labels later)
       fallback_info <- list()
       if (!is.null(mapping$assets_fallbacks) && length(mapping$assets_fallbacks) > 0) {
@@ -202,25 +185,6 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
       }
       # Keep backward-compat alias used later
       fallback_original_cols <- names(fallback_info)
-      
-      # #region agent log
-      tryCatch({
-        log_data <- list(
-          hazard_type = hazard_type,
-          mapping_key = mapping_key,
-          fallbacks_applied = !is.null(mapping$assets_fallbacks),
-          sample_spi3_after_fallback = if ("spi3" %in% names(base_table)) head(base_table$spi3, 5) else NA,
-          sample_state_after_fallback = if ("state" %in% names(base_table)) head(base_table$state, 5) else NA,
-          sample_asset_subtype_after_fallback = if ("asset_subtype" %in% names(base_table)) head(base_table$asset_subtype, 5) else NA,
-          sample_season_after_fallback = if ("season" %in% names(base_table)) head(base_table$season, 5) else NA,
-          unique_mapping_states = if ("state" %in% names(mapping_df)) head(unique(mapping_df$state), 10) else NA,
-          unique_mapping_subtypes = if ("asset_subtype" %in% names(mapping_df)) head(unique(mapping_df$asset_subtype), 10) else NA,
-          unique_mapping_seasons = if ("season" %in% names(mapping_df)) head(unique(mapping_df$season), 10) else NA,
-          hypothesisId = "A,B,C,E"
-        )
-        write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:172", message = "After fallback, before join", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
-      }, error = function(e) {})
-      # #endregion
 
       # Perform the join.
       base_table <- dplyr::left_join(
@@ -359,37 +323,6 @@ join_damage_cost_factors <- function(assets_with_hazards, hazard_configs, hazard
           }
         }
       }
-      
-      # #region agent log
-      tryCatch({
-        damage_factor_col <- if ("damage_factor" %in% names(base_table)) "damage_factor" else "cost_factor"
-        matched_rows <- sum(!is.na(base_table[[damage_factor_col]]))
-        unmatched_rows <- sum(is.na(base_table[[damage_factor_col]]))
-        
-        # Get first unmatched row details if any
-        unmatched_sample <- NULL
-        if (unmatched_rows > 0) {
-          unmatched_idx <- which(is.na(base_table[[damage_factor_col]]))[1]
-          unmatched_sample <- list(
-            spi3 = if ("spi3" %in% names(base_table)) base_table$spi3[unmatched_idx] else NA,
-            state = if ("state" %in% names(base_table)) base_table$state[unmatched_idx] else NA,
-            asset_subtype = if ("asset_subtype" %in% names(base_table)) base_table$asset_subtype[unmatched_idx] else NA,
-            season = if ("season" %in% names(base_table)) base_table$season[unmatched_idx] else NA
-          )
-        }
-        
-        log_data <- list(
-          hazard_type = hazard_type,
-          mapping_key = mapping_key,
-          total_rows = nrow(base_table),
-          matched_rows = matched_rows,
-          unmatched_rows = unmatched_rows,
-          unmatched_sample = unmatched_sample,
-          hypothesisId = "A,B,C,D"
-        )
-        write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:179", message = "After join", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
-      }, error = function(e) {})
-      # #endregion
 
       if (all(c("cost_factor.x", "cost_factor.y") %in% names(base_table))) {
         base_table$cost_factor <- dplyr::coalesce(base_table$cost_factor.x, base_table$cost_factor.y)
@@ -661,36 +594,11 @@ apply_intensity_matching <- function(asset_df, mapping_df, intensity_cols, match
   }
 
   asset_vals <- suppressWarnings(as.numeric(asset_df[[intensity_col]]))
-  
-  # #region agent log
-  tryCatch({
-    log_data <- list(
-      intensity_col = intensity_col,
-      sample_asset_vals_before = head(asset_vals, 5),
-      mapping_vals_range = c(min(mapping_vals), max(mapping_vals)),
-      mapping_vals_sample = head(mapping_vals, 10),
-      hypothesisId = "D"
-    )
-    write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:430", message = "Before intensity matching", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
-  }, error = function(e) {})
-  # #endregion
-  
+
   closest_vals <- vapply(asset_vals, function(x) {
     if (is.na(x)) return(NA_real_)
     mapping_vals[which.min(abs(mapping_vals - x))]
   }, numeric(1))
-  
-  # #region agent log
-  tryCatch({
-    log_data <- list(
-      intensity_col = intensity_col,
-      sample_asset_vals_after = head(closest_vals, 5),
-      num_changed = sum(asset_vals != closest_vals, na.rm = TRUE),
-      hypothesisId = "D"
-    )
-    write(jsonlite::toJSON(c(list(sessionId = "571b25", location = "geospatial__join_damage_cost_factors.R:445", message = "After intensity matching", timestamp = as.numeric(Sys.time()) * 1000), log_data), auto_unbox = TRUE), file = "/Users/bertrandgallice/code/Theia-Finance-Labs/climate.risk.tool/.cursor/debug-571b25.log", append = TRUE)
-  }, error = function(e) {})
-  # #endregion
 
   asset_df[[intensity_col]] <- closest_vals
   return(asset_df)

@@ -65,20 +65,18 @@ testthat::test_that("read_damage_cost_factors normalizes state names", {
   }
 })
 
-testthat::test_that("read_precomputed_hazards normalizes region names", {
+testthat::test_that("read_precomputed_hazards normalizes adm names", {
   base_dir <- get_test_data_dir()
 
   precomputed <- read_precomputed_hazards(base_dir)
 
-  region_col <- if ("region" %in% names(precomputed)) "region" else "adm_name"
-  testthat::expect_true(!is.null(region_col))
-  testthat::expect_true(region_col %in% names(precomputed))
+  testthat::expect_true("adm_name" %in% names(precomputed))
 
-  # Check that region names are normalized (no accents)
-  if (any(!is.na(precomputed[[region_col]]))) {
-    region_chars <- paste(precomputed[[region_col]][!is.na(precomputed[[region_col]])], collapse = "")
-    testthat::expect_true(all(charToRaw(region_chars) < 128),
-      info = "Precomputed hazard region names should be ASCII (no accents)"
+  # Check that adm names are normalized (no accents)
+  if (any(!is.na(precomputed$adm_name))) {
+    adm_name_chars <- paste(precomputed$adm_name[!is.na(precomputed$adm_name)], collapse = "")
+    testthat::expect_true(all(charToRaw(adm_name_chars) < 128),
+      info = "Precomputed hazard adm names should be ASCII (no accents)"
     )
   }
 })

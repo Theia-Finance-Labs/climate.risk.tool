@@ -310,7 +310,7 @@ testthat::test_that("CSV separator detection works for semicolon-separated files
 # - read_precomputed_hazards(base_dir) -> data.frame
 # - Reads precomputed_adm_indicators.csv from base_dir/hazards/
 # - Maps indicator_file/indicator_variable to hazard_type + hazard_indicator from config
-# - Returns data frame with columns: region, adm_level, scenario_name, return_period,
+# - Returns data frame with columns: adm_name, adm_code, adm_level, scenario_name, return_period,
 #   hazard_type, hazard_indicator, hazard_name, aggregation_method, hazard_value
 # - adm_level values: "ADM1" (province), "ADM2" (municipality)
 # - Used to look up hazard statistics for assets matched by municipality or province name
@@ -326,21 +326,21 @@ testthat::test_that("read_precomputed_hazards contains both ADM1 and ADM2 data",
   adm_levels <- unique(precomputed$adm_level)
   testthat::expect_true("ADM1" %in% adm_levels)
   testthat::expect_true("ADM2" %in% adm_levels)
-  testthat::expect_true("region_code" %in% names(precomputed))
+  testthat::expect_true("adm_code" %in% names(precomputed))
 
   amazonas_row <- precomputed |>
-    dplyr::filter(.data$adm_level == "ADM1", .data$region == "Amazonas") |>
+    dplyr::filter(.data$adm_level == "ADM1", .data$adm_name == "Amazonas") |>
     dplyr::slice_head(n = 1)
-  # Check only if region_code is present (not NA)
-  if (!is.na(amazonas_row$region_code)) {
-    testthat::expect_equal(amazonas_row$region_code, "13")
+  # Check only if adm_code is present (not NA)
+  if (!is.na(amazonas_row$adm_code)) {
+    testthat::expect_equal(amazonas_row$adm_code, "13")
   }
 
   manaus_row <- precomputed |>
-    dplyr::filter(.data$adm_level == "ADM2", .data$region == "Manaus") |>
+    dplyr::filter(.data$adm_level == "ADM2", .data$adm_name == "Manaus") |>
     dplyr::slice_head(n = 1)
-  if (!is.na(manaus_row$region_code)) {
-    testthat::expect_equal(manaus_row$region_code, "1302603")
+  if (!is.na(manaus_row$adm_code)) {
+    testthat::expect_equal(manaus_row$adm_code, "1302603")
   }
 })
 

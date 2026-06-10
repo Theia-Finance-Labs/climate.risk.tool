@@ -63,6 +63,8 @@ companies <- data.frame(company = "C1", net_profit_margin = 0.1)
 hazard_configs <- list(
   flood = list(shocks = list())
 )
-result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, hazard_configs, companies)
+result <- compute_shock_trajectories(
+  yearly_baseline, assets_factors, events, hazard_configs, companies
+)
 }
 }

@@ -22,7 +22,8 @@ compute_risk(
   growth_rate = 0.02,
   discount_rate = 0.05,
   risk_free_rate = 0.02,
-  aggregation_method = "mean"
+  aggregation_method = "mean",
+  on_progress = NULL
 )
 }
 \arguments{
@@ -49,6 +50,12 @@ The \code{event_id} column is auto-generated internally if not provided.}
 
 \item{adm2_boundaries}{Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup}
 
+\item{spatial_separation_data}{Optional pre-loaded spatial separation lookup data. When NULL,
+separation rules are loaded from \code{base_dir} when available.}
+
+\item{base_dir}{Optional character path to the data root directory (e.g. for ADM codes and
+spatial separation files). Used when \code{spatial_separation_data} is NULL.}
+
 \item{validate_inputs}{Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)}
 
 \item{growth_rate}{Numeric. Revenue growth rate assumption (default: 0.02)}
@@ -61,8 +68,10 @@ The \code{event_id} column is auto-generated internally if not provided.}
 Valid options: "mean", "median", "p90", "p10", "max", "min", "mode", "closest".
 For NetCDF files: uses terra::extract with the specified function.
 For NC files: uses the mean ensemble layer by default (ensemble selection is separate from aggregation_method).
-For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).
-#'}
+For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).}
+
+\item{on_progress}{Optional function(value, message) called after each pipeline step with a
+numeric progress value between 0 and 1 and a short status message (e.g. for Shiny progress widgets).}
 }
 \value{
 List containing final results:

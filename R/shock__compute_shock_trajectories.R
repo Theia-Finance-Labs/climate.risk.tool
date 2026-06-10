@@ -35,7 +35,9 @@
 #' hazard_configs <- list(
 #'   flood = list(shocks = list())
 #' )
-#' result <- compute_shock_trajectories(yearly_baseline, assets_factors, events, hazard_configs, companies)
+#' result <- compute_shock_trajectories(
+#'   yearly_baseline, assets_factors, events, hazard_configs, companies
+#' )
 #' }
 #' @export
 compute_shock_trajectories <- function(

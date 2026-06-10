@@ -89,7 +89,7 @@ app_ui <- function(request) {
         div(
           class = "app-footer-logos",
           tags$img(
-            src = "www/FiBras II - Coop_BaCen_Curupira_Theia.png",
+            src = "www/FiBras_II_Coop_BaCen_Curupira_Theia.png",
             alt = "Project logo",
             class = "partner-logo"
           )

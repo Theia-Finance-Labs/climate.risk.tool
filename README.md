@@ -160,7 +160,7 @@ install.packages(c("devtools", "testthat", "shinytest2", "knitr", "rmarkdown"))
 
 Load all functions without reinstalling:
 ``` r
-devtools::load_all(compile = FALSE)  # compile = FALSE since src/ contains Python code, not C/C++
+devtools::load_all()
 ```
 
 Run the development app with hot reloading:
@@ -264,7 +264,7 @@ Each file is written so the app can lazy-load quickly at startup and then read e
 #### How to run (full workflow)
 
 ```bash
-python3 src/climate_risk_tool_python/netcdf_mgmt/build_hazard_indicators_refacto.py \
+python3 python/climate_risk_tool_python/netcdf_mgmt/build_hazard_indicators_refacto.py \
   --input-root workspace/hazards/indicators \
   --output-root workspace/demo_inputs_refacto/hazard_indicators \
   --overwrite
@@ -325,6 +325,13 @@ The codebase is organized into logical modules using a clear naming convention:
 
 - **`run_app.R`** - Application launcher
   - Entry point for starting the Shiny application
+
+#### Supporting directories (not part of the installed R package)
+
+- **`python/`** - Python hazard preprocessing scripts (GeoTIFF → NetCDF conversion)
+- **`scripts/`** - Standalone one-off data preparation utilities
+
+Do not use a top-level `src/` directory in this repo: R packages reserve `src/` for C/C++ native code and will attempt compilation during `R CMD build`.
 
 #### Data Format Support
 

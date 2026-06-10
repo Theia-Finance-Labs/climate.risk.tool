@@ -126,7 +126,7 @@ mod_company_analysis_server <- function(id, results_reactive) {
       create_expected_loss_change_plot(results$companies)
     })
 
-    # FI Expected Loss Change Plot – conditionally shown
+    # FI Expected Loss Change Plot - conditionally shown
     output$fi_plot_section <- shiny::renderUI({
       if (!has_results()) return(NULL)
 
@@ -146,7 +146,7 @@ mod_company_analysis_server <- function(id, results_reactive) {
           paste0(
             "Percentage change in total expected loss from baseline to shock, ",
             "aggregated by Financial Institution. ",
-            "Companies with no FI specified are grouped as ‘Unknown’."
+            "Companies with no FI specified are grouped as 'Unknown'."
           ),
           class = "text-muted",
           style = "margin-bottom: 1rem;"
@@ -196,7 +196,7 @@ mod_company_analysis_server <- function(id, results_reactive) {
     # Portfolio percentage change text output
     output$portfolio_pct_change <- shiny::renderText({
       if (!has_results()) {
-        return("—")
+        return("-")
       }
 
       results <- results_reactive()
@@ -439,7 +439,7 @@ create_portfolio_summary_plot <- function(summary_data) {
 #' Create FI Expected Loss Change Plot
 #'
 #' @description Bar chart showing percentage change in total expected loss
-#'   (baseline → shock) aggregated by Financial Institution. Companies with
+#'   (baseline to shock) aggregated by Financial Institution. Companies with
 #'   no FI assigned are grouped under "Unknown".
 #' @param companies_df Data frame with company results including `fi`,
 #'   `Expected_loss_baseline`, and `Expected_loss_shock` columns.
@@ -459,7 +459,7 @@ create_fi_expected_loss_plot <- function(companies_df) {
     blue   = "#002776"
   )
 
-  # Normalise FI values: empty / NA → "Unknown"
+  # Normalise FI values: empty / NA -> "Unknown"
   fi_data <- companies_df |>
     dplyr::mutate(
       fi_display = dplyr::case_when(

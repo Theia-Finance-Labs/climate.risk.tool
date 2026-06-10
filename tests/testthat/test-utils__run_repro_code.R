@@ -14,9 +14,12 @@ testthat::test_that("build_run_repro_code creates runnable script for current se
     spatial_scheme = "adm"
   )
 
+  base_dir <- "/tmp/base dir"
+  input_folder <- "/tmp/input's folder"
+
   code <- build_run_repro_code(list(
-    base_dir = "/tmp/base dir",
-    input_folder = "/tmp/input's folder",
+    base_dir = base_dir,
+    input_folder = input_folder,
     events = events,
     growth_rate = 0.02,
     discount_rate = 0.05,
@@ -26,8 +29,14 @@ testthat::test_that("build_run_repro_code creates runnable script for current se
   testthat::expect_match(code, "library\\(climate\\.risk\\.tool\\)")
   testthat::expect_match(code, "library\\(dplyr\\)")
   testthat::expect_match(code, "library\\(sf\\)")
-  testthat::expect_match(code, "base_dir <- \"/tmp/base dir\"")
-  testthat::expect_match(code, "input_folder <- \"/tmp/input's folder\"", fixed = TRUE)
+  testthat::expect_match(
+    code,
+    paste0("base_dir <- ", format_r_scalar(normalizePath(base_dir, winslash = "/", mustWork = FALSE)))
+  )
+  testthat::expect_match(
+    code,
+    paste0("input_folder <- ", format_r_scalar(normalizePath(input_folder, winslash = "/", mustWork = FALSE)))
+  )
   testthat::expect_match(code, "growth_rate = 0\\.02")
   testthat::expect_match(code, "discount_rate = 0\\.05")
   testthat::expect_match(code, "risk_free_rate = 0\\.03")

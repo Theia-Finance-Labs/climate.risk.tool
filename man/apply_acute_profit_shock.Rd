@@ -44,6 +44,8 @@ acute_events <- data.frame(event_id = "e1", hazard_type = "Flood", event_year = 
 hazard_configs <- list(
   Flood = list(shocks = list())
 )
-result <- apply_acute_profit_shock(yearly_trajectories, assets_factors, acute_events, hazard_configs)
+result <- apply_acute_profit_shock(
+  yearly_trajectories, assets_factors, acute_events, hazard_configs
+)
 }
 }

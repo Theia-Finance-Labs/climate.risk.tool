@@ -16,6 +16,10 @@
 #' @param cnae_exposure Data frame with CNAE exposure mapping (must include `cnae` and `description`)
 #' @param adm1_boundaries Optional sf object with ADM1 (state) boundaries for state assignment and validation
 #' @param adm2_boundaries Optional sf object with ADM2 (municipality) boundaries for state assignment via municipality lookup
+#' @param spatial_separation_data Optional pre-loaded spatial separation lookup data. When NULL,
+#'   separation rules are loaded from `base_dir` when available.
+#' @param base_dir Optional character path to the data root directory (e.g. for ADM codes and
+#'   spatial separation files). Used when `spatial_separation_data` is NULL.
 #' @param validate_inputs Logical. If TRUE and boundaries are provided, validates input data coherence (default: TRUE)
 #' @param growth_rate Numeric. Revenue growth rate assumption (default: 0.02)
 #' @param discount_rate Numeric. Discount rate for NPV calculation (default: 0.05)
@@ -25,7 +29,8 @@
 #'   For NetCDF files: uses terra::extract with the specified function.
 #'   For NC files: uses the mean ensemble layer by default (ensemble selection is separate from aggregation_method).
 #'   For precomputed data: uses the mean ensemble variant (ensemble selection is separate from aggregation_method).
-#' #'
+#' @param on_progress Optional function(value, message) called after each pipeline step with a
+#'   numeric progress value between 0 and 1 and a short status message (e.g. for Shiny progress widgets).
 #' @return List containing final results:
 #'   - assets_factors: Asset-level hazard exposure with damage factors and event information (return_period, event_year)
 #'   - companies: Pivoted company results with NPV, PD, and Expected Loss by scenario (aggregated)

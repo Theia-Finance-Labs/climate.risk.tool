@@ -191,7 +191,7 @@ attach_sector_metadata <- function(df, cnae_exposure = NULL) {
         cnae_numeric = suppressWarnings(as.numeric(.data$cnae_digits))
       ) |>
       dplyr::filter(!is.na(.data$cnae_numeric)) |>
-      dplyr::select(cnae_numeric, sector_description_new = "description") |>
+      dplyr::select("cnae_numeric", sector_description_new = "description") |>
       dplyr::distinct()
 
     df <- df |>
