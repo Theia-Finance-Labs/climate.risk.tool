@@ -1,4 +1,9 @@
 #' @noRd
+format_repro_path <- function(path) {
+  gsub("\\", "/", as.character(path), fixed = TRUE)
+}
+
+#' @noRd
 format_r_scalar <- function(x) {
   if (length(x) == 0 || is.null(x)) {
     return("NULL")
@@ -99,8 +104,8 @@ build_run_repro_code <- function(run_spec) {
       "library(dplyr)",
       "library(sf)",
       "",
-      paste0("base_dir <- ", format_r_scalar(normalizePath(base_dir, winslash = "/", mustWork = FALSE))),
-      paste0("input_folder <- ", format_r_scalar(normalizePath(input_folder, winslash = "/", mustWork = FALSE))),
+      paste0("base_dir <- ", format_r_scalar(format_repro_path(base_dir))),
+      paste0("input_folder <- ", format_r_scalar(format_repro_path(input_folder))),
       "",
       "assets <- read_assets(input_folder)",
       "companies <- read_companies(input_folder)",
