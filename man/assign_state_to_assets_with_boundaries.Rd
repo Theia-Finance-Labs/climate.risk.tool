@@ -2,7 +2,7 @@
 % Please edit documentation in R/utils__read_inputs.R
 \name{assign_state_to_assets_with_boundaries}
 \alias{assign_state_to_assets_with_boundaries}
-\title{Assign states to assets using spatial matching with loaded boundaries}
+\title{Assign ADM1/ADM2 regions to assets using spatial matching with loaded boundaries}
 \usage{
 assign_state_to_assets_with_boundaries(
   assets_df,
@@ -21,15 +21,16 @@ assign_state_to_assets_with_boundaries(
 \item{adm_codes}{Optional data frame with ADM codes (from load_adm_codes()). Required for code assignment.}
 }
 \value{
-Data frame with state assigned to all assets
+Data frame with ADM columns assigned where possible
 }
 \description{
-For assets without state assigned, uses spatial matching with ADM1 boundaries
-based on coordinates (if available) or municipality lookup (if no coordinates).
-State names are ASCII-normalized for consistency.
+For geolocated assets (latitude/longitude), assigns municipality and state
+through point-in-polygon matching against ADM2/ADM1 boundaries. Coordinates are the
+source of truth: existing ADM fields are overwritten for geolocated rows. For non-geolocated
+assets, state can still be inferred from municipality when possible.
 }
 \details{
-Assign state to assets using already-loaded boundaries
+Assign ADM regions to assets using already-loaded boundaries
 }
 \examples{
 \dontrun{

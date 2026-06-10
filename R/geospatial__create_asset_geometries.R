@@ -47,7 +47,11 @@ create_asset_geometries <- function(assets_df, default_buffer_size_m = 1111, out
   )
   points_buffer_sf <- sf::st_transform(points_sf, buffer_crs)
 
-  size_m2_vals <- suppressWarnings(as.numeric(assets_df$size_in_m2))
+  size_m2_vals <- if ("size_in_m2" %in% names(assets_df)) {
+    suppressWarnings(as.numeric(assets_df$size_in_m2))
+  } else {
+    rep(NA_real_, nrow(assets_df))
+  }
   buffer_radii <- ifelse(
     !is.na(size_m2_vals) & size_m2_vals > 0,
     sqrt(size_m2_vals / pi),

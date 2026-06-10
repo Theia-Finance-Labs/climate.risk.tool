@@ -4,7 +4,13 @@
 \alias{mod_hazards_events_server}
 \title{hazards_events Server Functions}
 \usage{
-mod_hazards_events_server(id, hazards_inventory, hazard_configs)
+mod_hazards_events_server(
+  id,
+  hazards_inventory,
+  hazard_configs,
+  base_dir_reactive = NULL,
+  spatial_data_reactive = NULL
+)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
@@ -12,6 +18,10 @@ mod_hazards_events_server(id, hazards_inventory, hazard_configs)
 \item{hazards_inventory}{reactive data.frame with columns: hazard_type, hazard_indicator, scenario_name, return_period, hazard_name}
 
 \item{hazard_configs}{reactive list from load_hazards_and_inventory()$configs}
+
+\item{base_dir_reactive}{optional reactive returning base_dir for loading spatial separation options}
+
+\item{spatial_data_reactive}{optional reactive returning preloaded spatial separation data}
 }
 \value{
 reactive data.frame of configured events with columns: event_id, hazard_type, hazard_indicator, hazard_name, scenario_name, return_period, event_year, season

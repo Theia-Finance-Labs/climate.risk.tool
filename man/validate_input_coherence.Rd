@@ -9,9 +9,14 @@ validate_input_coherence(
   companies_df,
   hazards_dir,
   hazard_configs,
+  cnae_exposure_df,
   precomputed_hazards_df = NULL,
   adm1_names,
   adm2_names,
+  adm1_codes = NULL,
+  adm2_codes = NULL,
+  adm1_shape_ids = NULL,
+  adm2_shape_ids = NULL,
   events_df = NULL
 )
 }
@@ -19,6 +24,8 @@ validate_input_coherence(
 \item{assets_df}{Assets data frame}
 
 \item{companies_df}{Companies data frame}
+
+\item{cnae_exposure_df}{CNAE exposure data frame}
 
 \item{precomputed_hazards_df}{Optional precomputed hazards data frame}
 
@@ -29,8 +36,6 @@ validate_input_coherence(
 \item{events_df}{Optional events data frame to validate hazard-specific coverage}
 
 \item{damage_factors_df}{Damage factors data frame}
-
-\item{cnae_exposure_df}{CNAE exposure data frame}
 }
 \value{
 List with validation results containing \code{errors} and \code{warnings} character vectors.
@@ -54,7 +59,8 @@ Validate Input Data Coherence
 # Load boundary names
 adm1 <- load_adm1_state_names("tests/tests_data")
 adm2 <- load_adm2_municipality_names("tests/tests_data")
+cnae_exposure <- load_mapping_from_config("tests/tests_data", load_hazard_configs("tests/tests_data/hazards/config"), "Heat", "cnae_exposure")
 # Validate
-validate_input_coherence(assets, damage_factors, precomputed_hazards, cnae_exposure, adm1, adm2)
+validate_input_coherence(assets, companies, "tests/tests_data/hazards/config", load_hazard_configs("tests/tests_data/hazards/config"), cnae_exposure, precomputed_hazards, adm1, adm2)
 }
 }

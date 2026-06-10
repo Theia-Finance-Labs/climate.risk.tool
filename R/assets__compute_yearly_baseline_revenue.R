@@ -45,6 +45,23 @@ compute_yearly_baseline_revenue <- function(
   assets_with_companies <- assets_with_companies |>
     dplyr::mutate(revenue_2025 = .data$revenues * .data$share_of_economic_activity)
 
+  # Resolve effective growth rate: use per-asset value when available, else global default
+  if ("growth_rate" %in% names(assets_with_companies)) {
+    assets_with_companies <- assets_with_companies |>
+      dplyr::mutate(
+        # .env$growth_rate explicitly references the function parameter,
+        # not the column of the same name
+        .effective_growth_rate = dplyr::if_else(
+          is.na(.data$growth_rate),
+          .env$growth_rate,
+          .data$growth_rate
+        )
+      )
+  } else {
+    assets_with_companies <- assets_with_companies |>
+      dplyr::mutate(.effective_growth_rate = growth_rate)
+  }
+
   # Generate yearly trajectories
   years <- start_year:end_year
 
@@ -53,8 +70,8 @@ compute_yearly_baseline_revenue <- function(
   result <- assets_with_companies |>
     dplyr::mutate(year = list(years)) |>
     tidyr::unnest("year") |>
-    # Apply growth rate: revenue_year = revenue_2025 * (1 + growth_rate)^(year - 2025)
-    dplyr::mutate(revenue = .data$revenue_2025 * (1 + growth_rate)^(.data$year - start_year)) |>
+    # Apply effective growth rate (per-asset if set, else global default)
+    dplyr::mutate(revenue = .data$revenue_2025 * (1 + .data$.effective_growth_rate)^(.data$year - start_year)) |>
     dplyr::select("asset", "company", "year", "revenue")
 
 

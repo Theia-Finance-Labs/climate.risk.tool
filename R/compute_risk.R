@@ -110,7 +110,28 @@ compute_risk <- function(assets,
                          growth_rate = 0.02,
                          discount_rate = 0.05,
                          risk_free_rate = 0.02,
-                         aggregation_method = "mean") {
+                         aggregation_method = "mean",
+                         on_progress = NULL) {
+  # Internal helper: always print an ASCII bar to the R console AND call
+  # the optional on_progress callback (e.g. for a Shiny progress widget).
+  .report_progress <- function(value, msg) {
+    bar_width <- 30
+    filled <- round(value * bar_width)
+    bar <- paste0(
+      "[", paste(rep("=", filled), collapse = ""),
+      if (filled < bar_width) ">" else "",
+      paste(rep(" ", max(0, bar_width - filled - 1)), collapse = ""),
+      "]"
+    )
+    message(sprintf("%s %3d%%  %s", bar, round(value * 100), msg))
+    if (!is.null(on_progress)) {
+      tryCatch(
+        on_progress(value, msg),
+        error = function(e) message("[progress callback error] ", conditionMessage(e))
+      )
+    }
+  }
+
   # Validate inputs
   if (!is.data.frame(assets) || nrow(assets) == 0) {
     stop("assets must be a non-empty data.frame (from read_assets())")
@@ -146,6 +167,7 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 0: INPUT PREPARATION - Assign states to assets and validate
   # ============================================================================
+  .report_progress(0.05, "Preparing inputs...")
 
   # Assign ADM regions (state/municipality) from boundaries when available
   if (!is.null(adm1_boundaries)) {
@@ -237,6 +259,7 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 1: UTILS - Data preparation
   # ============================================================================
+  .report_progress(0.15, "Preparing data...")
 
   # Auto-generate event_id if not provided (only if column doesn't exist)
   if (!"event_id" %in% names(events)) {
@@ -264,6 +287,7 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 2: GEOSPATIAL - Extract hazard statistics (spatial or precomputed)
   # ============================================================================
+  .report_progress(0.25, "Extracting hazard statistics...")
 
   # Filter inventory to match filtered hazards (prevent warnings about unfound hazards)
   filtered_hazard_keys <- names(hazards)
@@ -406,6 +430,7 @@ compute_risk <- function(assets,
     }
 
   # Step 2.4: Apply spatial separation (per event) before mapping/shock joins
+  .report_progress(0.50, "Applying spatial separation...")
   spatial_eval <- evaluate_spatial_separation(
     assets_with_events = assets_with_events,
     events = events,
@@ -432,6 +457,7 @@ compute_risk <- function(assets,
   excluded_rows <- build_spatial_exclusion_rows(excluded_events)
 
   # Step 2.5: Join mapping tables for hazard-specific factors (included rows only)
+  .report_progress(0.60, "Joining damage and cost factors...")
   assets_factors_included <- if (nrow(included_events) > 0) {
     join_damage_cost_factors(included_events, hazard_configs, hazards_dir)
   } else {
@@ -484,6 +510,7 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 3: SHOCK - Compute baseline and shocked yearly trajectories
   # ============================================================================
+  .report_progress(0.70, "Computing revenue trajectories...")
 
   # Step 3.1: Compute baseline yearly trajectories
   yearly_baseline <- compute_baseline_trajectories(
@@ -507,6 +534,7 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 4: FINANCIAL_ASSETS - Asset-level financial computations
   # ============================================================================
+  .report_progress(0.82, "Computing asset financials...")
 
   # Apply discounting to yearly scenarios
   assets_discounted_yearly <- discount_yearly_profits(yearly_scenarios, discount_rate)
@@ -515,6 +543,7 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 5: FINANCIALS_COMPANY - Company-level aggregation and risk metrics
   # ============================================================================
+  .report_progress(0.91, "Computing company financials...")
 
   # Compute company-level yearly trajectories for detailed analysis
   company_yearly_trajectories <- aggregate_assets_to_company(assets_discounted_yearly)
@@ -526,6 +555,7 @@ compute_risk <- function(assets,
   # ============================================================================
   # PHASE 6: UTILS - Final result formatting and output
   # ============================================================================
+  .report_progress(1.00, "Done.")
 
   # Final results include both aggregated and yearly trajectory data
   final_results <- list(

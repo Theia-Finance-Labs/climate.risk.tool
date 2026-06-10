@@ -378,6 +378,10 @@ app_server <- function(input, output, session) {
         }
 
         # Run the complete climate risk analysis using pre-loaded data
+        progress <- shiny::Progress$new(session, min = 0, max = 1)
+        progress$set(message = "Running analysis...", value = 0)
+        on.exit(progress$close(), add = TRUE)
+
         results <- withCallingHandlers(
           compute_risk(
             assets = values$assets,
@@ -397,7 +401,10 @@ app_server <- function(input, output, session) {
             growth_rate = control$growth_rate(),
             discount_rate = control$discount_rate(),
             risk_free_rate = control$risk_free_rate(),
-            aggregation_method = "mean" # Default aggregation method
+            aggregation_method = "mean",
+            on_progress = function(value, msg) {
+              progress$set(value = value, detail = msg)
+            }
           ),
           warning = function(w) {
             warning_msg <- conditionMessage(w)

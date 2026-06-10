@@ -8,7 +8,8 @@ mod_results_assets_server(
   id,
   results_reactive,
   name_mapping_reactive = NULL,
-  cnae_exposure_reactive = NULL
+  cnae_exposure_reactive = NULL,
+  events_reactive = NULL
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ mod_results_assets_server(
 \item{name_mapping_reactive}{reactive containing region name mapping dictionary}
 
 \item{cnae_exposure_reactive}{reactive returning CNAE exposure lookup table}
+
+\item{events_reactive}{optional reactive containing the configured events snapshot used in the latest run}
 }
 \description{
 results_assets Server Functions

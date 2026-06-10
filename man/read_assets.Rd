@@ -17,9 +17,8 @@ Reads asset information from Excel (.xlsx) or CSV (.csv) file in the specified f
 The folder must directly contain asset_information.xlsx or asset_information.csv (but not both).
 For CSV files, automatically detects separator (comma or semicolon).
 Converts column names to snake_case and parses numeric columns correctly.
-Municipality and state columns accept names. Use State Code / Municipality Code
-(which map to \code{state_code} / \code{municipality_code}) for IBGE codes; legacy
-numeric codes in State / Municipality are still accepted.
+Municipality and state columns accept names. Use state_code and municipality_code
+for IBGE codes; legacy numeric codes in state or municipality are still accepted.
 }
 \details{
 Read asset data from Excel or CSV file

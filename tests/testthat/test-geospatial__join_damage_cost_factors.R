@@ -111,3 +111,41 @@ testthat::test_that("join_damage_cost_factors applies Drought assets_fallbacks f
   testthat::expect_equal(joined$damage_factor[1], 0.3016, tolerance = 0.0001)
   testthat::expect_equal(joined$damage_factor[2], 0.52, tolerance = 0.0001)
 })
+
+testthat::test_that("join_damage_cost_factors handles Drought off_window when event season doesn't match crop season", {
+  hazard_configs <- load_hazard_configs(get_hazards_dir())
+
+  assets_with_events <- tibble::tibble(
+    asset = c("A1", "A2"),
+    company = c("C1", "C1"),
+    hazard_type = c("Drought", "Drought"),
+    hazard_indicator = c("standardized_precipitation_index_3", "standardized_precipitation_index_3"),
+    spi3 = c(-1.1, -1.1),
+    scenario_name = c("present", "present"),
+    return_period = c(10, 10),
+    event_id = c("ev1", "ev2"),
+    event_year = c(2030, 2031),
+    asset_category = c("agriculture", "agriculture"),
+    asset_subtype = c("Soybean", "Soybean"),
+    state = c("Rio Grande do Sul", "Rio Grande do Sul"),
+    season = c("Summer", "Winter")
+  )
+
+  joined <- join_damage_cost_factors(
+    assets_with_hazards = assets_with_events,
+    hazard_configs = hazard_configs,
+    hazards_dir = get_hazards_dir()
+  )
+
+  testthat::expect_true("damage_factor" %in% names(joined))
+  
+  # Asset 1: Summer matches the crop's growing season (Summer) -> use damage_factor directly
+  # From drought_factors.csv: Rio Grande do Sul, Soybean, Summer, spi3=-1.1 -> damage_factor = 0.375
+  testthat::expect_equal(joined$damage_factor[1], 0.375, tolerance = 0.0001)
+  
+  # Asset 2: Winter doesn't match -> apply off_window logic
+  # Should average all growing seasons' damage_factors * off_window
+  # For Rio Grande do Sul Soybean at spi3=-1.1 in Summer: damage_factor=0.375, off_window=0.15
+  # Expected: 0.375 * 0.15 = 0.05625
+  testthat::expect_equal(joined$damage_factor[2], 0.05625, tolerance = 0.0001)
+})

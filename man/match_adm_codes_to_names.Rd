@@ -15,10 +15,9 @@ match_adm_codes_to_names(assets_df, adm_codes)
 Data frame with state_code, state_name, municipality_code, municipality_name columns added
 }
 \description{
-Matches ADM codes to their names. \code{state_code} and
-\code{municipality_code} are the canonical input columns for IBGE codes.
-Legacy numeric codes in State / Municipality are also accepted and normalized
-into canonical code columns.
+Matches ADM codes to their names. state_code and municipality_code
+are the canonical input columns for IBGE codes. Legacy numeric codes in state
+or municipality are also accepted and normalized into the canonical code columns.
 }
 \details{
 Match ADM codes to names in assets data frame
