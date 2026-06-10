@@ -223,10 +223,10 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
               shiny::div(
                 style = "margin-bottom: 15px; display: flex; gap: 15px; font-size: 0.8em; color: #64748b; font-style: italic;",
                 shiny::span("Variable legend:"),
-                shiny::span(style = "color: #002776; font-weight: 600;", "● Indicator"),
-                shiny::span(style = "color: #009C3B; font-weight: 600;", "● Mapping"),
-                shiny::span(style = "color: #9333ea; font-weight: 600;", "● Input/Asset"),
-                shiny::span(style = "color: #64748b; font-weight: 600;", "● Constant")
+                shiny::span(style = "color: #002776; font-weight: 600;", "* Indicator"),
+                shiny::span(style = "color: #009C3B; font-weight: 600;", "* Mapping"),
+                shiny::span(style = "color: #9333ea; font-weight: 600;", "* Input/Asset"),
+                shiny::span(style = "color: #64748b; font-weight: 600;", "* Constant")
               ),
               lapply(names(hazard_cfg$shocks), function(shock_type) {
                 shock_cfg <- hazard_cfg$shocks[[shock_type]]

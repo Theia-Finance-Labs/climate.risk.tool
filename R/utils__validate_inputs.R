@@ -9,11 +9,16 @@
 #'   - Share of economic activity sums to 1 for each company
 #' @param assets_df Assets data frame
 #' @param companies_df Companies data frame
-#' @param damage_factors_df Damage factors data frame
-#' @param precomputed_hazards_df Optional precomputed hazards data frame
+#' @param hazards_dir Character path to hazards/config directory containing hazard YAML files
+#' @param hazard_configs Named list from load_hazards_and_inventory()$configs
 #' @param cnae_exposure_df CNAE exposure data frame
+#' @param precomputed_hazards_df Optional precomputed hazards data frame
 #' @param adm1_names Character vector of valid ADM1 (province) names (ASCII-normalized)
 #' @param adm2_names Character vector of valid ADM2 (municipality) names (ASCII-normalized)
+#' @param adm1_codes Optional character vector of valid ADM1 administrative codes
+#' @param adm2_codes Optional character vector of valid ADM2 administrative codes
+#' @param adm1_shape_ids Optional character vector of valid ADM1 boundary shape IDs
+#' @param adm2_shape_ids Optional character vector of valid ADM2 boundary shape IDs
 #' @param events_df Optional events data frame to validate hazard-specific coverage
 #' @return List with validation results containing `errors` and `warnings` character vectors.
 #'   Stops execution if errors are found.
@@ -22,9 +27,16 @@
 #' # Load boundary names
 #' adm1 <- load_adm1_state_names("tests/tests_data")
 #' adm2 <- load_adm2_municipality_names("tests/tests_data")
-#' cnae_exposure <- load_mapping_from_config("tests/tests_data", load_hazard_configs("tests/tests_data/hazards/config"), "Heat", "cnae_exposure")
+#' hazard_configs <- load_hazard_configs("tests/tests_data/hazards/config")
+#' cnae_exposure <- load_mapping_from_config(
+#'   "tests/tests_data", hazard_configs, "Heat", "cnae_exposure"
+#' )
 #' # Validate
-#' validate_input_coherence(assets, companies, "tests/tests_data/hazards/config", load_hazard_configs("tests/tests_data/hazards/config"), cnae_exposure, precomputed_hazards, adm1, adm2)
+#' validate_input_coherence(
+#'   assets, companies,
+#'   "tests/tests_data/hazards/config", hazard_configs,
+#'   cnae_exposure, precomputed_hazards, adm1, adm2
+#' )
 #' }
 #' @export
 validate_input_coherence <- function(

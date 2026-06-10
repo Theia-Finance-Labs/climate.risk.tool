@@ -25,6 +25,10 @@ validate_input_coherence(
 
 \item{companies_df}{Companies data frame}
 
+\item{hazards_dir}{Character path to hazards/config directory containing hazard YAML files}
+
+\item{hazard_configs}{Named list from load_hazards_and_inventory()$configs}
+
 \item{cnae_exposure_df}{CNAE exposure data frame}
 
 \item{precomputed_hazards_df}{Optional precomputed hazards data frame}
@@ -33,9 +37,15 @@ validate_input_coherence(
 
 \item{adm2_names}{Character vector of valid ADM2 (municipality) names (ASCII-normalized)}
 
-\item{events_df}{Optional events data frame to validate hazard-specific coverage}
+\item{adm1_codes}{Optional character vector of valid ADM1 administrative codes}
 
-\item{damage_factors_df}{Damage factors data frame}
+\item{adm2_codes}{Optional character vector of valid ADM2 administrative codes}
+
+\item{adm1_shape_ids}{Optional character vector of valid ADM1 boundary shape IDs}
+
+\item{adm2_shape_ids}{Optional character vector of valid ADM2 boundary shape IDs}
+
+\item{events_df}{Optional events data frame to validate hazard-specific coverage}
 }
 \value{
 List with validation results containing \code{errors} and \code{warnings} character vectors.
@@ -59,8 +69,15 @@ Validate Input Data Coherence
 # Load boundary names
 adm1 <- load_adm1_state_names("tests/tests_data")
 adm2 <- load_adm2_municipality_names("tests/tests_data")
-cnae_exposure <- load_mapping_from_config("tests/tests_data", load_hazard_configs("tests/tests_data/hazards/config"), "Heat", "cnae_exposure")
+hazard_configs <- load_hazard_configs("tests/tests_data/hazards/config")
+cnae_exposure <- load_mapping_from_config(
+  "tests/tests_data", hazard_configs, "Heat", "cnae_exposure"
+)
 # Validate
-validate_input_coherence(assets, companies, "tests/tests_data/hazards/config", load_hazard_configs("tests/tests_data/hazards/config"), cnae_exposure, precomputed_hazards, adm1, adm2)
+validate_input_coherence(
+  assets, companies,
+  "tests/tests_data/hazards/config", hazard_configs,
+  cnae_exposure, precomputed_hazards, adm1, adm2
+)
 }
 }

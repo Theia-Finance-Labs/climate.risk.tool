@@ -407,13 +407,13 @@ load_spatial_separation_data <- function(base_dir, adm1_boundaries = NULL, adm2_
   adm_muni_sf <- NULL
 
   state_path <- find_first_existing(c(
-    file.path(spatial_root, "adm_regions", "state", "geoBoundaries-BRA-ADM1.shp"),
-    file.path(spatial_root, "adm_regions", "state", "geoBoundaries-BRA-ADM1_simplified.geojson"),
+    file.path(spatial_root, "adm1", "geoBoundaries-BRA-ADM1.shp"),
+    file.path(spatial_root, "adm1", "geoBoundaries-BRA-ADM1_simplified.geojson"),
     file.path(base_dir, "areas", "state", "geoBoundaries-BRA-ADM1_simplified.geojson")
   ))
   muni_path <- find_first_existing(c(
-    file.path(spatial_root, "adm_regions", "municipality", "geoBoundaries-BRA-ADM2.shp"),
-    file.path(spatial_root, "adm_regions", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson"),
+    file.path(spatial_root, "adm2", "geoBoundaries-BRA-ADM2.shp"),
+    file.path(spatial_root, "adm2", "geoBoundaries-BRA-ADM2_simplified.geojson"),
     file.path(base_dir, "areas", "municipality", "geoBoundaries-BRA-ADM2_simplified.geojson")
   ))
 
