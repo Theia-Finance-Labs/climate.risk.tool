@@ -302,7 +302,7 @@ testthat::test_that("extract_hazard_statistics surfaces missing precomputed keys
   )
 
   precomputed <- tibble::tibble(
-    region = "KnownCity",
+    adm_name = "KnownCity",
     adm_level = "ADM2",
     hazard_type = "Heat",
     hazard_indicator = "heat_index",
@@ -375,7 +375,7 @@ testthat::test_that("extract_hazard_statistics applies inference for precomputed
   hazard_configs <- hazards_data$configs
 
   precomputed <- tibble::tibble(
-    region = "TestState",
+    adm_name = "TestState",
     adm_level = "ADM1",
     hazard_name = fwi_row$hazard_name,
     hazard_key = fwi_row$hazard_key,
@@ -396,7 +396,7 @@ testthat::test_that("extract_hazard_statistics applies inference for precomputed
   precomputed <- dplyr::bind_rows(
     precomputed,
     tibble::tibble(
-      region = "TestState",
+      adm_name = "TestState",
       adm_level = "ADM1",
       hazard_name = days_row$hazard_name,
       hazard_key = days_row$hazard_key,
@@ -465,7 +465,7 @@ testthat::test_that("extract_hazard_statistics raises error when non-precomputed
 
   # Only provide precomputed data for fwi (not land_cover, which is marked precomputed: false)
   precomputed <- tibble::tibble(
-    region = "TestState",
+    adm_name = "TestState",
     adm_level = "ADM1",
     hazard_name = fwi_row$hazard_name,
     hazard_key = fwi_row$hazard_key,
@@ -525,7 +525,7 @@ testthat::test_that("extract_hazard_statistics detects and reports duplicates", 
   hazard_configs <- hazards_data$configs
   
   precomputed <- tibble::tibble(
-    region = "TestState",
+    adm_name = "TestState",
     adm_level = "ADM1",
     hazard_name = fwi_row$hazard_name,
     hazard_key = fwi_row$hazard_key,
