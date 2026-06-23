@@ -9,6 +9,7 @@ app_server <- function(input, output, session) {
   values <- reactiveValues(
     data_loaded = FALSE,
     results = NULL,
+    results_uncertainty = NULL,
     run_events = NULL,
     status = "Ready to load data",
     # Store all loaded data files
@@ -160,7 +161,9 @@ app_server <- function(input, output, session) {
     }),
     events_reactive = reactive({
       values$run_events
-    })
+    }),
+    uncertainty_mode_reactive = shiny::reactive({ settings$uncertainty_mode() }),
+    uncertainty_results_reactive = shiny::reactive({ values$results_uncertainty })
   )
   # Initialize plot modules
   mod_profit_pathways_server(
@@ -168,12 +171,16 @@ app_server <- function(input, output, session) {
     results_reactive = results,
     cnae_exposure_reactive = reactive({
       values$cnae_exposure
-    })
+    }),
+    uncertainty_mode_reactive = shiny::reactive({ settings$uncertainty_mode() }),
+    uncertainty_results_reactive = shiny::reactive({ values$results_uncertainty })
   )
 
   mod_company_analysis_server(
     "company_analysis",
-    results_reactive = results
+    results_reactive = results,
+    uncertainty_mode_reactive = shiny::reactive({ settings$uncertainty_mode() }),
+    uncertainty_results_reactive = shiny::reactive({ values$results_uncertainty })
   )
 
   # Load all static data files (everything except assets and companies which come from user-selected folder)
@@ -378,41 +385,107 @@ app_server <- function(input, output, session) {
         }
 
         # Run the complete climate risk analysis using pre-loaded data
-        progress <- shiny::Progress$new(session, min = 0, max = 1)
+        use_uncertainty <- isTRUE(settings$uncertainty_mode())
+        # uncertainty = 3 runs (P10, Median, P90); normal = 1 run (mean)
+        progress_max <- if (use_uncertainty) 3 else 1
+        progress <- shiny::Progress$new(session, min = 0, max = progress_max)
         progress$set(message = "Running analysis...", value = 0)
         on.exit(progress$close(), add = TRUE)
 
-        results <- withCallingHandlers(
-          compute_risk(
-            assets = values$assets,
-            companies = companies,
-            events = ev_df,
-            hazards = values$hazards,
-            hazards_inventory = values$hazards_inventory,
-            precomputed_hazards = values$precomputed_hazards,
-            hazard_configs = values$hazard_configs,
-            hazards_dir = file.path(base_dir, "hazards", "config"),
-            cnae_exposure = values$cnae_exposure,
-            adm1_boundaries = values$adm1_boundaries,
-            adm2_boundaries = values$adm2_boundaries,
-            spatial_separation_data = values$spatial_separation_data,
-            base_dir = base_dir,
-            validate_inputs = TRUE,
-            growth_rate = control$growth_rate(),
-            discount_rate = control$discount_rate(),
-            risk_free_rate = control$risk_free_rate(),
-            aggregation_method = "mean",
-            on_progress = function(value, msg) {
-              progress$set(value = value, detail = msg)
-            }
-          ),
-          warning = function(w) {
-            warning_msg <- conditionMessage(w)
-            if (startsWith(warning_msg, "[spatial_separation]")) {
-              analysis_warnings <<- unique(c(analysis_warnings, warning_msg))
-            }
+        # Load NC hazards for a specific ensemble target. TIF hazards (flood) don't
+        # have an ensemble dimension so they use the default hazards object.
+        # Returns list(hazards, inventory) with the target ensemble's rasters and keys.
+        load_unc_hazards <- function(target_ensemble) {
+          result <- try(load_hazards_and_inventory(
+            hazards_dir        = file.path(base_dir, "hazards", "config"),
+            hazard_indicators_dir = file.path(base_dir, "hazards", "indicators"),
+            hazards_override_path = file.path(base_dir, "hazards", "config", "config_overrides.yml"),
+            aggregate_factor   = 1L,
+            ensemble_filter    = target_ensemble
+          ), silent = TRUE)
+          if (inherits(result, "try-error")) {
+            message("[uncertainty] Failed to load hazards for ensemble=", target_ensemble, "; falling back to mean")
+            return(list(hazards = values$hazards, inventory = values$hazards_inventory))
           }
-        )
+          list(hazards = result$hazards, inventory = result$inventory)
+        }
+
+        # For non-NC hazards (TIF/flood), override spatial aggregation method.
+        # NC hazards use the ensemble dimension for uncertainty, not the agg column.
+        make_unc_inventory <- function(inventory, quantile) {
+          if (is.null(inventory) || !"agg" %in% names(inventory)) return(inventory)
+          is_cat <- if ("categorical" %in% names(inventory)) {
+            vapply(inventory$categorical, isTRUE, logical(1))
+          } else {
+            rep(FALSE, nrow(inventory))
+          }
+          is_nc <- if ("source" %in% names(inventory)) {
+            inventory$source == "nc"
+          } else {
+            rep(FALSE, nrow(inventory))
+          }
+          inventory$agg <- ifelse(is_cat | is_nc, inventory$agg, quantile)
+          inventory
+        }
+
+        run_one <- function(agg_method, progress_offset, progress_label,
+                            hazards_inv = values$hazards_inventory,
+                            hazards_obj = values$hazards) {
+          withCallingHandlers(
+            compute_risk(
+              assets = values$assets,
+              companies = companies,
+              events = ev_df,
+              hazards = hazards_obj,
+              hazards_inventory = hazards_inv,
+              precomputed_hazards = values$precomputed_hazards,
+              hazard_configs = values$hazard_configs,
+              hazards_dir = file.path(base_dir, "hazards", "config"),
+              cnae_exposure = values$cnae_exposure,
+              adm1_boundaries = values$adm1_boundaries,
+              adm2_boundaries = values$adm2_boundaries,
+              spatial_separation_data = values$spatial_separation_data,
+              base_dir = base_dir,
+              validate_inputs = TRUE,
+              growth_rate = control$growth_rate(),
+              discount_rate = control$discount_rate(),
+              risk_free_rate = control$risk_free_rate(),
+              aggregation_method = agg_method,
+              on_progress = function(value, msg) {
+                progress$set(value = progress_offset + value, detail = paste0(progress_label, ": ", msg))
+              }
+            ),
+            warning = function(w) {
+              warning_msg <- conditionMessage(w)
+              if (startsWith(warning_msg, "[spatial_separation]")) {
+                analysis_warnings <<- unique(c(analysis_warnings, warning_msg))
+              }
+            }
+          )
+        }
+
+        if (use_uncertainty) {
+          # For each quantile: load ensemble-specific NC rasters, override TIF agg
+          unc_p10    <- load_unc_hazards("p10")
+          unc_median <- load_unc_hazards("median")
+          unc_p90    <- load_unc_hazards("p90")
+
+          results_p10    <- run_one("p10",    0, "P10",
+            make_unc_inventory(unc_p10$inventory,    "p10"),    unc_p10$hazards)
+          results_median <- run_one("median", 1, "Median",
+            make_unc_inventory(unc_median$inventory, "median"), unc_median$hazards)
+          results_p90    <- run_one("p90",    2, "P90",
+            make_unc_inventory(unc_p90$inventory,    "p90"),    unc_p90$hazards)
+          values$results_uncertainty <- list(
+            median = results_median,
+            p10    = results_p10,
+            p90    = results_p90
+          )
+          results <- results_median
+        } else {
+          results <- run_one("mean", 0, "Analysis")
+          values$results_uncertainty <- NULL
+        }
 
         values$results <- results
         values$run_events <- ev_df

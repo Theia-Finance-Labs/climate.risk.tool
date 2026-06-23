@@ -86,9 +86,13 @@ mod_company_analysis_ui <- function(id) {
 #' company_analysis Server Functions
 #'
 #' @param id Internal parameter for shiny
-#' @param results_reactive reactive containing analysis results
+#' @param results_reactive reactive containing analysis results (median)
+#' @param uncertainty_mode_reactive optional reactive returning logical
+#' @param uncertainty_results_reactive optional reactive returning list(median, p10, p90)
 #' @export
-mod_company_analysis_server <- function(id, results_reactive) {
+mod_company_analysis_server <- function(id, results_reactive,
+                                        uncertainty_mode_reactive = NULL,
+                                        uncertainty_results_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -102,6 +106,16 @@ mod_company_analysis_server <- function(id, results_reactive) {
       has_results(new_has_results)
       message("[mod_company_analysis] has_results updated to: ", new_has_results)
     })
+
+    get_uncertainty_mode <- function() {
+      if (is.null(uncertainty_mode_reactive)) return(FALSE)
+      isTRUE(uncertainty_mode_reactive())
+    }
+
+    get_uncertainty_results <- function() {
+      if (is.null(uncertainty_results_reactive)) return(NULL)
+      uncertainty_results_reactive()
+    }
 
     # Render the company search dropdown (only when results are available)
     output$company_search_ui <- shiny::renderUI({
@@ -141,7 +155,14 @@ mod_company_analysis_server <- function(id, results_reactive) {
 
       results <- results_reactive()
       extra <- input$extra_companies
-      create_expected_loss_change_plot(results$companies, extra_companies = extra)
+      message("[mod_company_analysis] Rendering expected loss plot, nrows=", nrow(results$companies))
+      if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        create_expected_loss_change_plot(results$companies, extra_companies = extra,
+                                         unc$p10$companies, unc$p90$companies)
+      } else {
+        create_expected_loss_change_plot(results$companies, extra_companies = extra)
+      }
     })
 
     # FI Expected Loss Change Plot - conditionally shown
@@ -179,7 +200,12 @@ mod_company_analysis_server <- function(id, results_reactive) {
     output$fi_el_change_plot <- plotly::renderPlotly({
       if (!has_results()) return(plotly::plot_ly())
       results <- results_reactive()
-      create_fi_expected_loss_plot(results$companies)
+      if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        create_fi_expected_loss_plot(results$companies, unc$p10$companies, unc$p90$companies)
+      } else {
+        create_fi_expected_loss_plot(results$companies)
+      }
     })
 
     # Portfolio Summary Plot
@@ -206,9 +232,17 @@ mod_company_analysis_server <- function(id, results_reactive) {
 
       results <- results_reactive()
       message("[mod_company_analysis] Computing portfolio summary")
-      summary_data <- compute_portfolio_summary(results$companies)
-      message("[mod_company_analysis] Summary data: ", nrow(summary_data), " rows")
-      create_portfolio_summary_plot(summary_data)
+      if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        summary_median <- compute_portfolio_summary(results$companies)
+        summary_p10    <- compute_portfolio_summary(unc$p10$companies)
+        summary_p90    <- compute_portfolio_summary(unc$p90$companies)
+        create_portfolio_summary_plot(summary_median, summary_p10, summary_p90)
+      } else {
+        summary_data <- compute_portfolio_summary(results$companies)
+        message("[mod_company_analysis] Summary data: ", nrow(summary_data), " rows")
+        create_portfolio_summary_plot(summary_data)
+      }
     })
 
     # Portfolio percentage change text output
@@ -218,21 +252,25 @@ mod_company_analysis_server <- function(id, results_reactive) {
       }
 
       results <- results_reactive()
-      summary_data <- compute_portfolio_summary(results$companies)
-      
-      # Extract the percentage change from the "Difference" row
-      pct_change_row <- summary_data |>
-        dplyr::filter(.data$metric == "Difference")
-      
-      if (nrow(pct_change_row) == 0 || is.na(pct_change_row$pct_change[1])) {
-        return("N/A")
+
+      get_pct <- function(companies_df) {
+        sd <- compute_portfolio_summary(companies_df)
+        row <- dplyr::filter(sd, .data$metric == "Difference")
+        if (nrow(row) == 0 || is.na(row$pct_change[1])) NA_real_ else row$pct_change[1]
       }
-      
-      pct_value <- pct_change_row$pct_change[1]
-      
-      # Format with color based on positive/negative
-      formatted <- sprintf("%+.2f%%", pct_value)
-      return(formatted)
+
+      pct_median <- get_pct(results$companies)
+
+      if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        pct_p10 <- get_pct(unc$p10$companies)
+        pct_p90 <- get_pct(unc$p90$companies)
+        if (is.na(pct_median)) return("N/A")
+        sprintf("%+.2f%% [P10: %+.2f%%, P90: %+.2f%%]", pct_median, pct_p10, pct_p90)
+      } else {
+        if (is.na(pct_median)) return("N/A")
+        sprintf("%+.2f%%", pct_median)
+      }
     })
 
     # Companies table
@@ -244,6 +282,15 @@ mod_company_analysis_server <- function(id, results_reactive) {
 
       companies <- results$companies
 
+      if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        companies <- build_uncertainty_companies_table(
+          companies,
+          unc$p10$companies,
+          unc$p90$companies
+        )
+      }
+
       # Create a display copy for formatting
       companies_display <- companies
 
@@ -251,13 +298,10 @@ mod_company_analysis_server <- function(id, results_reactive) {
       for (col in names(companies_display)) {
         if (is.numeric(companies_display[[col]])) {
           if (grepl("_pct$|_change_pct$", col, ignore.case = TRUE)) {
-            # Percentage change columns (already in percentage format)
             companies_display[[col]] <- paste0(sprintf("%.2f", companies_display[[col]]), "%")
           } else if (grepl("^pd_|_pd$", col, ignore.case = TRUE)) {
-            # Probability of default columns (need to multiply by 100)
             companies_display[[col]] <- paste0(sprintf("%.4f", companies_display[[col]] * 100), "%")
           } else if (grepl("npv|loss", col, ignore.case = TRUE)) {
-            # NPV and loss columns (currency format)
             companies_display[[col]] <- paste0("R$", format(round(companies_display[[col]]), big.mark = ","))
           }
         }
@@ -279,7 +323,16 @@ mod_company_analysis_server <- function(id, results_reactive) {
         return(NULL)
       }
 
-      results$companies
+      if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        build_uncertainty_companies_table(
+          results$companies,
+          unc$p10$companies,
+          unc$p90$companies
+        )
+      } else {
+        results$companies
+      }
     })
 
     output$download_companies_csv <- shiny::downloadHandler(
@@ -314,10 +367,13 @@ mod_company_analysis_server <- function(id, results_reactive) {
 
 #' Create Expected Loss Change Plot
 #'
-#' @param companies_df Data frame with company results
+#' @param companies_df Data frame with median company results
+#' @param companies_p10 optional data frame with P10 company results
+#' @param companies_p90 optional data frame with P90 company results
 #' @return plotly object
 #' @noRd
-create_expected_loss_change_plot <- function(companies_df, extra_companies = NULL) {
+create_expected_loss_change_plot <- function(companies_df, extra_companies = NULL,
+                                             companies_p10 = NULL, companies_p90 = NULL) {
   if (is.null(companies_df) || nrow(companies_df) == 0) {
     return(plotly::plot_ly())
   }
@@ -336,14 +392,12 @@ create_expected_loss_change_plot <- function(companies_df, extra_companies = NUL
   max_bars <- 20
   total_companies <- nrow(companies_df)
 
-  # Top N by absolute change
   top_data <- companies_df |>
     dplyr::arrange(dplyr::desc(abs(.data$Expected_loss_change_pct))) |>
     utils::head(max_bars)
 
   top_companies <- top_data$company
 
-  # Extra companies added by user (not already in top N)
   extra_in_data <- if (!is.null(extra_companies) && length(extra_companies) > 0) {
     companies_df |>
       dplyr::filter(.data$company %in% extra_companies & !(.data$company %in% top_companies))
@@ -351,7 +405,6 @@ create_expected_loss_change_plot <- function(companies_df, extra_companies = NUL
     companies_df[0, ]
   }
 
-  # Combine: top N sorted by pct, then extras sorted by pct
   plot_data <- dplyr::bind_rows(
     top_data |> dplyr::arrange(dplyr::desc(.data$Expected_loss_change_pct)) |>
       dplyr::mutate(.highlighted = FALSE),
@@ -360,7 +413,6 @@ create_expected_loss_change_plot <- function(companies_df, extra_companies = NUL
   ) |>
     dplyr::mutate(company = factor(.data$company, levels = .data$company))
 
-  # Colors: highlighted companies get orange, others get yellow/green
   bar_colors <- dplyr::case_when(
     plot_data$.highlighted ~ palette_brazil$orange,
     plot_data$Expected_loss_change_pct > 0 ~ palette_brazil$yellow,
@@ -377,18 +429,55 @@ create_expected_loss_change_plot <- function(companies_df, extra_companies = NUL
     "Expected Loss % Change by Company"
   }
 
-  plotly::plot_ly(
-    data = plot_data,
-    x = ~company,
-    y = ~Expected_loss_change_pct,
-    type = "bar",
-    marker = list(color = bar_colors),
-    hovertemplate = paste0(
-      "<b>%{x}</b><br>",
-      "Expected Loss Change: %{y:.2f}%<br>",
-      "<extra></extra>"
+  show_uncertainty <- !is.null(companies_p10) && !is.null(companies_p90) &&
+    "Expected_loss_change_pct" %in% names(companies_p10) &&
+    "Expected_loss_change_pct" %in% names(companies_p90)
+
+  if (show_uncertainty) {
+    p10_vals <- companies_p10[match(as.character(plot_data$company), companies_p10$company), "Expected_loss_change_pct", drop = TRUE]
+    p90_vals <- companies_p90[match(as.character(plot_data$company), companies_p90$company), "Expected_loss_change_pct", drop = TRUE]
+
+    hover_text <- paste0(
+      "<b>", plot_data$company, "</b><br>",
+      "Median: ", sprintf("%.2f", plot_data$Expected_loss_change_pct), "%<br>",
+      "P10: ", sprintf("%.2f", p10_vals), "% | P90: ", sprintf("%.2f", p90_vals), "%"
     )
-  ) |>
+
+    p <- plotly::plot_ly(
+      data = plot_data,
+      x = ~company,
+      y = ~Expected_loss_change_pct,
+      type = "bar",
+      name = "Median",
+      marker = list(color = bar_colors),
+      error_y = list(
+        type = "data",
+        symmetric = FALSE,
+        array = p90_vals - plot_data$Expected_loss_change_pct,
+        arrayminus = plot_data$Expected_loss_change_pct - p10_vals,
+        color = "#555555",
+        thickness = 1.5,
+        width = 4
+      ),
+      hovertext = hover_text,
+      hovertemplate = "%{hovertext}<extra></extra>"
+    )
+  } else {
+    p <- plotly::plot_ly(
+      data = plot_data,
+      x = ~company,
+      y = ~Expected_loss_change_pct,
+      type = "bar",
+      marker = list(color = bar_colors),
+      hovertemplate = paste0(
+        "<b>%{x}</b><br>",
+        "Expected Loss Change: %{y:.2f}%<br>",
+        "<extra></extra>"
+      )
+    )
+  }
+
+  p |>
     plotly::layout(
       title = list(text = chart_title, font = list(size = 13)),
       xaxis = list(title = "Company", tickangle = -45),
@@ -404,50 +493,112 @@ create_expected_loss_change_plot <- function(companies_df, extra_companies = NUL
 
 #' Create Portfolio Summary Plot
 #'
-#' @param summary_data Data frame with metric, value, and pct_change columns
+#' @param summary_data Data frame with metric, value, and pct_change columns (median)
+#' @param summary_p10 optional Data frame for P10 results
+#' @param summary_p90 optional Data frame for P90 results
 #' @return plotly object
 #' @noRd
-create_portfolio_summary_plot <- function(summary_data) {
+create_portfolio_summary_plot <- function(summary_data,
+                                          summary_p10 = NULL,
+                                          summary_p90 = NULL) {
   if (is.null(summary_data) || nrow(summary_data) == 0) {
     return(plotly::plot_ly())
   }
 
-  # Define colors for each metric
-  palette_brazil <- list(
-    green = "#009C3B",
-    yellow = "#FFDF00",
-    blue = "#002776"
-  )
+  palette_brazil <- list(green = "#009C3B", yellow = "#FFDF00", blue = "#002776")
+
+  show_uncertainty <- !is.null(summary_p10) && !is.null(summary_p90)
+
+  if (show_uncertainty) {
+    metrics_order <- c("Baseline", "Shock", "Difference")
+
+    bar_colors <- c(
+      "Baseline"   = palette_brazil$blue,
+      "Shock"      = palette_brazil$green,
+      "Difference" = palette_brazil$yellow
+    )
+
+    get_val <- function(sd, metric_name) {
+      sd$value[match(metric_name, sd$metric)]
+    }
+
+    med_vals  <- sapply(metrics_order, function(m) get_val(summary_data, m))
+    p10_vals  <- sapply(metrics_order, function(m) get_val(summary_p10,  m))
+    p90_vals  <- sapply(metrics_order, function(m) get_val(summary_p90,  m))
+
+    hover_text <- mapply(function(metric, med, p10, p90, pct_row) {
+      base <- paste0(
+        "<b>", metric, "</b><br>",
+        "Median EL: R$", formatC(round(med), format="f", digits=0, big.mark=","), "<br>",
+        "P10: R$", formatC(round(p10), format="f", digits=0, big.mark=","),
+        " | P90: R$", formatC(round(p90), format="f", digits=0, big.mark=",")
+      )
+      if (metric == "Difference") {
+        pct_med <- summary_data$pct_change[summary_data$metric == "Difference"]
+        pct_p10 <- summary_p10$pct_change[summary_p10$metric == "Difference"]
+        pct_p90 <- summary_p90$pct_change[summary_p90$metric == "Difference"]
+        if (length(pct_med) && !is.na(pct_med)) {
+          base <- paste0(base, "<br>Change: ", sprintf("%.2f%%", pct_med),
+                         " [P10: ", sprintf("%.2f%%", pct_p10),
+                         " | P90: ", sprintf("%.2f%%", pct_p90), "]")
+        }
+      }
+      paste0(base, "<extra></extra>")
+    }, metrics_order, med_vals, p10_vals, p90_vals, SIMPLIFY = TRUE)
+
+    p <- plotly::plot_ly(
+      x = metrics_order,
+      y = med_vals,
+      type = "bar",
+      marker = list(color = sapply(metrics_order, function(m) bar_colors[m])),
+      error_y = list(
+        type = "data",
+        symmetric = FALSE,
+        array = p90_vals - med_vals,
+        arrayminus = med_vals - p10_vals,
+        color = "#555555",
+        thickness = 1.5,
+        width = 6
+      ),
+      hovertemplate = hover_text
+    ) |>
+      plotly::layout(
+        xaxis = list(
+          title = "",
+          categoryorder = "array",
+          categoryarray = metrics_order
+        ),
+        yaxis = list(
+          title = "Total Expected Loss (R$)",
+          showgrid = TRUE,
+          gridcolor = "#DDE5EC"
+        ),
+        hovermode = "closest",
+        margin = list(l = 80, r = 20, t = 40, b = 60)
+      )
+    return(p)
+  }
 
   bar_colors <- c(
-    "Baseline" = palette_brazil$blue,
-    "Shock" = palette_brazil$green,
+    "Baseline"   = palette_brazil$blue,
+    "Shock"      = palette_brazil$green,
     "Difference" = palette_brazil$yellow
   )
-
   colors_vec <- sapply(summary_data$metric, function(m) bar_colors[m])
 
-  # Build hover text with conditional % change display
   hover_text <- sapply(seq_len(nrow(summary_data)), function(i) {
     row <- summary_data[i, ]
     base_text <- paste0(
       "<b>", row$metric, "</b><br>",
       "Total Expected Loss: R$", format(round(row$value), big.mark = ",")
     )
-    
-    # Add % change only for "Difference" row
     if (row$metric == "Difference" && !is.na(row$pct_change)) {
-      base_text <- paste0(
-        base_text, "<br>",
-        "% Change: ", sprintf("%.2f", row$pct_change), "%"
-      )
+      base_text <- paste0(base_text, "<br>% Change: ", sprintf("%.2f", row$pct_change), "%")
     }
-    
     paste0(base_text, "<br><extra></extra>")
   })
 
-  # Create plot
-  p <- plotly::plot_ly(
+  plotly::plot_ly(
     data = summary_data,
     x = ~metric,
     y = ~value,
@@ -469,20 +620,18 @@ create_portfolio_summary_plot <- function(summary_data) {
       hovermode = "closest",
       margin = list(l = 80, r = 20, t = 40, b = 60)
     )
-
-  p
 }
 
 #' Create FI Expected Loss Change Plot
 #'
-#' @description Bar chart showing percentage change in total expected loss
-#'   (baseline to shock) aggregated by Financial Institution. Companies with
-#'   no FI assigned are grouped under "Unknown".
-#' @param companies_df Data frame with company results including `fi`,
-#'   `Expected_loss_baseline`, and `Expected_loss_shock` columns.
+#' @param companies_df Data frame with median company results
+#' @param companies_p10 optional Data frame with P10 company results
+#' @param companies_p90 optional Data frame with P90 company results
 #' @return plotly object
 #' @noRd
-create_fi_expected_loss_plot <- function(companies_df) {
+create_fi_expected_loss_plot <- function(companies_df,
+                                         companies_p10 = NULL,
+                                         companies_p90 = NULL) {
   if (is.null(companies_df) || nrow(companies_df) == 0) {
     return(plotly::plot_ly())
   }
@@ -490,66 +639,102 @@ create_fi_expected_loss_plot <- function(companies_df) {
     return(plotly::plot_ly())
   }
 
-  palette_brazil <- list(
-    green  = "#009C3B",
-    yellow = "#FFDF00",
-    blue   = "#002776"
-  )
+  palette_brazil <- list(green = "#009C3B", yellow = "#FFDF00", blue = "#002776")
 
-  # Normalise FI values: empty / NA -> "Unknown"
-  fi_data <- companies_df |>
-    dplyr::mutate(
-      fi_display = dplyr::case_when(
-        is.na(.data$fi) | trimws(as.character(.data$fi)) %in% c("", "NA") ~ "Unknown",
-        TRUE ~ trimws(as.character(.data$fi))
-      )
-    ) |>
-    dplyr::group_by(.data$fi_display) |>
-    dplyr::summarise(
-      EL_baseline = sum(.data$Expected_loss_baseline, na.rm = TRUE),
-      EL_shock    = sum(.data$Expected_loss_shock,    na.rm = TRUE),
-      .groups = "drop"
-    ) |>
-    dplyr::mutate(
-      EL_change_pct = dplyr::if_else(
-        .data$EL_baseline == 0 | is.na(.data$EL_baseline),
-        NA_real_,
-        (.data$EL_shock - .data$EL_baseline) / .data$EL_baseline * 100
-      )
-    ) |>
-    dplyr::filter(!is.na(.data$EL_change_pct)) |>
+  normalise_fi <- function(df) {
+    df |>
+      dplyr::mutate(
+        fi_display = dplyr::case_when(
+          is.na(.data$fi) | trimws(as.character(.data$fi)) %in% c("", "NA") ~ "Unknown",
+          TRUE ~ trimws(as.character(.data$fi))
+        )
+      ) |>
+      dplyr::group_by(.data$fi_display) |>
+      dplyr::summarise(
+        EL_baseline = sum(.data$Expected_loss_baseline, na.rm = TRUE),
+        EL_shock    = sum(.data$Expected_loss_shock,    na.rm = TRUE),
+        .groups = "drop"
+      ) |>
+      dplyr::mutate(
+        EL_change_pct = dplyr::if_else(
+          .data$EL_baseline == 0 | is.na(.data$EL_baseline),
+          NA_real_,
+          (.data$EL_shock - .data$EL_baseline) / .data$EL_baseline * 100
+        )
+      ) |>
+      dplyr::filter(!is.na(.data$EL_change_pct))
+  }
+
+  fi_median <- normalise_fi(companies_df) |>
     dplyr::arrange(dplyr::desc(.data$EL_change_pct)) |>
     dplyr::mutate(fi_display = factor(.data$fi_display, levels = .data$fi_display))
 
-  if (nrow(fi_data) == 0) return(plotly::plot_ly())
+  if (nrow(fi_median) == 0) return(plotly::plot_ly())
 
-  bar_colors <- ifelse(fi_data$EL_change_pct > 0, palette_brazil$yellow, palette_brazil$green)
+  show_uncertainty <- !is.null(companies_p10) && !is.null(companies_p90) &&
+    all(c("fi", "Expected_loss_baseline", "Expected_loss_shock") %in% names(companies_p10)) &&
+    all(c("fi", "Expected_loss_baseline", "Expected_loss_shock") %in% names(companies_p90))
 
-  # Build hover text in R so number formatting is reliable
-  fi_data <- fi_data |>
-    dplyr::mutate(
-      hover_text = paste0(
-        "<b>", .data$fi_display, "</b><br>",
-        "EL Baseline: R$", format(round(.data$EL_baseline), big.mark = ","), "<br>",
-        "EL Shock: R$",    format(round(.data$EL_shock),    big.mark = ","), "<br>",
-        "Change: ", sprintf("%.2f", .data$EL_change_pct), "%"
-      )
+  bar_colors <- ifelse(fi_median$EL_change_pct > 0, palette_brazil$yellow, palette_brazil$green)
+
+  if (show_uncertainty) {
+    fi_p10 <- normalise_fi(companies_p10)
+    fi_p90 <- normalise_fi(companies_p90)
+
+    match_pct <- function(fi_df, fi_levels) {
+      fi_df$EL_change_pct[match(as.character(fi_levels), fi_df$fi_display)]
+    }
+
+    p10_vals <- match_pct(fi_p10, fi_median$fi_display)
+    p90_vals <- match_pct(fi_p90, fi_median$fi_display)
+
+    hover_text <- paste0(
+      "<b>", fi_median$fi_display, "</b><br>",
+      "Median: ", sprintf("%.2f", fi_median$EL_change_pct), "%<br>",
+      "P10: ", sprintf("%.2f", p10_vals), "% | P90: ", sprintf("%.2f", p90_vals), "%"
     )
 
-  plotly::plot_ly(
-    data = fi_data,
-    x = ~fi_display,
-    y = ~EL_change_pct,
-    type = "bar",
-    marker = list(color = bar_colors),
-    hovertext = ~hover_text,
-    hovertemplate = "%{hovertext}<extra></extra>"
-  ) |>
-    plotly::layout(
-      xaxis = list(
-        title = "Financial Institution",
-        tickangle = -30
+    p <- plotly::plot_ly(
+      data = fi_median,
+      x = ~fi_display,
+      y = ~EL_change_pct,
+      type = "bar",
+      name = "Median",
+      marker = list(color = bar_colors),
+      error_y = list(
+        type = "data",
+        symmetric = FALSE,
+        array = p90_vals - fi_median$EL_change_pct,
+        arrayminus = fi_median$EL_change_pct - p10_vals,
+        color = "#555555",
+        thickness = 1.5,
+        width = 4
       ),
+      hovertext = hover_text,
+      hovertemplate = "%{hovertext}<extra></extra>"
+    )
+  } else {
+    hover_text <- paste0(
+      "<b>", fi_median$fi_display, "</b><br>",
+      "EL Baseline: R$", format(round(fi_median$EL_baseline), big.mark = ","), "<br>",
+      "EL Shock: R$",    format(round(fi_median$EL_shock),    big.mark = ","), "<br>",
+      "Change: ", sprintf("%.2f", fi_median$EL_change_pct), "%"
+    )
+
+    p <- plotly::plot_ly(
+      data = fi_median,
+      x = ~fi_display,
+      y = ~EL_change_pct,
+      type = "bar",
+      marker = list(color = bar_colors),
+      hovertext = hover_text,
+      hovertemplate = "%{hovertext}<extra></extra>"
+    )
+  }
+
+  p |>
+    plotly::layout(
+      xaxis = list(title = "Financial Institution", tickangle = -30),
       yaxis = list(
         title = "Expected Loss Change (%)",
         showgrid = TRUE,
@@ -558,4 +743,54 @@ create_fi_expected_loss_plot <- function(companies_df) {
       hovermode = "closest",
       margin = list(l = 60, r = 20, t = 40, b = 100)
     )
+}
+
+#' Build an uncertainty-aware companies table
+#'
+#' Merges median, P10, and P90 company results into a single wide table where
+#' key metrics have "(P10 | Median | P90)" formatted columns.
+#'
+#' @param companies_median Data frame - median results
+#' @param companies_p10 Data frame - P10 results
+#' @param companies_p90 Data frame - P90 results
+#' @return tibble with uncertainty range columns
+#' @noRd
+build_uncertainty_companies_table <- function(companies_median, companies_p10, companies_p90) {
+  key_cols <- c(
+    "NPV_baseline", "NPV_shock", "NPV_change_pct",
+    "PD_baseline", "PD_shock",
+    "Expected_loss_baseline", "Expected_loss_shock", "Expected_loss_change_pct"
+  )
+
+  format_range <- function(p10, med, p90, fmt_fn) {
+    paste0(fmt_fn(med), " [", fmt_fn(p10), " – ", fmt_fn(p90), "]")
+  }
+
+  fmt_pct  <- function(x) sprintf("%.2f%%", x)
+  fmt_pd   <- function(x) sprintf("%.4f%%", x * 100)
+  fmt_curr <- function(x) paste0("R$", formatC(round(x), format = "f", digits = 0, big.mark = ","))
+
+  result <- companies_median |>
+    dplyr::select(dplyr::any_of(c("company", "fi")))
+
+  add_range_col <- function(df, col, fmt_fn) {
+    med <- companies_median[[col]]
+    p10 <- companies_p10[[col]]
+    p90 <- companies_p90[[col]]
+    if (is.null(med) || is.null(p10) || is.null(p90)) return(df)
+    df[[col]] <- format_range(p10, med, p90, fmt_fn)
+    df
+  }
+
+  for (col in c("NPV_baseline", "NPV_shock", "Expected_loss_baseline", "Expected_loss_shock")) {
+    result <- add_range_col(result, col, fmt_curr)
+  }
+  for (col in c("NPV_change_pct", "Expected_loss_change_pct")) {
+    result <- add_range_col(result, col, fmt_pct)
+  }
+  for (col in c("PD_baseline", "PD_shock")) {
+    result <- add_range_col(result, col, fmt_pd)
+  }
+
+  result
 }

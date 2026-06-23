@@ -82,7 +82,9 @@ mod_profit_pathways_ui <- function(id) {
 #' @param results_reactive reactive containing analysis results
 #' @param cnae_exposure_reactive reactive returning CNAE exposure lookup table
 #' @export
-mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_reactive = NULL) {
+mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_reactive = NULL,
+                                       uncertainty_mode_reactive = NULL,
+                                       uncertainty_results_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -90,10 +92,18 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
     selected_assets <- shiny::reactiveVal(character(0))
 
     resolve_cnae_exposure <- function() {
-      if (is.null(cnae_exposure_reactive)) {
-        return(NULL)
-      }
+      if (is.null(cnae_exposure_reactive)) return(NULL)
       cnae_exposure_reactive()
+    }
+
+    get_uncertainty_mode <- function() {
+      if (is.null(uncertainty_mode_reactive)) return(FALSE)
+      isTRUE(uncertainty_mode_reactive())
+    }
+
+    get_uncertainty_results <- function() {
+      if (is.null(uncertainty_results_reactive)) return(NULL)
+      uncertainty_results_reactive()
     }
 
     # Asset metadata with sector names and share of economic activity
@@ -128,6 +138,15 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
             "sector_name",
             "sector_code"
           ))
+        ) |>
+        dplyr::mutate(
+          asset_subtype = dplyr::if_else(
+            "asset_category" %in% names(dplyr::cur_data()) &
+              !is.na(.data$asset_category) &
+              tolower(as.character(.data$asset_category)) == "agriculture",
+            .data$asset_subtype,
+            NA_character_
+          )
         ) |>
         dplyr::distinct() |>
         dplyr::arrange(.data$asset)
@@ -240,11 +259,20 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
         )
       }
 
+      unc_baseline_data <- if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        list(
+          p10 = if (!is.null(unc$p10$assets_yearly)) prepare_profit_trajectories(unc$p10$assets_yearly, "baseline", asset_metadata()) else NULL,
+          p90 = if (!is.null(unc$p90$assets_yearly)) prepare_profit_trajectories(unc$p90$assets_yearly, "baseline", asset_metadata()) else NULL
+        )
+      } else NULL
+
       create_profit_plot(
         data,
         selected_assets(),
         "Baseline",
-        log_scale = input$log_scale
+        log_scale = input$log_scale,
+        uncertainty_data = unc_baseline_data
       )
     })
 
@@ -267,11 +295,34 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
         )
       }
 
+      shock_scenario_name <- {
+        results <- results_reactive()
+        scenarios <- unique(results$assets_yearly$scenario)
+        scenarios[scenarios != "baseline"][1]
+      }
+
+      unc_shock_data <- if (get_uncertainty_mode()) {
+        unc <- get_uncertainty_results()
+        list(
+          p10 = if (!is.null(unc$p10$assets_yearly)) {
+            sc <- unique(unc$p10$assets_yearly$scenario)
+            sc <- sc[sc != "baseline"][1]
+            if (!is.na(sc)) prepare_profit_trajectories(unc$p10$assets_yearly, sc, asset_metadata()) else NULL
+          } else NULL,
+          p90 = if (!is.null(unc$p90$assets_yearly)) {
+            sc <- unique(unc$p90$assets_yearly$scenario)
+            sc <- sc[sc != "baseline"][1]
+            if (!is.na(sc)) prepare_profit_trajectories(unc$p90$assets_yearly, sc, asset_metadata()) else NULL
+          } else NULL
+        )
+      } else NULL
+
       create_profit_plot(
         data,
         selected_assets(),
         "Shock",
-        log_scale = input$log_scale
+        log_scale = input$log_scale,
+        uncertainty_data = unc_shock_data
       )
     })
 
@@ -348,13 +399,15 @@ mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_react
 
 #' Create profit pathway plot
 #'
-#' @param data Data frame with asset, year, profit columns
+#' @param data Data frame with asset, year, profit columns (median)
 #' @param highlighted_assets Character vector of assets to highlight
 #' @param title Character. Plot title
 #' @param log_scale Logical. Whether to use logarithmic scale for y-axis (default: FALSE)
+#' @param uncertainty_data optional list(p10, p90) of data frames for uncertainty ribbon
 #' @return plotly object
 #' @noRd
-create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALSE) {
+create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALSE,
+                               uncertainty_data = NULL) {
   if (is.null(data) || nrow(data) == 0) {
     return(plotly::plot_ly())
   }
@@ -429,6 +482,36 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
 
   # Create base plot
   p <- plotly::plot_ly()
+
+  show_ribbon <- !is.null(uncertainty_data) &&
+    !is.null(uncertainty_data$p10) && nrow(uncertainty_data$p10) > 0 &&
+    !is.null(uncertainty_data$p90) && nrow(uncertainty_data$p90) > 0
+
+  # Add P10/P90 ribbon traces before median lines
+  if (show_ribbon) {
+    for (asset_name in unique_assets) {
+      d_p10 <- uncertainty_data$p10 |> dplyr::filter(.data$asset == !!asset_name)
+      d_p90 <- uncertainty_data$p90 |> dplyr::filter(.data$asset == !!asset_name)
+      if (nrow(d_p10) == 0 || nrow(d_p90) == 0) next
+
+      # Combine P90 (forward) and P10 (reversed) to form a closed polygon for fill
+      ribbon_x <- c(d_p90$year, rev(d_p10$year))
+      ribbon_y <- c(d_p90$profit, rev(d_p10$profit))
+
+      p <- p |>
+        plotly::add_trace(
+          x = ribbon_x,
+          y = ribbon_y,
+          type = "scatter",
+          mode = "none",
+          fill = "toself",
+          fillcolor = "rgba(0, 39, 118, 0.08)",
+          name = paste0(asset_name, " range"),
+          showlegend = FALSE,
+          hoverinfo = "skip"
+        )
+    }
+  }
 
   # Add a trace for each asset
   for (asset_name in unique_assets) {

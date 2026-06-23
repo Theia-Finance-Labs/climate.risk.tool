@@ -112,7 +112,8 @@ load_hazards_and_inventory <- function(
   hazards_dir,
   hazard_indicators_dir,
   hazards_override_path = NULL,
-  aggregate_factor = NULL
+  aggregate_factor = NULL,
+  ensemble_filter = NULL
 ) {
   message("[load_hazards_and_inventory] Starting hazard loading and inventory...")
 
@@ -166,7 +167,8 @@ load_hazards_and_inventory <- function(
           hazard_type = hazard_type,
           hazard_indicator = indicator_key,
           indicator_config = indicator,
-          aggregate_factor = aggregate_factor
+          aggregate_factor = aggregate_factor,
+          ensemble_filter = ensemble_filter
         )
         all_hazards <- c(all_hazards, nc_result$hazards)
         inventory <- dplyr::bind_rows(inventory, nc_result$inventory)

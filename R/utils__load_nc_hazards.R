@@ -53,7 +53,8 @@ load_nc_hazards_with_metadata <- function(indicator_path,
                                           indicator_config,
                                           aggregate_factor = 1L,
                                           cache_aggregated = TRUE,
-                                          force_reaggregate = FALSE) {
+                                          force_reaggregate = FALSE,
+                                          ensemble_filter = NULL) {
 
   # Resolve aggregated fallback when requested
   f <- indicator_path
@@ -241,6 +242,27 @@ load_nc_hazards_with_metadata <- function(indicator_path,
       next
     }
 
+    # ensemble_filter overrides fixed_vals for the ensemble dimension so uncertainty
+    # runs can select p10/median/p90 even when the config fixes it to a default.
+    if (dim_name == "ensemble") {
+      if (!is.null(ensemble_filter) && length(ensemble_filter) > 0) {
+        target_idx <- which(as.character(vals) %in% as.character(ensemble_filter))
+        dim_indices[[dim_name]] <- if (length(target_idx) > 0) target_idx else 1L
+      } else if (dim_name %in% names(fixed_vals)) {
+        target <- as.character(fixed_vals[[dim_name]])
+        idx <- which(as.character(vals) == target)
+        if (length(idx) == 0) {
+          stop("Fixed value '", target, "' not found for dimension ", dim_name)
+        }
+        dim_indices[[dim_name]] <- idx[1]
+      } else {
+        mean_idx <- which(as.character(vals) == "mean")
+        if (length(mean_idx) == 0) mean_idx <- 1L
+        dim_indices[[dim_name]] <- mean_idx[1]
+      }
+      next
+    }
+
     if (dim_name %in% names(fixed_vals)) {
       target <- as.character(fixed_vals[[dim_name]])
       idx <- which(as.character(vals) == target)
@@ -248,13 +270,6 @@ load_nc_hazards_with_metadata <- function(indicator_path,
         stop("Fixed value '", target, "' not found for dimension ", dim_name)
       }
       dim_indices[[dim_name]] <- idx[1]
-      next
-    }
-
-    if (dim_name == "ensemble") {
-      mean_idx <- which(as.character(vals) == "mean")
-      if (length(mean_idx) == 0) mean_idx <- 1L
-      dim_indices[[dim_name]] <- mean_idx[1]
       next
     }
 
