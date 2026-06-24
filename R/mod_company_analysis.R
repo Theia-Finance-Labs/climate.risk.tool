@@ -35,9 +35,13 @@ mod_company_analysis_ui <- function(id) {
         style = "margin-bottom: 3rem;",
         shiny::h4("Expected Loss % Change by Company", class = "section-header"),
         shiny::p(
-          "Companies sorted by percentage change in expected loss from baseline to shock scenario.",
+          "Showing top 20 companies by absolute expected loss change. Search to add more companies to the chart.",
           class = "text-muted",
           style = "margin-bottom: 1rem;"
+        ),
+        shiny::div(
+          style = "margin-bottom: 1rem;",
+          shiny::uiOutput(ns("company_search_ui"))
         ),
         shiny::div(
           class = "chart-container",
@@ -99,13 +103,27 @@ mod_company_analysis_server <- function(id, results_reactive) {
       message("[mod_company_analysis] has_results updated to: ", new_has_results)
     })
 
+    # Render the company search dropdown (only when results are available)
+    output$company_search_ui <- shiny::renderUI({
+      if (!has_results()) return(NULL)
+      results <- results_reactive()
+      all_companies <- sort(results$companies$company)
+      shiny::selectizeInput(
+        ns("extra_companies"),
+        label = NULL,
+        choices = all_companies,
+        selected = NULL,
+        multiple = TRUE,
+        options = list(
+          placeholder = "Search and add companies to the chart...",
+          maxOptions = 50
+        )
+      )
+    })
+
     # Expected Loss Change Plot
     output$expected_loss_change_plot <- plotly::renderPlotly({
-      message("[mod_company_analysis] Expected loss plot render triggered - has_results: ", has_results())
-
-      # Depend on has_results to trigger re-rendering
       if (!has_results()) {
-        message("[mod_company_analysis] Returning empty expected loss plot - no results")
         return(
           plotly::plot_ly() |>
             plotly::add_text(
@@ -122,8 +140,8 @@ mod_company_analysis_server <- function(id, results_reactive) {
       }
 
       results <- results_reactive()
-      message("[mod_company_analysis] Rendering expected loss plot, nrows=", nrow(results$companies))
-      create_expected_loss_change_plot(results$companies)
+      extra <- input$extra_companies
+      create_expected_loss_change_plot(results$companies, extra_companies = extra)
     })
 
     # FI Expected Loss Change Plot - conditionally shown
@@ -299,44 +317,67 @@ mod_company_analysis_server <- function(id, results_reactive) {
 #' @param companies_df Data frame with company results
 #' @return plotly object
 #' @noRd
-create_expected_loss_change_plot <- function(companies_df) {
+create_expected_loss_change_plot <- function(companies_df, extra_companies = NULL) {
   if (is.null(companies_df) || nrow(companies_df) == 0) {
     return(plotly::plot_ly())
   }
 
-  # Check if Expected_loss_change_pct column exists
   if (!"Expected_loss_change_pct" %in% names(companies_df)) {
-    return(
-      plotly::plot_ly() |>
-        plotly::add_text(
-          x = 0.5, y = 0.5,
-          text = "Expected_loss_change_pct not found in data",
-          textposition = "middle center",
-          showlegend = FALSE
-        ) |>
-        plotly::layout(
-          xaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE),
-          yaxis = list(showgrid = FALSE, showticklabels = FALSE, zeroline = FALSE)
-        )
-    )
+    return(plotly::plot_ly())
   }
-
-  # Sort by Expected_loss_change_pct descending
-  plot_data <- companies_df |>
-    dplyr::arrange(dplyr::desc(.data$Expected_loss_change_pct)) |>
-    dplyr::mutate(company = factor(.data$company, levels = .data$company))
 
   palette_brazil <- list(
     green = "#009C3B",
     yellow = "#FFDF00",
-    blue = "#002776"
+    blue = "#002776",
+    orange = "#FF6B35"
   )
 
-  # Determine bar colors (yellow for increase, green for decrease)
-  bar_colors <- ifelse(plot_data$Expected_loss_change_pct > 0, palette_brazil$yellow, palette_brazil$green)
+  max_bars <- 20
+  total_companies <- nrow(companies_df)
 
-  # Create plot
-  p <- plotly::plot_ly(
+  # Top N by absolute change
+  top_data <- companies_df |>
+    dplyr::arrange(dplyr::desc(abs(.data$Expected_loss_change_pct))) |>
+    utils::head(max_bars)
+
+  top_companies <- top_data$company
+
+  # Extra companies added by user (not already in top N)
+  extra_in_data <- if (!is.null(extra_companies) && length(extra_companies) > 0) {
+    companies_df |>
+      dplyr::filter(.data$company %in% extra_companies & !(.data$company %in% top_companies))
+  } else {
+    companies_df[0, ]
+  }
+
+  # Combine: top N sorted by pct, then extras sorted by pct
+  plot_data <- dplyr::bind_rows(
+    top_data |> dplyr::arrange(dplyr::desc(.data$Expected_loss_change_pct)) |>
+      dplyr::mutate(.highlighted = FALSE),
+    extra_in_data |> dplyr::arrange(dplyr::desc(.data$Expected_loss_change_pct)) |>
+      dplyr::mutate(.highlighted = TRUE)
+  ) |>
+    dplyr::mutate(company = factor(.data$company, levels = .data$company))
+
+  # Colors: highlighted companies get orange, others get yellow/green
+  bar_colors <- dplyr::case_when(
+    plot_data$.highlighted ~ palette_brazil$orange,
+    plot_data$Expected_loss_change_pct > 0 ~ palette_brazil$yellow,
+    TRUE ~ palette_brazil$green
+  )
+
+  n_shown <- nrow(top_data)
+  n_extra <- nrow(extra_in_data)
+  chart_title <- if (total_companies > max_bars) {
+    extra_note <- if (n_extra > 0) paste0(" + ", n_extra, " selected") else ""
+    paste0("Top ", n_shown, " companies by absolute Expected Loss Change", extra_note,
+           " (", total_companies, " total)")
+  } else {
+    "Expected Loss % Change by Company"
+  }
+
+  plotly::plot_ly(
     data = plot_data,
     x = ~company,
     y = ~Expected_loss_change_pct,
@@ -349,20 +390,16 @@ create_expected_loss_change_plot <- function(companies_df) {
     )
   ) |>
     plotly::layout(
-      xaxis = list(
-        title = "Company",
-        tickangle = -45
-      ),
+      title = list(text = chart_title, font = list(size = 13)),
+      xaxis = list(title = "Company", tickangle = -45),
       yaxis = list(
         title = "Expected Loss Change (%)",
         showgrid = TRUE,
         gridcolor = "#DDE5EC"
       ),
       hovermode = "closest",
-      margin = list(l = 60, r = 20, t = 40, b = 120)
+      margin = list(l = 60, r = 20, t = 50, b = 150)
     )
-
-  p
 }
 
 #' Create Portfolio Summary Plot
