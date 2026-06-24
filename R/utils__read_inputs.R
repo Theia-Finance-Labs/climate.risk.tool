@@ -125,6 +125,20 @@ read_assets <- function(folder_path) {
     }
   }
 
+  # Drop blank trailing rows that Excel adds when a range is formatted beyond data
+  if ("asset" %in% names(assets_raw) && "company" %in% names(assets_raw)) {
+    n_before <- nrow(assets_raw)
+    assets_raw <- assets_raw |>
+      dplyr::filter(
+        !(is.na(.data$asset) | trimws(as.character(.data$asset)) == "") |
+        !(is.na(.data$company) | trimws(as.character(.data$company)) == "")
+      )
+    n_dropped <- n_before - nrow(assets_raw)
+    if (n_dropped > 0) {
+      message("[read_assets] Dropped ", n_dropped, " blank rows (trailing empty rows in Excel/CSV)")
+    }
+  }
+
   # Convert numeric columns for assets
   numeric_asset_cols <- c(
     "share_of_economic_activity", "latitude", "longitude",
@@ -803,6 +817,21 @@ read_companies <- function(file_path) {
     companies_raw <- readxl::read_excel(file_path) |>
       tibble::as_tibble() |>
       dplyr::rename_with(to_snake_case)
+  }
+
+  # Remove unnamed columns that Excel adds (e.g. ...9, ...10 → snake_case becomes 9, 10)
+  companies_raw <- companies_raw |>
+    dplyr::select(-dplyr::matches("^(\\.\\.\\.)?\\d+$"))
+
+  # Drop blank trailing rows
+  if ("company" %in% names(companies_raw)) {
+    n_before <- nrow(companies_raw)
+    companies_raw <- companies_raw |>
+      dplyr::filter(!is.na(.data$company) & trimws(as.character(.data$company)) != "")
+    n_dropped <- n_before - nrow(companies_raw)
+    if (n_dropped > 0) {
+      message("[read_companies] Dropped ", n_dropped, " blank rows (trailing empty rows in Excel/CSV)")
+    }
   }
 
   # Convert numeric columns for companies
