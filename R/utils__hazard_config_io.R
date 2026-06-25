@@ -326,22 +326,26 @@ normalize_hazard_config <- function(config, hazard_name, file_path = NULL) {
     }
   }
 
-  primary_indicator <- config$primary_indicator
-  if (is.null(primary_indicator) || !nzchar(as.character(primary_indicator))) {
-    primary_indicator <- names(indicators)[[1]]
-  }
-  if (!primary_indicator %in% names(indicators)) {
-    stop("primary_indicator '", primary_indicator, "' not found in indicators")
-  }
-
   index_indicator <- config$index_indicator
   if (is.null(index_indicator) || !nzchar(as.character(index_indicator))) {
     has_index <- vapply(indicators, function(ind) length(ind$index) > 0, logical(1))
     if (any(has_index)) {
       index_indicator <- names(indicators)[which(has_index)[1]]
     } else {
-      index_indicator <- primary_indicator
+      index_indicator <- names(indicators)[[1]]
     }
+  }
+
+  primary_indicator <- config$primary_indicator
+  if (is.null(primary_indicator) || !nzchar(as.character(primary_indicator))) {
+    if (index_indicator %in% names(indicators)) {
+      primary_indicator <- index_indicator
+    } else {
+      primary_indicator <- names(indicators)[[1]]
+    }
+  }
+  if (!primary_indicator %in% names(indicators)) {
+    stop("primary_indicator '", primary_indicator, "' not found in indicators")
   }
   if (!index_indicator %in% names(indicators)) {
     stop("index_indicator '", index_indicator, "' not found in indicators")
