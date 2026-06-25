@@ -45,6 +45,58 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     )
   }
 
+  # For NC indicators with a fixed ensemble (e.g. fire fwi with fixed: {ensemble: median}),
+  # the uncertainty run loads rasters with ensemble_filter="p10/p90", which sets indicator_key
+  # to ensemble=p10 in the inventory. But the precomputed CSV was keyed with the fixed ensemble
+  # (ensemble=median). We need to:
+  #   1. Replace ensemble in indicator_key to find the correct CSV row (csv_key).
+  #   2. After the lookup, restore indicator_key to the original inventory key (p10/p90)
+  #      so the inner_join in compute_risk by indicator_key still matches.
+  nc_csv_key_map <- NULL   # will hold: original_key → csv_key for NC indicators
+  if (!is.null(hazard_configs) && length(hazard_configs) > 0) {
+    nc_fixed_ensemble <- purrr::map_dfr(names(hazard_configs), function(ht) {
+      cfg <- hazard_configs[[ht]]
+      purrr::map_dfr(names(cfg$indicators), function(ind_key) {
+        ind <- cfg$indicators[[ind_key]]
+        if (identical(ind$source, "nc") && !is.null(ind$fixed$ensemble)) {
+          tibble::tibble(
+            hazard_type      = ht,
+            hazard_indicator = ind_key,
+            fixed_ensemble   = as.character(ind$fixed$ensemble)
+          )
+        } else {
+          tibble::tibble(hazard_type = character(0), hazard_indicator = character(0), fixed_ensemble = character(0))
+        }
+      })
+    })
+
+    if (nrow(nc_fixed_ensemble) > 0) {
+      # Build a mapping from original_key (p10) → csv_key (median) before modifying the inventory
+      nc_csv_key_map <- required_hazards_inventory |>
+        dplyr::inner_join(nc_fixed_ensemble, by = c("hazard_type", "hazard_indicator")) |>
+        dplyr::mutate(
+          original_key = .data$indicator_key,
+          csv_key = mapply(function(key, ens) sub("__ensemble=[^_]+$", paste0("__ensemble=", ens), key),
+                           .data$indicator_key, .data$fixed_ensemble, USE.NAMES = FALSE)
+        ) |>
+        dplyr::filter(.data$original_key != .data$csv_key) |>
+        dplyr::select("original_key", "csv_key") |>
+        dplyr::distinct()
+
+      required_hazards_inventory <- required_hazards_inventory |>
+        dplyr::left_join(nc_fixed_ensemble, by = c("hazard_type", "hazard_indicator")) |>
+        dplyr::mutate(
+          indicator_key = dplyr::if_else(
+            !is.na(.data$fixed_ensemble),
+            mapply(function(key, ens) sub("__ensemble=[^_]+$", paste0("__ensemble=", ens), key),
+                   .data$indicator_key, .data$fixed_ensemble, USE.NAMES = FALSE),
+            .data$indicator_key
+          )
+        ) |>
+        dplyr::select(-"fixed_ensemble")
+    }
+  }
+
   # Use indicator_key for precomputed lookups (matches the file-based keys in precomputed data)
   # For multi-indicator hazards, this will include multiple keys per event
   required_indicator_keys <- required_hazards_inventory |>
@@ -285,8 +337,9 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   combined_matches <- combined_matches |>
     dplyr::mutate(
       effective_agg = dplyr::coalesce(.data$agg_from_inv, aggregation_method),
-      # Handle aliases: 'closest' is treated as 'mean' for precomputed data
-      effective_agg = dplyr::if_else(.data$effective_agg == "closest", "mean", .data$effective_agg)
+      # 'closest' means "use the aggregation_method" for precomputed data.
+      # For NC indicators this gives p10/median/p90 on uncertainty runs, mean on normal runs.
+      effective_agg = dplyr::if_else(.data$effective_agg == "closest", aggregation_method, .data$effective_agg)
     )
 
   # Validate each asset has all required indicators
@@ -364,6 +417,19 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   final_data <- final_data |>
     dplyr::select(-"indicator_column_name", -"hazard_value", -"effective_agg", -"agg_from_inv", -dplyr::any_of(available_agg_cols)) |>
     dplyr::select(dplyr::any_of(c(metadata_cols, "hazard_intensity", unique_variable_names)))
+
+  # Restore the original inventory indicator_key (e.g. ensemble=p10) for NC indicators whose
+  # key was temporarily replaced with the CSV key (ensemble=median) for the lookup.
+  # compute_risk joins assets_long back to the inventory by indicator_key, so the key must
+  # match the inventory's value, not the CSV's.
+  if (!is.null(nc_csv_key_map) && nrow(nc_csv_key_map) > 0) {
+    final_data <- final_data |>
+      dplyr::left_join(nc_csv_key_map, by = c("indicator_key" = "csv_key")) |>
+      dplyr::mutate(
+        indicator_key = dplyr::coalesce(.data$original_key, .data$indicator_key)
+      ) |>
+      dplyr::select(-"original_key")
+  }
 
   return(final_data)
 }

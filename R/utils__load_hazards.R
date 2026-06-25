@@ -221,10 +221,18 @@ load_hazards_and_inventory <- function(
           tif_mapping$variable <- dplyr::coalesce(tif_mapping$variable, variable_fallback)
         }
 
+        # Use only the index dims and ensemble declared in the indicator config,
+        # matching the key logic in read_precomputed_hazards / get_index_dims.
+        # This must be computed BEFORE load_tif_hazards so raster keys match inventory keys.
+        tif_index_dims <- if (!is.null(indicator$index)) as.character(unlist(indicator$index)) else character(0)
+        tif_ens        <- if (!is.null(indicator$fixed$ensemble)) as.character(indicator$fixed$ensemble) else "mean"
+
         tif_list <- load_tif_hazards(
-          mapping_df = tif_mapping,
-          hazards_dir = indicator_folder,
-          aggregate_factor = aggregate_factor
+          mapping_df             = tif_mapping,
+          hazards_dir            = indicator_folder,
+          aggregate_factor       = aggregate_factor,
+          indicator_index_dims   = tif_index_dims,
+          indicator_ensemble     = tif_ens
         )
 
         all_hazards <- c(all_hazards, tif_list)
@@ -232,32 +240,31 @@ load_hazards_and_inventory <- function(
         if (nrow(tif_mapping) > 0) {
           # Get index configuration for this hazard type
           index_cols <- indicator$index
-          
+
         tif_inventory_rows <- tif_mapping |>
           dplyr::mutate(
-            ensemble = "mean",
+            ensemble = tif_ens,
             season = NA_character_,
             source = "tif",
             agg = indicator$agg,
             categorical = indicator$categorical,
             variable = indicator$variable
           )
-        
-        # Build structured hazard_name for each row
+
+        # Build structured indicator_key for each row
         tif_inventory_rows$indicator_key <- purrr::map_chr(seq_len(nrow(tif_inventory_rows)), function(j) {
           row <- tif_inventory_rows[j, ]
           index_values <- list(
-            return_period = if ("return_period" %in% names(row)) row$return_period else NA_real_,
-            gwl = if ("gwl" %in% names(row)) row$gwl else NA_character_,
-            scenario_name = if ("scenario_name" %in% names(row)) row$scenario_name else NA_character_,
-            season = if ("season" %in% names(row)) row$season else NA_character_
+            return_period = if ("return_period" %in% tif_index_dims && "return_period" %in% names(row)) row$return_period else NA_real_,
+            gwl           = if ("gwl"           %in% tif_index_dims && "gwl"           %in% names(row)) row$gwl           else NA_character_,
+            scenario_name = if ("scenario_name" %in% tif_index_dims && "scenario_name" %in% names(row)) row$scenario_name else NA_character_,
+            season        = if ("season"        %in% tif_index_dims && "season"        %in% names(row)) row$season        else NA_character_
           )
-          
           build_indicator_key(
-            indicator_file = basename(indicator_folder),
+            indicator_file     = basename(indicator_folder),
             indicator_variable = dplyr::coalesce(row$variable, row$hazard_indicator),
-            index_values = index_values,
-            ensemble = "mean"
+            index_values       = index_values,
+            ensemble           = tif_ens
           )
         })
 
@@ -265,17 +272,16 @@ load_hazards_and_inventory <- function(
         tif_inventory_rows$hazard_name <- purrr::map_chr(seq_len(nrow(tif_inventory_rows)), function(j) {
           row <- tif_inventory_rows[j, ]
           index_values <- list(
-            return_period = if ("return_period" %in% names(row)) row$return_period else NA_real_,
-            gwl = if ("gwl" %in% names(row)) row$gwl else NA_character_,
-            scenario_name = if ("scenario_name" %in% names(row)) row$scenario_name else NA_character_,
-            season = if ("season" %in% names(row)) row$season else NA_character_
+            return_period = if ("return_period" %in% tif_index_dims && "return_period" %in% names(row)) row$return_period else NA_real_,
+            gwl           = if ("gwl"           %in% tif_index_dims && "gwl"           %in% names(row)) row$gwl           else NA_character_,
+            scenario_name = if ("scenario_name" %in% tif_index_dims && "scenario_name" %in% names(row)) row$scenario_name else NA_character_,
+            season        = if ("season"        %in% tif_index_dims && "season"        %in% names(row)) row$season        else NA_character_
           )
-          
           build_hazard_name(
-            hazard_type = hazard_type,
+            hazard_type      = hazard_type,
             hazard_indicator = indicator_key,
-            index_values = index_values,
-            ensemble = "mean"
+            index_values     = index_values,
+            ensemble         = tif_ens
           )
         })
         

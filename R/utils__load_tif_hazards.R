@@ -20,7 +20,9 @@ load_tif_hazards <- function(mapping_df,
                              aggregate_factor = 1L,
                              cache_aggregated = TRUE,
                              force_reaggregate = FALSE,
-                             memfrac = 0.3) {
+                             memfrac = 0.3,
+                             indicator_index_dims = NULL,
+                             indicator_ensemble = NULL) {
   message("[load_tif_hazards] Loading hazards...")
 
 
@@ -147,26 +149,31 @@ load_tif_hazards <- function(mapping_df,
   for (i in seq_len(nrow(mapping))) {
     row <- mapping[i, ]
     
-    # Build index values list for this row
+    # Build index values list for this row.
+    # When indicator_index_dims is provided (from the hazard config's index field),
+    # only include dims declared in that list so raster keys stay aligned with
+    # the inventory keys and precomputed CSV keys.
+    index_dims <- if (!is.null(indicator_index_dims)) indicator_index_dims else
+      c("return_period", "gwl", "scenario_name", "season")
+    ens <- if (!is.null(indicator_ensemble) && nzchar(indicator_ensemble)) indicator_ensemble else "mean"
+
     index_values <- list(
-      return_period = if ("return_period" %in% names(row)) row$return_period else NA_real_,
-      gwl = if ("gwl" %in% names(row)) row$gwl else NA_character_,
-      scenario_name = if ("scenario_name" %in% names(row)) row$scenario_name else NA_character_,
-      season = if ("season" %in% names(row)) row$season else NA_character_
+      return_period = if ("return_period" %in% index_dims && "return_period" %in% names(row)) row$return_period else NA_real_,
+      gwl           = if ("gwl"           %in% index_dims && "gwl"           %in% names(row)) row$gwl           else NA_character_,
+      scenario_name = if ("scenario_name" %in% index_dims && "scenario_name" %in% names(row)) row$scenario_name else NA_character_,
+      season        = if ("season"        %in% index_dims && "season"        %in% names(row)) row$season        else NA_character_
     )
-    
+
     # Construct structured name
     raster_name <- build_indicator_key(
-      indicator_file = basename(dirname(row$full_path)), # Use folder name for TIF indicators
-      # IMPORTANT: use the indicator *variable* (e.g. flood_depth_cm), not the indicator *key*
-      # (e.g. flood_depth) to match precomputed hazards + config variable naming.
+      indicator_file = basename(dirname(row$full_path)),
       indicator_variable = if ("variable" %in% names(row) && !is.na(row$variable) && nzchar(as.character(row$variable))) {
         as.character(row$variable)
       } else {
         as.character(row$hazard_indicator)
       },
       index_values = index_values,
-      ensemble = "mean"
+      ensemble = ens
     )
     
     tif_file <- row$full_path
