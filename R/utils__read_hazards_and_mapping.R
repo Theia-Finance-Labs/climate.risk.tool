@@ -532,7 +532,7 @@ read_hazards_mapping <- function(mapping_path) {
 #' \dontrun{
 #' base_dir <- system.file("tests_data", package = "climate.risk.tool")
 #' name_mapping <- load_region_name_mapping(base_dir)
-#' # Access original name: name_mapping$province["Sao Paulo"] returns "São Paulo"
+#' # Access original name: name_mapping$province["Sao Paulo"] returns "Sao Paulo"
 #' }
 #' @export
 load_region_name_mapping <- function(base_dir, adm1_sf = NULL, adm2_sf = NULL) {

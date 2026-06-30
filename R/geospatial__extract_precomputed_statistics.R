@@ -52,7 +52,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
   #   1. Replace ensemble in indicator_key to find the correct CSV row (csv_key).
   #   2. After the lookup, restore indicator_key to the original inventory key (p10/p90)
   #      so the inner_join in compute_risk by indicator_key still matches.
-  nc_csv_key_map <- NULL   # will hold: original_key → csv_key for NC indicators
+  nc_csv_key_map <- NULL   # will hold: original_key -> csv_key for NC indicators
   if (!is.null(hazard_configs) && length(hazard_configs) > 0) {
     nc_fixed_ensemble <- purrr::map_dfr(names(hazard_configs), function(ht) {
       cfg <- hazard_configs[[ht]]
@@ -71,7 +71,7 @@ extract_precomputed_statistics <- function(assets_df, precomputed_hazards, hazar
     })
 
     if (nrow(nc_fixed_ensemble) > 0) {
-      # Build a mapping from original_key (p10) → csv_key (median) before modifying the inventory
+      # Build a mapping from original_key (p10) -> csv_key (median) before modifying the inventory
       nc_csv_key_map <- required_hazards_inventory |>
         dplyr::inner_join(nc_fixed_ensemble, by = c("hazard_type", "hazard_indicator")) |>
         dplyr::mutate(

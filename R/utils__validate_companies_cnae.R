@@ -279,7 +279,7 @@ validate_companies_against_assets <- function(companies_df, assets_df, validatio
   }
 
   # 2) Any missing value on required company columns (row-wise).
-  # Optional columns (fi, growth_rate, …) are excluded so that a user
+  # Optional columns (fi, growth_rate, ...) are excluded so that a user
   # who leaves them blank for some rows does not trigger a validation error.
   optional_company_cols <- c("fi", "growth_rate")
   required_cols_present <- setdiff(names(companies_df), optional_company_cols)

@@ -8,7 +8,8 @@ load_hazards_and_inventory(
   hazards_dir,
   hazard_indicators_dir,
   hazards_override_path = NULL,
-  aggregate_factor = NULL
+  aggregate_factor = NULL,
+  ensemble_filter = NULL
 )
 }
 \arguments{
@@ -22,6 +23,9 @@ When NULL, defaults to hazards_dir/config_overrides.yml. Missing files are ignor
 \item{aggregate_factor}{Integer >= 1. Aggregation factor for TIF and NetCDF rasters (default: \code{NULL}).
 When \code{NULL}, reads the \code{climate_risk_tool_nc_aggregate_factor} option (default: 1).
 Values > 1 spatially aggregate each raster on load so that tests can run with lower resolution.}
+
+\item{ensemble_filter}{optional character vector of ensemble variant names to keep.
+When \code{NULL}, all ensemble variants are retained.}
 }
 \value{
 A list with two elements:

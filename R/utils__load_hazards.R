@@ -88,6 +88,8 @@ build_hazard_name <- function(hazard_type, hazard_indicator, index_values, ensem
 #' @param aggregate_factor Integer >= 1. Aggregation factor for TIF and NetCDF rasters (default: `NULL`).
 #'   When `NULL`, reads the `climate_risk_tool_nc_aggregate_factor` option (default: 1).
 #'   Values > 1 spatially aggregate each raster on load so that tests can run with lower resolution.
+#' @param ensemble_filter optional character vector of ensemble variant names to keep.
+#'   When `NULL`, all ensemble variants are retained.
 #' @return A list with two elements:
 #'   - `hazards`: Named list of SpatRaster objects (combined from all sources)
 #'   - `inventory`: Tibble with columns: hazard_type, hazard_indicator, scenario_name,

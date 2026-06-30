@@ -81,6 +81,8 @@ mod_profit_pathways_ui <- function(id) {
 #' @param id Internal parameter for shiny
 #' @param results_reactive reactive containing analysis results
 #' @param cnae_exposure_reactive reactive returning CNAE exposure lookup table
+#' @param uncertainty_mode_reactive optional reactive returning logical indicating uncertainty mode
+#' @param uncertainty_results_reactive optional reactive returning list with p10 and p90 results
 #' @export
 mod_profit_pathways_server <- function(id, results_reactive, cnae_exposure_reactive = NULL,
                                        uncertainty_mode_reactive = NULL,

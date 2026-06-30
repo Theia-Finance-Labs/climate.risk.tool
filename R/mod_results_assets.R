@@ -39,6 +39,9 @@ mod_results_assets_ui <- function(id) {
 #' @param name_mapping_reactive reactive containing region name mapping dictionary
 #' @param cnae_exposure_reactive reactive returning CNAE exposure lookup table
 #' @param events_reactive optional reactive containing the configured events snapshot used in the latest run
+#' @param uncertainty_mode_reactive optional reactive returning logical indicating uncertainty mode
+#' @param uncertainty_results_reactive optional reactive returning list with p10 and p90 results
+#' @param hazard_configs_reactive optional reactive returning hazard configuration list
 #' @export
 mod_results_assets_server <- function(id, results_reactive, name_mapping_reactive = NULL,
                                       cnae_exposure_reactive = NULL, events_reactive = NULL,
@@ -293,7 +296,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         dplyr::select(-dplyr::any_of("cnae"))
 
       # For non-agriculture assets, subtype is hazard-specific fallback (e.g. "Assumed Soybean")
-      # and should not be shown — blank it out so rows deduplicate cleanly
+      # and should not be shown -- blank it out so rows deduplicate cleanly
       if ("asset_subtype" %in% names(assets_df) && "asset_category" %in% names(assets_df)) {
         assets_df <- assets_df |>
           dplyr::mutate(
@@ -584,7 +587,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
     }
 
     # Transform the ensemble/aggregation metadata column for display:
-    # - Flood: no ensemble dimension → rename to "aggregation", show agg method
+    # - Flood: no ensemble dimension -> rename to "aggregation", show agg method
     # - NC hazards: keep "ensemble", show selected value
     # - When uncertainty mode ON: show "p10 / median / p90" for both
     transform_hazard_source_column <- function(df, hazard_type, uncertainty_mode, aggregation_method = "mean") {
@@ -593,7 +596,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       is_flood <- !is.na(hazard_type) && tolower(as.character(hazard_type)) == "flood"
 
       if (is_flood) {
-        # Rename ensemble → aggregation and set value
+        # Rename ensemble -> aggregation and set value
         if ("ensemble" %in% names(df)) {
           names(df)[names(df) == "ensemble"] <- "aggregation"
         } else if (!"aggregation" %in% names(df)) {
