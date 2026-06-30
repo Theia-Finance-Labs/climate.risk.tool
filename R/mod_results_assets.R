@@ -39,6 +39,9 @@ mod_results_assets_ui <- function(id) {
 #' @param name_mapping_reactive reactive containing region name mapping dictionary
 #' @param cnae_exposure_reactive reactive returning CNAE exposure lookup table
 #' @param events_reactive optional reactive containing the configured events snapshot used in the latest run
+#' @param uncertainty_mode_reactive optional reactive returning logical indicating whether uncertainty mode is active
+#' @param uncertainty_results_reactive optional reactive returning list(median, p10, p90) of result data frames
+#' @param hazard_configs_reactive optional reactive returning hazard configuration list
 #' @export
 mod_results_assets_server <- function(id, results_reactive, name_mapping_reactive = NULL,
                                       cnae_exposure_reactive = NULL, events_reactive = NULL,

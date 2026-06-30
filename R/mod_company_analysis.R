@@ -763,7 +763,7 @@ build_uncertainty_companies_table <- function(companies_median, companies_p10, c
   )
 
   format_range <- function(p10, med, p90, fmt_fn) {
-    paste0(fmt_fn(med), " [", fmt_fn(p10), " – ", fmt_fn(p90), "]")
+    paste0(fmt_fn(med), " [", fmt_fn(p10), " \u2013 ", fmt_fn(p90), "]")
   }
 
   fmt_pct  <- function(x) sprintf("%.2f%%", x)
