@@ -6,6 +6,27 @@
 mod_settings_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
+    # --- Model-level settings ---
+    shiny::div(
+      style = "margin-bottom: 20px; padding: 15px; background-color: #f0f4f8; border-radius: 8px; border-left: 4px solid #002776;",
+      shiny::h4("Model Settings", style = "margin-top: 0; margin-bottom: 12px;"),
+      shiny::div(
+        style = "display: flex; align-items: flex-start; gap: 10px;",
+        shiny::checkboxInput(
+          ns("uncertainty_range"),
+          label = shiny::tagList(
+            shiny::strong("Show Uncertainty Range (P10 / Median / P90)"),
+            shiny::div(
+              "When enabled, all outputs show results for P10, Median, and P90 quantiles. ",
+              "Drought, Heat and Wildfire use ensemble uncertainty; Flood uses spatial aggregation uncertainty. ",
+              "Note: this runs the analysis three times and may take longer.",
+              style = "color: #6c757d; font-size: 0.85em; margin-top: 2px;"
+            )
+          ),
+          value = FALSE
+        )
+      )
+    ),
     shiny::h4("Hazard Configurations", class = "section-header"),
     shiny::p(
       "Review all hazards below and adjust available settings using dropdowns.",
@@ -474,6 +495,9 @@ mod_settings_server <- function(id, base_dir_reactive, hazard_configs_reactive, 
     return(list(
       reload_trigger = shiny::reactive({
         reload_counter()
+      }),
+      uncertainty_mode = shiny::reactive({
+        isTRUE(input$uncertainty_range)
       })
     ))
   })

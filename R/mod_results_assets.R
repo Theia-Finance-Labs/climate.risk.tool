@@ -39,16 +39,136 @@ mod_results_assets_ui <- function(id) {
 #' @param name_mapping_reactive reactive containing region name mapping dictionary
 #' @param cnae_exposure_reactive reactive returning CNAE exposure lookup table
 #' @param events_reactive optional reactive containing the configured events snapshot used in the latest run
+#' @param uncertainty_mode_reactive optional reactive returning logical indicating uncertainty mode
+#' @param uncertainty_results_reactive optional reactive returning list with p10 and p90 results
+#' @param hazard_configs_reactive optional reactive returning hazard configuration list
 #' @export
-mod_results_assets_server <- function(id, results_reactive, name_mapping_reactive = NULL, cnae_exposure_reactive = NULL, events_reactive = NULL) {
+mod_results_assets_server <- function(id, results_reactive, name_mapping_reactive = NULL,
+                                      cnae_exposure_reactive = NULL, events_reactive = NULL,
+                                      uncertainty_mode_reactive = NULL,
+                                      uncertainty_results_reactive = NULL,
+                                      hazard_configs_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
     resolve_cnae_exposure <- function() {
-      if (is.null(cnae_exposure_reactive)) {
-        return(NULL)
-      }
+      if (is.null(cnae_exposure_reactive)) return(NULL)
       cnae_exposure_reactive()
+    }
+
+    get_uncertainty_mode <- function() {
+      if (is.null(uncertainty_mode_reactive)) return(FALSE)
+      isTRUE(uncertainty_mode_reactive())
+    }
+
+    # Look up the configured per-indicator aggregation method (e.g. flood_depth's
+    # "agg" setting in Flood.yml / config_overrides.yml) for a given hazard type.
+    resolve_indicator_aggregation <- function(hazard_type) {
+      if (is.null(hazard_configs_reactive) || is.na(hazard_type)) return(NA_character_)
+      cfg <- hazard_configs_reactive()
+      if (is.null(cfg) || !hazard_type %in% names(cfg)) return(NA_character_)
+      hazard_cfg <- cfg[[hazard_type]]
+      indicator_key <- hazard_cfg$primary_indicator
+      if (is.null(indicator_key) || !indicator_key %in% names(hazard_cfg$indicators)) {
+        indicators <- hazard_cfg$indicators
+        if (length(indicators) == 0) return(NA_character_)
+        indicator_key <- names(indicators)[[1]]
+      }
+      agg <- hazard_cfg$indicators[[indicator_key]]$agg
+      if (is.null(agg) || !nzchar(as.character(agg))) return(NA_character_)
+      as.character(agg)
+    }
+
+    get_uncertainty_results <- function() {
+      if (is.null(uncertainty_results_reactive)) return(NULL)
+      uncertainty_results_reactive()
+    }
+
+    # Standard metadata columns that are NOT exposure metrics
+    METADATA_COLS <- c(
+      "asset", "company", "sector", "sector_name", "sector_code",
+      "state", "state_code", "state_name", "province", "province_code",
+      "municipality", "municipality_code", "municipality_name",
+      "latitude", "longitude", "share_of_economic_activity",
+      "asset_category", "asset_subtype", "size_in_m2", "cnae",
+      "event_id", "hazard_name", "hazard_type", "hazard_indicator",
+      "indicator_key", "hazard_key", "hazard_return_period",
+      "return_period", "scenario_name", "season", "ensemble", "source",
+      "matching_method", "spatial_included", "spatial_exposure_status",
+      "spatial_multiplier", "spatial_level", "spatial_region_codes", "spatial_region_labels",
+      "spatial_scheme", "event_year",
+      "hazard_intensity", "damage_factor", "cost_factor"
+    )
+
+    # Identify exposure-metric columns (numeric, not in standard metadata)
+    # growth_rate is a financial input column, not a hazard exposure metric
+    EXCLUDE_FROM_UNCERTAINTY <- c("growth_rate", "discount_rate", "risk_free_rate")
+
+    get_exposure_cols <- function(df) {
+      if (is.null(df) || nrow(df) == 0) return(character(0))
+      num_cols <- names(df)[vapply(df, is.numeric, logical(1))]
+      candidates <- setdiff(num_cols, c(METADATA_COLS, EXCLUDE_FROM_UNCERTAINTY))
+      candidates[!grepl("_raw$", candidates)]
+    }
+
+    # Attach P10/Median/P90 exposure columns alongside the median values
+    attach_uncertainty_exposure <- function(display_df, event_id_val, unc) {
+      if (is.null(unc)) return(display_df)
+
+      get_unc_assets <- function(results_obj) {
+        af <- results_obj$assets_factors
+        if (is.null(af) || nrow(af) == 0) return(tibble::tibble())
+        if ("event_id" %in% names(af) && !is.na(event_id_val) && nzchar(as.character(event_id_val))) {
+          af <- af |> dplyr::filter(as.character(.data$event_id) == as.character(event_id_val))
+        }
+        af
+      }
+
+      af_p10 <- get_unc_assets(unc$p10)
+      af_med <- get_unc_assets(unc$median)
+      af_p90 <- get_unc_assets(unc$p90)
+
+      # Use median's assets_factors as the reference; display_df already has it formatted
+      # Find the exposure columns present in the median result
+      exp_cols <- get_exposure_cols(af_med)
+      if (length(exp_cols) == 0) return(display_df)
+
+      # Build a join key: just asset + event_id (unique per row typically)
+      join_cols <- intersect(c("asset", "event_id"), names(af_med))
+      if (length(join_cols) == 0 || !"asset" %in% names(display_df)) return(display_df)
+
+      # Extract P10 and P90 exposure values
+      pick_exp <- function(af, suffix) {
+        if (nrow(af) == 0) return(NULL)
+        keep <- intersect(c(join_cols, exp_cols), names(af))
+        out <- af[, keep, drop = FALSE]
+        # Rename exposure cols
+        for (col in exp_cols) {
+          if (col %in% names(out)) {
+            names(out)[names(out) == col] <- paste0(col, suffix)
+          }
+        }
+        out
+      }
+
+      p10_exp <- pick_exp(af_p10, "_P10")
+      p90_exp <- pick_exp(af_p90, "_P90")
+
+      result <- display_df
+      if (!is.null(p10_exp)) {
+        result <- dplyr::left_join(result, p10_exp, by = intersect(join_cols, names(result)))
+      }
+      if (!is.null(p90_exp)) {
+        result <- dplyr::left_join(result, p90_exp, by = intersect(join_cols, names(result)))
+      }
+
+      # Reorder: for each exposure col, put median | P10 | P90 side by side
+      other_cols <- setdiff(names(result), c(exp_cols, paste0(exp_cols, "_P10"), paste0(exp_cols, "_P90")))
+      exp_ordered <- unlist(lapply(exp_cols, function(col) {
+        c(col, paste0(col, "_P10"), paste0(col, "_P90"))
+      }))
+      exp_ordered <- intersect(exp_ordered, names(result))
+      result[, c(other_cols, exp_ordered), drop = FALSE]
     }
 
     format_assets_table <- function(assets_df, name_mapping, cnae_exposure, include_sector_name = TRUE) {
@@ -175,9 +295,23 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       assets_df <- assets_df |>
         dplyr::select(-dplyr::any_of("cnae"))
 
-      # Remove internal keys from display
+      # For non-agriculture assets, subtype is hazard-specific fallback (e.g. "Assumed Soybean")
+      # and should not be shown -- blank it out so rows deduplicate cleanly
+      if ("asset_subtype" %in% names(assets_df) && "asset_category" %in% names(assets_df)) {
+        assets_df <- assets_df |>
+          dplyr::mutate(
+            asset_subtype = dplyr::if_else(
+              !is.na(.data$asset_category) & tolower(as.character(.data$asset_category)) == "agriculture",
+              .data$asset_subtype,
+              NA_character_
+            )
+          )
+      }
+
+      # Remove internal keys and raw extraction columns from display
       assets_df <- assets_df |>
-        dplyr::select(-dplyr::any_of(c("indicator_key", "hazard_key", "hazard_indicator")))
+        dplyr::select(-dplyr::any_of(c("indicator_key", "hazard_key", "hazard_indicator"))) |>
+        dplyr::select(-dplyr::matches("_raw$"))
 
       if (!include_sector_name) {
         assets_df <- assets_df |>
@@ -206,7 +340,8 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         "spatial_exposure_status",
         "spatial_multiplier",
         "hazard_return_period",
-        "event_year"
+        "event_year",
+        "damage_factor"
       )
       existing_priority <- intersect(priority_cols, names(assets_df))
       other_cols <- setdiff(names(assets_df), existing_priority)
@@ -451,6 +586,36 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
       )
     }
 
+    # Transform the ensemble/aggregation metadata column for display:
+    # - Flood: no ensemble dimension -> rename to "aggregation", show agg method
+    # - NC hazards: keep "ensemble", show selected value
+    # - When uncertainty mode ON: show "p10 / median / p90" for both
+    transform_hazard_source_column <- function(df, hazard_type, uncertainty_mode, aggregation_method = "mean") {
+      if (is.null(df) || nrow(df) == 0) return(df)
+
+      is_flood <- !is.na(hazard_type) && tolower(as.character(hazard_type)) == "flood"
+
+      if (is_flood) {
+        # Rename ensemble -> aggregation and set value
+        if ("ensemble" %in% names(df)) {
+          names(df)[names(df) == "ensemble"] <- "aggregation"
+        } else if (!"aggregation" %in% names(df)) {
+          df$aggregation <- NA_character_
+        }
+        df$aggregation <- if (uncertainty_mode) "p10 / median / p90" else aggregation_method
+      } else {
+        # NC hazard: update ensemble column value
+        if ("ensemble" %in% names(df)) {
+          if (uncertainty_mode) {
+            df$ensemble <- "p10 / median / p90"
+          }
+          # If not uncertainty mode, keep the actual value already in the column
+        }
+      }
+
+      df
+    }
+
     drop_event_columns_for_display <- function(df) {
       if (is.null(df) || nrow(df) == 0) {
         return(df)
@@ -562,9 +727,36 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
             ))
           }
 
+          hazard_type_val <- if ("hazard_type" %in% names(event_row)) event_row$hazard_type[[1]] else NA_character_
+          uncertainty_on  <- get_uncertainty_mode()
+          agg_method_val  <- resolve_indicator_aggregation(hazard_type_val)
+          if (is.na(agg_method_val)) {
+            agg_method_val <- if (!is.null(results$aggregation_method)) results$aggregation_method else "mean"
+          }
+
           display_assets <- formatted_assets |>
             drop_event_columns_for_display() |>
-            drop_empty_columns()
+            (\(df) transform_hazard_source_column(df, hazard_type_val, uncertainty_on, agg_method_val))()
+
+          if (uncertainty_on) {
+            unc <- get_uncertainty_results()
+            display_assets <- attach_uncertainty_exposure(display_assets, event_id_val, unc)
+            # For drought, lower SPI = more negative = higher risk, so hazard P10 = risk P90
+            is_drought <- !is.na(hazard_type_val) && tolower(as.character(hazard_type_val)) == "drought"
+            if (is_drought) {
+              p10_cols <- grep("_P10$", names(display_assets), value = TRUE)
+              p90_cols <- gsub("_P10$", "_P90", p10_cols)
+              both_exist <- p90_cols %in% names(display_assets)
+              for (i in seq_along(p10_cols)[both_exist]) {
+                tmp <- display_assets[[p10_cols[i]]]
+                display_assets[[p10_cols[i]]] <- display_assets[[p90_cols[i]]]
+                display_assets[[p90_cols[i]]] <- tmp
+              }
+            }
+          }
+
+          display_assets <- drop_empty_columns(display_assets)
+
           session$userData$hazard_tables_display_data[[idx]] <- display_assets
 
           DT::datatable(

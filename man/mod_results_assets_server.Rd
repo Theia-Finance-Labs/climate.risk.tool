@@ -9,7 +9,10 @@ mod_results_assets_server(
   results_reactive,
   name_mapping_reactive = NULL,
   cnae_exposure_reactive = NULL,
-  events_reactive = NULL
+  events_reactive = NULL,
+  uncertainty_mode_reactive = NULL,
+  uncertainty_results_reactive = NULL,
+  hazard_configs_reactive = NULL
 )
 }
 \arguments{
@@ -22,6 +25,12 @@ mod_results_assets_server(
 \item{cnae_exposure_reactive}{reactive returning CNAE exposure lookup table}
 
 \item{events_reactive}{optional reactive containing the configured events snapshot used in the latest run}
+
+\item{uncertainty_mode_reactive}{optional reactive returning logical indicating uncertainty mode}
+
+\item{uncertainty_results_reactive}{optional reactive returning list with p10 and p90 results}
+
+\item{hazard_configs_reactive}{optional reactive returning hazard configuration list}
 }
 \description{
 results_assets Server Functions

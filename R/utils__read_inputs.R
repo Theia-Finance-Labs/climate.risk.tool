@@ -819,7 +819,7 @@ read_companies <- function(file_path) {
       dplyr::rename_with(to_snake_case)
   }
 
-  # Remove unnamed columns that Excel adds (e.g. ...9, ...10 → snake_case becomes 9, 10)
+  # Remove unnamed columns that Excel adds (e.g. ...9, ...10 -> snake_case becomes 9, 10)
   companies_raw <- companies_raw |>
     dplyr::select(-dplyr::matches("^(\\.\\.\\.)?\\d+$"))
 
