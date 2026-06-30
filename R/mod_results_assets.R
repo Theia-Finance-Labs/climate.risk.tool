@@ -43,7 +43,8 @@ mod_results_assets_ui <- function(id) {
 mod_results_assets_server <- function(id, results_reactive, name_mapping_reactive = NULL,
                                       cnae_exposure_reactive = NULL, events_reactive = NULL,
                                       uncertainty_mode_reactive = NULL,
-                                      uncertainty_results_reactive = NULL) {
+                                      uncertainty_results_reactive = NULL,
+                                      hazard_configs_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -55,6 +56,24 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
     get_uncertainty_mode <- function() {
       if (is.null(uncertainty_mode_reactive)) return(FALSE)
       isTRUE(uncertainty_mode_reactive())
+    }
+
+    # Look up the configured per-indicator aggregation method (e.g. flood_depth's
+    # "agg" setting in Flood.yml / config_overrides.yml) for a given hazard type.
+    resolve_indicator_aggregation <- function(hazard_type) {
+      if (is.null(hazard_configs_reactive) || is.na(hazard_type)) return(NA_character_)
+      cfg <- hazard_configs_reactive()
+      if (is.null(cfg) || !hazard_type %in% names(cfg)) return(NA_character_)
+      hazard_cfg <- cfg[[hazard_type]]
+      indicator_key <- hazard_cfg$primary_indicator
+      if (is.null(indicator_key) || !indicator_key %in% names(hazard_cfg$indicators)) {
+        indicators <- hazard_cfg$indicators
+        if (length(indicators) == 0) return(NA_character_)
+        indicator_key <- names(indicators)[[1]]
+      }
+      agg <- hazard_cfg$indicators[[indicator_key]]$agg
+      if (is.null(agg) || !nzchar(as.character(agg))) return(NA_character_)
+      as.character(agg)
     }
 
     get_uncertainty_results <- function() {
@@ -568,7 +587,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
     # - Flood: no ensemble dimension → rename to "aggregation", show agg method
     # - NC hazards: keep "ensemble", show selected value
     # - When uncertainty mode ON: show "p10 / median / p90" for both
-    transform_hazard_source_column <- function(df, hazard_type, uncertainty_mode) {
+    transform_hazard_source_column <- function(df, hazard_type, uncertainty_mode, aggregation_method = "mean") {
       if (is.null(df) || nrow(df) == 0) return(df)
 
       is_flood <- !is.na(hazard_type) && tolower(as.character(hazard_type)) == "flood"
@@ -580,7 +599,7 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
         } else if (!"aggregation" %in% names(df)) {
           df$aggregation <- NA_character_
         }
-        df$aggregation <- if (uncertainty_mode) "p10 / median / p90" else "mean"
+        df$aggregation <- if (uncertainty_mode) "p10 / median / p90" else aggregation_method
       } else {
         # NC hazard: update ensemble column value
         if ("ensemble" %in% names(df)) {
@@ -707,10 +726,14 @@ mod_results_assets_server <- function(id, results_reactive, name_mapping_reactiv
 
           hazard_type_val <- if ("hazard_type" %in% names(event_row)) event_row$hazard_type[[1]] else NA_character_
           uncertainty_on  <- get_uncertainty_mode()
+          agg_method_val  <- resolve_indicator_aggregation(hazard_type_val)
+          if (is.na(agg_method_val)) {
+            agg_method_val <- if (!is.null(results$aggregation_method)) results$aggregation_method else "mean"
+          }
 
           display_assets <- formatted_assets |>
             drop_event_columns_for_display() |>
-            (\(df) transform_hazard_source_column(df, hazard_type_val, uncertainty_on))()
+            (\(df) transform_hazard_source_column(df, hazard_type_val, uncertainty_on, agg_method_val))()
 
           if (uncertainty_on) {
             unc <- get_uncertainty_results()
