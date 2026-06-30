@@ -412,7 +412,21 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
     return(plotly::plot_ly())
   }
 
-  # Get unique assets
+  # Limit to top assets by max absolute profit to keep chart renderable
+  max_traces <- 100
+  all_assets <- unique(data$asset)
+  total_assets <- length(all_assets)
+  if (total_assets > max_traces) {
+    top_assets <- data |>
+      dplyr::group_by(.data$asset) |>
+      dplyr::summarise(max_abs_profit = max(abs(.data$profit), na.rm = TRUE), .groups = "drop") |>
+      dplyr::arrange(dplyr::desc(.data$max_abs_profit)) |>
+      utils::head(max_traces) |>
+      dplyr::pull(.data$asset)
+    # Always include highlighted assets even if not in top N
+    keep_assets <- unique(c(highlighted_assets, top_assets))
+    data <- data |> dplyr::filter(.data$asset %in% keep_assets)
+  }
   unique_assets <- unique(data$asset)
 
   # Prepare columns used for plotting and hovering
@@ -573,12 +587,18 @@ create_profit_plot <- function(data, highlighted_assets, title, log_scale = FALS
     yaxis_config$type <- "log"
   }
 
+  plot_title <- if (total_assets > max_traces) {
+    paste0(title, " (showing top ", max_traces, " assets by profit out of ", total_assets, " total)")
+  } else {
+    title
+  }
+
   # Layout
   p <- p |>
     plotly::layout(
       title = list(
-        text = title,
-        font = list(size = 16, color = palette_brazil$blue)
+        text = plot_title,
+        font = list(size = 14, color = palette_brazil$blue)
       ),
       xaxis = list(
         title = "Year",
