@@ -567,7 +567,8 @@ compute_risk <- function(assets,
     assets_factors = assets_factors,
     companies = companies_result,
     assets_yearly = assets_discounted_yearly,
-    companies_yearly = company_yearly_trajectories
+    companies_yearly = company_yearly_trajectories,
+    aggregation_method = aggregation_method
   )
 
 

@@ -163,7 +163,8 @@ app_server <- function(input, output, session) {
       values$run_events
     }),
     uncertainty_mode_reactive = shiny::reactive({ settings$uncertainty_mode() }),
-    uncertainty_results_reactive = shiny::reactive({ values$results_uncertainty })
+    uncertainty_results_reactive = shiny::reactive({ values$results_uncertainty }),
+    hazard_configs_reactive = settings_configs
   )
   # Initialize plot modules
   mod_profit_pathways_server(
