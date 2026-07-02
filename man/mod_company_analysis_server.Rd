@@ -4,12 +4,21 @@
 \alias{mod_company_analysis_server}
 \title{company_analysis Server Functions}
 \usage{
-mod_company_analysis_server(id, results_reactive)
+mod_company_analysis_server(
+  id,
+  results_reactive,
+  uncertainty_mode_reactive = NULL,
+  uncertainty_results_reactive = NULL
+)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
 
-\item{results_reactive}{reactive containing analysis results}
+\item{results_reactive}{reactive containing analysis results (median)}
+
+\item{uncertainty_mode_reactive}{optional reactive returning logical indicating whether uncertainty mode is active}
+
+\item{uncertainty_results_reactive}{optional reactive returning list(median, p10, p90) of result data frames}
 }
 \description{
 company_analysis Server Functions

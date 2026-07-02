@@ -4,7 +4,13 @@
 \alias{mod_profit_pathways_server}
 \title{profit_pathways Server Functions}
 \usage{
-mod_profit_pathways_server(id, results_reactive, cnae_exposure_reactive = NULL)
+mod_profit_pathways_server(
+  id,
+  results_reactive,
+  cnae_exposure_reactive = NULL,
+  uncertainty_mode_reactive = NULL,
+  uncertainty_results_reactive = NULL
+)
 }
 \arguments{
 \item{id}{Internal parameter for shiny}
@@ -12,6 +18,10 @@ mod_profit_pathways_server(id, results_reactive, cnae_exposure_reactive = NULL)
 \item{results_reactive}{reactive containing analysis results}
 
 \item{cnae_exposure_reactive}{reactive returning CNAE exposure lookup table}
+
+\item{uncertainty_mode_reactive}{optional reactive returning logical indicating whether uncertainty mode is active}
+
+\item{uncertainty_results_reactive}{optional reactive returning list(median, p10, p90) of result data frames}
 }
 \description{
 profit_pathways Server Functions
